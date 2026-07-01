@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AutoClaimsTech – Release Planning</title>
+<title>Cadence – Release Planning</title>
 <style>
 :root{
   /* Tint — unchanged brand color */
@@ -806,7 +806,7 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
   <div class="sidebar-header">
     <div class="logo-icon">ACT</div>
     <div>
-      <div class="logo-text" id="header-title">AutoClaimsTech</div>
+      <div class="logo-text" id="header-title">Cadence</div>
       <div class="logo-sub" id="header-sub">Équipe Dev · 10 personnes</div>
       <select id="current-user-select" title="Mon profil actif"
         style="width:100%;margin-top:6px;padding:4px 8px;border:1px solid var(--border);border-radius:7px;font-size:11px;background:var(--surface2);color:var(--text);cursor:pointer"
@@ -958,7 +958,7 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
 <div id="tab-roadmap" class="tab-content">
   <div class="roadmap-header-box" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;">
     <div>
-      <h2>🗺️ Product Roadmap Go - AutoClaimsTech</h2>
+      <h2>🗺️ Product Roadmap</h2>
       <p>Template inspiré de Roman Pichler · Vision stratégique · Cliquez sur un objectif pour l'éditer</p>
     </div>
     <button onclick="exportPDF('roadmap')" style="padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0;" title="Exporter cette vue en PDF">📄 Exporter en PDF</button>
@@ -1241,7 +1241,7 @@ function mkC(g,w,t){return{givens:[g],whens:[w],thens:[t]};}
 // ════════════════════════════════
 //  STATE
 // ════════════════════════════════
-const LS_KEY='aclaimsState_v1';
+const LS_KEY='cadenceState_v1';
 const UNDO_KEY='act_undo';
 const REDO_KEY='act_redo';
 
@@ -1271,8 +1271,8 @@ const S = (function buildState(){
     const raw = localStorage.getItem(LS_KEY);
     if(raw){ const p=JSON.parse(raw); return Object.assign(p, runtime, {kanbanSprintId:p.kanbanSprintId||p.sprints?.[0]?.id||null}); }
     // 2. Demo flag (set by resetToDemo)
-    if(localStorage.getItem('aclaimsDemo')==='1'){
-      localStorage.removeItem('aclaimsDemo');
+    if(localStorage.getItem('cadenceDemo')==='1'){
+      localStorage.removeItem('cadenceDemo');
       const d=JSON.parse(JSON.stringify(DEMO_DATA));
       return Object.assign(d, runtime, {kanbanSprintId:d.sprints[0]?.id||null});
     }
@@ -1291,12 +1291,12 @@ function toggleDark(){
   const isDark=document.body.classList.toggle('dark');
   const btn=document.getElementById('dark-toggle');
   if(btn)btn.textContent=isDark?'☀️':'🌙';
-  try{localStorage.setItem('aclaimsDark',isDark?'1':'0');}catch(e){}
+  try{localStorage.setItem('cadenceDark',isDark?'1':'0');}catch(e){}
 }
 // Restore dark mode preference on load
 (function(){
   try{
-    if(localStorage.getItem('aclaimsDark')==='1'){
+    if(localStorage.getItem('cadenceDark')==='1'){
       document.body.classList.add('dark');
       const btn=document.getElementById('dark-toggle');
       if(btn)btn.textContent='☀️';
@@ -1319,20 +1319,20 @@ function executeReset(){
     localStorage.removeItem(LS_KEY);
     localStorage.removeItem(UNDO_KEY);
     localStorage.removeItem(REDO_KEY);
-    localStorage.removeItem('aclaimsTheme');
-    localStorage.removeItem('aclaimsDemo');
+    localStorage.removeItem('cadenceTheme');
+    localStorage.removeItem('cadenceDemo');
     localStorage.setItem('aclaimsEmpty','1');
   }catch(e){}
   location.reload();
 }
 function resetToDemo(){
-  if(!confirm('Charger les données de démo AutoClaimsTech ?\nVos données actuelles seront remplacées.'))return;
+  if(!confirm('Charger les données de démo Cadence ?\nVos données actuelles seront remplacées.'))return;
   try{
     localStorage.removeItem(LS_KEY);
     localStorage.removeItem(UNDO_KEY);
     localStorage.removeItem(REDO_KEY);
     localStorage.removeItem('aclaimsEmpty');
-    localStorage.setItem('aclaimsDemo','1');
+    localStorage.setItem('cadenceDemo','1');
   }catch(e){}
   location.reload();
 }
@@ -1696,7 +1696,7 @@ function updateHeader(){
   const ht=document.getElementById('header-title');
   const hs=document.getElementById('header-sub');
   const leg=document.getElementById('header-legend');
-  if(ht)ht.textContent=S.settings.projectName||'AutoClaimsTech';
+  if(ht)ht.textContent=S.settings.projectName||'Cadence';
   if(hs)hs.textContent=`Équipe Dev · ${S.team.length} personne${S.team.length>1?'s':''}`;
   // header-legend removed (clients visible via sidebar chevron menu)
 }
@@ -3539,7 +3539,7 @@ function renderSettings(){
 
     <div style="background:var(--primary-light);border-radius:11px;border:1px solid var(--primary)33;padding:18px 20px;">
       <div class="section-title">🎬 Données de démo</div>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Charge le projet AutoClaimsTech de démonstration (4 sprints, 10 membres, 5 clients, 23 items). Remplace les données actuelles.</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Charge le projet Cadence de démonstration (4 sprints, 10 membres, 5 clients, 23 items). Remplace les données actuelles.</p>
       <button onclick="resetToDemo()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:13px;font-weight:600;cursor:pointer">🎬 Charger les données de démo…</button>
     </div>
 
@@ -5739,7 +5739,7 @@ function exportBacklogExcel(){
   }));
   const ws=XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb,'Product Backlog',ws);
-  const fname=`${S.settings.projectName||'AutoClaimsTech'}_backlog_${new Date().toISOString().split('T')[0]}.xlsx`;
+  const fname=`${S.settings.projectName||'Cadence'}_backlog_${new Date().toISOString().split('T')[0]}.xlsx`;
   XLSX.writeFile(wb,fname);
   toast('Export Excel téléchargé','success');
 }
@@ -8205,7 +8205,7 @@ function applyDesignMD(text){
   let el=document.getElementById('design-override');
   if(!el){el=document.createElement('style');el.id='design-override';document.head.appendChild(el);}
   el.textContent=result.css;
-  try{localStorage.setItem('aclaimsTheme',JSON.stringify({md:text,css:result.css}));}catch(e){}
+  try{localStorage.setItem('cadenceTheme',JSON.stringify({md:text,css:result.css}));}catch(e){}
   renderSettings();
   toast('Thème appliqué ✓');
 }
@@ -8213,14 +8213,14 @@ function applyDesignMD(text){
 function resetTheme(){
   const el=document.getElementById('design-override');
   if(el)el.remove();
-  try{localStorage.removeItem('aclaimsTheme');}catch(e){}
+  try{localStorage.removeItem('cadenceTheme');}catch(e){}
   renderSettings();
   toast('Thème réinitialisé');
 }
 
 function loadTheme(){
   try{
-    const raw=localStorage.getItem('aclaimsTheme');
+    const raw=localStorage.getItem('cadenceTheme');
     if(!raw)return;
     const{css}=JSON.parse(raw);
     if(!css)return;

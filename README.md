@@ -20,7 +20,7 @@ Outil de planification de releases Agile pour équipes Scrum. Application web au
 
 ## Lancer le prototype
 
-Ouvrir `release-planning.html` directement dans le navigateur.
+Ouvrir `cadence.html` directement dans le navigateur.
 
 Aucune installation nécessaire — l'application est un fichier HTML autonome (zéro dépendance runtime).
 
@@ -64,8 +64,8 @@ npm test
 ## Structure du projet
 
 ```
-release-planning.html   Application complète (HTML/CSS/JS monofichier)
-demo-data.js            Données de démonstration AutoClaimsTech
+cadence.html   Application complète (HTML/CSS/JS monofichier)
+demo-data.js            Données de démonstration Cadence
 DESIGN.md               Design system (tokens couleurs, typographie)
 BACKLOG_FEATURES.md     Backlog des fonctionnalités futures
 tests/

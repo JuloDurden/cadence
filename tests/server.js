@@ -1,5 +1,5 @@
 /**
- * Serveur HTTP minimal pour servir release-planning.html pendant les tests.
+ * Serveur HTTP minimal pour servir cadence.html pendant les tests.
  * Playwright le lance automatiquement via webServer dans playwright.config.js
  */
 const http = require('http');
@@ -10,7 +10,7 @@ const PORT = 4321;
 const ROOT = path.resolve(__dirname, '..');
 
 const server = http.createServer((req, res) => {
-  const filePath = path.join(ROOT, req.url === '/' ? 'release-planning.html' : req.url);
+  const filePath = path.join(ROOT, req.url === '/' ? 'cadence.html' : req.url);
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const ext = path.extname(filePath);

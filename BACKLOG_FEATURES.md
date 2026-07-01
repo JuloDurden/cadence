@@ -1,4 +1,4 @@
-# Backlog des futures fonctionnalités - AutoClaimsTech Release Planning
+# Backlog des futures fonctionnalités - Cadence
 
 > Fichier de référence pour les idées de features. Non priorisé, non exhaustif.
 > Dernière mise à jour : 26 juin 2026

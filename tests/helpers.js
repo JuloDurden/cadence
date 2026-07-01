@@ -13,16 +13,16 @@ async function loadWithState(page, stateOverride = {}) {
   const state = { ...BASE_STATE, ...stateOverride };
 
   // 1. Charger la page une premiere fois pour avoir acces a localStorage
-  await page.goto(BASE_URL + '/release-planning.html');
+  await page.goto(BASE_URL + '/cadence.html');
   await page.waitForLoadState('domcontentloaded');
 
   // 2. Injecter l'etat de test
   await page.evaluate((stateJson) => {
-    localStorage.setItem('aclaimsState_v1', JSON.stringify(stateJson));
+    localStorage.setItem('cadenceState_v1', JSON.stringify(stateJson));
     localStorage.removeItem('act_undo');
     localStorage.removeItem('act_redo');
     // Effacer le flag demo pour eviter l'ecrasement de l'etat
-    localStorage.removeItem('aclaimsDemo');
+    localStorage.removeItem('cadenceDemo');
   }, state);
 
   // 3. Recharger pour que l'app lise le nouvel etat

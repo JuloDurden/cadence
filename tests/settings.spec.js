@@ -57,7 +57,7 @@ test.describe('Réglages', () => {
     const headerText = await page.locator('#header-title, h1, header').first().innerText().catch(() => '');
     // La valeur doit etre persistee en localStorage
     const saved = await page.evaluate(() => {
-      const s = JSON.parse(localStorage.getItem('aclaimsState_v1') || '{}');
+      const s = JSON.parse(localStorage.getItem('cadenceState_v1') || '{}');
       return s.settings?.projectName;
     });
     expect(saved).toBe('Cadence Test');
@@ -72,7 +72,7 @@ test.describe('Réglages', () => {
     await page.click('button[onclick="saveSettings()"]');
     await page.waitForTimeout(300);
     const saved = await page.evaluate(() => {
-      const s = JSON.parse(localStorage.getItem('aclaimsState_v1') || '{}');
+      const s = JSON.parse(localStorage.getItem('cadenceState_v1') || '{}');
       return s.settings?.sprintDuration;
     });
     expect(saved).toBe(14);

@@ -1,7 +1,7 @@
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  DEMO DATA - AutoClaimsTech                                  ║
+// ║  DEMO DATA - Cadence                                         ║
 // ║  Ce fichier contient uniquement les données de démonstration ║
-// ║  Séparé de la logique applicative (release-planning.html)    ║
+// ║  Séparé de la logique applicative (cadence.html)             ║
 // ╚══════════════════════════════════════════════════════════════╝
 
 function _mkC(g,w,t){return{givens:[g],whens:[w],thens:[t]};}
@@ -245,7 +245,7 @@ const DEMO_DATA={
   ],
 
   settings:{
-    projectName:      'AutoClaimsTech',
+    projectName:      'Cadence',
     teamName:         'Équipe Dev',
     sprintDuration:   10,
     sprintUnit:       'days',

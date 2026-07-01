@@ -28,9 +28,9 @@ test.describe('Kanban', () => {
     await goToTab(page, 'kanban');
 
     await page.evaluate(() => {
-      const state = JSON.parse(localStorage.getItem('aclaimsState_v1'));
+      const state = JSON.parse(localStorage.getItem('cadenceState_v1'));
       state.sprints[0].items[0].status = 'doing';
-      localStorage.setItem('aclaimsState_v1', JSON.stringify(state));
+      localStorage.setItem('cadenceState_v1', JSON.stringify(state));
     });
     await page.reload();
     await page.waitForSelector('#main-content', { state: 'visible' });
