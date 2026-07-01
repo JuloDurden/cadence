@@ -123,4 +123,8 @@ La séparation des données de démo dans `demo-data.js` est la seule dépendanc
 
 ## CI/CD
 
-GitHub Actions lance les
+GitHub Actions lance les tests à chaque push sur n'importe quelle branche. Voir `.github/workflows/ci.yml`.
+
+## Versioning
+
+Changelog complet accessible dans l'onglet 📋 de l'application. Version actuelle : **v0.47.0**

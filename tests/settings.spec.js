@@ -192,4 +192,8 @@ test.describe('Réglages', () => {
     // Les boutons d'export/import ne doivent plus etre dans la toolbar backlog
     const exportBtn = page.locator('#tab-backlog button[onclick="exportBacklogExcel()"]');
     const importBtn = page.locator('#tab-backlog button[onclick="openImportModal()"]');
-    expect(aw
+    expect(await exportBtn.count()).toBe(0);
+    expect(await importBtn.count()).toBe(0);
+  });
+
+});
