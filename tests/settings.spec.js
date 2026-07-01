@@ -137,8 +137,9 @@ test.describe('Réglages', () => {
 
   test('le bouton Restaurer (JSON) est present', async ({ page }) => {
     await openSettings(page);
-    const btn = page.locator('button[onclick="triggerImportJSON()"]');
-    await expect(btn).toBeVisible();
+    // Le bouton est un <label> avec un input file imbriqué (approche native sans JS)
+    const lbl = page.locator('label', { hasText: 'Restaurer (JSON)' });
+    await expect(lbl).toBeVisible();
   });
 
   test('le bouton Exporter CSV est present', async ({ page }) => {
@@ -191,8 +192,4 @@ test.describe('Réglages', () => {
     // Les boutons d'export/import ne doivent plus etre dans la toolbar backlog
     const exportBtn = page.locator('#tab-backlog button[onclick="exportBacklogExcel()"]');
     const importBtn = page.locator('#tab-backlog button[onclick="openImportModal()"]');
-    expect(await exportBtn.count()).toBe(0);
-    expect(await importBtn.count()).toBe(0);
-  });
-
-});
+    expect(aw

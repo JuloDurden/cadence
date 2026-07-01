@@ -18,6 +18,8 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 - Filtres et tri (priorité, SP, statut, client, assigné)
 - DoR et DoD par item avec jauges de progression et compteur X/Y
 - Export Excel et CSV du backlog, import depuis Excel/CSV
+- Tags / labels libres sur les items : autocomplete, multi-tags, filtre, export
+- Tags de compétences sur les membres : suggestion d'assigné selon les tags communs
 
 ### Release Planning
 
@@ -90,7 +92,7 @@ npm test                # Tout lancer
 npm run lint            # ESLint sur les fichiers de test
 ```
 
-113 tests E2E répartis sur 13 suites couvrent l'ensemble des fonctionnalités.
+138 tests E2E répartis sur 14 suites couvrent l'ensemble des fonctionnalités.
 
 ## Structure du projet
 
@@ -121,8 +123,4 @@ La séparation des données de démo dans `demo-data.js` est la seule dépendanc
 
 ## CI/CD
 
-GitHub Actions lance les tests à chaque push sur n'importe quelle branche. Voir `.github/workflows/ci.yml`.
-
-## Versioning
-
-Changelog complet accessible dans l'onglet 📋 de l'application. Version actuelle : **v0.46.0**
+GitHub Actions lance les

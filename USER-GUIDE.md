@@ -68,9 +68,15 @@ Cliquer sur **+ Nouvelle US** en haut du Backlog. La modale s'ouvre avec 6 ongle
 - Cocher les critères de Definition of Ready et Definition of Done
 - Jauge de progression en temps réel (rouge 0%, orange <100%, vert 100%)
 
+### Tags
+
+Dans la modale US (onglet Général), un champ **Tags** permet d'associer un ou plusieurs labels à l'item. En commençant à taper, les tags existants sont proposés en autocomplete. Si le tag n'existe pas encore, l'option "＋ Créer" l'ajoute à la liste globale du projet. Les tags apparaissent ensuite sous forme de chips sur les lignes du backlog.
+
+Dans la modale d'un membre (onglet Equipe), on peut lui associer des **tags de compétences** (ex. "Front", "API"). Quand un item porte des tags, l'onglet Equipe de sa modale affiche en priorité les membres dont les compétences correspondent, facilitant l'assignation.
+
 ### Rechercher et filtrer
 
-La barre de recherche en haut du Backlog filtre en temps réel sur la description et la clé. Le menu déroulant permet de trier par priorité, SP, statut ou assigné.
+La barre de recherche en haut du Backlog filtre en temps réel sur la description et la clé. Les menus déroulants permettent de filtrer par client, sprint ou **tag**, et de trier par priorité, SP, statut ou assigné.
 
 ### Supprimer un item
 
@@ -206,6 +212,9 @@ Le bouton **Rapport** génère un export HTML imprimable par client avec les ite
 | SP/personne/jour | Ratio de capacité individuelle |
 | DoR (critères) | Liste des critères de Definition of Ready applicables à tous les items |
 | DoD (critères) | Liste des critères de Definition of Done applicables à tous les items |
+| Tags | Liste des tags disponibles dans le projet (8 prédéfinis + ajout libre) |
+
+La section **Tags** permet de gérer la bibliothèque de tags du projet. Les 8 tags prédéfinis (Front, Back, API, Infra, UX, Dette technique, Sécurité, Performance) ne peuvent pas être supprimés. Les tags ajoutés manuellement peuvent l'être — la suppression les retire de tous les items et membres.
 
 Le bouton **Charger les données de démo** recharge le projet de démonstration (remplace les données actuelles).
 

@@ -789,6 +789,18 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
 .kanban-catalog-desc{font-size:10px;color:var(--text-muted);line-height:1.3;}
 .kanban-catalog-divider{border:none;border-top:1px solid var(--border);margin:6px 0;}
 
+
+/* ── Tag chips ─────────────────────────────────────────── */
+.tag-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);font-size:10px;font-weight:600;color:var(--text);white-space:nowrap;}
+.tag-chip .tag-remove{background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:11px;line-height:1;padding:0 0 0 2px;display:flex;align-items:center;}
+.tag-chip .tag-remove:hover{color:var(--danger);}
+.tag-input-wrap{position:relative;display:inline-flex;flex-direction:column;width:100%;}
+.tag-input-wrap input{padding:4px 8px;border:1px solid var(--border);border-radius:7px;font-size:12px;background:var(--surface);color:var(--text);outline:none;width:100%;}
+.tag-input-wrap input:focus{border-color:var(--primary);}
+.tag-dropdown{display:none;position:absolute;top:100%;left:0;min-width:180px;max-height:180px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:9999;margin-top:2px;}
+.tag-dropdown .tag-opt{padding:7px 12px;font-size:12px;cursor:pointer;color:var(--text);}
+.tag-dropdown .tag-opt:hover{background:var(--primary-light);color:var(--primary);}
+.tag-dropdown .tag-opt-new{border-top:1px solid var(--border);color:var(--primary);font-style:italic;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -946,6 +958,9 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
       <option value="priority">Grouper : Priorité</option>
       <option value="deps">Grouper : Dépendances</option>
       <option value="epic">Grouper : Epic</option>
+    </select>
+    <select class="form-input form-select" id="backlog-filter-tag" style="width:auto;padding:6px 26px 6px 10px;font-size:12px;" onchange="renderBacklog()">
+      <option value="">Tous les tags</option>
     </select>
     <button class="btn-primary" onclick="openModal(null)" style="white-space:nowrap;font-size:12px;padding:6px 14px">＋ Nouvelle US</button>
 
@@ -1253,8 +1268,9 @@ const EMPTY_STATE = {
     startDate:'',spPerPersonPerDay:1,teamSize:0,year:new Date().getFullYear(),
     dor:['User Story rédigée (rôle / besoin / objectif)','Critères d\'acceptation définis (Gherkin)','Estimé en SP par l\'équipe','Dépendances identifiées','Aucun bloqueur connu'],
     dod:['Code développé et en revue','Tests unitaires écrits et passants','Recette fonctionnelle validée par le PO','Déployé en environnement de recette','Documentation mise à jour'],
+    tags:[{id:'t1',label:'Front',builtin:true},{id:'t2',label:'Back',builtin:true},{id:'t3',label:'API',builtin:true},{id:'t4',label:'Infra',builtin:true},{id:'t5',label:'UX',builtin:true},{id:'t6',label:'Dette technique',builtin:true},{id:'t7',label:'Sécurité',builtin:true},{id:'t8',label:'Performance',builtin:true}],
   },
-  nextItemId:1,nextSprintId:1,nextMemberId:1,nextClientId:1,nextRetroId:1,
+  nextItemId:1,nextSprintId:1,nextMemberId:1,nextClientId:1,nextRetroId:1,nextTagId:9,
   retros:[],
 };
 
@@ -1449,6 +1465,9 @@ function refreshUndoRedoBtns(){
       });
     }
   }catch(e){console.warn('loadState error',e);}
+  // Migration v0.47 : initialiser tags si absent
+  if(!S.settings.tags){S.settings.tags=[{id:'t1',label:'Front',builtin:true},{id:'t2',label:'Back',builtin:true},{id:'t3',label:'API',builtin:true},{id:'t4',label:'Infra',builtin:true},{id:'t5',label:'UX',builtin:true},{id:'t6',label:'Dette technique',builtin:true},{id:'t7',label:'Sécurité',builtin:true},{id:'t8',label:'Performance',builtin:true}];}
+  if(!S.nextTagId)S.nextTagId=9;
 })();
 
 // Sync sprint labels from roadmap names on first load
@@ -2231,6 +2250,7 @@ function openModal(itemId){
     if(!item.scoring)item.scoring={framework:null,wsjf:{businessValue:3,timeCriticality:3,riskReduction:3,jobSize:3},rice:{reach:100,impact:1,confidence:80,effort:1},moscow:null};
   }
 
+  _editItemTags=[...(item.tags||[])];
   const sprintOpts=S.sprints.map(sp=>`<option value="${sp.id}" ${sprintId===sp.id?'selected':''}>${sprintName(sp)}</option>`).join('');
   const criteriaHTML=(item.criteria||[]).map((c,idx)=>buildCriterionHTML(c,idx)).join('');
   const pr=item.priority||5;
@@ -2287,6 +2307,10 @@ function openModal(itemId){
           <option value="negotiable" ${item.deadline?.type==='negotiable'?'selected':''}>🟡 Négociable</option>
         </select>
       </div>
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <label class="form-label">🏷 Tags</label>
+      <div id="item-tag-chips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:26px"></div>
     </div>`;
 
   // ── Tab: User Story ────────────────────────────────────────────────
@@ -2352,6 +2376,26 @@ function openModal(itemId){
             <div class="assignee-dot" style="background:${rc.bg}">${memberInitials(m.name)}</div>${escHtml(m.name.split(' ')[0])}${absent?' 🚫':''}
           </div>`;
         }).join('')}
+      </div>
+    </div>
+    <div class="form-group" id="m-suggested-members" style="${_editItemTags.length?'':'display:none'}">
+      <label class="form-label">💡 Membres suggérés <span style="font-weight:400;font-size:10px;color:var(--text-muted)">(par tag commun)</span></label>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${(()=>{
+          if(!_editItemTags.length)return '';
+          return S.team.map(m=>{
+            const shared=(m.tags||[]).filter(tid=>_editItemTags.includes(tid));
+            if(!shared.length)return '';
+            const rc=roleStyle(m.role);
+            const sel=(item.assignees||[]).includes(m.id);
+            return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:8px;background:var(--primary-light);border:1px solid var(--primary)33;cursor:pointer" onclick="toggleAssignee('${m.id}',document.querySelector('#m-assignees [data-member-id=\'${m.id}\']'))" title="Tags communs : ${shared.map(tid=>getTag(tid)?.label||'').join(', ')}">
+              <div style="width:22px;height:22px;border-radius:50%;background:${rc.bg};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff">${memberInitials(m.name)}</div>
+              <span style="font-size:11px;font-weight:600">${escHtml(m.name.split(' ')[0])}</span>
+              <span style="font-size:9px;color:var(--primary)">${shared.map(tid=>getTag(tid)?.label||'').join(', ')}</span>
+              ${sel?'<span style="font-size:10px">✓</span>':''}
+            </div>`;
+          }).filter(Boolean).join('') || '<span style="font-size:11px;color:var(--text-muted)">Aucun membre avec ces tags. Assignez des tags aux membres dans l\'onglet Équipe.</span>';
+        })()}
       </div>
     </div>
     <div class="form-group">
@@ -2420,6 +2464,7 @@ function openModal(itemId){
   document.getElementById('modal-title').innerHTML=
     `${isNew?'＋ Nouvelle US':'✏️ Modifier'} <span style="font-family:monospace;font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:8px">${item.key||'nouveau'}</span>`;
   document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(refreshItemTagPicker,0);
 }
 
 // ─── Toast notifications ───────────────────────────────────────────
@@ -2859,6 +2904,7 @@ function saveModal(){
     goal:document.getElementById('m-goal')?.value.trim()||item.us?.goal||''
   };
   item.assignees=[...document.querySelectorAll('#m-assignees .assignee-chip-select.selected')].map(el=>el.dataset.memberId).filter(Boolean);
+  item.tags=[..._editItemTags];
   // notes are already managed directly on item (add/edit/delete in modal)
   if(!Array.isArray(item.notes))item.notes=[];
 
@@ -2914,9 +2960,16 @@ function renderBacklog(){
   const curSpVal=spSel?.value||'';
   if(spSel)spSel.innerHTML='<option value="">Tous les sprints</option>'+S.sprints.map(sp=>`<option value="${sp.id}" ${curSpVal===sp.id?'selected':''}>${sprintName(sp)}</option>`).join('')+'<option value="unassigned" '+('unassigned'===curSpVal?'selected':'')+'>Non assigné</option>';
 
+  // Peupler le filtre tag
+  const tagSel=document.getElementById('backlog-filter-tag');
+  const curTagVal=tagSel?.value||'';
+  if(tagSel)tagSel.innerHTML=_tagFilterOptions();
+  if(tagSel&&curTagVal)tagSel.value=curTagVal;
+
   const search=(document.getElementById('backlog-search')?.value||'').toLowerCase();
   const fc=document.getElementById('backlog-filter-client')?.value||'';
   const fs=document.getElementById('backlog-filter-sprint')?.value||'';
+  const ft=document.getElementById('backlog-filter-tag')?.value||'';
   const sortBy=document.getElementById('backlog-sort')?.value||'priority';
   const groupBy=document.getElementById('backlog-group')?.value||'none';
 
@@ -2925,6 +2978,7 @@ function renderBacklog(){
     if(search&&!r.desc.toLowerCase().includes(search)&&!(r.key||'').toLowerCase().includes(search)&&!r.client.toLowerCase().includes(search))return false;
     if(fc&&r.client!==fc)return false;
     if(fs&&r.spId!==fs)return false;
+    if(ft&&!(r.tags||[]).includes(ft))return false;
     return true;
   });
 
@@ -3002,6 +3056,7 @@ function renderBacklog(){
           ${hasUS?`<button class="item-btn" style="background:none;border:none;color:var(--primary);font-size:12px;padding:0;min-width:18px;cursor:pointer;" onclick="toggleUSPreview('${item.id}')" aria-expanded="false" aria-controls="us-preview-${item.id}" id="us-toggle-${item.id}" title="Afficher la User Story">▶</button>`:''}
           <span>${escHtml(item.desc)}</span>
           ${dlBadge}
+          ${(item.tags||[]).length?`<div style="display:flex;flex-wrap:wrap;gap:2px;margin-left:4px">${tagChipsHTML(item.tags,null)}</div>`:''}
           ${assigneeChips?`<div style="display:flex;gap:2px;margin-left:4px">${assigneeChips}</div>`:''}
         </div>
       </td>
@@ -3464,6 +3519,129 @@ function saveRoadmapGoal(){
 // ════════════════════════════════
 //  SETTINGS
 // ════════════════════════════════
+
+// ════════════════════════════════
+//  TAGS / LABELS
+// ════════════════════════════════
+let _editItemTags=[];
+let _editMemberTags=[];
+
+function allTags(){return S.settings.tags||[];}
+function getTag(id){return allTags().find(t=>t.id===id);}
+
+function tagChipsHTML(tagIds,removeFn){
+  return (tagIds||[]).map(id=>{const t=getTag(id);if(!t)return'';
+    return `<span class="tag-chip">🏷 ${escHtml(t.label)}${removeFn?`<button class="tag-remove" onclick="${removeFn}('${id}')" title="Retirer">×</button>`:''}</span>`;
+  }).join('');
+}
+
+function renderTagPickerUI(containerId,inputId,dropdownId,currentIds,removeFn,addFn,createFn){
+  const container=document.getElementById(containerId);
+  if(!container)return;
+  const chips=currentIds.map(id=>{const t=getTag(id);if(!t)return'';
+    return `<span class="tag-chip">🏷 ${escHtml(t.label)}<button class="tag-remove" onclick="${removeFn}('${id}')" title="Retirer">×</button></span>`;
+  }).join('');
+  container.innerHTML=chips+`<div class="tag-input-wrap" style="margin-top:${currentIds.length?'6px':'0'}">
+    <input id="${inputId}" placeholder="Ajouter un tag…" autocomplete="off"
+      oninput="${addFn}()" onfocus="${addFn}()" onblur="setTimeout(()=>{const d=document.getElementById('${dropdownId}');if(d)d.style.display='none';},180)"/>
+    <div class="tag-dropdown" id="${dropdownId}"></div>
+  </div>`;
+}
+
+function _tagDropdown(inputId,dropdownId,currentIds,selectFn,createFn){
+  const val=(document.getElementById(inputId)?.value||'').toLowerCase().trim();
+  const tags=allTags().filter(t=>!currentIds.includes(t.id)&&(!val||t.label.toLowerCase().includes(val)));
+  const dd=document.getElementById(dropdownId);if(!dd)return;
+  const newOpt=val&&!allTags().find(t=>t.label.toLowerCase()===val)
+    ?`<div class="tag-opt tag-opt-new" onmousedown="${createFn}('${val.replace(/'/g,"\\'")}')">＋ Créer « ${escHtml(val)} »</div>`:'';
+  if(!tags.length&&!newOpt){dd.style.display='none';return;}
+  dd.innerHTML=tags.map(t=>`<div class="tag-opt" onmousedown="${selectFn}('${t.id}')">${escHtml(t.label)}</div>`).join('')+newOpt;
+  dd.style.display='block';
+}
+
+// ── Item tag picker ──
+function refreshItemTagPicker(){
+  renderTagPickerUI('item-tag-chips','item-tag-input','item-tag-dropdown',_editItemTags,'removeItemTag','itemTagInput','createItemTag');
+}
+function itemTagInput(){_tagDropdown('item-tag-input','item-tag-dropdown',_editItemTags,'addItemTag','createItemTag');}
+function addItemTag(id){
+  if(!_editItemTags.includes(id))_editItemTags.push(id);
+  const inp=document.getElementById('item-tag-input');if(inp)inp.value='';
+  const dd=document.getElementById('item-tag-dropdown');if(dd)dd.style.display='none';
+  refreshItemTagPicker();
+}
+function removeItemTag(id){_editItemTags=_editItemTags.filter(x=>x!==id);refreshItemTagPicker();}
+function createItemTag(label){
+  const trimmed=label.trim();if(!trimmed)return;
+  const existing=allTags().find(t=>t.label.toLowerCase()===trimmed.toLowerCase());
+  if(existing){addItemTag(existing.id);return;}
+  const id='t'+S.nextTagId++;
+  S.settings.tags.push({id,label:trimmed,builtin:false});
+  saveState();
+  addItemTag(id);
+  if(document.getElementById('tags-settings-list'))renderTagsInSettings();
+}
+
+// ── Member tag picker ──
+function refreshMemberTagPicker(){
+  renderTagPickerUI('member-tag-chips','member-tag-input','member-tag-dropdown',_editMemberTags,'removeMemberTag','memberTagInput','createMemberTag');
+}
+function memberTagInput(){_tagDropdown('member-tag-input','member-tag-dropdown',_editMemberTags,'addMemberTag','createMemberTag');}
+function addMemberTag(id){
+  if(!_editMemberTags.includes(id))_editMemberTags.push(id);
+  const inp=document.getElementById('member-tag-input');if(inp)inp.value='';
+  const dd=document.getElementById('member-tag-dropdown');if(dd)dd.style.display='none';
+  refreshMemberTagPicker();
+}
+function removeMemberTag(id){_editMemberTags=_editMemberTags.filter(x=>x!==id);refreshMemberTagPicker();}
+function createMemberTag(label){
+  const trimmed=label.trim();if(!trimmed)return;
+  const existing=allTags().find(t=>t.label.toLowerCase()===trimmed.toLowerCase());
+  if(existing){addMemberTag(existing.id);return;}
+  const id='t'+S.nextTagId++;
+  S.settings.tags.push({id,label:trimmed,builtin:false});
+  saveState();
+  addMemberTag(id);
+  if(document.getElementById('tags-settings-list'))renderTagsInSettings();
+}
+
+// ── Réglages : gestion des tags globaux ──
+function renderTagsInSettings(){
+  const el=document.getElementById('tags-settings-list');if(!el)return;
+  const tags=allTags();
+  el.innerHTML=tags.length?tags.map(t=>`
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)">
+      <span class="tag-chip" style="flex:1">🏷 ${escHtml(t.label)}${t.builtin?` <span style="font-size:9px;color:var(--text-muted);font-weight:400">(prédéfini)</span>`:''}</span>
+      ${!t.builtin?`<button onclick="removeGlobalTag('${t.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;padding:2px 6px;border-radius:6px" title="Supprimer">✕</button>`:'<span style="width:28px"></span>'}
+    </div>`).join(''):'<p style="font-size:12px;color:var(--text-muted);margin:0">Aucun tag défini.</p>';
+}
+function addGlobalTag(){
+  const inp=document.getElementById('new-global-tag-input');
+  const label=inp?.value?.trim();if(!label)return;
+  if(allTags().find(t=>t.label.toLowerCase()===label.toLowerCase())){toast('Ce tag existe déjà','error');return;}
+  const id='t'+S.nextTagId++;
+  S.settings.tags.push({id,label,builtin:false});
+  saveState();inp.value='';renderTagsInSettings();
+  // Mettre à jour le filtre backlog
+  const sel=document.getElementById('backlog-filter-tag');
+  if(sel){sel.innerHTML=_tagFilterOptions();}
+}
+function removeGlobalTag(id){
+  const t=allTags().find(x=>x.id===id);
+  if(!t||t.builtin)return;
+  if(!confirm(`Supprimer le tag « ${t.label} » ? Il sera retiré de tous les items et membres.`))return;
+  // Retirer des items
+  allItems().forEach(item=>{if(item.tags)item.tags=item.tags.filter(x=>x!==id);});
+  // Retirer des membres
+  S.team.forEach(m=>{if(m.tags)m.tags=m.tags.filter(x=>x!==id);});
+  S.settings.tags=S.settings.tags.filter(t2=>t2.id!==id);
+  saveState();renderTagsInSettings();renderBacklog();
+  toast(`Tag « ${t.label} » supprimé`);
+}
+function _tagFilterOptions(){
+  return '<option value="">Tous les tags</option>'+allTags().map(t=>`<option value="${t.id}">${escHtml(t.label)}</option>`).join('');
+}
+
 function renderSettings(){
   const g=S.settings;
   document.getElementById('settings-body').innerHTML=`
@@ -3536,13 +3714,24 @@ function renderSettings(){
       </div>
     </div>
 
+    <!-- ── Tags ── -->
+    <div style="background:var(--surface);border-radius:11px;border:1px solid var(--border);padding:18px 20px;">
+      <div class="section-title">🏷 Tags / Labels</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Catégories libres applicables aux items et aux membres. Les tags prédéfinis ne peuvent pas être supprimés.</p>
+      <div id="tags-settings-list" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="new-global-tag-input" placeholder="Nouveau tag…" style="flex:1;font-size:12px" onkeydown="if(event.key==='Enter')addGlobalTag()"/>
+        <button onclick="addGlobalTag()" style="padding:6px 14px;border-radius:7px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:12px;cursor:pointer;white-space:nowrap">＋ Ajouter</button>
+      </div>
+    </div>
+
     <!-- ── Données & Export ── -->
     <div style="background:var(--surface);border-radius:11px;border:1px solid var(--border);padding:18px 20px;">
       <div class="section-title">💾 Données &amp; Export</div>
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Sauvegardez et restaurez l'intégralité de votre projet, ou exportez / importez le backlog.</p>
       <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
         <button onclick="exportStateJSON()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer">💾 Sauvegarder (JSON)</button>
-        <button onclick="triggerImportJSON()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📂 Restaurer (JSON)</button>
+        <label style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px">📂 Restaurer (JSON)<input type="file" accept=".json" style="display:none" onchange="handleImportJSON(this.files[0])"/></label>
       </div>
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">Le fichier JSON contient tout l'état du projet (sprints, items, équipe, clients, historique). Utilisez-le pour migrer d'un navigateur à l'autre ou faire une sauvegarde manuelle.</div>
       <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">Backlog</div>
@@ -3622,7 +3811,7 @@ function removeDodCrit(type,idx){
 
 
 function openTeamModal(memberId){
-  S.editingMemberId=memberId;
+  _editMemberTags=[...(memberId?(S.team.find(t=>t.id===memberId)?.tags||[]):[])]; S.editingMemberId=memberId;
   const m=memberId?S.team.find(t=>t.id===memberId):{id:null,name:'',role:'',sp:8,photo:''};
   document.getElementById('team-modal-title').textContent=memberId?`👤 ${m.name}`:'👤 Nouveau membre';
   const rc=roleStyle(m.role);
@@ -3642,9 +3831,13 @@ function openTeamModal(memberId){
       </select>
     </div>
     <div class="form-group"><label class="form-label">Points de vélocité (SP/jour)</label><input class="form-input" type="number" id="tm-sp" value="${m.spDay||1}" min="1" max="20"/></div>
+    <div class="form-group"><label class="form-label">🏷 Compétences / Tags</label>
+      <div id="member-tag-chips" style="display:flex;flex-wrap:wrap;gap:4px;min-height:26px"></div>
+    </div>
     ${memberId?`<button class="btn-secondary" style="color:var(--danger);border-color:var(--danger);font-size:12px;margin-top:4px;" onclick="deleteMember('${memberId}')">✕ Supprimer ce membre</button>`:''}
   `;
   document.getElementById('team-modal-overlay').classList.add('open');
+  setTimeout(refreshMemberTagPicker,0);
 }
 
 let avatarDataUrl='';
@@ -3662,9 +3855,9 @@ function saveTeamMember(){
   const photo=avatarDataUrl||'';
   if(S.editingMemberId){
     const m=S.team.find(t=>t.id===S.editingMemberId);
-    if(m){m.name=name||m.name;m.role=role||m.role;m.spDay=spDay;if(photo)m.photo=photo;}
+    if(m){m.name=name||m.name;m.role=role||m.role;m.spDay=spDay;if(photo)m.photo=photo;m.tags=[..._editMemberTags];}
   } else {
-    S.team.push({id:'m'+S.nextMemberId++,name:name||'Nouveau membre',role:role||'Dev Full-Stack',spDay,photo});
+    S.team.push({id:'m'+S.nextMemberId++,name:name||'Nouveau membre',role:role||'Dev Full-Stack',spDay,photo,tags:[..._editMemberTags]});
   }
   avatarDataUrl='';saveState();closeTeamModal();renderTeam();updateHeader();
   toast(S.editingMemberId?'Membre mis à jour':'Membre ajouté');
@@ -5306,7 +5499,7 @@ function switchTab(name){
   updateCurrentUserUI();
   if(name==='kanban')renderKanban();
   if(name==='auto')renderAutoPlanning();
-  if(name==='settings'){renderSettings();renderDodSettings();}
+  if(name==='settings'){renderSettings();renderDodSettings();renderTagsInSettings();}
   if(name==='changelog')renderChangelog();
   if(name==='historique')renderHistorique();
   if(name==='planning'&&window._planningView==='calendar')setTimeout(renderPlanningCalendar,0);
@@ -5751,6 +5944,7 @@ function exportBacklogExcel(){
     'US - En tant que':item.us?.role||'',
     'US - Je souhaite':item.us?.want||'',
     'US - Afin de':item.us?.goal||'',
+    'Tags':(item.tags||[]).map(tid=>getTag(tid)?.label||'').filter(Boolean).join(', '),
     'Assignés':(item.assignees||[]).map(mid=>{const m=S.team.find(t=>t.id===mid);return m?m.name:'';}).filter(Boolean).join(', '),
   }));
   const ws=XLSX.utils.json_to_sheet(rows);
@@ -5796,7 +5990,7 @@ function handleImportJSON(file){
       if(!imported.sprints||!imported.settings)throw new Error('Structure invalide');
       if(!confirm('Remplacer toutes les données actuelles par celles du fichier ?\nCette action est irréversible.'))return;
       Object.keys(imported).forEach(k=>S[k]=imported[k]);
-      saveState();render();renderSettings();setTimeout(renderDodSettings,0);
+      saveState();render();renderSettings();setTimeout(renderDodSettings,0);setTimeout(renderTagsInSettings,0);
       toast('Données importées avec succès','success');
     }catch(err){toast('Fichier invalide : '+err.message,'error');}
   };
@@ -5809,12 +6003,13 @@ function handleImportJSON(file){
 function exportBacklogCSV(){
   const items=allItems();
   const esc=v=>'"'+String(v||'').replace(/"/g,'\"\""')+'"';
-  const headers=['Clé','Description','Client','SP','Priorité','Sprint','Statut','Assignés','Rôle','Besoin','Bénéfice','Dépendances','Deadline'];
+  const headers=['Clé','Description','Client','SP','Priorité','Sprint','Statut','Tags','Assignés','Rôle','Besoin','Bénéfice','Dépendances','Deadline'];
   const rows=items.map(item=>{
     const sp=S.sprints.find(s=>s.items.some(i=>i.id===item.id));
     return [
       item.key||'',item.desc||'',item.client||'',item.sp||0,item.priority||5,
       sp?sprintName(sp):'Non assigné',item.status||'',
+      (item.tags||[]).map(tid=>getTag(tid)?.label||'').filter(Boolean).join(', '),
       (item.assignees||[]).map(mid=>{const m=S.team.find(t=>t.id===mid);return m?m.name:'';}).filter(Boolean).join(', '),
       item.us?.role||'',item.us?.want||'',item.us?.goal||'',
       (item.deps||[]).join(', '),item.deadline?.date||''
@@ -6470,7 +6665,7 @@ table td{padding:8px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top}
 
   <!-- Sprint sections -->
   ${sprintSections||'<p style="color:#6b7280;font-size:13px">Aucun item pour ce client.</p>'}
-<input type="file" id="json-import-file" accept=".json" style="display:none" onchange="handleImportJSON(this.files[0])"/>
+
 </body>
 </html>`;
 
@@ -7813,7 +8008,16 @@ function renderChangelog(){
 }
 
 const CHANGELOG=[
-  {version:'v0.46.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Export/Import JSON + CSV, unification des exports',current:true,changes:[
+  {version:'v0.47.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Tags / labels libres',current:true,changes:[
+    {tag:'feat',text:'Tags libres sur les items : picker avec autocomplete, multi-tags, chips dans le backlog'},
+    {tag:'feat',text:'Tags de competences sur les membres : associer des tags a chaque membre'},
+    {tag:'feat',text:'Membres suggeres dans la modale US (onglet Equipe) selon les tags communs'},
+    {tag:'feat',text:'Filtre par tag dans la toolbar du backlog'},
+    {tag:'feat',text:'Gestion globale des tags dans Reglages (8 tags predefinis + ajout/suppression)'},
+    {tag:'feat',text:'Export CSV et Excel : colonne Tags ajoutee'},
+    {tag:'fix', text:'Bouton Restaurer JSON : remplacement par label natif (fiabilite navigateur)'},
+  ]},
+  {version:'v0.46.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Export/Import JSON + CSV, unification des exports',current:false,changes:[
     {tag:'feat', text:'Export JSON : sauvegarde complète de l\'état (sprints, items, équipe, clients, historique) en un fichier JSON téléchargeable'},
     {tag:'feat', text:'Import JSON : restauration depuis un fichier JSON précédemment exporté, avec validation de structure'},
     {tag:'feat', text:'Export CSV : export natif du backlog sans dépendance externe — fonctionne en mode hors ligne'},
