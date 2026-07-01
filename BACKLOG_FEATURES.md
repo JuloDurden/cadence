@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 1er juillet 2026. v0.48 : Attribution utilisateur dans l'historique archivée.
+> Dernière mise à jour : 1er juillet 2026. v0.48 : Attribution utilisateur archivée. v0.49-v0.50 : Refonte visuelle Backlog (2 passes).
 
 ---
 
