@@ -29,7 +29,7 @@ La barre latérale gauche regroupe les sections par cérémonie Scrum :
 | Clients | Gérer le portefeuille clients |
 | Réglages | Configurer le projet |
 
-En haut à droite : `↩` Annuler (`Ctrl+Z`), `↪` Rétablir (`Ctrl+Y`), 🔍 Recherche globale (`Ctrl+K`).
+En bas à gauche : `↩` Annuler (`Ctrl+Z`), `↪` Rétablir (`Ctrl+Y`), 🔍 Recherche globale (`Ctrl+K`).
 
 ---
 
