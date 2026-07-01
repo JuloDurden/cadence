@@ -17,7 +17,7 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 - Scoring WSJF, RICE et MoSCoW
 - Filtres et tri (priorité, SP, statut, client, assigné)
 - DoR et DoD par item avec jauges de progression et compteur X/Y
-- Export Excel du backlog
+- Export Excel et CSV du backlog, import depuis Excel/CSV
 
 ### Release Planning
 
@@ -125,4 +125,4 @@ GitHub Actions lance les tests à chaque push sur n'importe quelle branche. Voir
 
 ## Versioning
 
-Changelog complet accessible dans l'onglet 📋 de l'application. Version actuelle : **v0.45.0**
+Changelog complet accessible dans l'onglet 📋 de l'application. Version actuelle : **v0.46.0**

@@ -209,6 +209,25 @@ Le bouton **Rapport** génère un export HTML imprimable par client avec les ite
 
 Le bouton **Charger les données de démo** recharge le projet de démonstration (remplace les données actuelles).
 
+### Données & Export
+
+La section **Données & Export** regroupe tous les outils d'import et d'export.
+
+**Sauvegarde complète**
+
+| Bouton | Description |
+|--------|-------------|
+| 💾 Sauvegarder (JSON) | Télécharge un fichier JSON contenant l'intégralité de l'état du projet (sprints, items, équipe, clients, historique). Utilisez-le pour migrer d'un navigateur à l'autre ou faire une sauvegarde manuelle. |
+| 📂 Restaurer (JSON) | Importe un fichier JSON précédemment exporté et remplace les données actuelles. |
+
+**Backlog**
+
+| Bouton | Description |
+|--------|-------------|
+| 📊 Exporter Excel | Exporte le backlog complet au format Excel (.xlsx). Requiert une connexion internet (bibliothèque SheetJS chargée depuis un CDN). Si indisponible, bascule automatiquement sur l'export CSV. |
+| 📄 Exporter CSV | Exporte le backlog au format CSV, sans aucune dépendance externe. Fonctionne hors ligne. |
+| 📥 Importer Excel / CSV | Importe un backlog depuis un fichier Excel ou CSV existant, avec mapping de colonnes et prévisualisation avant import. |
+
 ---
 
 ## Raccourcis

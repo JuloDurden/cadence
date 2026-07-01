@@ -7813,7 +7813,17 @@ function renderChangelog(){
 }
 
 const CHANGELOG=[
-  {version:'v0.45.0',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Fixes : DoR/DoD, Dashboard statuts, tri CA clients',current:true,changes:[
+  {version:'v0.46.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Export/Import JSON + CSV, unification des exports',current:true,changes:[
+    {tag:'feat', text:'Export JSON : sauvegarde complète de l\'état (sprints, items, équipe, clients, historique) en un fichier JSON téléchargeable'},
+    {tag:'feat', text:'Import JSON : restauration depuis un fichier JSON précédemment exporté, avec validation de structure'},
+    {tag:'feat', text:'Export CSV : export natif du backlog sans dépendance externe — fonctionne en mode hors ligne'},
+    {tag:'fix',  text:'Export Excel : fallback automatique vers CSV si SheetJS (CDN) n\'est pas disponible'},
+    {tag:'ux',   text:'Réglages > section Données & Export : tous les imports/exports regroupés en un seul endroit'},
+    {tag:'ux',   text:'Toolbar Backlog allégée : boutons Import/Export déplacés dans Réglages'},
+    {tag:'chore',text:'Renommage : release-planning.html → cadence.html, clé localStorage aclaimsState_v1 → cadenceState_v1'},
+    {tag:'chore',text:'Documentation : README enrichi (badge CI, architecture, raccourcis), USER-GUIDE.md complet'},
+  ]},
+  {version:'v0.45.0',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Fixes : DoR/DoD, Dashboard statuts, tri CA clients',current:false,changes:[
     {tag:'fix',  text:'DoR/DoD : les cases a cocher mettaient a jour le wrapper findItem et non l\'item lui-meme — jauge et barre de progression maintenant correctes'},
     {tag:'fix',  text:'Dashboard : introduction d\'isDoneStatus() — les colonnes Termine et Livre comptent toutes les deux comme statuts valides pour les metriques'},
     {tag:'fix',  text:'Stats du Sprint, Stats Globales, Lead/Cycle Time, Velocite devs : tous mis a jour pour utiliser isDoneStatus()'},
