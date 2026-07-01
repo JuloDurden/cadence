@@ -1,0 +1,16 @@
+{
+  "name": "cadence",
+  "version": "1.0.0",
+  "description": "Cadence - Release planning tool for Agile teams",
+  "scripts": {
+    "test:logic": "node tests/run-tests.js",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test": "node tests/run-tests.js && playwright test",
+    "lint": "eslint tests/ --ext .js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0",
+    "eslint": "^8.57.0"
+  }
+}

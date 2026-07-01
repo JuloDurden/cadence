@@ -1,0 +1,27 @@
+# Dépendances Node
+node_modules/
+
+# Playwright - résultats de tests (générés localement, pas à versionner)
+test-results/
+playwright-report/
+
+# Fichiers de cache
+.cache/
+*.tmp
+
+# Fichiers générés automatiquement (rapports export, sauvegardes)
+rapport-*.html
+*- copie.html
+*.bak
+
+# Fichiers Excel temporaires exportés
+AutoClaimsTech_export_*.xlsx
+US_AUT~1.XLS
+
+# Système d'exploitation
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# VS Code
+.vscode/

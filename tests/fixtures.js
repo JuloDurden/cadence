@@ -1,0 +1,125 @@
+/**
+ * Fixtures avec la vraie structure de donnees du prototype.
+ * Champs exacts : client.label/key, item.desc/client/priority(number)
+ */
+
+const BASE_STATE = {
+  sprints: [
+    {
+      id: 's1',
+      name: 'Sprint 1',
+      number: 1,
+      goal: 'Valider le flux de base',
+      status: 'active',
+      startDate: '2026-06-01',
+      endDate: '2026-06-14',
+      items: [
+        {
+          id: 'i1', key: 'AUT-1', desc: 'Connexion utilisateur',
+          type: 'story', priority: 2, sp: 3,
+          status: 'todo', assignees: [], client: 'acm',
+          us: { role: 'utilisateur', want: 'me connecter', goal: 'acceder au tableau de bord' },
+          criteria: [], deps: [],
+          scoring: { framework: null, wsjf: { businessValue: 3, timeCriticality: 3, riskReduction: 3, jobSize: 3 }, rice: { reach: 100, impact: 1, confidence: 80, effort: 1 }, moscow: null },
+          deadline: { date: '', type: 'none' },
+          dodChecks: { dor: [], dod: [] },
+          createdAt: '2026-06-01T10:00:00Z',
+        },
+        {
+          id: 'i2', key: 'AUT-2', desc: 'Dashboard principal',
+          type: 'story', priority: 3, sp: 5,
+          status: 'doing', assignees: [], client: 'acm',
+          us: { role: '', want: '', goal: '' },
+          criteria: [], deps: [],
+          scoring: { framework: null, wsjf: { businessValue: 3, timeCriticality: 3, riskReduction: 3, jobSize: 3 }, rice: { reach: 100, impact: 1, confidence: 80, effort: 1 }, moscow: null },
+          deadline: { date: '', type: 'none' },
+          dodChecks: { dor: [], dod: [] },
+          createdAt: '2026-06-01T10:00:00Z',
+        },
+        {
+          id: 'i3', key: 'AUT-3', desc: 'Export PDF',
+          type: 'epic', priority: 4, sp: 8,
+          status: 'done', assignees: [], client: 'bet',
+          us: { role: '', want: '', goal: '' },
+          criteria: [], deps: [],
+          scoring: { framework: null, wsjf: { businessValue: 3, timeCriticality: 3, riskReduction: 3, jobSize: 3 }, rice: { reach: 100, impact: 1, confidence: 80, effort: 1 }, moscow: null },
+          deadline: { date: '', type: 'none' },
+          dodChecks: { dor: [], dod: [] },
+          createdAt: '2026-06-01T10:00:00Z',
+        },
+      ],
+    },
+  ],
+  unassigned: [
+    {
+      id: 'i4', key: 'AUT-4', desc: 'Item backlog non assigne',
+      type: 'story', priority: 3, sp: 2,
+      status: 'backlog', assignees: [], client: 'acm',
+      us: { role: '', want: '', goal: '' },
+      criteria: [], deps: [],
+      scoring: { framework: null, wsjf: { businessValue: 3, timeCriticality: 3, riskReduction: 3, jobSize: 3 }, rice: { reach: 100, impact: 1, confidence: 80, effort: 1 }, moscow: null },
+      deadline: { date: '', type: 'none' },
+      dodChecks: { dor: [], dod: [] },
+      createdAt: '2026-06-01T10:00:00Z',
+    },
+  ],
+  team: [
+    { id: 'm1', name: 'Alice Martin', role: 'Dev Full-Stack', color: '#4f46e5', velocity: 0 },
+    { id: 'm2', name: 'Bob Dupont', role: 'QA / Testeur', color: '#16a34a', velocity: 0 },
+  ],
+  absences: [],
+  roadmap: [],
+  clients: [
+    {
+      id: 'c1', label: 'Acme Corp', key: 'acm',
+      color: '#4f46e5', description: 'Client principal',
+      tier: 'A', caAnnuel: 120000,
+      contacts: [
+        { name: 'Jean Dupont', type: 'Decideur', role: 'DSI', email: 'jean@acme.fr', phone: '0600000001' },
+      ],
+    },
+    {
+      id: 'c2', label: 'Beta SAS', key: 'bet',
+      color: '#16a34a', description: 'Client secondaire',
+      tier: 'B', caAnnuel: 45000, contacts: [],
+    },
+  ],
+  dailyArchives: [],
+  kanbanColumns: [
+    { id: 'todo',  name: 'A faire',  color: '#6b7280' },
+    { id: 'doing', name: 'En cours', color: '#d97706' },
+    { id: 'done',  name: 'Termine',  color: '#16a34a' },
+  ],
+  kanbanSprintId: 's1',
+  activeSprintId: 's1',
+  settings: {
+    projectName: 'AutoClaimsTech Test',
+    teamName: 'Equipe Test',
+    sprintDuration: 10,
+    sprintUnit: 'days',
+    dailyParticipants: 'dev',
+    startDate: '2026-06-01',
+    spPerPersonPerDay: 1,
+    teamSize: 2,
+    year: 2026,
+    dor: ['User Story redigee', 'Criteres definis', 'Estime en SP'],
+    dod: ['Code en revue', 'Tests passants', 'Recette PO validee'],
+  },
+  nextItemId: 5,
+  nextSprintId: 2,
+  nextMemberId: 3,
+  nextClientId: 3,
+  nextRetroId: 1,
+  retros: [],
+  history: [],
+  sprintSnapshots: {},
+  editingItemId: null,
+  editingMemberId: null,
+  editingClientId: null,
+  clientsHighlight: null,
+  _kanbanManualOverride: false,
+  activeFilter: 'all',
+  dashboardSprintIdx: null,
+};
+
+module.exports = { BASE_STATE };

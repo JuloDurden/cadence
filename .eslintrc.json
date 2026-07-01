@@ -1,0 +1,22 @@
+{
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022
+  },
+  "rules": {
+    "no-undef": "warn",
+    "no-unused-vars": "warn",
+    "no-console": "off",
+    "semi": ["warn", "always"],
+    "eqeqeq": ["warn", "always"]
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "playwright-report/",
+    "test-results/"
+  ]
+}
