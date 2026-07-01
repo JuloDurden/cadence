@@ -948,8 +948,7 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
       <option value="epic">Grouper : Epic</option>
     </select>
     <button class="btn-primary" onclick="openModal(null)" style="white-space:nowrap;font-size:12px;padding:6px 14px">＋ Nouvelle US</button>
-    <button onclick="openImportModal()" style="white-space:nowrap;font-size:12px;padding:6px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text);font-weight:600">📥 Importer Excel / CSV</button>
-    <button onclick="exportBacklogExcel()" style="white-space:nowrap;font-size:12px;padding:6px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--text);font-weight:600" title="Exporter le Product Backlog en Excel">📊 Exporter Excel</button>
+
   </div>
   <div class="backlog-table-wrap" style="padding:16px 20px"><div id="backlog-table-container"></div></div>
 </div>
@@ -3537,6 +3536,23 @@ function renderSettings(){
       </div>
     </div>
 
+    <!-- ── Données & Export ── -->
+    <div style="background:var(--surface);border-radius:11px;border:1px solid var(--border);padding:18px 20px;">
+      <div class="section-title">💾 Données &amp; Export</div>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Sauvegardez et restaurez l'intégralité de votre projet, ou exportez / importez le backlog.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+        <button onclick="exportStateJSON()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:12px;font-weight:600;cursor:pointer">💾 Sauvegarder (JSON)</button>
+        <button onclick="triggerImportJSON()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📂 Restaurer (JSON)</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">Le fichier JSON contient tout l'état du projet (sprints, items, équipe, clients, historique). Utilisez-le pour migrer d'un navigateur à l'autre ou faire une sauvegarde manuelle.</div>
+      <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">Backlog</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button onclick="exportBacklogExcel()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer" title="Requiert une connexion internet (SheetJS CDN)">📊 Exporter Excel</button>
+        <button onclick="exportBacklogCSV()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📄 Exporter CSV</button>
+        <button onclick="openImportModal()" style="padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📥 Importer Excel / CSV</button>
+      </div>
+    </div>
+
     <div style="background:var(--primary-light);border-radius:11px;border:1px solid var(--primary)33;padding:18px 20px;">
       <div class="section-title">🎬 Données de démo</div>
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px">Charge le projet Cadence de démonstration (4 sprints, 10 membres, 5 clients, 23 items). Remplace les données actuelles.</p>
@@ -5719,7 +5735,7 @@ function exportPDF(section){
 //  EXPORT EXCEL (Backlog only)
 // ════════════════════════════════
 function exportBacklogExcel(){
-  if(typeof XLSX==='undefined'){toast('SheetJS non chargé','error');return;}
+  if(typeof XLSX==='undefined'){toast('SheetJS non disponible — export CSV utilisé à la place','info');exportBacklogCSV();return;}
   const wb=XLSX.utils.book_new();
   const rows=allItems().map(item=>({
     'Clé':item.key||'',
@@ -5750,6 +5766,70 @@ function executeExport(){
   exportBacklogExcel();closeExportModal();
 }
 
+
+// ════════════════════════════════
+//  EXPORT / IMPORT JSON (full state backup)
+// ════════════════════════════════
+function exportStateJSON(){
+  try{
+    const data=JSON.stringify(S,null,2);
+    const blob=new Blob([data],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`cadence-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Sauvegarde JSON téléchargée','success');
+  }catch(e){toast('Erreur export JSON : '+e.message,'error');}
+}
+function triggerImportJSON(){
+  const el=document.getElementById('json-import-file');
+  if(el){el.value='';el.click();}
+}
+function handleImportJSON(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const imported=JSON.parse(e.target.result);
+      if(!imported.sprints||!imported.settings)throw new Error('Structure invalide');
+      if(!confirm('Remplacer toutes les données actuelles par celles du fichier ?\nCette action est irréversible.'))return;
+      Object.keys(imported).forEach(k=>S[k]=imported[k]);
+      saveState();render();renderSettings();setTimeout(renderDodSettings,0);
+      toast('Données importées avec succès','success');
+    }catch(err){toast('Fichier invalide : '+err.message,'error');}
+  };
+  reader.readAsText(file);
+}
+
+// ════════════════════════════════
+//  EXPORT CSV (fallback natif, zéro dépendance)
+// ════════════════════════════════
+function exportBacklogCSV(){
+  const items=allItems();
+  const esc=v=>'"'+String(v||'').replace(/"/g,'\"\""')+'"';
+  const headers=['Clé','Description','Client','SP','Priorité','Sprint','Statut','Assignés','Rôle','Besoin','Bénéfice','Dépendances','Deadline'];
+  const rows=items.map(item=>{
+    const sp=S.sprints.find(s=>s.items.some(i=>i.id===item.id));
+    return [
+      item.key||'',item.desc||'',item.client||'',item.sp||0,item.priority||5,
+      sp?sprintName(sp):'Non assigné',item.status||'',
+      (item.assignees||[]).map(mid=>{const m=S.team.find(t=>t.id===mid);return m?m.name:'';}).filter(Boolean).join(', '),
+      item.us?.role||'',item.us?.want||'',item.us?.goal||'',
+      (item.deps||[]).join(', '),item.deadline?.date||''
+    ].map(esc).join(',');
+  });
+  const csv='﻿'+[headers.map(esc).join(','),...rows].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`${S.settings.projectName||'cadence'}_backlog_${new Date().toISOString().split('T')[0]}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('Export CSV téléchargé','success');
+}
 // ════════════════════════════════
 //  IMPORT EXCEL / CSV
 // ════════════════════════════════
@@ -6390,6 +6470,7 @@ table td{padding:8px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top}
 
   <!-- Sprint sections -->
   ${sprintSections||'<p style="color:#6b7280;font-size:13px">Aucun item pour ce client.</p>'}
+<input type="file" id="json-import-file" accept=".json" style="display:none" onchange="handleImportJSON(this.files[0])"/>
 </body>
 </html>`;
 

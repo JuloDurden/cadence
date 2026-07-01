@@ -1,42 +1,87 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Fichier de référence pour les idées de features. Non priorisé, non exhaustif.
-> Dernière mise à jour : 26 juin 2026
+> Dernière mise à jour : 1er juillet 2026 — Tri effectué : ✅ réalisé archivé en bas, seules les features à faire restent ici.
 
 ---
 
 ## 🎨 Design & UX
 
-- **Refonte complète du design** - nouveau look global de l'outil, révision possible du module DESIGN.md
-- **Refonte de la page Réglages** ✅ *v0.26.0* - Thème et Export supprimés, Réinitialisation corrigée (état vide), SP/jour déplacé dans RH
-- **Réorganisation sidebar** ✅ *v0.32.0* - Footer: 6 boutons uniformes 30×30px sans débordement. Menu Clients collapsible avec chevron et liste des clients. Bouton 📄 Rapport visible sur chaque carte client.
-- **Refonte de la page Changelog** ✅ *déjà en place* - timeline verticale style macOS Dock, heatmap 21 jours, nav sticky avec magnification
-- **Refonte des cartes items (Release Planning)** ✅ *déjà en place* - layout 2 lignes (description + méta), bordure gauche colorée par client, grille horizontale scrollable
-- **Mode présentation** - vue slide-ready pour sprint reviews / PI Planning / comités
-- **Vue calendrier** ✅ *déjà en place* - calendrier mensuel dans Release Planning, barres de sprint multi-semaine, today marker, jours fériés, navigation mois, modale détail sprint au clic
+- **Mode présentation** — vue slide-ready pour Sprint Reviews, PI Planning ou comités. Masque la sidebar, agrandit le contenu, navigation au clavier.
+- **Onboarding nouvel utilisateur** — parcours guidé à la première ouverture (tooltip progressive, checklist "premiers pas").
 
 ---
 
 ## 📋 Backlog & Planification
 
-- **Rapport client imprimable** ✅ *v0.30.0* - export HTML standalone par client (bouton 📄 sur chaque carte client), KPIs, barre de progression, détail par sprint, CSS print intégré
-- **Recherche globale** ✅ *v0.29.0* - modal Ctrl+K, live search sur clés/descriptions/US/notes/critères, navigation clavier, clic → ouvre la modale item
-- **Dashboard personnalisable** - widgets déplaçables, métriques choisies par l'utilisateur
-- **Suivi de vélocité & performance** ✅ *déjà en place* - graphique vélocité réelle vs estimée dans l'onglet Historique, drill-down par sprint avec liste des items et changements de statut
-- **Burndown Chart** ✅ *v0.12.0* - burndown idéal vs réel par sprint sur le Dashboard
-- **Lead time & Cycle time** ✅ *v0.34.0* - métriques de flow par sprint et global sur le Dashboard (createdAt, startedAt, completedAt trackés automatiquement)
-- **Cumulative Flow Diagram** ✅ *v0.34.0* - stacked bars par jour de sprint sur le Dashboard, reconstruction depuis startedAt/completedAt
-- **Capacité par personne** ✅ *partiellement* - SP/jour global configurable dans l'onglet RH avec calcul temps réel (N membres × durée sprint × SP/j). Manque : allocation nominative par sprint (qui fait quoi)
-- **Mode "what-if"** ✅ *partiellement* - l'auto-planning permet déjà de simuler sans sauvegarder. Manque : remplissage manuel d'un planning alternatif + vue comparaison avant/après
-- **Statuts avancés sur les items** ✅ *partiellement* - statuts Kanban personnalisables. Manque : liste de suggestions prédéfinies à la création, réorganisation des statuts par drag & drop
-- **Critères d'acceptation (Gherkin)** ✅ *déjà en place* - onglet User Story avec format Étant donné / Quand / Alors sur stories et epics
-- **Tags / labels libres** - catégoriser les items en dehors de la dimension client
+- **Tags / labels libres** — catégoriser les items en dehors de la dimension client (ex. "Front", "API", "Dette technique").
+- **Capacité nominative par sprint** — allocation individuelle (qui fait quoi sur ce sprint), pas seulement une capacité globale d'équipe.
+- **Mode "what-if"** — remplissage manuel d'un planning alternatif + vue comparaison avant/après (l'auto-planning existe déjà mais ne permet pas de comparaison).
+- **Épics et roadmap par thème** — regrouper les sprints ou les items par initiative / epic avec vue dédiée.
+- **Critères de départ / d'entrée de sprint** — check-list de Sprint Planning (DoR équipe validée, capacité confirmée, objectif défini).
 
 ---
 
-## 👥 Utilisateurs & Collaboration
+## 👥 Collaboration & Utilisateurs
 
-- **Commentaires collaboratifs** ✅ *v0.35.0* - threading (réponses imbriquées par parentId), auteur tagué via profil actif, support URL image (preview inline), auto-linkification des URLs
-- **Gestion des utilisateurs** ✅ *v0.31.0 partiel* - sélecteur "Je suis…" dans la sidebar (parmi les membres de l'équipe), persisté en localStorage. Votes retro nominatifs par userId. Historique tagué par auteur. Manque : login/auth, rôles (PO/Dev/Stakeholder), permissions, multi-device
-- **Onboarding nouvel utilisateur** - parcours guidé à la première ouverture
-- **Partage en lecture seu
+- **Partage en lecture seule** — générer un lien (ou un export HTML autonome) consultable sans modifier les données.
+- **Notifications** — alertes visuelles sur les items bloqués, les dépendances non satisfaites, les items sans assigné.
+- **Rôles et permissions** — PO (lecture/écriture), Dev (écriture statut uniquement), Stakeholder (lecture), avec restrictions UI.
+
+---
+
+## 📊 Métriques & Reporting
+
+- **Rapport de sprint** — export PDF/HTML automatique en fin de sprint (vélocité, items livrés, objectif atteint, retrospective actions).
+- **Trend de vélocité sur N sprints** — graphique dédié (au-delà du seul historique par sprint déjà présent).
+- **Forecast de livraison** — basé sur la vélocité moyenne, estimer la date de fin d'une epic ou d'un ensemble d'items.
+
+---
+
+## ⚙️ Technique & Intégration
+
+- **Export / Import JSON** — sauvegarde et restauration complète de l'état, utile pour migration ou archivage.
+- **Import depuis Jira / Excel** — ingestion d'un backlog existant via CSV ou JSON Jira.
+- **Intégration Slack** — envoi automatique du résumé du Daily ou de la clôture de sprint dans un canal.
+
+---
+---
+
+## ✅ Réalisé (pour mémoire)
+
+### Design & UX
+- **Réorganisation sidebar** ✅ *v0.32.0* — footer uniforme, menu Clients collapsible, bouton Rapport par client
+- **Refonte des cartes items** ✅ *v0.40.0* — layout 2 lignes, bordure colorée par client
+- **Refonte de la page Réglages** ✅ *v0.26.0*
+- **Vue calendrier** ✅ *v0.21.0* — calendrier mensuel dans Release Planning
+- **Refonte de la page Changelog** ✅ *v0.40.0* — timeline verticale, heatmap, magnification
+- **Redesign global (système de design HIG)** ✅ *v0.40.0–0.42.0*
+- **Refonte complète du design** ✅ *v0.40.0–0.42.0* — système de design HIG, tokens couleurs, dark mode
+
+### Backlog & Planification
+- **Rapport client imprimable** ✅ *v0.30.0*
+- **Recherche globale Ctrl+K** ✅ *v0.29.0*
+- **Burndown Chart** ✅ *v0.12.0*
+- **Lead time & Cycle time** ✅ *v0.34.0*
+- **Cumulative Flow Diagram** ✅ *v0.34.0*
+- **DoR / DoD par item** ✅ *v0.20.0* — jauges et compteur X/Y
+- **Critères d'acceptation BDD (Gherkin)** ✅ *en place*
+- **Scoring WSJF / RICE / MoSCoW** ✅ *en place*
+- **Sprint Goal** ✅ *v0.34.0*
+- **Clôture de sprint + snapshot vélocité** ✅ *v0.19.0*
+- **Auto-planning** ✅ *en place* — affectation selon capacité et dépendances
+- **Export Excel (backlog)** ✅ *v0.09.0*
+- **Export PDF (Planning / Roadmap)** ✅ *v0.09.0*
+- **RAG par client** ✅ *v0.11.0*
+- **Dashboard personnalisable** ✅ *v0.38.0–0.42.0* — grille de widgets, drag-and-drop, zones verticales
+- **Statuts avancés** ✅ *en place* — catalogue de statuts Kanban configurables
+
+### Cérémonies Scrum
+- **Daily Standup helper** ✅ *v0.26.0* — timer, blocker board, export résumé
+- **Rétrospective** ✅ *v0.23.0* — formats SSC / Mad-Sad-Glad / 4Ls, votes nominatifs, actions
+- **Onglet Historique** ✅ *v0.17.0* — journal des actions, filtres, purge
+- **Undo / Redo (Ctrl+Z / Ctrl+Y)** ✅ *v0.16.0*
+
+### Collaboration & Utilisateurs
+- **Commentaires collaboratifs threaded** ✅ *v0.35.0* — réponses imbriquées, auteur, images, liens
+- **Gestion des utilisateurs (profil actif)** ✅ *v0.31.0* — sélecteur "Je suis…", votes nominatifs, historique tagué
+- **Capacité sprint en temps réel** ✅ *en place* — N membres × durée × SP/jour, absences déduites
