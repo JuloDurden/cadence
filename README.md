@@ -92,7 +92,7 @@ npm test                # Tout lancer
 npm run lint            # ESLint sur les fichiers de test
 ```
 
-138 tests E2E répartis sur 14 suites couvrent l'ensemble des fonctionnalités.
+145 tests E2E répartis sur 15 suites couvrent l'ensemble des fonctionnalités.
 
 ## Structure du projet
 
@@ -108,7 +108,7 @@ tests/
   helpers.js            Utilitaires Playwright (loadWithState, goToTab)
   server.js             Serveur HTTP local pour les tests (port 4321)
   run-tests.js          Runner de tests logiques (zéro dépendance)
-  *.spec.js             Suites de tests E2E (13 fichiers)
+  *.spec.js             Suites de tests E2E (15 fichiers)
 ```
 
 ## Architecture
@@ -123,8 +123,4 @@ La séparation des données de démo dans `demo-data.js` est la seule dépendanc
 
 ## CI/CD
 
-GitHub Actions lance les tests à chaque push sur n'importe quelle branche. Voir `.github/workflows/ci.yml`.
-
-## Versioning
-
-Changelog complet accessible dans l'onglet 📋 de l'application. Version actuelle : **v0.47.0**
+GitHub Actions lance les

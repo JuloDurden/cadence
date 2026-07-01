@@ -171,7 +171,9 @@ Elle cherche en temps réel sur les clés (`AUT-3`), descriptions, notes et comm
 
 ## Historique & Undo
 
-Toutes les actions modifiant l'état (création, modification, suppression d'item, changement de statut, clôture de sprint...) sont consignées dans l'**Historique** avec horodatage et description.
+Toutes les actions modifiant l'état (création, modification, suppression d'item, changement de statut, clôture de sprint...) sont consignées dans l'**Historique** avec horodatage, description et **nom de l'auteur** si un profil est actif.
+
+Le journal propose un filtre par auteur pour n'afficher que les actions d'un membre donné. Le widget Activité récente du Dashboard affiche également l'auteur de chaque action.
 
 `Ctrl+Z` annule la dernière action. `Ctrl+Y` la rétablit. La pile d'annulation est visible dans l'info-bulle des boutons `↩` / `↪`.
 

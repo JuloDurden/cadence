@@ -4348,6 +4348,7 @@ function _wContent(widgetId,sprint,sprintIdx,expanded,size){
       return`<div style="display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:8px;font-weight:700;padding:2px 4px;border-radius:4px;background:${cfg.bg};color:${cfg.col};white-space:nowrap;flex-shrink:0;margin-top:1px">${cfg.lbl}</span>
         <div style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:${isS?'nowrap':'normal'}">${escHtml(h.desc)}</div>
+        ${h.author&&(S.team||[]).find(t=>t.id===h.author)?`<div style="font-size:9px;color:var(--primary);white-space:nowrap;flex-shrink:0">👤 ${escHtml((S.team||[]).find(t=>t.id===h.author).name)}</div>`:''}
         <div style="font-size:9px;color:var(--text-muted);white-space:nowrap;flex-shrink:0">${fmtT(h.ts)}</div>
       </div>`;
     }).join('');
@@ -7786,6 +7787,7 @@ function renderHistorique(){
           <div style="font-size:9px;color:var(--text-muted);white-space:nowrap;min-width:92px;padding-top:2px;flex-shrink:0">${fmtTs(h.ts)}</div>
           <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;background:${cfg.bg};color:${cfg.color};white-space:nowrap;flex-shrink:0">${cfg.label}</span>
           <div style="font-size:11px;color:var(--text);flex:1">${escHtml(h.desc)}</div>
+          ${h.author&&(S.team||[]).find(t=>t.id===h.author)?`<div style="font-size:9px;color:var(--primary);white-space:nowrap;flex-shrink:0;padding-top:2px">👤 ${escHtml((S.team||[]).find(t=>t.id===h.author).name)}</div>`:''}
           ${h.sprintLabel?`<div style="font-size:9px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;padding-top:2px">${escHtml(h.sprintLabel)}</div>`:''}
         </div>`;
       }).join('')):`<div style="padding:40px 0;text-align:center">
@@ -8008,7 +8010,12 @@ function renderChangelog(){
 }
 
 const CHANGELOG=[
-  {version:'v0.47.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Tags / labels libres',current:true,changes:[
+  {version:'v0.48.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Attribution utilisateur dans l\'historique',current:true,changes:[
+    {tag:'feat',text:'Nom de l\'auteur affiché sur chaque entrée du journal d\'activité (Historique et widget Dashboard)'},
+    {tag:'feat',text:'Filtre par auteur dans le journal d\'activité'},
+    {tag:'feat',text:'Données de démo enrichies avec attribution réaliste sur toutes les entrées historiques'},
+  ]},
+  {version:'v0.47.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Tags / labels libres',current:false,changes:[
     {tag:'feat',text:'Tags libres sur les items : picker avec autocomplete, multi-tags, chips dans le backlog'},
     {tag:'feat',text:'Tags de competences sur les membres : associer des tags a chaque membre'},
     {tag:'feat',text:'Membres suggeres dans la modale US (onglet Equipe) selon les tags communs'},

@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 1er juillet 2026. v0.47 : Tags/labels libres archivés.
+> Dernière mise à jour : 1er juillet 2026. v0.48 : Attribution utilisateur dans l'historique archivée.
 
 ---
 
@@ -70,19 +70,4 @@
 - **Export Excel (backlog)** ✅ *v0.09.0*
 - **Export / Import JSON** ✅ *v0.46.0* — sauvegarde et restauration complète, import/export unifiés dans Réglages
 - **Export CSV natif (backlog)** ✅ *v0.46.0* — zéro dépendance, fallback auto si SheetJS indisponible
-- **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, export CSV/Excel
-- **Export PDF (Planning / Roadmap)** ✅ *v0.09.0*
-- **RAG par client** ✅ *v0.11.0*
-- **Dashboard personnalisable** ✅ *v0.38.0–0.42.0* — grille de widgets, drag-and-drop, zones verticales
-- **Statuts avancés** ✅ *en place* — catalogue de statuts Kanban configurables
-
-### Cérémonies Scrum
-- **Daily Standup helper** ✅ *v0.26.0* — timer, blocker board, export résumé
-- **Rétrospective** ✅ *v0.23.0* — formats SSC / Mad-Sad-Glad / 4Ls, votes nominatifs, actions
-- **Onglet Historique** ✅ *v0.17.0* — journal des actions, filtres, purge
-- **Undo / Redo (Ctrl+Z / Ctrl+Y)** ✅ *v0.16.0*
-
-### Collaboration & Utilisateurs
-- **Commentaires collaboratifs threaded** ✅ *v0.35.0* — réponses imbriquées, auteur, images, liens
-- **Gestion des utilisateurs (profil actif)** ✅ *v0.31.0* — sélecteur "Je suis…", votes nominatifs, historique tagué
-- **Capacité sprint en temps réel** ✅ *en place* — N membres × durée × SP/jour, absences déduites
+- **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, ex
