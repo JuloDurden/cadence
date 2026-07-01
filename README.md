@@ -1,90 +1,128 @@
 # Cadence
 
-Outil de planification de releases Agile pour équipes Scrum. Application web autonome, zéro dépendance, zéro installation.
+[![Tests CI](https://github.com/JuloDurden/cadence/actions/workflows/ci.yml/badge.svg)](https://github.com/JuloDurden/cadence/actions/workflows/ci.yml)
 
-## Fonctionnalités principales
+Outil de planification de releases Agile pour équipes Scrum. Application web autonome — un seul fichier HTML, zéro dépendance, zéro installation.
 
-- Release Planning multi-sprints avec drag-and-drop
-- Product Backlog avec scoring WSJF / RICE / MoSCoW
-- Kanban board configurable (catalogue de statuts)
-- Dashboard : burndown, lead/cycle time, RAG clients
-- DoR / DoD par item avec jauges de progression
-- Daily Standup helper (timer, blockers, export)
-- Rétrospective (Start/Stop/Continue, Mad/Sad/Glad)
-- Auto-planning avec contraintes de capacité et dépendances
-- Historique des actions + Undo Ctrl+Z
-- Recherche globale Ctrl+K
-- Export PDF et Excel
-- Thème personnalisable via DESIGN.md
+## Lancer l'application
+
+Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
+
+## Fonctionnalités
+
+### Backlog & stories
+
+- Product Backlog avec clés auto-incrémentées par client (ex. `AUT-12`)
+- Modale User Story complète : description, SP, rôle/besoin/bénéfice (format Connextra), critères BDD, dépendances, deadline
+- Scoring WSJF, RICE et MoSCoW
+- Filtres et tri (priorité, SP, statut, client, assigné)
+- DoR et DoD par item avec jauges de progression et compteur X/Y
+- Export Excel du backlog
+
+### Release Planning
+
+- Vue multi-sprints avec glisser-déposer des items
+- Barre de capacité par sprint (SP planifiés vs capacité équipe)
+- Vue calendrier mensuelle
+- Sprint Goal affiché sur la carte sprint
+- Clôture de sprint avec snapshot de vélocité figé
+- Auto-planning : affectation automatique selon capacité et dépendances
+
+### Kanban
+
+- Board configurable : catalogue de statuts à la carte (Todo, Doing, Review, Done, Blocked, etc.)
+- Drag-and-drop entre colonnes
+- Tri par priorité, SP ou assigné
+- Badge RAG (Rouge/Ambre/Vert) par item
+
+### Dashboard
+
+- Widgets : burndown, vélocité, lead time, cycle time, CFD
+- RAG par client
+- Activité récente de l'équipe
+- Statistiques globales sur sprints cloturés
+
+### Cérémonies Scrum
+
+- **Daily Standup** : cartes par membre (Hier / Aujourd'hui / Blocages), timer 15 min, blocker board, export résumé
+- **Rétrospective** : formats Start/Stop/Continue, Mad/Sad/Glad, 4Ls — votes nominatifs, plan d'actions
+- **Sprint Review** : présentation des US livrées
+
+### Équipe & clients
+
+- Gestion des membres avec rôles, SP/jour et absences
+- Calcul de capacité sprint en temps réel
+- Gestion des clients avec tiers, CA annuel, contacts, RAG
+- Rapport client exportable en HTML imprimable
+
+### Outils transverses
+
+- Recherche globale `Ctrl+K` — full-text sur items, clés, descriptions, notes
+- Historique des actions + Undo `Ctrl+Z` / Redo `Ctrl+Y`
 - Mode sombre / clair
+- Sauvegarde automatique dans `localStorage`
 
-## Lancer le prototype
+## Raccourcis clavier
 
-Ouvrir `cadence.html` directement dans le navigateur.
-
-Aucune installation nécessaire — l'application est un fichier HTML autonome (zéro dépendance runtime).
+| Raccourci | Action |
+|-----------|--------|
+| `Ctrl+K` | Ouvrir la recherche globale |
+| `Ctrl+Z` | Annuler la dernière action |
+| `Ctrl+Y` | Rétablir |
+| `Échap` | Fermer la modale / la recherche |
 
 ## Tests
 
 ### Prérequis
 
-- Node.js 18+
-- npm
-
 ```bash
+node -v   # 18+
 npm install
 ```
 
-### Tests logiques (sans navigateur)
-
-Vérifient les fonctions métier : statuts, tri, calculs SP.
+### Commandes
 
 ```bash
-npm run test:logic
+npm run test:logic      # Tests logiques (sans navigateur)
+npm run test:e2e        # Tests E2E Playwright (headless)
+npm run test:e2e:headed # Tests E2E avec le navigateur visible
+npm test                # Tout lancer
+npm run lint            # ESLint sur les fichiers de test
 ```
 
-### Tests E2E Playwright (avec navigateur)
-
-Vérifient les interactions UI sur l'ensemble des fonctionnalités.
-
-```bash
-# Mode headless (CI)
-npm run test:e2e
-
-# Mode headed (voir le navigateur)
-npm run test:e2e:headed
-```
-
-### Lancer tous les tests
-
-```bash
-npm test
-```
+113 tests E2E répartis sur 13 suites couvrent l'ensemble des fonctionnalités.
 
 ## Structure du projet
 
 ```
-cadence.html   Application complète (HTML/CSS/JS monofichier)
-demo-data.js            Données de démonstration Cadence
-DESIGN.md               Design system (tokens couleurs, typographie)
-BACKLOG_FEATURES.md     Backlog des fonctionnalités futures
+cadence.html            Application complète (HTML/CSS/JS monofichier, ~500 Ko)
+demo-data.js            Données de démonstration chargées au premier lancement
+BACKLOG_FEATURES.md     Idées de fonctionnalités futures
+USER-GUIDE.md           Guide utilisateur
+.github/
+  workflows/ci.yml      Pipeline CI GitHub Actions
 tests/
-  fixtures.js           Données de test
+  fixtures.js           État de base partagé entre les tests
   helpers.js            Utilitaires Playwright (loadWithState, goToTab)
-  server.js             Serveur HTTP local pour les tests
+  server.js             Serveur HTTP local pour les tests (port 4321)
   run-tests.js          Runner de tests logiques (zéro dépendance)
-  kanban.spec.js        Tests E2E Kanban
-  dashboard.spec.js     Tests E2E Dashboard
-  dor-dod.spec.js       Tests E2E DoR / DoD
-  clients.spec.js       Tests E2E Clients
+  *.spec.js             Suites de tests E2E (13 fichiers)
 ```
+
+## Architecture
+
+Cadence est une Single Page Application monofichier :
+
+- **HTML** — structure et templates inline
+- **CSS** — design system intégré (variables CSS, dark mode, composants)
+- **JS** — logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
+
+La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime — chargée via `<script>` dans `cadence.html`.
 
 ## CI/CD
 
-Les tests sont lancés automatiquement sur GitHub Actions à chaque push.
-Voir `.github/workflows/ci.yml`.
+GitHub Actions lance les tests à chaque push sur n'importe quelle branche. Voir `.github/workflows/ci.yml`.
 
 ## Versioning
 
-Le projet suit le versioning sémantique. Le changelog complet est accessible dans l'onglet 📋 de l'application.
-Version actuelle : **v0.45.0**
+Changelog complet accessible dans l'onglet 📋 de l'application. Version actuelle : **v0.45.0**
