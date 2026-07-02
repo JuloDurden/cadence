@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 async function main() {
-  const hash = await bcrypt.hash('cadence2024', 10)
+  const hash = await bcrypt.hash('cadence2026', 10)
   await prisma.user.upsert({
     where: { email: 'admin@cadence.local' },
     update: {},
@@ -15,7 +15,7 @@ async function main() {
       role: 'ADMIN',
     },
   })
-  console.log('Seed OK — admin@cadence.local / cadence2024')
+  console.log('Seed OK — admin@cadence.local / cadence2026')
 }
 
 main().finally(() => prisma.$disconnect())

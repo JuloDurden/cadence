@@ -8,7 +8,8 @@ export async function authRoutes(fastify: FastifyInstance) {
     async (req, reply) => {
       const { email, password } = req.body
       const user = await fastify.prisma.user.findUnique({ where: { email } })
-      if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      const match = user ? await bcrypt.compare(password, user.passwordHash) : false
+      if (!user || !match) {
         return reply.code(401).send({ error: 'Email ou mot de passe incorrect' })
       }
       const token = fastify.jwt.sign({ id: user.id, email: user.email, role: user.role })
