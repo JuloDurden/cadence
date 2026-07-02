@@ -28,7 +28,7 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 - Vue calendrier mensuelle
 - Sprint Goal affiché sur la carte sprint
 - Clôture de sprint avec snapshot de vélocité figé
-- Auto-planning : affectation automatique selon capacité et dépendances
+- Auto-planning : affectation automatique selon capacité, dépendances et critères personnalisables
 
 ### Kanban
 
@@ -42,12 +42,12 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 - Widgets : burndown, vélocité, lead time, cycle time, CFD
 - RAG par client
 - Activité récente de l'équipe
-- Statistiques globales sur sprints cloturés
+- Statistiques globales sur sprints clôturés
 
 ### Cérémonies Scrum
 
-- **Daily Standup** : cartes par membre (Hier / Aujourd'hui / Blocages), timer 15 min, blocker board, export résumé
-- **Rétrospective** : formats Start/Stop/Continue, Mad/Sad/Glad, 4Ls - votes nominatifs, plan d'actions
+- **Daily Standup** : cartes par membre (Hier / Aujourd'hui / Blocages), timer configurable, blocker board, export résumé
+- **Rétrospective** : formats Start/Stop/Continue, Mad/Sad/Glad, 4Ls — votes nominatifs, plan d'actions
 - **Sprint Review** : présentation des US livrées
 
 ### Équipe & clients
@@ -59,7 +59,7 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 
 ### Outils transverses
 
-- Recherche globale `Ctrl+K` - full-text sur items, clés, descriptions, notes
+- Recherche globale `Ctrl+K` — full-text sur items, clés, descriptions, notes
 - Historique des actions + Undo `Ctrl+Z` / Redo `Ctrl+Y`
 - Mode sombre / clair
 - Sauvegarde automatique dans `localStorage`
@@ -92,14 +92,13 @@ npm test                # Tout lancer
 npm run lint            # ESLint sur les fichiers de test
 ```
 
-145 tests E2E répartis sur 15 suites couvrent l'ensemble des fonctionnalités.
+144 tests E2E répartis sur 15 suites couvrent l'ensemble des fonctionnalités.
 
 ## Structure du projet
 
 ```
-cadence.html            Application complète (HTML/CSS/JS monofichier, ~500 Ko)
+cadence.html            Application complète (HTML/CSS/JS monofichier, ~570 Ko)
 demo-data.js            Données de démonstration chargées au premier lancement
-BACKLOG_FEATURES.md     Idées de fonctionnalités futures
 USER-GUIDE.md           Guide utilisateur
 .github/
   workflows/ci.yml      Pipeline CI GitHub Actions
@@ -115,12 +114,23 @@ tests/
 
 Cadence est une Single Page Application monofichier :
 
-- **HTML** - structure et templates inline
-- **CSS** - design system intégré (variables CSS, dark mode, composants)
-- **JS** - logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
+- **HTML** — structure et templates inline
+- **CSS** — design system intégré (variables CSS, dark mode, composants)
+- **JS** — logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
 
-La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime - chargée via `<script>` dans `cadence.html`.
+La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime, chargée via `<script>` dans `cadence.html`.
 
 ## CI/CD
 
-GitHub Actions lance les
+GitHub Actions exécute automatiquement les tests à chaque `push` et `pull_request` sur la branche `main`.
+
+Le pipeline (`.github/workflows/ci.yml`) lance :
+
+1. `npm run test:logic` — 29 tests logiques Node.js (zéro navigateur)
+2. `npm run test:e2e` — 144 tests Playwright en mode headless (Chromium)
+
+Un badge de statut est affiché en haut de ce README. Tout échec bloque le merge.
+
+## Licence
+
+Usage interne — prototype non distribué.
