@@ -319,7 +319,6 @@ body.dark .kw-and{background:#1f2937;color:#9ca3af;}
 .roadmap-feature-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px;}
 
 /* ══ PRODUCT BACKLOG ══ */
-.backlog-toolbar{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:50;box-shadow:var(--shadow-xs);}
 .backlog-search{flex:1;min-width:180px;padding:6px 11px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;outline:none;background:var(--surface);color:var(--text);}
 .backlog-search:focus{border-color:var(--primary);}
 .backlog-table-wrap{overflow-x:auto;}
@@ -329,7 +328,7 @@ body.dark .kw-and{background:#1f2937;color:#9ca3af;}
 .backlog-table tr:last-child td{border-bottom:none;}
 .backlog-table tr:hover td{background:var(--surface2);}
 .backlog-table tbody td:not(:last-child){border-right:1px solid var(--border);}
-.filter-group{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface);}
+.filter-group{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface2);}
 .fg-item{position:relative;display:flex;align-items:center;border-right:1px solid var(--border);}
 .fg-item:last-child{border-right:none;}
 .fg-icon{position:absolute;left:9px;color:var(--text-muted);pointer-events:none;flex-shrink:0;}
@@ -437,7 +436,6 @@ body.dark .crit-kw.kw-g{color:#93c5fd;}body.dark .crit-kw.kw-w{color:#fbbf24;}bo
 .client-order-item:active{cursor:grabbing;}
 
 /* KANBAN */
-.kanban-toolbar{display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:50;box-shadow:var(--shadow-xs);flex-wrap:wrap;}
 .kanban-board{display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding:20px 28px 8px;}
 .kanban-col{flex:0 0 270px;background:var(--surface2);border-radius:10px;display:flex;flex-direction:column;max-height:calc(100vh - 200px);}
 .kanban-col.drag-over{outline:2px dashed var(--primary);outline-offset:2px;}
@@ -489,7 +487,7 @@ body.dark .crit-kw.kw-g{color:#93c5fd;}body.dark .crit-kw.kw-w{color:#fbbf24;}bo
 .drop-zone:hover,.drop-zone.dragover{border-color:var(--primary);background:var(--primary-light);}
 .drop-zone input[type=file]{display:none;}
 @media print{
-  header,nav,.filter-bar,.backlog-toolbar,.roadmap-header-box button,
+  header,nav,.filter-bar,.roadmap-header-box button,
   .modal-overlay,.toast,.skip-link,#dark-toggle{display:none!important;}
   [data-print-hide="1"]{display:none!important;}
   body{background:#fff!important;color:#000!important;}
@@ -582,9 +580,6 @@ body{display:flex;flex-direction:row;min-height:100vh;}
 .t-micro{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);}
 
 /* ── Section toolbar (page header pattern) ── */
-.section-toolbar{display:flex;align-items:center;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--surface);gap:12px;position:sticky;top:0;z-index:100;min-height:54px;}
-.section-toolbar .page-title{font-size:19px;font-weight:700;letter-spacing:-.014em;color:var(--text);flex:1;}
-.section-toolbar .page-sub{font-size:11px;color:var(--text-muted);margin-top:1px;}
 
 /* ── Card elevation ── */
 .elevated{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm);}
@@ -593,7 +588,7 @@ body{display:flex;flex-direction:row;min-height:100vh;}
 /* ── Divider ── */
 hr.divider{border:none;border-top:1px solid var(--border);margin:0;}
 
-header{display:none!important;}   /* dismantled into sidebar */
+header:not(.app-header){display:none!important;}   /* dismantled into sidebar */
 
 .tabs{
   display:flex!important;flex-direction:column!important;
@@ -612,11 +607,28 @@ header{display:none!important;}   /* dismantled into sidebar */
   text-align:left!important;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   min-height:34px!important;
-  display:flex!important;align-items:center!important;
+  display:flex!important;align-items:center!important;gap:9px!important;
   width:100%;color:var(--text);
   transition:background .12s,color .12s;
   letter-spacing:-.01em;
 }
+.nav-icon{flex-shrink:0;width:16px;height:16px;opacity:.75;transition:opacity .12s;}
+.tab.active .nav-icon,.tab:hover .nav-icon{opacity:1;}
+.nav-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;transition:opacity .15s,width .2s;}
+/* Sidebar collapsed */
+.sidebar.collapsed{width:52px!important;min-width:52px!important;}
+.sidebar.collapsed~.content-area{margin-left:52px!important;}
+.sidebar.collapsed .nav-label{display:none;}
+.sidebar.collapsed .sidebar-section-label{display:none;}
+.sidebar.collapsed .tab{padding:6px 10px!important;justify-content:center!important;}
+.sidebar.collapsed .sidebar-footer .legend{display:none;}
+.sidebar.collapsed .tab-stub::after{display:none;}
+.sidebar.collapsed .logo-text,.sidebar.collapsed .logo-sub,.sidebar.collapsed #current-user-select{display:none;}
+.sidebar.collapsed .sidebar-header{justify-content:center;padding:14px 0;}
+
+.sidebar-collapse-btn{background:none;border:none;cursor:pointer;color:var(--text-muted);padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:color .15s;margin-left:auto;}
+.sidebar-collapse-btn:hover{color:var(--primary);}
+.sidebar.collapsed .sidebar-collapse-btn{margin-left:0;}
 .tab:hover{
   background:rgba(0,0,0,.04)!important;
   color:var(--text)!important;
@@ -660,6 +672,59 @@ main#main-content{
 
 /* ── Scrollbar fine macOS ── */
 .sidebar::-webkit-scrollbar{width:4px;}
+/* ══ Header contextuel (hdr-ctx) ══ */
+#hdr-ctx{display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow:hidden;padding:0 8px;}
+.hdr-ctx-btn{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap;flex-shrink:0;}
+.hdr-ctx-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light);}
+.hdr-ctx-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.hdr-ctx-btn.active:hover{opacity:.9;}
+.hdr-ctx-stat{font-size:11px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;}
+.hdr-ctx-sep{width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;}
+/* override filter-group inside header — tighten height */
+#hdr-ctx .filter-group{background:none;border:1px solid var(--border);}#hdr-ctx .fg-item select{color:var(--text-muted);}#hdr-ctx .fg-item.filter-active{background:var(--primary-light);}#hdr-ctx .fg-item.filter-active select{color:var(--primary);}
+#hdr-ctx .fg-item select{height:30px;padding:4px 24px 4px 26px;}
+#hdr-ctx .fg-icon{left:8px;}
+#hdr-ctx .fg-chevron{right:7px;}
+
+/* ══ App Header ══ */
+@keyframes timer-end-flash{0%,100%{opacity:1}50%{opacity:.15}}
+.app-header{
+  position:fixed;top:0;left:220px;right:0;height:44px;z-index:200;
+  background:var(--bg);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px 0 16px;gap:6px;
+  transition:left .2s;
+}
+.app-header.sb-collapsed{left:52px;}
+.hdr-page-title{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;}
+.hdr-sep{width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 2px;}
+.hdr-btn{background:none;border:none;border-radius:7px;padding:0;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;width:30px;height:30px;transition:color .12s,background .12s;flex-shrink:0;}
+.hdr-btn:hover{color:var(--text);background:var(--surface2);}
+.hdr-btn:disabled{opacity:.3;cursor:default;}
+.hdr-btn:disabled:hover{color:var(--text-muted);background:none;}
+/* undo/redo avec bordure légère */
+.hdr-btn-border{border:1px solid var(--border)!important;}
+/* profile */
+.hdr-profile-btn{background:var(--primary);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .12s;line-height:1;}
+.hdr-profile-btn:hover{opacity:.85;}
+/* dropdown panels */
+.hdr-dropdown{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:500;min-width:280px;}
+.hdr-notif-panel{right:0;}
+.hdr-profile-panel{right:0;min-width:200px;padding:8px;}
+.hdr-dropdown-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 4px;}
+.hdr-dropdown-tab{flex:1;background:none;border:none;border-bottom:2px solid transparent;padding:8px 4px;font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;transition:color .12s;}
+.hdr-dropdown-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+.hdr-dropdown-body{padding:8px;max-height:320px;overflow-y:auto;}
+.hdr-notif-empty{text-align:center;padding:24px 12px;font-size:12px;color:var(--text-muted);}
+.hdr-activity-item{font-size:11px;color:var(--text-muted);padding:4px 6px;border-radius:6px;line-height:1.4;}
+.hdr-activity-item:hover{background:var(--surface2);}
+.hdr-hist-link{display:block;text-align:center;font-size:11px;color:var(--primary);font-weight:600;padding:6px;border-top:1px solid var(--border);cursor:pointer;text-decoration:none;}
+.hdr-hist-link:hover{background:var(--primary-light);border-radius:0 0 8px 8px;}
+.hdr-profile-select{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-size:12px;background:var(--surface2);color:var(--text);cursor:pointer;margin-bottom:4px;}
+.hdr-profile-user{font-size:12px;font-weight:600;color:var(--text);padding:2px 4px;margin-bottom:6px;}
+/* content-area doit respecter le header */
+.content-area{padding-top:44px;}
+@media(max-width:700px){.app-header{left:0!important;}}
+
 .sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 
 /* ── Print: restore tabs ── */
@@ -758,7 +823,6 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
 .dash-size-btn:hover{border-color:var(--primary);color:var(--primary);}
 .dash-size-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
 .dash-edit-footer{padding:7px 12px;background:var(--surface2);border-top:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.dash-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;box-shadow:var(--shadow-xs);}
 /* Widget modal */
 #dash-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;}
 #dash-modal-box{background:var(--surface);border-radius:12px;width:min(760px,92vw);max-height:88vh;overflow-y:auto;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.3);}
@@ -846,56 +910,100 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
   <nav aria-label="Navigation principale">
   <div class="tabs" role="tablist">
     <div class="sidebar-section-label">Vue d'ensemble</div>
-    <div class="tab active" role="tab" aria-selected="true"  tabindex="0"  onclick="switchTab('dashboard')"  onkeydown="tabKeyNav(event,'dashboard')">📊 Dashboard</div>
+    <div class="tab active" role="tab" aria-selected="true"  tabindex="0"  onclick="switchTab('dashboard')" title="Dashboard"  onkeydown="tabKeyNav(event,'dashboard')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span class="nav-label">Dashboard</span></div>
+    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('historique')" title="Historique" onkeydown="tabKeyNav(event,'historique')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span class="nav-label">Historique</span></div>
 
     <div class="sidebar-section-label">Backlog &amp; Vision</div>
-    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('backlog')"    onkeydown="tabKeyNav(event,'backlog')">📋 Product Backlog</div>
-    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('roadmap')"    onkeydown="tabKeyNav(event,'roadmap')">🗺️ Roadmap</div>
+    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('backlog')" title="Product Backlog"    onkeydown="tabKeyNav(event,'backlog')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg><span class="nav-label">Product Backlog</span></div>
+    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('roadmap')" title="Roadmap"    onkeydown="tabKeyNav(event,'roadmap')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/></svg><span class="nav-label">Roadmap</span></div>
 
     <div class="sidebar-section-label">Planification</div>
-    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('planning')"   onkeydown="tabKeyNav(event,'planning')">📅 Release Planning</div>
-    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('auto')"       onkeydown="tabKeyNav(event,'auto')">🤖 Auto-planning</div>
+    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('planning')" title="Release Planning"   onkeydown="tabKeyNav(event,'planning')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg><span class="nav-label">Release Planning</span></div>
+    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('auto')" title="Auto-planning"       onkeydown="tabKeyNav(event,'auto')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg><span class="nav-label">Auto-planning</span></div>
 
     <div class="sidebar-section-label">Sprint en cours</div>
-    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('kanban')"     onkeydown="tabKeyNav(event,'kanban')">🗃️ Kanban</div>
+    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('kanban')" title="Kanban"     onkeydown="tabKeyNav(event,'kanban')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="14" x="2" y="5" rx="1"/><rect width="5" height="8" x="9.5" y="11" rx="1"/><rect width="5" height="12" x="17" y="6" rx="1"/></svg><span class="nav-label">Kanban</span></div>
     <div id="sidebar-sprint-goal" style="display:none;padding:3px 8px 8px 28px;font-size:10px;color:var(--primary);font-style:italic;line-height:1.4;cursor:default"></div>
-    <div class="tab tab-stub" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('daily')"   onkeydown="tabKeyNav(event,'daily')">⚡ Daily Standup</div>
+    <div class="tab tab-stub" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('daily')" title="Daily Standup"   onkeydown="tabKeyNav(event,'daily')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span class="nav-label">Daily Standup</span></div>
 
     <div class="sidebar-section-label">Fin de Sprint</div>
-    <div class="tab tab-stub" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('review')"  onkeydown="tabKeyNav(event,'review')">🎤 Sprint Review</div>
-    <div class="tab tab-stub" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('retro')"   onkeydown="tabKeyNav(event,'retro')">🔄 Rétrospective</div>
-    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('historique')" onkeydown="tabKeyNav(event,'historique')">📜 Historique</div>
+    <div class="tab tab-stub" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('review')" title="Sprint Review"  onkeydown="tabKeyNav(event,'review')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg><span class="nav-label">Sprint Review</span></div>
+    <div class="tab tab-stub" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('retro')" title="Rétrospective"   onkeydown="tabKeyNav(event,'retro')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg><span class="nav-label">Rétrospective</span></div>
+
 
     <div class="sidebar-section-label">Référentiel</div>
     <div>
-      <div class="tab" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('clients')" onkeydown="tabKeyNav(event,'clients')">🏢 Clients<button id="clients-chevron" class="sidebar-chevron" onclick="event.stopPropagation();toggleSidebarClients()" tabindex="-1" title="Développer/Réduire">▶</button></div>
-      <div id="sidebar-clients-list" style="display:none"></div>
+      <div class="tab" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('clients')" title="Clients" onkeydown="tabKeyNav(event,'clients')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg><span class="nav-label">Clients</span></div>
+
     </div>
-    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('team')"       onkeydown="tabKeyNav(event,'team')">👥 RH</div>
+    <div class="tab"        role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('team')" title="RH"       onkeydown="tabKeyNav(event,'team')"><svg class="nav-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="nav-label">RH</span></div>
   </div>
   </nav>
 
   <div class="sidebar-footer">
   <!-- Activite recente — floats upward via absolute positioning -->
-  <div id="sidebar-activity-section" style="position:relative;border-top:1px solid var(--border);">
-    <div id="sidebar-activity-list" style="display:none;position:absolute;bottom:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-bottom:none;border-radius:8px 8px 0 0;padding:6px 8px;font-size:10px;box-shadow:0 -4px 12px rgba(0,0,0,.1);z-index:50;"></div>
-    <div onclick="toggleSidebarActivity()" style="display:flex;align-items:center;padding:6px 10px;cursor:pointer;font-size:10px;font-weight:600;color:var(--text-muted);user-select:none;gap:5px;">
-      <span style="font-size:11px">📜</span><span>Activité récente</span>
-      <span id="sidebar-activity-chevron" style="margin-left:auto;font-size:10px">▲</span>
-    </div>
-  </div>
-    <div class="sidebar-footer-actions" style="display:flex;align-items:center;gap:3px">
-      <button id="btn-undo" onclick="undoLast()" aria-label="Annuler" title="Rien à annuler" disabled style="background:none;border:1px solid var(--border);border-radius:7px;padding:0;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s;font-size:15px;width:28px;height:28px;opacity:0.35" tabindex="-1">↩</button>
-      <button id="btn-redo" onclick="redoLast()" aria-label="Rétablir" title="Rien à rétablir" disabled style="background:none;border:1px solid var(--border);border-radius:7px;padding:0;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s;font-size:15px;width:28px;height:28px;opacity:0.35" tabindex="-1">↪</button>
-      <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 3px"></div>
-      <button onclick="openSearch()" aria-label="Recherche" title="Recherche (Ctrl+K)" style="background:var(--primary-light);border:1.5px solid var(--primary);border-radius:8px;padding:0;cursor:pointer;color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;font-size:17px;width:36px;height:34px">🔍</button>
-      <div style="width:1px;height:18px;background:var(--border);flex-shrink:0;margin:0 3px"></div>
-      <button id="dark-toggle" onclick="toggleDark()" aria-label="Basculer le mode sombre" title="Mode sombre" style="background:none;border:1px solid transparent;border-radius:6px;padding:0;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s;opacity:0.7;font-size:13px;width:24px;height:24px">🌙</button>
-      <button class="tab-settings" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('changelog')" onkeydown="tabKeyNav(event,'changelog')" title="Changelog" style="background:none;border:1px solid transparent;border-radius:6px;padding:0;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s;opacity:0.7;font-size:13px;width:24px;height:24px">📋</button>
-      <button class="tab-settings" role="tab" aria-selected="false" tabindex="-1" onclick="switchTab('settings')"  onkeydown="tabKeyNav(event,'settings')"  title="Réglages" style="background:none;border:1px solid transparent;border-radius:6px;padding:0;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s;opacity:0.7;font-size:13px;width:24px;height:24px">⚙️</button>
+
+    <div class="sidebar-footer-actions" style="display:flex;align-items:center;justify-content:flex-end;padding:2px 2px">
+      <button class="sidebar-collapse-btn" onclick="toggleSidebar()" title="Réduire/Étendre" id="sidebar-collapse-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg></button>
     </div>
   </div>
 </aside>
+
+
+<!-- ══ APP HEADER ══ -->
+<header class="app-header" id="app-header">
+  <div class="hdr-page-title" id="hdr-page-title">Dashboard</div>
+  <div id="hdr-ctx"></div>
+
+  <button onclick="openSearch()" class="hdr-btn" title="Recherche (Ctrl+K)" aria-label="Recherche"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+
+  <!-- Notifications / Activité -->
+  <div style="position:relative">
+    <button class="hdr-btn" id="hdr-notif-btn" onclick="toggleNotifPanel()" title="Notifications &amp; Activité récente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></button>
+    <div class="hdr-dropdown hdr-notif-panel" id="hdr-notif-panel" style="display:none">
+      <div class="hdr-dropdown-tabs">
+        <button class="hdr-dropdown-tab active" id="hdr-ntab-notif"   onclick="setHdrNotifTab('notif')">Notifications</button>
+        <button class="hdr-dropdown-tab"        id="hdr-ntab-activity" onclick="setHdrNotifTab('activity')">Activité récente</button>
+      </div>
+      <div class="hdr-dropdown-body" id="hdr-notif-body">
+        <div class="hdr-notif-empty">Aucune notification</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hdr-sep"></div>
+
+  <!-- Undo / Redo -->
+  <button id="btn-undo" onclick="undoLast()" aria-label="Annuler" title="Rien à annuler" disabled class="hdr-btn hdr-btn-border"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+  <button id="btn-redo" onclick="redoLast()" aria-label="Rétablir" title="Rien à rétablir" disabled class="hdr-btn hdr-btn-border"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5a5.5 5.5 0 0 0 5.5 5.5H13"/></svg></button>
+
+  <div class="hdr-sep"></div>
+
+  <!-- Recherche -->
+  <div class="hdr-sep"></div>
+
+  <!-- Dark toggle -->
+  <button id="dark-toggle" onclick="toggleDark()" class="hdr-btn" title="Mode sombre/clair" aria-label="Basculer le mode sombre/clair"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+
+  <!-- Réglages -->
+  <button onclick="switchTab('settings')" class="hdr-btn" title="Réglages"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></button>
+
+  <div class="hdr-sep"></div>
+
+  <!-- Profil utilisateur -->
+  <div style="position:relative">
+    <button class="hdr-profile-btn" id="hdr-profile-btn" onclick="toggleProfilePanel()" title="Mon profil">A</button>
+    <div class="hdr-dropdown hdr-profile-panel" id="hdr-profile-panel" style="display:none">
+      <div class="hdr-profile-user" id="hdr-profile-name">Admin</div>
+      <select class="hdr-profile-select" id="current-user-select" title="Changer de profil actif" onchange="setCurrentUser(this.value)">
+        <option value="">Administrateur</option>
+      </select>
+      <div style="height:1px;background:var(--border);margin:6px 0"></div>
+      <button onclick="closeAllHdrPanels();switchTab('team')" style="width:100%;text-align:left;background:none;border:none;padding:6px 8px;font-size:12px;color:var(--text);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>Éditer le profil</button>
+      <button onclick="setCurrentUser('');closeAllHdrPanels()" style="width:100%;text-align:left;background:none;border:none;padding:6px 8px;font-size:12px;color:var(--text-muted);cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>Se déconnecter</button>
+    </div>
+  </div>
+</header>
 
 <!-- ══ CONTENT ══ -->
 <div class="content-area">
@@ -907,29 +1015,7 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
 
 <!-- ══════ PLANNING ══════ -->
 <div id="tab-planning" class="tab-content">
-  <div class="section-toolbar">
-    <div><div class="page-title">Release Planning</div></div>
-    <div style="flex:1"></div>
-    <button id="btn-add-sprint-header" onclick="addSprint()" style="padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:var(--r-sm);font-size:12px;font-weight:600;cursor:pointer">+ Sprint</button>
-  </div>
   <div style="padding:0 28px">
-  <div class="filter-bar">
-    <span class="t-micro" style="margin-right:2px">Filtrer :</span>
-    <button class="filter-btn active" onclick="setFilter('all',this)">Tous</button>
-    <button class="filter-btn" onclick="setFilter('faxfa',this)">FAXFA</button>
-    <button class="filter-btn" onclick="setFilter('manfife',this)">MANFIFE</button>
-    <button class="filter-btn" onclick="setFilter('aganor',this)">AGANOR</button>
-    <button class="filter-btn" onclick="setFilter('socle',this)">Socle</button>
-    <button class="filter-btn" onclick="setFilter('pme',this)">PME</button>
-    <button class="filter-btn" onclick="setFilter('bug',this)">🐛 Bugs</button>
-    <div style="flex:1"></div>
-    <button id="btn-add-sprint-toolbar" onclick="addSprint()" style="padding:6px 14px;border-radius:7px;border:1.5px dashed var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s" onmouseover="this.style.borderColor='var(--primary)';this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">＋ Ajouter un sprint</button>
-    <div style="display:flex;gap:2px;border:1px solid var(--border);border-radius:7px;overflow:hidden;flex-shrink:0">
-      <button id="btn-view-grid" onclick="setPlanningView('grid')" title="Vue grille" style="padding:5px 10px;background:var(--primary);color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1">▦</button>
-      <button id="btn-view-cal"  onclick="setPlanningView('calendar')" title="Vue calendrier" style="padding:5px 10px;background:var(--surface);color:var(--text-muted);border:none;cursor:pointer;font-size:13px;line-height:1">📅</button>
-    </div>
-    <button onclick="exportPDF('planning')" style="padding:6px 14px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;" title="Exporter cette vue en PDF">📄 Exporter en PDF</button>
-  </div>
   <div class="sprints-grid" id="sprints-grid"></div>
   <div id="planning-calendar" style="display:none;padding:4px 0 12px"></div>
   <div class="unassigned-panel">
@@ -946,65 +1032,6 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
 
 <!-- ══════ BACKLOG ══════ -->
 <div id="tab-backlog" class="tab-content">
-  <div class="backlog-toolbar">
-    <div class="backlog-search-wrap">
-      <svg class="backlog-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="backlog-search" id="backlog-search" placeholder="Rechercher un item…" oninput="renderBacklog()"/>
-    </div>
-    <div class="filter-group">
-    <div class="fg-item">
-      <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      <select id="backlog-filter-client" onchange="renderBacklog()">
-        <option value="">Clients</option>
-        <option value="faxfa">FAXFA</option><option value="manfife">MANFIFE</option>
-        <option value="aganor">AGANOR</option><option value="socle">Socle commun</option>
-        <option value="pme">PME</option><option value="bug-urgent">Bug urgent</option>
-        <option value="bug-medium">Bug moyen</option><option value="bug-minor">Bug mineur</option>
-      </select>
-      <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    <div class="fg-item">
-      <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <select id="backlog-filter-sprint" onchange="renderBacklog()">
-        <option value="">Sprints</option>
-      </select>
-      <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    <div class="fg-item">
-      <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="11" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="14 9 17 6 20 9"/><polyline points="14 15 17 18 20 15"/></svg>
-      <select id="backlog-sort" onchange="renderBacklog()">
-        <option value="priority">Priorité</option>
-        <option value="key">Clé</option>
-        <option value="sprint">Sprint</option>
-        <option value="deadline">Deadline</option>
-        <option value="sp-desc">SP ↓</option>
-        <option value="sp-asc">SP ↑</option>
-      </select>
-      <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    <div class="fg-item">
-      <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/></svg>
-      <select id="backlog-group" onchange="renderBacklog()">
-        <option value="none">Grouper</option>
-        <option value="client">Client</option>
-        <option value="sprint">Sprint</option>
-        <option value="priority">Priorité</option>
-        <option value="deps">Dépendances</option>
-        <option value="epic">Epic</option>
-      </select>
-      <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    <div class="fg-item">
-      <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-      <select id="backlog-filter-tag" onchange="renderBacklog()">
-        <option value="">Tags</option>
-      </select>
-      <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    </div>
-    <button class="btn-primary" onclick="openModal(null)" style="white-space:nowrap;font-size:12px;padding:6px 14px">＋ Nouvel Item</button>
-
-  </div>
   <div class="backlog-table-wrap" style="padding:16px 20px"><div id="backlog-table-container"></div></div>
 </div>
 
@@ -1040,9 +1067,6 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
 
 <!-- ══════ ÉQUIPE ══════ -->
 <div id="tab-team" class="tab-content">
-  <div class="section-toolbar">
-    <div class="page-title">Équipe RH</div>
-  </div>
   <div id="team-cap-banner" style="display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--primary-light);border-bottom:1px solid var(--border);font-size:11px;flex-wrap:wrap"></div>
   <div style="padding:0 28px">
   <div class="section-title" style="margin-top:14px">👥 Membres de l'équipe</div>
@@ -1076,7 +1100,7 @@ body.dark .sprint-card{border-color:rgba(255,255,255,.07)!important;box-shadow:0
 
 <!-- ══════ RÉGLAGES ══════ -->
 <div id="tab-settings" class="tab-content">
-  <div style="max-width:680px;display:flex;flex-direction:column;gap:20px;" id="settings-body"></div>
+  <div style="max-width:880px;display:flex;flex-direction:column;gap:20px;" id="settings-body"></div>
 </div>
 
 <!-- ══════ IMPORT MODAL ══════ -->
@@ -1342,10 +1366,79 @@ const S = (function buildState(){
 //  DARK MODE
 // ════════════════════════════════
 updateCurrentUserUI();
+
+function toggleSidebar(){const hdr=document.getElementById('app-header');if(hdr)hdr.classList.toggle('sb-collapsed');
+  const sb=document.querySelector('.sidebar');
+  const btn=document.getElementById('sidebar-collapse-btn');
+  const collapsed=sb.classList.toggle('collapsed');
+  localStorage.setItem('cadenceSidebarCollapsed',collapsed?'1':'0');
+  const pathCollapse='<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/>';
+  const pathExpand='<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>';
+  if(btn){btn.querySelector('svg').innerHTML=collapsed?pathExpand:pathCollapse;}
+}
+function initSidebar(){const hdr=document.getElementById('app-header');
+  if(localStorage.getItem('cadenceSidebarCollapsed')==='1'){
+    document.querySelector('.sidebar')?.classList.add('collapsed');if(hdr)hdr.classList.add('sb-collapsed');
+    const btn=document.getElementById('sidebar-collapse-btn');
+    const pathExpand='<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>';
+    if(btn)btn.querySelector('svg').innerHTML=pathExpand;
+  }
+}
+
+// ════ APP HEADER ════
+function toggleNotifPanel(){
+  const panel=document.getElementById('hdr-notif-panel');
+  if(!panel)return;
+  const open=panel.style.display==='none';
+  closeAllHdrPanels();
+  if(open){panel.style.display='block';setHdrNotifTab('notif');}
+}
+function toggleProfilePanel(){
+  const panel=document.getElementById('hdr-profile-panel');
+  if(!panel)return;
+  const open=panel.style.display==='none';
+  closeAllHdrPanels();
+  if(open){panel.style.display='block';}
+}
+function closeAllHdrPanels(){
+  ['hdr-notif-panel','hdr-profile-panel'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.style.display='none';
+  });
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#hdr-notif-btn')&&!e.target.closest('#hdr-notif-panel'))document.getElementById('hdr-notif-panel')&&(document.getElementById('hdr-notif-panel').style.display='none');
+  if(!e.target.closest('#hdr-profile-btn')&&!e.target.closest('#hdr-profile-panel'))document.getElementById('hdr-profile-panel')&&(document.getElementById('hdr-profile-panel').style.display='none');
+});
+let _hdrNotifTab='notif';
+function setHdrNotifTab(tab){
+  _hdrNotifTab=tab;
+  ['notif','activity'].forEach(t=>{
+    const btn=document.getElementById('hdr-ntab-'+t);
+    if(btn)btn.classList.toggle('active',t===tab);
+  });
+  renderHdrNotifBody();
+}
+function renderHdrNotifBody(){
+  const body=document.getElementById('hdr-notif-body');if(!body)return;
+  if(_hdrNotifTab==='notif'){
+    body.innerHTML='<div class="hdr-notif-empty">Aucune notification</div>';
+  } else {
+    const hist=[...(S.history||[])].reverse().slice(0,20);
+    if(!hist.length){body.innerHTML='<div class="hdr-notif-empty">Aucune activité récente</div>';return;}
+    body.innerHTML=hist.map(h=>{
+      const who=(S.team||[]).find(m=>m.id===h.author);
+      const byLine=h.author?(` · ${escHtml(who?who.name:'Admin')}`):'';
+      const d=h.date?new Date(h.date).toLocaleDateString('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+      return `<div class="hdr-activity-item" style="border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:2px"><span style="font-weight:600;color:var(--text)">${escHtml(h.desc||'')}</span>${byLine}<span style="display:block;font-size:10px;color:var(--text-muted);margin-top:1px">${d}</span></div>`;
+    }).join('')+'<a class="hdr-hist-link" onclick="closeAllHdrPanels();switchTab(\'historique\')">Voir tout l\'historique</a>';
+  }
+}
+// (switchTab hook removed — title update now inside main switchTab)
+
 function toggleDark(){
   const isDark=document.body.classList.toggle('dark');
   const btn=document.getElementById('dark-toggle');
-  if(btn)btn.textContent=isDark?'☀️':'🌙';
+  if(btn){const svg=btn.querySelector('svg');if(svg)svg.innerHTML=isDark?'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>':'<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';}
   try{localStorage.setItem('cadenceDark',isDark?'1':'0');}catch(e){}
 }
 // Restore dark mode preference on load
@@ -1354,7 +1447,7 @@ function toggleDark(){
     if(localStorage.getItem('cadenceDark')==='1'){
       document.body.classList.add('dark');
       const btn=document.getElementById('dark-toggle');
-      if(btn)btn.textContent='☀️';
+      if(btn){const svg=btn.querySelector('svg');if(svg)svg.innerHTML='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>';}
     }
   }catch(e){}
 })();
@@ -1413,7 +1506,7 @@ function saveUndoSnapshot(desc){
 
 function addHistoryEntry(type,desc,extra){
   if(!extra)extra={};
-  if(!extra.author)extra.author=getCurrentUserId()||null;
+  if(!extra.author){const uid=getCurrentUserId();extra.author=uid||'admin';}
   if(!S.history)S.history=[];
   const e={ts:Date.now(),type,desc};
   if(extra)Object.assign(e,extra);
@@ -1856,6 +1949,7 @@ function setActiveSprint(sprintId){
   renderSidebarSprintGoal();
   render(); // re-render sprint cards to update button state
   if(document.getElementById('tab-dashboard').classList.contains('active'))renderDashboard();
+  initSidebar();
 }
 
 function sprintDayProgress(sprintIdx){
@@ -3009,19 +3103,145 @@ function updateFilterActiveStates(){
     item.classList.toggle('filter-active',isActive(sel.value));
   });
 }
+
+
+function renderPlanningHdr(){
+  const ctx=document.getElementById('hdr-ctx');if(!ctx)return;
+  const view=window._planningView||'grid';
+  const curFilter=window._planningFilter||'all';
+  const CLIENTS_OPTS=[
+    {v:'all',l:'Tous'},
+    {v:'faxfa',l:'FAXFA'},
+    {v:'manfife',l:'MANFIFE'},
+    {v:'aganor',l:'AGANOR'},
+    {v:'socle',l:'Socle'},
+    {v:'pme',l:'PME'},
+    {v:'bug',l:'Bugs'},
+  ];
+  const VIEW_OPTS=[
+    {v:'grid',l:'Grille',icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'},
+    {v:'calendar',l:'Calendrier',icon:'M3 4h18v2H3zM3 8h18v12H3zM8 2v4M16 2v4'},
+  ];
+  const clientOpts=CLIENTS_OPTS.map(f=>`<option value="${f.v}"${f.v===curFilter?' selected':''}>${f.l}</option>`).join('');
+  const viewIcon=VIEW_OPTS.find(o=>o.v===view)?.icon||VIEW_OPTS[0].icon;
+  const viewOpts=VIEW_OPTS.map(o=>`<option value="${o.v}"${o.v===view?' selected':''}>${o.l}</option>`).join('');
+  ctx.innerHTML=`
+    <div style="flex:1"></div>
+    <div class="filter-group">
+      <div class="fg-item">
+        <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <select onchange="setPlanningFilterHdr(this.value)">${clientOpts}</select>
+        <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="fg-item">
+        <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <select onchange="setPlanningView(this.value)">${viewOpts}</select>
+        <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+    <div class="hdr-ctx-sep"></div>
+    <button class="hdr-ctx-btn active" id="btn-add-sprint-toolbar" onclick="addSprint()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Sprint
+    </button>
+    <button class="hdr-ctx-btn" onclick="exportPDF('planning')" title="Exporter en PDF">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+      PDF
+    </button>`;
+}
+function setPlanningFilterHdr(client){
+  window._planningFilter=client;
+  S.activeFilter=client;
+  render();
+}
+
+function renderBacklogHdr(){
+  const ctx=document.getElementById('hdr-ctx');if(!ctx)return;
+  // Preserve existing select values before re-rendering
+  const vClient=document.getElementById('backlog-filter-client')?.value||'';
+  const vSprint=document.getElementById('backlog-filter-sprint')?.value||'';
+  const vSort=document.getElementById('backlog-sort')?.value||'priority';
+  const vGroup=document.getElementById('backlog-group')?.value||'none';
+  const vTag=document.getElementById('backlog-filter-tag')?.value||'';
+  ctx.innerHTML=`
+    <div style="flex:1"></div>
+    <div class="filter-group">
+      <div class="fg-item">
+        <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <select id="backlog-filter-client" onchange="renderBacklog()">
+          <option value="">Clients</option>
+          <option value="faxfa"${vClient==='faxfa'?' selected':''}>FAXFA</option>
+          <option value="manfife"${vClient==='manfife'?' selected':''}>MANFIFE</option>
+          <option value="aganor"${vClient==='aganor'?' selected':''}>AGANOR</option>
+          <option value="socle"${vClient==='socle'?' selected':''}>Socle commun</option>
+          <option value="pme"${vClient==='pme'?' selected':''}>PME</option>
+          <option value="bug-urgent"${vClient==='bug-urgent'?' selected':''}>Bug urgent</option>
+          <option value="bug-medium"${vClient==='bug-medium'?' selected':''}>Bug moyen</option>
+          <option value="bug-minor"${vClient==='bug-minor'?' selected':''}>Bug mineur</option>
+        </select>
+        <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="fg-item">
+        <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <select id="backlog-filter-sprint" onchange="renderBacklog()">
+          <option value="">Sprints</option>
+        </select>
+        <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="fg-item">
+        <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="11" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="14 9 17 6 20 9"/><polyline points="14 15 17 18 20 15"/></svg>
+        <select id="backlog-sort" onchange="renderBacklog()">
+          <option value="priority"${vSort==='priority'?' selected':''}>Priorité</option>
+          <option value="key"${vSort==='key'?' selected':''}>Clé</option>
+          <option value="sprint"${vSort==='sprint'?' selected':''}>Sprint</option>
+          <option value="deadline"${vSort==='deadline'?' selected':''}>Deadline</option>
+          <option value="sp-desc"${vSort==='sp-desc'?' selected':''}>SP ↓</option>
+          <option value="sp-asc"${vSort==='sp-asc'?' selected':''}>SP ↑</option>
+        </select>
+        <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="fg-item">
+        <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/></svg>
+        <select id="backlog-group" onchange="renderBacklog()">
+          <option value="none"${vGroup==='none'?' selected':''}>Grouper</option>
+          <option value="client"${vGroup==='client'?' selected':''}>Client</option>
+          <option value="sprint"${vGroup==='sprint'?' selected':''}>Sprint</option>
+          <option value="priority"${vGroup==='priority'?' selected':''}>Priorité</option>
+          <option value="deps"${vGroup==='deps'?' selected':''}>Dépendances</option>
+          <option value="epic"${vGroup==='epic'?' selected':''}>Epic</option>
+        </select>
+        <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="fg-item">
+        <svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <select id="backlog-filter-tag" onchange="renderBacklog()">
+          <option value="">Tags</option>
+        </select>
+        <svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+    <div class="hdr-ctx-sep"></div>
+    <button class="hdr-ctx-btn active" onclick="openModal(null)" style="gap:4px">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nouvel Item
+    </button>`;
+  // Restore sprint/tag options right away (renderBacklog will also call updateFilterActiveStates)
+}
+
 function renderBacklog(){
+  const _savedSp=document.getElementById('backlog-filter-sprint')?.value||'';
+  const _savedTag=document.getElementById('backlog-filter-tag')?.value||'';
+  renderBacklogHdr();
   // Update sprint filter dropdown
   const spSel=document.getElementById('backlog-filter-sprint');
-  const curSpVal=spSel?.value||'';
-  if(spSel)spSel.innerHTML='<option value="">Sprints</option>'+S.sprints.map(sp=>`<option value="${sp.id}" ${curSpVal===sp.id?'selected':''}>${sprintName(sp)}</option>`).join('')+'<option value="unassigned" '+('unassigned'===curSpVal?'selected':'')+'>Non assigné</option>';
+  if(spSel)spSel.innerHTML='<option value="">Sprints</option>'+S.sprints.map(sp=>`<option value="${sp.id}" ${_savedSp===sp.id?'selected':''}>${sprintName(sp)}</option>`).join('')+'<option value="unassigned" '+('unassigned'===_savedSp?'selected':'')+'>Non assigné</option>';
 
   // Peupler le filtre tag
   const tagSel=document.getElementById('backlog-filter-tag');
-  const curTagVal=tagSel?.value||'';
   if(tagSel)tagSel.innerHTML=_tagFilterOptions();
-  if(tagSel&&curTagVal)tagSel.value=curTagVal;
+  if(tagSel&&_savedTag)tagSel.value=_savedTag;
 
-  const search=(document.getElementById('backlog-search')?.value||'').toLowerCase();
+  const search='';
   const fc=document.getElementById('backlog-filter-client')?.value||'';
   const fs=document.getElementById('backlog-filter-sprint')?.value||'';
   const ft=document.getElementById('backlog-filter-tag')?.value||'';
@@ -3811,7 +4031,15 @@ function renderSettings(){
       <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Efface toutes les données et repart d'un projet vide. C'est l'état qu'un nouvel utilisateur voit à la première ouverture.</p>
       <p style="font-size:11px;color:var(--danger);font-weight:600;margin-bottom:14px">⚠️ Irréversible. Pensez à exporter vos données avant.</p>
       <button onclick="openResetModal()" style="padding:8px 18px;border-radius:8px;border:1px solid var(--danger);background:var(--danger-light);color:var(--danger);font-size:13px;font-weight:600;cursor:pointer">🗑️ Réinitialiser - projet vide…</button>
-    </div>`;
+    </div>
+
+    <!-- Changelog -->
+    <div style="background:var(--surface);border-radius:11px;border:1px solid var(--border);padding:18px 20px;">
+      <div class="section-title" style="margin-bottom:14px">Changelog</div>
+      <div id="settings-changelog-body"></div>
+    </div>
+  `;
+  setTimeout(()=>renderChangelog(document.getElementById('settings-changelog-body')),0);
 }
 
 function saveSettings(){
@@ -4406,11 +4634,11 @@ function _wContent(widgetId,sprint,sprintIdx,expanded,size){
       return`<div style="display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border)">
         <span style="font-size:8px;font-weight:700;padding:2px 4px;border-radius:4px;background:${cfg.bg};color:${cfg.col};white-space:nowrap;flex-shrink:0;margin-top:1px">${cfg.lbl}</span>
         <div style="flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:${isS?'nowrap':'normal'}">${escHtml(h.desc)}</div>
-        ${h.author&&(S.team||[]).find(t=>t.id===h.author)?`<div style="font-size:9px;color:var(--primary);white-space:nowrap;flex-shrink:0">👤 ${escHtml((S.team||[]).find(t=>t.id===h.author).name)}</div>`:''}
+        ${h.author?(()=>{const m=(S.team||[]).find(t=>t.id===h.author);return`<div style="font-size:9px;color:var(--primary);white-space:nowrap;flex-shrink:0">👤 ${escHtml(m?m.name:'Admin')}</div>`;})():''}
         <div style="font-size:9px;color:var(--text-muted);white-space:nowrap;flex-shrink:0">${fmtT(h.ts)}</div>
       </div>`;
     }).join('');
-    return rows+(!isL?`<div style="text-align:center;padding-top:6px"><button style="font-size:10px;color:var(--primary);background:none;border:none;cursor:pointer" onclick="switchTab('historique')">Voir tout →</button></div>`:'');
+    return rows+(!isL?`<div style="text-align:center;padding-top:6px"><button style="font-size:10px;color:var(--primary);background:none;border:none;cursor:pointer" onclick="switchTab('historique')" title="Historique">Voir tout →</button></div>`:'');
   }
 
   // ── SP CLIENTS ──────────────────────────────────────────────────
@@ -4716,7 +4944,103 @@ function renderSidebarSprintGoal(){
 }
 
 
+
+// ── Context header renderers ──────────────────────────
+function renderDashboardHdr(){
+  const ctxEl=document.getElementById('hdr-ctx');if(!ctxEl)return;
+  const curIdx=Math.min(S.dashboardSprintIdx??0,S.sprints.length-1);
+  const curSprint=S.sprints[curIdx];
+  const layout=getDashLayout();
+  const editActive=_dashEditMode;
+  // Layout icons: 2 side-by-side rects (row) or 2 stacked rects (column)
+  const dirIconRow=`<svg width="14" height="12" viewBox="0 0 20 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="7.5" height="12" rx="1.5"/><rect x="11.5" y="1" width="7.5" height="12" rx="1.5"/></svg>`;
+  const dirIconCol=`<svg width="12" height="14" viewBox="0 0 14 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="12" height="7.5" rx="1.5"/><rect x="1" y="11.5" width="12" height="7.5" rx="1.5"/></svg>`;
+  const dirIcon=layout.direction==='row'?dirIconCol:dirIconRow;
+  const dirTip=layout.direction==='row'?'Passer en zones horizontales':'Passer en zones verticales';
+  // Short sprint name in select (Sprint N), full label shown after
+  const sprintShortOpts=S.sprints.map((sp,i)=>`<option value="${i}" ${i===curIdx?'selected':''}>Sprint ${sp.number}${S.activeSprintId===sp.id?' ★':''}</option>`).join('');
+  const sprintLabel=curSprint?.label?escHtml(curSprint.label):'';
+  const sprintSel=`<div class="fg-item"><svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><select class="form-input form-select" style="height:30px;padding:4px 24px 4px 26px;font-size:12px;min-width:100px" onchange="S.dashboardSprintIdx=parseInt(this.value);renderDashboard()">${sprintShortOpts}</select><svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>${sprintLabel?`<div class="hdr-ctx-sep"></div><span class="hdr-ctx-stat" style="font-size:12px;color:var(--text)">${sprintLabel}</span>`:''}`;
+  ctxEl.innerHTML=`${sprintSel}
+    ${editActive?`<div class="hdr-ctx-sep"></div><span class="hdr-ctx-stat">Glisser · S/M/L · couleur</span>`:''}
+    <div style="flex:1"></div>
+    ${editActive?`<button class="hdr-ctx-btn" onclick="toggleDashDirection()" title="${dirTip}">${dirIcon}</button>`:''}
+    ${editActive?`<button class="hdr-ctx-btn" onclick="resetDashLayout()" style="background:rgba(255,59,48,.18);color:#fff;border-color:rgba(255,59,48,.3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Réinit.</button>`:''}
+    ${editActive?'<div class="hdr-ctx-sep"></div>':''}
+    <button class="hdr-ctx-btn${editActive?' active':''}" onclick="toggleDashEdit()">${editActive?`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Terminé`:`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Modifier`}</button>`;
+}
+
+function renderKanbanHdr(){
+  const ctxEl=document.getElementById('hdr-ctx');if(!ctxEl)return;
+  const sprintId=S.kanbanSprintId||S.sprints[0]?.id;
+  const curSprint=S.sprints.find(sp=>sp.id===sprintId);
+  const sprintShortOpts=S.sprints.map(sp=>`<option value="${sp.id}" ${sp.id===sprintId?'selected':''}>Sprint ${sp.number}</option>`).join('');
+  const sprintLabel=curSprint?.label?`<div class="hdr-ctx-sep"></div><span class="hdr-ctx-stat" style="font-size:12px;color:var(--text)">${escHtml(curSprint.label)}</span>`:'';
+  const rm=S.roadmap?.find(g=>g.sprintId===sprintId);
+  const goalBadge=rm?.goal&&rm.goal!=='Sprint Goal à définir'
+    ?`<div class="hdr-ctx-sep"></div><span class="hdr-ctx-stat" style="color:var(--primary)">${escHtml(rm.goal)}</span>`:'';
+  const CHEV='<svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const sortSel=`<div class="fg-item"><svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="11" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="14 9 17 6 20 9"/><polyline points="14 15 17 18 20 15"/></svg><select onchange="_kanbanSort=this.value;renderKanban()"><option value="default" ${_kanbanSort==='default'?'selected':''}>Ordre</option><option value="priority" ${_kanbanSort==='priority'?'selected':''}>Priorité</option><option value="type" ${_kanbanSort==='type'?'selected':''}>Type</option><option value="client" ${_kanbanSort==='client'?'selected':''}>Client</option><option value="sp" ${_kanbanSort==='sp'?'selected':''}>Story Points</option><option value="date" ${_kanbanSort==='date'?'selected':''}>Date</option></select>${CHEV}</div>`;
+  const sprintFgItem=`<div class="fg-item"><svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><select style="min-width:100px" onchange="S._kanbanManualOverride=true;S.kanbanSprintId=this.value;renderKanban()">${sprintShortOpts}</select>${CHEV}</div>`;
+  ctxEl.innerHTML=`${sprintFgItem}${sprintLabel}${goalBadge}<div style="flex:1"></div><div class="filter-group">${sortSel}</div><button class="hdr-ctx-btn${_kanbanColReorder?' active':''}" onclick="_kanbanColReorder=!_kanbanColReorder;renderKanban()" title="Réorganiser les colonnes par glisser-déposer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="19" r="1" fill="currentColor"/><circle cx="15" cy="5" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="19" r="1" fill="currentColor"/></svg> Réorganiser</button><div class="hdr-ctx-sep"></div><button class="hdr-ctx-btn active" onclick="showKanbanCatalog(this)" title="Ajouter une colonne"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Colonne</button>`;
+}
+
+function renderAutoHdr(){
+  const ctxEl=document.getElementById('hdr-ctx');if(!ctxEl)return;
+  const activeCount=AP.criteria.filter(c=>c.active).length;
+  const totalToPlace=S.unassigned.length+S.sprints.reduce((s,sp)=>{
+    const lastDone=S.kanbanColumns[S.kanbanColumns.length-1];
+    return s+sp.items.filter(it=>it.status!==lastDone.id).length;
+  },0);
+  ctxEl.innerHTML=`<span class="hdr-ctx-stat">${totalToPlace} US · ${S.sprints.length} sprint${S.sprints.length>1?'s':''}</span>
+    <div style="flex:1"></div>
+    <button class="hdr-ctx-btn active" onclick="runAutoPlanning();toast('Proposition générée','info')" ${activeCount===0?'disabled':''}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Générer</button>
+    ${AP.proposal?`<button class="hdr-ctx-btn active" onclick="if(confirm('Appliquer cette planification ?'))applyAutoPlanning()" style="background:var(--success);border-color:var(--success)">✔ Appliquer</button>`:''}
+    ${AP.proposal?`<button class="hdr-ctx-btn" onclick="AP.proposal=null;renderAutoPlanning()">✕ Annuler</button>`:''}`;
+}
+
+function renderDailyHdr(){
+  const ctxEl=document.getElementById('hdr-ctx');if(!ctxEl)return;
+  const sprint=S.sprints.find(s=>s.id===S.activeSprintId)||S.sprints[0];
+  const mins=String(Math.floor(_dailySeconds/60)).padStart(2,'0');
+  const secs=String(_dailySeconds%60).padStart(2,'0');
+  const isDone=_dailySeconds===0;
+  const timerColor=isDone?'var(--danger)':_dailySeconds<180?'var(--danger)':_dailySeconds<300?'var(--warning)':'var(--success)';
+  ctxEl.innerHTML=`${sprint?`<span class="hdr-ctx-stat">${escHtml('Sprint '+sprint.number+' - '+sprint.label)}</span>`:''}
+    <div style="flex:1"></div>
+    <span style="font-size:14px;font-weight:800;font-family:monospace;color:${timerColor}${isDone?';animation:timer-end-flash 0.6s 4':''}" id="daily-timer-display">${mins}:${secs}</span>
+    <button class="hdr-ctx-btn${_dailyRunning?' active':''}" onclick="dailyTimerToggle()" title="${_dailyRunning?'Pause':'Démarrer'}">${_dailyRunning?`<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`:`<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3"/></svg>`}</button>
+    <button class="hdr-ctx-btn" onclick="dailyTimerReset()" title="Réinitialiser"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
+    <div class="fg-item"><select onchange="dailyTimerSet(parseInt(this.value))" style="min-width:72px"><option value="1800">30 min</option><option value="1200">20 min</option><option value="900" selected>15 min</option><option value="600">10 min</option><option value="300">5 min</option></select><svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+    <div class="hdr-ctx-sep"></div>
+    <button class="hdr-btn" onclick="exportDailySummary()" title="Copier le résumé"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+    <button class="hdr-btn" onclick="archiveDaily()" title="Archiver ce daily"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg></button>
+    <button class="hdr-btn" onclick="clearDailyData()" title="Effacer toutes les saisies"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`;
+}
+
+function renderRetroHdr(){
+  const ctxEl=document.getElementById('hdr-ctx');if(!ctxEl)return;
+  const sprints=S.sprints||[];
+  if(!_retroSprintId&&sprints.length)_retroSprintId=sprints[0].id;
+  const retro=_retroSprintId?getOrCreateRetro(_retroSprintId):null;
+  const curSprint=sprints.find(s=>s.id===_retroSprintId);
+  const sprintShortOpts=sprints.map(s=>`<option value="${s.id}"${s.id===_retroSprintId?'selected':''}>Sprint ${s.number}</option>`).join('');
+  const sprintLabel=curSprint?.label?`<div class="hdr-ctx-sep"></div><span class="hdr-ctx-stat" style="font-size:12px;color:var(--text)">${escHtml(curSprint.label)}</span>`:'';
+  const fmtOpts=retro?'<option value="">Format</option>'+Object.entries(RETRO_FORMATS).map(([k,f])=>`<option value="${k}">${f.label}</option>`).join(''):'';
+  const CHEV='<svg class="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const CAL='<svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+  ctxEl.innerHTML=`<div class="filter-group"><div class="fg-item">${CAL}<select style="min-width:100px" onchange="_retroSprintId=this.value;renderRetro()">${sprintShortOpts}</select>${CHEV}</div></div>${sprintLabel}<div style="flex:1"></div>${retro?`<div class="filter-group"><div class="fg-item"><svg class="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg><select onchange="setRetroFormat('${retro.id}',this.value);this.value=''">${fmtOpts}</select>${CHEV}</div></div>`:''}`;
+}
+
+function renderClientsHdr(){
+  const ctxEl=document.getElementById('hdr-ctx');if(!ctxEl)return;
+  const activeTab=CLIENTS_VIEW.ganttView?'gantt':'list';
+  ctxEl.innerHTML=`<button class="hdr-ctx-btn${activeTab==='list'?' active':''}" onclick="CLIENTS_VIEW.ganttView=false;renderClients()">📋 Liste</button>
+    <button class="hdr-ctx-btn${activeTab==='gantt'?' active':''}" onclick="CLIENTS_VIEW.ganttView=true;renderClients()">📅 Timeline</button>`;
+}
+
 function renderDashboard(){
+  renderDashboardHdr();
   if(S.dashboardSprintIdx==null){
     if(S.activeSprintId){const ai=S.sprints.findIndex(s=>s.id===S.activeSprintId);if(ai>=0)S.dashboardSprintIdx=ai;}
     if(S.dashboardSprintIdx==null)S.dashboardSprintIdx=currentSprintIdx();
@@ -4732,18 +5056,6 @@ function renderDashboard(){
   const dirIcon=layout.direction==='row'?'⬛↔':'⬛↕';
   const dirTip=layout.direction==='row'?'Passer en zones horizontales':'Passer en zones verticales';
   const editActive=_dashEditMode;
-  const toolbar=`<div class="dash-toolbar">
-    <div style="display:flex;align-items:center;gap:8px">
-      <span style="font-size:10px;font-weight:700;color:var(--text-muted)">SPRINT</span>
-      ${sprintSel}
-      ${editActive?`<span style="font-size:10px;color:var(--text-muted);font-style:italic;margin-left:4px">Glisser · S/M/L · couleur</span>`:''}
-    </div>
-    <div style="display:flex;align-items:center;gap:6px">
-      ${editActive?`<button onclick="toggleDashDirection()" title="${dirTip}" style="font-size:12px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);cursor:pointer">${dirIcon}</button>`:''}
-      ${editActive?`<button onclick="resetDashLayout()" style="font-size:11px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:none;color:var(--danger);cursor:pointer">↺ Réinit.</button>`:''}
-      <button onclick="toggleDashEdit()" style="font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid ${editActive?'var(--primary)':'var(--border)'};background:${editActive?'var(--primary)':'var(--surface2)'};color:${editActive?'#fff':'var(--text)'};cursor:pointer">${editActive?'✓ Terminé':'✏️ Modifier'}</button>
-    </div>
-  </div>`;
 
   const ZONE_COLORS=['blue','green','amber','purple','rose',null];
   const ZONE_COLOR_HEX={blue:'#3b82f6',green:'#22c55e',amber:'#f59e0b',purple:'#a855f7',rose:'#f43f5e'};
@@ -4774,8 +5086,7 @@ function renderDashboard(){
     </div>`;
   }
 
-  document.getElementById('dashboard-body').innerHTML=toolbar
-    +`<div class="dash-zones-wrap dir-${layout.direction}">`
+  document.getElementById('dashboard-body').innerHTML=`<div class="dash-zones-wrap dir-${layout.direction}">`
     +renderZone('Vue générale','general',generalW,layout.zones.general)
     +renderZone('Sprint en cours','sprint',sprintW,layout.zones.sprint)
     +'</div>';
@@ -4937,6 +5248,7 @@ function drawBurndown(sprint,sprintIdx,_cId){
 let _dragItemId=null;
 
 function renderKanban(){
+  renderKanbanHdr();
   // Anchor to active sprint if set and not manually overridden
   if(S.activeSprintId&&!S._kanbanManualOverride)S.kanbanSprintId=S.activeSprintId;
   const sprintId=S.kanbanSprintId||S.sprints[0].id;
@@ -5021,20 +5333,9 @@ function renderKanban(){
   }).join('');
 
   document.getElementById('kanban-body').innerHTML=`
-    <div class="kanban-toolbar">
-      <label style="font-size:12px;font-weight:600">Sprint :</label>
-      <select class="form-input form-select" style="width:auto;font-size:12px;padding:6px 24px 6px 10px" onchange="S._kanbanManualOverride=true;S.kanbanSprintId=this.value;renderKanban()">
-        ${sprintOpts}
-      </select>
-      ${(()=>{const rm=S.roadmap.find(g=>g.sprintId===sprintId);return rm?.goal&&rm.goal!=='Sprint Goal à définir'?`<div style="display:flex;align-items:center;gap:7px;padding:5px 12px;background:var(--primary-light);border-radius:8px;border:1px solid rgba(79,70,229,.2);max-width:420px;overflow:hidden"><span style="font-size:13px;flex-shrink:0">🎯</span><span style="font-size:11px;font-weight:600;color:var(--primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(rm.goal)}</span></div>`:'';})()}
-      <div style="flex:1"></div>
-      <div style="display:flex;align-items:center;gap:5px"><label style="font-size:11px;color:var(--text-muted);white-space:nowrap">Trier par :</label><select class="form-input form-select" style="width:auto;font-size:11px;padding:4px 22px 4px 8px" onchange="_kanbanSort=this.value;renderKanban()"><option value="default" ${_kanbanSort==='default'?'selected':''}>Ordre par défaut</option><option value="priority" ${_kanbanSort==='priority'?'selected':''}>Priorité (haute d'abord)</option><option value="type" ${_kanbanSort==='type'?'selected':''}>Type (epics puis stories)</option><option value="client" ${_kanbanSort==='client'?'selected':''}>Client (A-Z)</option><option value="sp" ${_kanbanSort==='sp'?'selected':''}>Story Points (gros d'abord)</option><option value="date" ${_kanbanSort==='date'?'selected':''}>Date d'ajout (récent d'abord)</option></select></div><button onclick="_kanbanColReorder=!_kanbanColReorder;renderKanban()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid ${_kanbanColReorder?'var(--primary)':' var(--border)'};background:${_kanbanColReorder?'var(--primary)':' transparent'};color:${_kanbanColReorder?'#fff':'var(--text-muted)'};cursor:pointer;white-space:nowrap" title="Glisser-déposer les colonnes pour les réorganiser">${_kanbanColReorder?'✓ Terminer':'⠿ Colonnes'}</button>
-    </div>
     <div class="kanban-board" id="kanban-board">
       ${colsHTML}
-      <div class="kanban-add-col">
-        <button class="kanban-add-col-btn" onclick="showKanbanCatalog(this)">＋ Colonne</button>
-      </div>
+
     </div>`;
 }
 
@@ -5146,8 +5447,8 @@ function showKanbanCatalog(btn){
   let panel=document.getElementById('kanban-catalog-panel');
   if(panel){panel.remove();return;}
   const activeIds=new Set(S.kanbanColumns.map(c=>c.id));
-  const wrap=btn.closest('.kanban-add-col');
-  wrap.style.position='relative';
+  const wrap=btn.closest('.kanban-add-col')||btn.parentElement;
+  if(!wrap.style.position)wrap.style.position='relative';
   panel=document.createElement('div');
   panel.id='kanban-catalog-panel';panel.className='kanban-catalog-panel';
   // Catalog entries
@@ -5234,16 +5535,12 @@ function renderSidebarClients(){
 }
 
 function renderClients(){
+  renderClientsHdr();
   const body=document.getElementById('clients-body');
   if(!body)return;
   // Sub-tabs
   const activeTab=CLIENTS_VIEW.ganttView?'gantt':'list';
-  body.innerHTML=`
-    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px;">
-      <button onclick="CLIENTS_VIEW.ganttView=false;renderClients()" style="padding:9px 20px;font-size:13px;font-weight:${activeTab==='list'?'700':'500'};border:none;border-bottom:${activeTab==='list'?'2px solid var(--primary)':'2px solid transparent'};background:none;color:${activeTab==='list'?'var(--primary)':'var(--text-muted)'};cursor:pointer">📋 Liste des clients</button>
-      <button onclick="CLIENTS_VIEW.ganttView=true;renderClients()"  style="padding:9px 20px;font-size:13px;font-weight:${activeTab==='gantt'?'700':'500'};border:none;border-bottom:${activeTab==='gantt'?'2px solid var(--primary)':'2px solid transparent'};background:none;color:${activeTab==='gantt'?'var(--primary)':'var(--text-muted)'};cursor:pointer">📅 Timeline par client</button>
-    </div>
-    <div id="clients-content"></div>`;
+  body.innerHTML=`<div id="clients-content"></div>`;
   if(CLIENTS_VIEW.ganttView) renderClientsGantt();
   else renderClientsList();
   if(S.clientsHighlight){
@@ -5540,15 +5837,21 @@ function deleteClient(clientId){
 //  TABS
 // ════════════════════════════════
 function switchTab(name){
-  const keys=['dashboard','backlog','roadmap','planning','auto','kanban','daily','review','retro','historique','clients','team','changelog','settings'];
+  const HDR_TITLES={dashboard:'Dashboard',backlog:'Product Backlog',roadmap:'Roadmap',planning:'Release Planning',auto:'Auto-planning',kanban:'Kanban',daily:'Daily Standup',review:'Sprint Review',retro:'Rétrospective',historique:'Historique',clients:'Clients',team:'RH',settings:'Réglages',changelog:'Changelog'};
   const tabs=document.querySelectorAll('.tab, .tab-settings');
-  tabs.forEach((t,i)=>{
-    const active=keys[i]===name;
+  tabs.forEach(t=>{
+    const m=t.getAttribute('onclick')?.match(/switchTab\(['"]([^'"]+)['"]\)/);
+    const tabName=m?m[1]:null;
+    const active=tabName===name;
     t.classList.toggle('active',active);
-    t.setAttribute('aria-selected',active);
+    t.setAttribute('aria-selected',String(active));
     t.setAttribute('tabindex',active?'0':'-1');
-    if(active)t.focus();
   });
+  // Update header page title
+  const titleEl=document.getElementById('hdr-page-title');
+  if(titleEl&&HDR_TITLES[name])titleEl.textContent=HDR_TITLES[name];
+  // Clear hdr-ctx immediately; each render fn populates it
+  const ctxEl=document.getElementById('hdr-ctx');if(ctxEl)ctxEl.innerHTML='';
   document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if(name==='dashboard')renderDashboard();
@@ -5561,7 +5864,7 @@ function switchTab(name){
   if(name==='settings'){renderSettings();renderDodSettings();renderTagsInSettings();}
   if(name==='changelog')renderChangelog();
   if(name==='historique')renderHistorique();
-  if(name==='planning'&&window._planningView==='calendar')setTimeout(renderPlanningCalendar,0);
+  if(name==='planning'){renderPlanningHdr();if(window._planningView==='calendar')setTimeout(renderPlanningCalendar,0);}
   if(name==='clients'){renderClients();renderSidebarClients();}
   if(name==='review')renderCeremonyStub(name);
   if(name==='daily')renderDaily();
@@ -5885,6 +6188,7 @@ function apToggleCrit(idx, checked){
 }
 
 function renderAutoPlanning(){
+  renderAutoHdr();
   const activeCount=AP.criteria.filter(c=>c.active).length;
   const clientCritActive=AP.criteria.find(c=>c.id==='client'&&c.active);
 
@@ -5927,16 +6231,6 @@ function renderAutoPlanning(){
   },0);
 
   document.getElementById('auto-body').innerHTML=`
-    <div style="padding:16px 0 8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div>
-        <h2 style="font-size:17px;font-weight:800;margin-bottom:2px">🤖 Auto-planning</h2>
-        <p style="font-size:11px;color:var(--text-muted)">${totalToPlace} US à planifier · ${S.sprints.length} sprint${S.sprints.length>1?'s':''} existants</p>
-      </div>
-      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="runAutoPlanning();toast('Proposition générée','info')" class="btn-primary" style="font-size:12px" ${activeCount===0?'disabled':''}>⚡ Générer la proposition</button>
-        ${AP.proposal?`<button onclick="if(confirm('Appliquer cette planification ? Les US non terminées seront redistribuées.'))applyAutoPlanning()" class="btn-primary" style="font-size:12px;background:var(--success)">✔ Appliquer</button>`:''}
-        ${AP.proposal?`<button onclick="AP.proposal=null;renderAutoPlanning()" class="btn-secondary" style="font-size:12px">✕ Annuler</button>`:''}
-      </div>
     </div>
     <div class="auto-layout">
       <div>
@@ -6857,6 +7151,7 @@ function getOrCreateRetro(sprintId){
 }
 
 function renderRetro(){
+  renderRetroHdr();
   const el=document.getElementById('tab-retro');if(!el)return;
   const sprints=S.sprints||[];
   if(!_retroSprintId&&sprints.length)_retroSprintId=sprints[0].id;
@@ -6947,21 +7242,6 @@ function renderRetro(){
   const memberOpts='<option value="">- Responsable -</option>'+S.team.map(m=>`<option value="${m.id}">${escHtml(m.name)}</option>`).join('');
 
   el.innerHTML=`
-    <!-- Header -->
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
-      <span style="font-size:20px">🔄</span>
-      <h2 style="margin:0;font-size:16px;font-weight:800">Rétrospective</h2>
-      <select onchange="_retroSprintId=this.value;renderRetro()"
-        style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">
-        ${sprintOpts}
-      </select>
-      ${retro?`<select onchange="setRetroFormat('${retro.id}',this.value)"
-        style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;cursor:pointer">
-        ${Object.entries(RETRO_FORMATS).map(([k,f])=>`<option value="${k}"${retro.format===k?'selected':''}>${f.label}</option>`).join('')}
-      </select>`:''}
-      <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${sprint?escHtml('Sprint '+sprint.number+' - '+sprint.label):''}</span>
-    </div>
-
     <!-- Board -->
     <div style="display:flex;gap:14px;align-items:flex-start;overflow-x:auto;padding-bottom:8px;margin-bottom:20px">
       ${colsHtml}
@@ -7165,6 +7445,7 @@ function _refreshDailyBlockers(){
 }
 
 function renderDaily(){
+  renderDailyHdr();
   const el=document.getElementById('tab-daily');if(!el)return;
   const members=S.team||[];
   if(!members.length){
@@ -7248,31 +7529,6 @@ function renderDaily(){
     </div>`;
 
   el.innerHTML=`
-    <!-- Header -->
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
-      <span style="font-size:20px">☀️</span>
-      <h2 style="margin:0;font-size:16px;font-weight:800">Daily Standup</h2>
-      ${sprint?`<span style="font-size:12px;color:var(--text-muted);background:var(--surface2);padding:3px 10px;border-radius:8px">${escHtml('Sprint '+sprint.number+' - '+sprint.label)}</span>`:''}
-      <span style="font-size:11px;color:var(--text-muted)">${new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span>
-
-      <!-- Timer -->
-      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px 12px">
-        <span style="font-size:18px;font-weight:800;font-family:monospace;color:${timerColor}" id="daily-timer-display">${mins}:${secs}</span>
-        <button onclick="dailyTimerToggle()" style="padding:4px 10px;border-radius:7px;border:none;background:${_dailyRunning?'var(--warning)':'var(--success)'};color:#fff;font-size:11px;font-weight:700;cursor:pointer">${_dailyRunning?'⏸ Pause':'▶ Démarrer'}</button>
-        <button onclick="dailyTimerReset()" style="padding:4px 10px;border-radius:7px;border:none;background:var(--surface2);color:var(--text);font-size:11px;font-weight:600;cursor:pointer">↺ Reset</button>
-        <select onchange="dailyTimerSet(parseInt(this.value))" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)">
-          <option value="900"${_dailySeconds===900&&!_dailyRunning?'selected':''}>15 min</option>
-          <option value="600">10 min</option>
-          <option value="300">5 min</option>
-        </select>
-      </div>
-
-      <!-- Export -->
-      <button onclick="exportDailySummary()" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer">📋 Copier</button>
-      <button onclick="archiveDaily()" style="padding:6px 14px;border-radius:8px;border:1px solid var(--primary);background:var(--primary-light);color:var(--primary);font-size:12px;font-weight:700;cursor:pointer" title="Sauvegarder ce daily pour la rétrospective / sprint review">📁 Archiver</button>
-      <button onclick="clearDailyData()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:12px;cursor:pointer" title="Effacer toutes les saisies">🗑️</button>
-    </div>
-
     <!-- Cards grid -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
       ${cardsHtml}
@@ -7459,6 +7715,7 @@ window._calState={year:new Date().getFullYear(),month:new Date().getMonth()};
 
 function setPlanningView(mode){
   window._planningView=mode;
+  if(typeof renderPlanningHdr==='function')renderPlanningHdr();
   const grid=document.getElementById('sprints-grid');
   const unassigned=document.querySelector('.unassigned-panel');
   const cal=document.getElementById('planning-calendar');
@@ -7849,7 +8106,7 @@ function renderHistorique(){
           <div style="font-size:9px;color:var(--text-muted);white-space:nowrap;min-width:92px;padding-top:2px;flex-shrink:0">${fmtTs(h.ts)}</div>
           <span style="font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;background:${cfg.bg};color:${cfg.color};white-space:nowrap;flex-shrink:0">${cfg.label}</span>
           <div style="font-size:11px;color:var(--text);flex:1">${escHtml(h.desc)}</div>
-          ${h.author&&(S.team||[]).find(t=>t.id===h.author)?`<div style="font-size:9px;color:var(--primary);white-space:nowrap;flex-shrink:0;padding-top:2px">👤 ${escHtml((S.team||[]).find(t=>t.id===h.author).name)}</div>`:''}
+          ${h.author?(()=>{const m=(S.team||[]).find(t=>t.id===h.author);return`<div style="font-size:9px;color:var(--primary);white-space:nowrap;flex-shrink:0;padding-top:2px">👤 ${escHtml(m?m.name:'Admin')}</div>`;})():''}
           ${h.sprintLabel?`<div style="font-size:9px;color:var(--text-muted);white-space:nowrap;flex-shrink:0;padding-top:2px">${escHtml(h.sprintLabel)}</div>`:''}
         </div>`;
       }).join('')):`<div style="padding:40px 0;text-align:center">
@@ -7862,8 +8119,8 @@ function renderHistorique(){
   </div>`;
 }
 
-function renderChangelog(){
-  const el=document.getElementById('tab-changelog');if(!el)return;
+function renderChangelog(targetEl){
+  const el=targetEl||document.getElementById('tab-changelog');if(!el)return;
 
   // Heatmap
   const today=new Date();
@@ -8072,14 +8329,63 @@ function renderChangelog(){
 }
 
 const CHANGELOG=[
-  {version:'v0.50.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Backlog – 3e passe design',current:true,changes:[
-    {tag:'fix',text:'Séparateurs verticaux thead supprimés (règle CSS th:not(:last-child) retirée)'},
-    {tag:'fix',text:'Colonne Clé centrée : dep-chain-badge en display:none (ne réserve plus d\'espace invisible)'},
-    {tag:'ux',text:'Toolbar : champ recherche pleine largeur à gauche, selects connectés en pill-group à droite'},
-    {tag:'ux',text:'Selects renommés Clients / Sprints / Trier par / Grouper / Tags, options sans préfixe redondant'},
-    {tag:'ux',text:'Badges assignés : fond uni couleur rôle, texte blanc, côte à côte avec gap'},
-    {tag:'ux',text:'Badges Client et Statut : largeur minimale uniforme'},
-    {tag:'ux',text:'En-tête colonne "Dép." → "Dépendances" (mot entier)'},
+  {version:'v0.56.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI v2 + fix filtres Backlog',current:true,changes:[
+    {tag:'ux',   text:'Dashboard : selecteur Sprint affiche "Sprint N" court, nom complet apres separateur'},
+    {tag:'ux',   text:'Dashboard : icone layout affiche l\'etat cible (pas l\'etat courant)'},
+    {tag:'ux',   text:'Backlog : filtres Client/Sprint/Priorite/Grouper/Tags et "Nouvel Item" alignes a droite'},
+    {tag:'ux',   text:'Backlog : filter-group en pill unique avec fond transparent (style macOS toolbar)'},
+    {tag:'ux',   text:'Release Planning : filtres alignes a droite, correction fonction setPlanningFilterHdr'},
+    {tag:'fix',  text:'Release Planning : filtre "Bugs" matche tous les sous-types (bug-urgent, bug-medium, bug-minor)'},
+    {tag:'ux',   text:'Auto-planning : boutons Generer/Appliquer/Annuler alignes a droite'},
+    {tag:'ux',   text:'Kanban : selecteur Sprint court + nom complet + objectif apres separateur'},
+    {tag:'ux',   text:'Kanban : Sort/Reorganiser/+Colonne alignes a droite'},
+    {tag:'ux',   text:'Retrospective : selecteur Sprint court + nom complet apres separateur'},
+    {tag:'ux',   text:'Retrospective : bouton Format toujours libelle "Format", reset apres selection'},
+    {tag:'fix',  text:'Backlog : correction bug perte valeur filtre Sprint/Tag lors du re-rendu (renderBacklog)'},
+    {tag:'fix',  text:'Recherche : ajout aria-label="Recherche" sur le bouton de recherche globale'},
+    {tag:'test', text:'Tests Playwright : 16 tests mis a jour suite a deplacement des controles dans le header'},
+  ]},
+    {version:'v0.55.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI header contextuel',current:false,changes:[
+    {tag:'fix',text:'Sidebar collapsed : le contenu se decale correctement vers la gauche (selecteur CSS ~ au lieu de +)'},
+    {tag:'ux',text:'Header : recherche placee avant notifications (acces plus frequent)'},
+    {tag:'ux',text:'Dashboard : champ Sprint elargi (min-width:170px), icones monochromes (crayon, direction, reset)'},
+    {tag:'ux',text:'Dashboard : bouton Reinit. avec fond rouge doux, controles edition pousses a droite'},
+    {tag:'ux',text:'Backlog : barre de recherche supprimee (Ctrl+K global suffit)'},
+    {tag:'ux',text:'Backlog : style des boutons alignes sur les controles generaux du header (reference design)'},
+    {tag:'ux',text:'Planning : filtre Client en menu deroulant unique ; Grille/Calendrier regroupes en menu Affichage'},
+    {tag:'ux',text:'Auto-planning : icone Generer en SVG monochrome'},
+    {tag:'ux',text:'Kanban : champ Sprint elargi, "Ordre par defaut" renomme "Ordre", "Colonnes" renomme "Reorganiser"'},
+    {tag:'ux',text:'Kanban : bouton "+ Colonne" deplace dans le header (style coherent avec les autres pages)'},
+    {tag:'ux',text:'Daily : timer et actions pousses a droite ; durees 20 min et 30 min ajoutees'},
+    {tag:'ux',text:'Daily : animation flash visuelle quand le timer arrive a zero'},
+    {tag:'ux',text:'Daily : boutons Copier/Archiver/Supprimer en icones seules avec infobulles'},
+    {tag:'ux',text:'Retrospective : champ Sprint elargi ; selecteur de format avec icone/label'},
+  ]},
+  {version:'v0.54.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Menu bar contextuel (macOS style)',current:false,changes:[
+    {tag:'fix',text:'Titre du header se met a jour selon la page active'},
+    {tag:'fix',text:'Onglet actif sidebar correctement identifie (matching par onclick, pas par index)'},
+    {tag:'fix',text:'Activite recente dans le dropdown affiche les bonnes descriptions'},
+    {tag:'fix',text:'Actions admin correctement attribuees dans Historique et dropdown'},
+    {tag:'fix',text:'Toolbars sticky ne passent plus sous le header fixe (top:44px)'},
+    {tag:'feat',text:'Dropdown profil : boutons Editer le profil et Se deconnecter'},
+    {tag:'feat',text:'Header contextuel (menu bar) : controles specifiques a chaque page dans le header'},
+    {tag:'feat',text:'Backlog : recherche + filtres + Nouvel Item dans le header'},
+    {tag:'feat',text:'Dashboard : selecteur de sprint + mode edition dans le header'},
+    {tag:'feat',text:'Kanban : selecteur de sprint + tri + colonnes dans le header'},
+    {tag:'feat',text:'Planning : filtres clients + vue grille/calendrier dans le header'},
+    {tag:'feat',text:'Auto-planning : stats + boutons Generer/Appliquer/Annuler dans le header'},
+    {tag:'feat',text:'Daily : timer + export + archive dans le header'},
+    {tag:'feat',text:'Retrospective : selecteur sprint + format dans le header'},
+    {tag:'feat',text:'Clients : tabs Liste/Timeline dans le header'},
+  ]},
+  
+  
+  {version:'v0.50.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Backlog – 3e passe design',current:false,changes:[
+    {tag:'fix',text:'Separateurs verticaux thead supprimes'},
+    {tag:'fix',text:'Colonne Cle centree : dep-chain-badge en display:none'},
+    {tag:'ux',text:'Toolbar : champ recherche + selects connectes en pill-group avec icones'},
+    {tag:'ux',text:'Selects renommes Clients / Sprints / Trier par / Grouper / Tags'},
+    {tag:'ux',text:'Badges assignes : fond uni couleur role, texte blanc, cote a cote'},
   ]},
   {version:'v0.49.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Refonte visuelle du Backlog',current:false,changes:[
     {tag:'feat',text:'Contrôles filtres/tri/groupe unifiés dans une zone visuelle cohérente (filter-group)'},

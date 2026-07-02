@@ -2,7 +2,7 @@
 
 [![Tests CI](https://github.com/JuloDurden/cadence/actions/workflows/ci.yml/badge.svg)](https://github.com/JuloDurden/cadence/actions/workflows/ci.yml)
 
-Outil de planification de releases Agile pour équipes Scrum. Application web autonome — un seul fichier HTML, zéro dépendance, zéro installation.
+Outil de planification de releases Agile pour équipes Scrum. Application web autonome - un seul fichier HTML, zéro dépendance, zéro installation.
 
 ## Lancer l'application
 
@@ -47,7 +47,7 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 ### Cérémonies Scrum
 
 - **Daily Standup** : cartes par membre (Hier / Aujourd'hui / Blocages), timer 15 min, blocker board, export résumé
-- **Rétrospective** : formats Start/Stop/Continue, Mad/Sad/Glad, 4Ls — votes nominatifs, plan d'actions
+- **Rétrospective** : formats Start/Stop/Continue, Mad/Sad/Glad, 4Ls - votes nominatifs, plan d'actions
 - **Sprint Review** : présentation des US livrées
 
 ### Équipe & clients
@@ -59,7 +59,7 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 
 ### Outils transverses
 
-- Recherche globale `Ctrl+K` — full-text sur items, clés, descriptions, notes
+- Recherche globale `Ctrl+K` - full-text sur items, clés, descriptions, notes
 - Historique des actions + Undo `Ctrl+Z` / Redo `Ctrl+Y`
 - Mode sombre / clair
 - Sauvegarde automatique dans `localStorage`
@@ -115,11 +115,11 @@ tests/
 
 Cadence est une Single Page Application monofichier :
 
-- **HTML** — structure et templates inline
-- **CSS** — design system intégré (variables CSS, dark mode, composants)
-- **JS** — logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
+- **HTML** - structure et templates inline
+- **CSS** - design system intégré (variables CSS, dark mode, composants)
+- **JS** - logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
 
-La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime — chargée via `<script>` dans `cadence.html`.
+La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime - chargée via `<script>` dans `cadence.html`.
 
 ## CI/CD
 

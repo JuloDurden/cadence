@@ -21,35 +21,38 @@ test.describe('Product Backlog', () => {
     await expect(page.locator('#tab-backlog')).toContainText('AUT-3');
   });
 
-  test('la recherche filtre les items par description', async ({ page }) => {
+  test('le filtre Sprint filtre les items du sprint selectionne', async ({ page }) => {
     await loadWithState(page);
     await goToTab(page, 'backlog');
     await page.waitForTimeout(300);
-    await page.fill('#backlog-search', 'Connexion');
+    // Selectionner le sprint s1 — doit montrer AUT-1, AUT-2, AUT-3 mais pas AUT-4 (non assigne)
+    await page.selectOption('#backlog-filter-sprint', 's1');
     await page.waitForTimeout(200);
     await expect(page.locator('#tab-backlog')).toContainText('AUT-1');
-    await expect(page.locator('#tab-backlog')).not.toContainText('AUT-2');
+    await expect(page.locator('#tab-backlog')).toContainText('AUT-3');
+    await expect(page.locator('#tab-backlog')).not.toContainText('AUT-4');
   });
 
-  test('vider la recherche restaure tous les items', async ({ page }) => {
+  test('le filtre Sprint "Non assigne" filtre les items non assignes', async ({ page }) => {
     await loadWithState(page);
     await goToTab(page, 'backlog');
-    await page.fill('#backlog-search', 'Connexion');
+    await page.waitForTimeout(300);
+    await page.selectOption('#backlog-filter-sprint', 'unassigned');
     await page.waitForTimeout(200);
-    await page.fill('#backlog-search', '');
-    await page.waitForTimeout(200);
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-1');
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-2');
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-3');
-  });
-
-  test('la recherche par cle fonctionne', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.fill('#backlog-search', 'AUT-3');
-    await page.waitForTimeout(200);
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-3');
+    await expect(page.locator('#tab-backlog')).toContainText('AUT-4');
     await expect(page.locator('#tab-backlog')).not.toContainText('AUT-1');
+  });
+
+  test('vider le filtre Sprint restaure tous les items', async ({ page }) => {
+    await loadWithState(page);
+    await goToTab(page, 'backlog');
+    await page.waitForTimeout(300);
+    await page.selectOption('#backlog-filter-sprint', 's1');
+    await page.waitForTimeout(200);
+    await page.selectOption('#backlog-filter-sprint', '');
+    await page.waitForTimeout(200);
+    await expect(page.locator('#tab-backlog')).toContainText('AUT-1');
+    await expect(page.locator('#tab-backlog')).toContainText('AUT-4');
   });
 
   test('le tri par SP change l\'ordre des items', async ({ page }) => {
@@ -131,12 +134,4 @@ test.describe('Product Backlog', () => {
     expect(await badges.count()).toBeGreaterThan(0);
   });
 
-  test('l\'item non assigne apparait dans la section Backlog non assigne', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    // AUT-4 est dans unassigned dans les fixtures
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-4');
-  });
-
-});
+  test('l\'item non assigne apparait dans la section Backlog non ass

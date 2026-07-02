@@ -57,15 +57,17 @@ test.describe('Daily Standup', () => {
     await loadWithState(page);
     await goToTab(page, 'daily');
     await page.waitForTimeout(400);
-    const tabText = await page.locator('#tab-daily').innerText();
-    expect(tabText).toMatch(/15|timer|min/i);
+    // Le timer et le selecteur de duree sont dans #hdr-ctx depuis v0.54
+    const timerEl = page.locator('#daily-timer-display, select[onchange*="dailyTimerSet"]');
+    expect(await timerEl.count()).toBeGreaterThan(0);
   });
 
   test('le bouton Archiver est present', async ({ page }) => {
     await loadWithState(page);
     await goToTab(page, 'daily');
     await page.waitForTimeout(400);
-    const archiveBtn = page.locator('#tab-daily button:has-text("Archiver"), #tab-daily button[onclick*="archiv"]');
+    // Le bouton Archiver est dans #hdr-ctx depuis v0.54
+    const archiveBtn = page.locator('button[onclick*="archiveDaily"]');
     expect(await archiveBtn.count()).toBeGreaterThan(0);
   });
 
@@ -73,7 +75,8 @@ test.describe('Daily Standup', () => {
     await loadWithState(page);
     await goToTab(page, 'daily');
     await page.waitForTimeout(400);
-    const copyBtn = page.locator('#tab-daily button:has-text("Copier"), #tab-daily button[onclick*="copier"], #tab-daily button[onclick*="copy"]');
+    // Le bouton Copier est dans #hdr-ctx depuis v0.54
+    const copyBtn = page.locator('button[onclick*="exportDailySummary"], button[title*="Copier"]');
     expect(await copyBtn.count()).toBeGreaterThan(0);
   });
 

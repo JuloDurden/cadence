@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 1er juillet 2026. v0.48 : Attribution utilisateur archivée. v0.49-v0.50 : Refonte visuelle Backlog (2 passes).
+> Dernière mise à jour : 2 juillet 2026. v0.48 : Attribution utilisateur archivée. v0.49-v0.50 : Refonte visuelle Backlog (2 passes). v0.51 : Sidebar icones SVG + collapse. v0.52-v0.53 : Header fixe, dropdowns, fixes. v0.54 : Menu bar contextuel (style macOS) — contrôles de chaque page migrés dans le header. v0.55 : Corrections UI header contextuel — sidebar collapse, recherche, design boutons, Daily timer, Kanban/Retro/Planning. v0.56 : Corrections UI v2 — Sprint selects courts, filtres Backlog/Planning/Kanban/Retro alignés à droite, fix filtre Sprint/Tag Backlog, 144 tests Playwright.
 
 ---
 
@@ -47,27 +47,11 @@
 ## ✅ Réalisé (pour mémoire)
 
 ### Design & UX
+- **Corrections UI header contextuel** ✅ *v0.55.0* — sidebar collapse décale le contenu, recherche avant notifications, design boutons uniformisé (référence Backlog), Daily timer à droite + 20/30 min + flash fin, Kanban sprint élargi + Ordre/Réorganiser/+Colonne dans header, Planning Client/Affichage en dropdowns, Retro sprint élargi + label format, icônes monochromes (Dashboard, Auto-planning).
+- **Menu bar contextuel (style macOS)** ✅ *v0.54.0* — contrôles spécifiques à chaque page (filtres, sélecteurs, actions) migrés dans le header fixe via `#hdr-ctx`. Backlog, Dashboard, Kanban, Planning, Auto-planning, Daily, Rétrospective, Clients.
 - **Réorganisation sidebar** ✅ *v0.32.0* — footer uniforme, menu Clients collapsible, bouton Rapport par client
 - **Refonte des cartes items** ✅ *v0.40.0* — layout 2 lignes, bordure colorée par client
 - **Refonte de la page Réglages** ✅ *v0.26.0*
 - **Vue calendrier** ✅ *v0.21.0* — calendrier mensuel dans Release Planning
 - **Refonte de la page Changelog** ✅ *v0.40.0* — timeline verticale, heatmap, magnification
-- **Redesign global (système de design HIG)** ✅ *v0.40.0–0.42.0*
-- **Refonte complète du design** ✅ *v0.40.0–0.42.0* — système de design HIG, tokens couleurs, dark mode
-
-### Backlog & Planification
-- **Rapport client imprimable** ✅ *v0.30.0*
-- **Recherche globale Ctrl+K** ✅ *v0.29.0*
-- **Burndown Chart** ✅ *v0.12.0*
-- **Lead time & Cycle time** ✅ *v0.34.0*
-- **Cumulative Flow Diagram** ✅ *v0.34.0*
-- **DoR / DoD par item** ✅ *v0.20.0* — jauges et compteur X/Y
-- **Critères d'acceptation BDD (Gherkin)** ✅ *en place*
-- **Scoring WSJF / RICE / MoSCoW** ✅ *en place*
-- **Sprint Goal** ✅ *v0.34.0*
-- **Clôture de sprint + snapshot vélocité** ✅ *v0.19.0*
-- **Auto-planning** ✅ *en place* — affectation selon capacité et dépendances
-- **Export Excel (backlog)** ✅ *v0.09.0*
-- **Export / Import JSON** ✅ *v0.46.0* — sauvegarde et restauration complète, import/export unifiés dans Réglages
-- **Export CSV natif (backlog)** ✅ *v0.46.0* — zéro dépendance, fallback auto si SheetJS indisponible
-- **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, ex
+- **Redesign global (système de 

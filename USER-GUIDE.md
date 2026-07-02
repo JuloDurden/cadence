@@ -1,4 +1,4 @@
-# Guide utilisateur — Cadence
+# Guide utilisateur - Cadence
 
 Cadence est un outil de planification de releases Agile conçu pour les équipes Scrum. Il s'ouvre directement dans le navigateur (`cadence.html`), sans compte ni installation.
 
@@ -132,9 +132,9 @@ Le bouton 📅 bascule vers une vue calendrier mensuelle montrant les sprints po
 
 L'onglet Daily affiche une carte par membre de l'équipe avec trois champs :
 
-- **Hier** — ce qui a été accompli
-- **Aujourd'hui** — ce qui est prévu
-- **Blocages** — impediments à remonter
+- **Hier** - ce qui a été accompli
+- **Aujourd'hui** - ce qui est prévu
+- **Blocages** - impediments à remonter
 
 Un **timer 15 minutes** est disponible pour cadrer la réunion.
 
@@ -148,9 +148,9 @@ Le bouton **Copier le résumé** génère un export texte du daily (pour Slack o
 
 ### Formats disponibles
 
-- **Start / Stop / Continue** (défaut) — ce qu'on commence, arrête, ou continue
-- **Mad / Sad / Glad** — ressentis émotionnels de l'équipe
-- **4Ls** — Liked, Learned, Lacked, Longed for
+- **Start / Stop / Continue** (défaut) - ce qu'on commence, arrête, ou continue
+- **Mad / Sad / Glad** - ressentis émotionnels de l'équipe
+- **4Ls** - Liked, Learned, Lacked, Longed for
 
 ### Animer une rétro
 
@@ -216,7 +216,7 @@ Le bouton **Rapport** génère un export HTML imprimable par client avec les ite
 | DoD (critères) | Liste des critères de Definition of Done applicables à tous les items |
 | Tags | Liste des tags disponibles dans le projet (8 prédéfinis + ajout libre) |
 
-La section **Tags** permet de gérer la bibliothèque de tags du projet. Les 8 tags prédéfinis (Front, Back, API, Infra, UX, Dette technique, Sécurité, Performance) ne peuvent pas être supprimés. Les tags ajoutés manuellement peuvent l'être — la suppression les retire de tous les items et membres.
+La section **Tags** permet de gérer la bibliothèque de tags du projet. Les 8 tags prédéfinis (Front, Back, API, Infra, UX, Dette technique, Sécurité, Performance) ne peuvent pas être supprimés. Les tags ajoutés manuellement peuvent l'être - la suppression les retire de tous les items et membres.
 
 Le bouton **Charger les données de démo** recharge le projet de démonstration (remplace les données actuelles).
 

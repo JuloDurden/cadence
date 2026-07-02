@@ -47,7 +47,7 @@ test.describe('Kanban', () => {
     await goToTab(page, 'kanban');
     await page.waitForTimeout(300);
 
-    await page.click('.kanban-add-col-btn');
+    await page.click('button[onclick*="showKanbanCatalog"]');
     await expect(page.locator('#kanban-catalog-panel')).toBeVisible();
   });
 
@@ -56,7 +56,7 @@ test.describe('Kanban', () => {
     await goToTab(page, 'kanban');
     await page.waitForTimeout(300);
 
-    await page.click('.kanban-add-col-btn');
+    await page.click('button[onclick*="showKanbanCatalog"]');
     await page.waitForSelector('#kanban-catalog-panel', { state: 'visible' });
 
     // Le catalogue utilise des div.kanban-catalog-item (pas des buttons)
