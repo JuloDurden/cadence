@@ -31,8 +31,9 @@ export function PlanningPage() {
     if (!id) return
     setDragOverSprint(null)
     const item = state.items.find(i => i.id === id)
-    if (!item || item.sprintId === sprintId) return
-    const updated = { ...item, sprintId }
+    const newSprintId = sprintId === 'unassigned' ? null : sprintId
+    if (!item || item.sprintId === newSprintId) return
+    const updated = { ...item, sprintId: newSprintId }
     dispatch({ type: 'UPDATE_ITEM', payload: updated })
     saveToServer({ ...state, items: state.items.map(i => i.id === id ? updated : i) })
     dragItemId.current = null
@@ -138,15 +139,13 @@ export function PlanningPage() {
                 </div>
                 <div className="planning-items">
                   {unassigned.map(item => (
-                    <div key={item.id} onClick={() => setModalItem(item)} style={{ cursor: 'pointer' }}>
-                      <div className="planning-card" style={{ borderLeft: `3px solid ${state.clients.find(c => c.id === item.clientId)?.color ?? 'var(--border)'}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span className="item-key">{item.key}</span>
-                          <span style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)' }}>{item.sp} SP</span>
-                        </div>
-                        <p style={{ fontSize: 12, marginTop: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.desc}</p>
-                      </div>
-                    </div>
+                    <PlanningCard
+                      key={item.id}
+                      item={item}
+                      state={state}
+                      onEdit={item => setModalItem(item)}
+                      onDragStart={id => { dragItemId.current = id }}
+                    />
                   ))}
                   {unassigned.length === 0 && (
                     <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
