@@ -3,6 +3,7 @@ import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { SprintColumn } from '../components/planning/SprintColumn'
 import { CalendarView } from '../components/planning/CalendarView'
+import { PlanningCard } from '../components/planning/PlanningCard'
 import { ItemModal } from '../components/backlog/ItemModal'
 import type { Item, Sprint } from '../types'
 
