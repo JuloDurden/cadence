@@ -1,41 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useTimer } from '../../context/TimerContext'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
 export function DailyTimer() {
-  const [duration, setDuration] = useState(15)
-  const [seconds, setSeconds] = useState(15 * 60)
-  const [running, setRunning] = useState(false)
-  const [done, setDone] = useState(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    setSeconds(duration * 60)
-    setDone(false)
-    setRunning(false)
-  }, [duration])
-
-  useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => {
-        setSeconds(s => {
-          if (s <= 1) {
-            setRunning(false)
-            setDone(true)
-            clearInterval(intervalRef.current!)
-            return 0
-          }
-          return s - 1
-        })
-      }, 1000)
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [running])
-
-  function reset() { setSeconds(duration * 60); setRunning(false); setDone(false) }
-  function toggle() { if (done) reset(); else setRunning(r => !r) }
+  const { duration, seconds, running, done, setDuration, toggle, reset } = useTimer()
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
   const ss = String(seconds % 60).padStart(2, '0')
@@ -44,12 +12,7 @@ export function DailyTimer() {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <select
-        className="hdr-select"
-        value={duration}
-        onChange={e => setDuration(Number(e.target.value))}
-        disabled={running}
-      >
+      <select className="hdr-select" value={duration} onChange={e => setDuration(Number(e.target.value))} disabled={running}>
         {DURATIONS.map(d => <option key={d} value={d}>{d} min</option>)}
       </select>
       <div style={{ position: 'relative', width: 32, height: 32 }}>

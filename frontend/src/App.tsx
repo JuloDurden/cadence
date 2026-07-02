@@ -4,9 +4,11 @@ import { BacklogPage } from './pages/BacklogPage'
 import { KanbanPage } from './pages/KanbanPage'
 import { PlanningPage } from './pages/PlanningPage'
 import { DailyPage } from './pages/DailyPage'
+import { DashboardPage } from './pages/DashboardPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { StateProvider } from './context/StateContext'
+import { TimerProvider } from './context/TimerContext'
 import { useAuth } from './hooks/useAuth'
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -23,7 +25,7 @@ function AppLayout() {
             <Route path="/backlog" element={<BacklogPage />} />
             <Route path="/planning" element={<PlanningPage />} />
             <Route path="/kanban" element={<KanbanPage />} />
-            <Route path="/dashboard" element={<><Header title="Dashboard" /><PlaceholderPage title="Dashboard" /></>} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/daily" element={<DailyPage />} />
             <Route path="/retro" element={<><Header title="Rétrospective" /><PlaceholderPage title="Rétrospective" /></>} />
             <Route path="/clients" element={<><Header title="Clients" /><PlaceholderPage title="Clients" /></>} />
