@@ -9,6 +9,7 @@ type Action =
   | { type: 'UPDATE_ITEM'; payload: Item }
   | { type: 'DELETE_ITEM'; payload: string }
   | { type: 'ADD_SPRINT'; payload: Sprint }
+  | { type: 'UPSERT_DAILY_ENTRY'; payload: import('../types').DailyEntry }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -17,6 +18,10 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'UPDATE_ITEM': return { ...state, items: state.items.map(i => i.id === action.payload.id ? action.payload : i) }
     case 'DELETE_ITEM': return { ...state, items: state.items.filter(i => i.id !== action.payload) }
     case 'ADD_SPRINT': return { ...state, sprints: [...state.sprints, action.payload] }
+    case 'UPSERT_DAILY_ENTRY': {
+      const entries = state.dailyEntries.filter(e => !(e.memberId === action.payload.memberId && e.date === action.payload.date))
+      return { ...state, dailyEntries: [...entries, action.payload] }
+    }
     default: return state
   }
 }

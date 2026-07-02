@@ -3,6 +3,7 @@ import { LoginPage } from './pages/LoginPage'
 import { BacklogPage } from './pages/BacklogPage'
 import { KanbanPage } from './pages/KanbanPage'
 import { PlanningPage } from './pages/PlanningPage'
+import { DailyPage } from './pages/DailyPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { StateProvider } from './context/StateContext'
@@ -23,7 +24,7 @@ function AppLayout() {
             <Route path="/planning" element={<PlanningPage />} />
             <Route path="/kanban" element={<KanbanPage />} />
             <Route path="/dashboard" element={<><Header title="Dashboard" /><PlaceholderPage title="Dashboard" /></>} />
-            <Route path="/daily" element={<><Header title="Daily Standup" /><PlaceholderPage title="Daily" /></>} />
+            <Route path="/daily" element={<DailyPage />} />
             <Route path="/retro" element={<><Header title="Rétrospective" /><PlaceholderPage title="Rétrospective" /></>} />
             <Route path="/clients" element={<><Header title="Clients" /><PlaceholderPage title="Clients" /></>} />
             <Route path="/settings" element={<><Header title="Réglages" /><PlaceholderPage title="Réglages" /></>} />

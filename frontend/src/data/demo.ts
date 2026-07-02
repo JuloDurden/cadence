@@ -34,4 +34,9 @@ export const DEMO_STATE: CadenceState = {
     { id: 'blocked', label: 'Bloqué', color: '#ef4444', isDone: false },
   ],
   settings: { sprintDuration: 14, defaultCapacity: 40, theme: 'light' },
+  dailyEntries: [
+    { memberId: 'm1', date: '2026-07-02', yesterday: 'Finalisé l\'intégration API sinistres', today: 'Démarrage module notifications', blockers: '' },
+    { memberId: 'm2', date: '2026-07-02', yesterday: 'Review du dashboard burndown', today: 'Implémentation KPIs direction', blockers: 'En attente des specs UI du PO' },
+    { memberId: 'm3', date: '2026-07-02', yesterday: 'Tests calcul indemnités', today: 'Correction bug calcul TVA', blockers: '' },
+  ],
 }

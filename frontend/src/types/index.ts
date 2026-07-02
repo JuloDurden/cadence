@@ -41,6 +41,14 @@ export interface CadenceState {
   clients: Client[]; kanbanCols: KanbanCol[]; settings: Settings
 }
 
+export interface DailyEntry {
+  memberId: string
+  date: string   // YYYY-MM-DD
+  yesterday: string
+  today: string
+  blockers: string
+}
+
 export interface AuthUser {
   id: string; email: string; name: string; role: UserRole
 }
