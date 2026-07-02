@@ -134,4 +134,12 @@ test.describe('Product Backlog', () => {
     expect(await badges.count()).toBeGreaterThan(0);
   });
 
-  test('l\'item non assigne apparait dans la section Backlog non ass
+  test('l\'item non assigne apparait dans la section Backlog non assigne', async ({ page }) => {
+    await loadWithState(page);
+    await goToTab(page, 'backlog');
+    await page.waitForTimeout(300);
+    // AUT-4 est dans unassigned dans les fixtures
+    await expect(page.locator('#tab-backlog')).toContainText('AUT-4');
+  });
+
+});

@@ -54,4 +54,22 @@
 - **Refonte de la page Réglages** ✅ *v0.26.0*
 - **Vue calendrier** ✅ *v0.21.0* — calendrier mensuel dans Release Planning
 - **Refonte de la page Changelog** ✅ *v0.40.0* — timeline verticale, heatmap, magnification
-- **Redesign global (système de 
+- **Redesign global (système de design HIG)** ✅ *v0.40.0–0.42.0*
+- **Refonte complète du design** ✅ *v0.40.0–0.42.0* — système de design HIG, tokens couleurs, dark mode
+
+### Backlog & Planification
+- **Rapport client imprimable** ✅ *v0.30.0*
+- **Recherche globale Ctrl+K** ✅ *v0.29.0*
+- **Burndown Chart** ✅ *v0.12.0*
+- **Lead time & Cycle time** ✅ *v0.34.0*
+- **Cumulative Flow Diagram** ✅ *v0.34.0*
+- **DoR / DoD par item** ✅ *v0.20.0* — jauges et compteur X/Y
+- **Critères d'acceptation BDD (Gherkin)** ✅ *en place*
+- **Scoring WSJF / RICE / MoSCoW** ✅ *en place*
+- **Sprint Goal** ✅ *v0.34.0*
+- **Clôture de sprint + snapshot vélocité** ✅ *v0.19.0*
+- **Auto-planning** ✅ *en place* — affectation selon capacité et dépendances
+- **Export Excel (backlog)** ✅ *v0.09.0*
+- **Export / Import JSON** ✅ *v0.46.0* — sauvegarde et restauration complète, import/export unifiés dans Réglages
+- **Export CSV natif (backlog)** ✅ *v0.46.0* — zéro dépendance, fallback auto si SheetJS indisponible
+- **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, ex
