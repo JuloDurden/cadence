@@ -27,4 +27,17 @@ desktop.ini
 .vscode/
 /datas backup
 /inspiration
-BACKLOG_FEATURES.md
+
+# Env
+.env
+frontend/.env
+backend/.env
+
+# Build
+frontend/dist/
+backend/dist/
+
+# Node
+node_modules/
+frontend/node_modules/
+backend/node_modules/
