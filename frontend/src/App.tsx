@@ -17,24 +17,26 @@ function PlaceholderPage({ title }: { title: string }) {
 
 function AppLayout() {
   return (
-    <StateProvider>
-      <div className="app-shell">
-        <Sidebar />
-        <div className="main-area">
-          <Routes>
-            <Route path="/backlog" element={<BacklogPage />} />
-            <Route path="/planning" element={<PlanningPage />} />
-            <Route path="/kanban" element={<KanbanPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/daily" element={<DailyPage />} />
-            <Route path="/retro" element={<><Header title="Rétrospective" /><PlaceholderPage title="Rétrospective" /></>} />
-            <Route path="/clients" element={<><Header title="Clients" /><PlaceholderPage title="Clients" /></>} />
-            <Route path="/settings" element={<><Header title="Réglages" /><PlaceholderPage title="Réglages" /></>} />
-            <Route path="*" element={<Navigate to="/backlog" replace />} />
-          </Routes>
+    <TimerProvider>
+      <StateProvider>
+        <div className="app-shell">
+          <Sidebar />
+          <div className="main-area">
+            <Routes>
+              <Route path="/backlog" element={<BacklogPage />} />
+              <Route path="/planning" element={<PlanningPage />} />
+              <Route path="/kanban" element={<KanbanPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/daily" element={<DailyPage />} />
+              <Route path="/retro" element={<><Header title="Rétrospective" /><PlaceholderPage title="Rétrospective" /></>} />
+              <Route path="/clients" element={<><Header title="Clients" /><PlaceholderPage title="Clients" /></>} />
+              <Route path="/settings" element={<><Header title="Réglages" /><PlaceholderPage title="Réglages" /></>} />
+              <Route path="*" element={<Navigate to="/backlog" replace />} />
+            </Routes>
+          </div>
         </div>
-      </div>
-    </StateProvider>
+      </StateProvider>
+    </TimerProvider>
   )
 }
 
