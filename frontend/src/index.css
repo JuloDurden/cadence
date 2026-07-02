@@ -111,3 +111,15 @@ textarea { resize: vertical; min-height: 72px; }
 .kanban-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; gap: 4px; }
 .kanban-card-desc { font-size: 12px; color: var(--text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .kanban-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+
+/* ── Planning ── */
+.planning-grid { display: flex; gap: 14px; align-items: flex-start; overflow-x: auto; padding-bottom: 16px; min-height: calc(100vh - 100px); }
+.planning-col { flex: 0 0 220px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; flex-direction: column; max-height: calc(100vh - 100px); border: 2px solid transparent; transition: border-color .15s; }
+.planning-col-over { border-color: var(--primary); }
+.planning-col-closed { opacity: .75; }
+.planning-col-unassigned { flex: 0 0 200px; background: var(--surface2); }
+.planning-col-header { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
+.planning-items { padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; }
+.planning-card { background: var(--surface); border-radius: 7px; padding: 9px 11px; box-shadow: var(--shadow); cursor: grab; transition: box-shadow .15s, transform .1s; border: 1px solid var(--border); }
+.planning-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); transform: translateY(-1px); }
+.planning-col-unassigned .planning-card { background: var(--surface); }
