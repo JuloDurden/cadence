@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useCadence } from '../context/StateContext'
+import { Header } from '../components/layout/Header'
 import type { RoadmapGoal } from '../types'
 
 const COLORS = [
@@ -109,6 +110,8 @@ export function RoadmapPage() {
   }
 
   return (
+    <>
+    <Header title="Roadmap" />
     <div className="page-content">
       <div className="roadmap-header-box">
         <div>
@@ -245,5 +248,6 @@ export function RoadmapPage() {
         </div>
       )}
     </div>
+    </>
   )
 }
