@@ -6,15 +6,15 @@ import { PlanningPage } from './pages/PlanningPage'
 import { DailyPage } from './pages/DailyPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RetroPage } from './pages/RetroPage'
+import { ClientsPage } from './pages/ClientsPage'
+import { TeamPage } from './pages/TeamPage'
+import { AutoPlanningPage } from './pages/AutoPlanningPage'
+import { HistoriquePage } from './pages/HistoriquePage'
+import { SettingsPage } from './pages/SettingsPage'
 import { Sidebar } from './components/layout/Sidebar'
-import { Header } from './components/layout/Header'
 import { StateProvider } from './context/StateContext'
 import { TimerProvider } from './context/TimerContext'
 import { useAuth } from './hooks/useAuth'
-
-function PlaceholderPage({ title }: { title: string }) {
-  return <div className="page-content"><p style={{ color: 'var(--text-muted)' }}>{title} — en cours de migration</p></div>
-}
 
 function AppLayout() {
   return (
@@ -26,12 +26,15 @@ function AppLayout() {
             <Routes>
               <Route path="/backlog" element={<BacklogPage />} />
               <Route path="/planning" element={<PlanningPage />} />
+              <Route path="/auto" element={<AutoPlanningPage />} />
               <Route path="/kanban" element={<KanbanPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/daily" element={<DailyPage />} />
               <Route path="/retro" element={<RetroPage />} />
-              <Route path="/clients" element={<><Header title="Clients" /><PlaceholderPage title="Clients" /></>} />
-              <Route path="/settings" element={<><Header title="Réglages" /><PlaceholderPage title="Réglages" /></>} />
+              <Route path="/historique" element={<HistoriquePage />} />
+              <Route path="/clients" element={<ClientsPage />} />
+              <Route path="/team" element={<TeamPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/backlog" replace />} />
             </Routes>
           </div>

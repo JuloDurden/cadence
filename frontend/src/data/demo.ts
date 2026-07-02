@@ -22,9 +22,9 @@ export const DEMO_STATE: CadenceState = {
     { id: 'm3', name: 'Claire Petit', role: 'Dev Fullstack', spPerDay: 5, tags: ['api', 'react', 'ia'] },
   ],
   clients: [
-    { id: 'c1', name: 'AutoClaimsTech', tier: 'Enterprise', annualRevenue: 2400000, rag: 'G', color: '#4f46e5', prefix: 'AUT' },
-    { id: 'c2', name: 'AssurPlus', tier: 'Mid-Market', annualRevenue: 800000, rag: 'A', color: '#f59e0b', prefix: 'ASS' },
-    { id: 'c3', name: 'SécurAuto', tier: 'SMB', annualRevenue: 120000, rag: 'R', color: '#ef4444', prefix: 'SEC' },
+    { id: 'c1', name: 'AutoClaimsTech', tier: 'Enterprise', annualRevenue: 2400000, rag: 'G', color: '#4f46e5', prefix: 'AUT', contacts: [{ id: 'ct1', name: 'Sophie Bernard', role: 'DSI', email: 'sbernard@autoclaimstech.fr', phone: '+33 6 11 22 33 44' }, { id: 'ct2', name: 'Marc Leroy', role: 'PO', email: 'mleroy@autoclaimstech.fr' }] },
+    { id: 'c2', name: 'AssurPlus', tier: 'Mid-Market', annualRevenue: 800000, rag: 'A', color: '#f59e0b', prefix: 'ASS', contacts: [{ id: 'ct3', name: 'Julie Moreau', role: 'Directrice Produit', email: 'jmoreau@assurplus.fr' }] },
+    { id: 'c3', name: 'SécurAuto', tier: 'SMB', annualRevenue: 120000, rag: 'R', color: '#ef4444', prefix: 'SEC', contacts: [{ id: 'ct4', name: 'Pierre Duval', role: 'CEO', email: 'pduval@securauto.fr', phone: '+33 6 99 88 77 66' }] },
   ],
   kanbanCols: [
     { id: 'todo', label: 'À faire', color: '#6e6e73', isDone: false, isDefault: true },
@@ -61,5 +61,10 @@ export const DEMO_STATE: CadenceState = {
     { memberId: 'm1', date: '2026-07-02', yesterday: 'Finalisé l\'intégration API sinistres', today: 'Démarrage module notifications', blockers: '' },
     { memberId: 'm2', date: '2026-07-02', yesterday: 'Review du dashboard burndown', today: 'Implémentation KPIs direction', blockers: 'En attente des specs UI du PO' },
     { memberId: 'm3', date: '2026-07-02', yesterday: 'Tests calcul indemnités', today: 'Correction bug calcul TVA', blockers: '' },
+  ],
+  history: [
+    { id: 'h1', type: 'item_create' as const, timestamp: new Date(Date.now()-86400000*2).toISOString(), itemKey: 'AUT-001', itemDesc: 'Interface de connexion sécurisée', detail: 'US créée', author: 'm1' },
+    { id: 'h2', type: 'item_status' as const, timestamp: new Date(Date.now()-86400000).toISOString(), itemKey: 'AUT-001', itemDesc: 'Interface de connexion sécurisée', from: 'todo', to: 'inprogress', author: 'm1' },
+    { id: 'h3', type: 'item_create' as const, timestamp: new Date(Date.now()-3600000*5).toISOString(), itemKey: 'AUT-002', itemDesc: 'Tableau de bord analytique', detail: 'US créée', author: 'm2' },
   ],
 }

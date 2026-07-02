@@ -23,9 +23,19 @@ export interface TeamMember {
   id: string; name: string; role: string; spPerDay: number; tags: string[]
 }
 
+export interface Contact {
+  id: string
+  name: string
+  role: string
+  email: string
+  phone?: string
+}
+
 export interface Client {
   id: string; name: string; tier: string; annualRevenue: number
   rag: RAG; color: string; prefix: string
+  contacts?: Contact[]
+  notes?: string
 }
 
 export interface KanbanCol {
@@ -39,6 +49,8 @@ export interface Settings {
 export interface CadenceState {
   sprints: Sprint[]; items: Item[]; team: TeamMember[]
   clients: Client[]; kanbanCols: KanbanCol[]; settings: Settings
+  dailyEntries: DailyEntry[]; retroSessions: RetroSession[]
+  history: HistoryEntry[]
 }
 
 export interface DailyEntry {
@@ -73,6 +85,22 @@ export interface RetroSession {
   columns: Record<string, RetroItem[]>
   actions: RetroAction[]
   date: string
+}
+
+
+export type HistoryEventType = 'item_create' | 'item_edit' | 'item_delete' | 'item_status' | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
+
+export interface HistoryEntry {
+  id: string
+  type: HistoryEventType
+  timestamp: string   // ISO
+  sprintId?: string
+  itemKey?: string
+  itemDesc?: string
+  author?: string     // TeamMember.id
+  detail?: string
+  from?: string
+  to?: string
 }
 
 export interface AuthUser {

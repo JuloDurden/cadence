@@ -59,7 +59,7 @@ export function DailyPage() {
         <div className="hdr-sep" />
         <DailyTimer />
         <div style={{ flex: 1 }} />
-        <button className="hdr-btn" onClick={exportSummary} title="Copier le résumé">📋 Copier résumé</button>
+        <button className="hdr-ctx-btn" onClick={exportSummary} title="Copier le résumé">📋 Copier résumé</button>
       </Header>
 
       <div className="page-content">

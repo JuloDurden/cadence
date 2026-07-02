@@ -72,7 +72,7 @@ export function PlanningPage() {
         <div className="hdr-sep" />
         {/* Filtre clients en pills */}
         <button
-          className={`hdr-btn${!filterClient ? ' active' : ''}`}
+          className={`hdr-ctx-btn${!filterClient ? ' active' : ''}`}
           onClick={() => setFilterClient('')}
           style={!filterClient ? { background: 'var(--primary)', color: '#fff' } : {}}
         >
@@ -81,7 +81,7 @@ export function PlanningPage() {
         {state.clients.map(c => (
           <button
             key={c.id}
-            className="hdr-btn"
+            className="hdr-ctx-btn"
             onClick={() => setFilterClient(filterClient === c.id ? '' : c.id)}
             style={filterClient === c.id ? { background: c.color, color: '#fff' } : { borderLeft: `3px solid ${c.color}` }}
           >
@@ -94,13 +94,13 @@ export function PlanningPage() {
         {/* Toggle vue */}
         <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
           <button
-            className="hdr-btn"
+            className="hdr-ctx-btn"
             style={{ borderRadius: 0, background: view === 'grid' ? 'var(--primary)' : undefined, color: view === 'grid' ? '#fff' : undefined }}
             onClick={() => setView('grid')}
             title="Vue grille"
           >⊞ Grille</button>
           <button
-            className="hdr-btn"
+            className="hdr-ctx-btn"
             style={{ borderRadius: 0, borderLeft: '1px solid var(--border)', background: view === 'calendar' ? 'var(--primary)' : undefined, color: view === 'calendar' ? '#fff' : undefined }}
             onClick={() => setView('calendar')}
             title="Vue calendrier"
