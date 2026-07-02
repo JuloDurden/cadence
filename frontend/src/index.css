@@ -550,3 +550,103 @@ body.sb-collapsed .app-header { left: 52px; }
 
 @keyframes fadeIn    { from { opacity: 0; }                          to { opacity: 1; } }
 @keyframes slideDown { from { transform: translateY(-12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ─── Backlog v2 ────────────────────────────────────────────────── */
+
+/* Priority badges (P1/P2/P3/P4 circles) */
+.prio-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  font-size: 9px; font-weight: 800; color: #fff;
+  letter-spacing: .01em; flex-shrink: 0;
+}
+
+/* Item type badge */
+.item-type-badge {
+  display: inline-flex; align-items: center;
+  font-size: 9px; font-weight: 800; letter-spacing: .04em;
+  padding: 1px 6px; border-radius: 6px; white-space: nowrap;
+}
+
+/* Deadline badges */
+.deadline-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 6px;
+}
+.deadline-imposed    { background: #fee2e2; color: #dc2626; }
+.deadline-negotiable { background: #fef3c7; color: #d97706; }
+[data-theme="dark"] .deadline-imposed    { background: #450a0a; color: #fca5a5; }
+[data-theme="dark"] .deadline-negotiable { background: #451a03; color: #fcd34d; }
+
+/* Modal sizes */
+.modal-lg { max-width: 700px; width: 95vw; }
+
+/* Modal tabs */
+.modal-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  padding: 0 20px; gap: 0; flex-shrink: 0;
+}
+.modal-tab-btn {
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 14px; font-size: 12px; font-weight: 600;
+  cursor: pointer; color: var(--text-muted);
+  transition: color .12s; font-family: inherit; white-space: nowrap;
+}
+.modal-tab-btn:hover  { color: var(--text); }
+.modal-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* DoR/DoD checklist */
+.checklist { display: flex; flex-direction: column; gap: 5px; }
+.checklist-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 12px; cursor: pointer; padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.checklist-item:last-child { border-bottom: none; }
+.checklist-item input[type="checkbox"] { cursor: pointer; margin-top: 1px; flex-shrink: 0; }
+
+/* BDD criterion block */
+.bdd-block {
+  background: var(--surface2); border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+
+/* User Story block */
+.us-block {
+  background: var(--surface2); border-radius: 10px;
+  padding: 16px 18px; border: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.us-row { display: flex; align-items: center; gap: 10px; }
+.us-prefix {
+  font-size: 11px; font-weight: 700; color: var(--primary);
+  min-width: 100px; text-align: right; flex-shrink: 0;
+}
+.us-input { flex: 1; }
+
+/* Assignee chips in modal */
+.assignee-chip-select {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 8px; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--surface);
+  font-size: 11px; font-weight: 500; color: var(--text-muted);
+  transition: border-color .12s, background .12s, color .12s;
+  user-select: none;
+}
+.assignee-chip-select:hover { border-color: var(--primary); color: var(--text); }
+.assignee-chip-select.selected {
+  border-color: var(--primary); background: var(--primary-light);
+  color: var(--primary); font-weight: 700;
+}
+.assignee-chip-select .assignee-dot {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 800; flex-shrink: 0;
+}
+
+/* Dep search result row */
+.dep-result-row:hover { background: var(--surface2); }
+.dep-result-row:last-child { border-bottom: none !important; }

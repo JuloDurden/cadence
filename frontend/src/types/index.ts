@@ -1,16 +1,37 @@
 export type Priority = 'critical' | 'high' | 'medium' | 'low'
 export type RAG = 'R' | 'A' | 'G'
 export type UserRole = 'ADMIN' | 'MEMBER' | 'VIEWER'
+export type ItemType = 'story' | 'epic' | 'bug' | 'task' | 'spike'
 
 export interface CheckItem { id: string; text: string; done: boolean }
+
+export interface BDDCriterion {
+  id: string
+  given: string
+  when: string
+  then: string
+}
+
+export interface Deadline {
+  date: string
+  type: 'none' | 'imposed' | 'negotiable'
+}
 
 export interface Item {
   id: string; key: string; desc: string; sp: number; status: string
   clientId: string; sprintId: string | null; priority: Priority
   assignees: string[]; tags: string[]
-  role?: string; need?: string; benefit?: string; bdd?: string
-  deps?: string[]; dor?: CheckItem[]; dod?: CheckItem[]
-  notes?: string; deadline?: string; createdAt: string
+  type?: ItemType
+  epicId?: string | null
+  role?: string; need?: string; benefit?: string
+  bdd?: string               // deprecated, use criteria
+  criteria?: BDDCriterion[]
+  deps?: string[]
+  dor?: CheckItem[]
+  dod?: CheckItem[]
+  notes?: string
+  deadline?: Deadline
+  createdAt: string
 }
 
 export interface Sprint {
@@ -24,11 +45,7 @@ export interface TeamMember {
 }
 
 export interface Contact {
-  id: string
-  name: string
-  role: string
-  email: string
-  phone?: string
+  id: string; name: string; role: string; email: string; phone?: string
 }
 
 export interface Client {
@@ -47,13 +64,8 @@ export interface Settings {
 }
 
 export interface RoadmapGoal {
-  id: string
-  sprintId: string
-  icon: string
-  color: string
-  name: string
-  goal: string
-  metrics: string[]
+  id: string; sprintId: string; icon: string; color: string
+  name: string; goal: string; metrics: string[]
 }
 
 export interface CadenceState {
@@ -64,52 +76,32 @@ export interface CadenceState {
 }
 
 export interface DailyEntry {
-  memberId: string
-  date: string   // YYYY-MM-DD
-  yesterday: string
-  today: string
-  blockers: string
+  memberId: string; date: string; yesterday: string; today: string; blockers: string
 }
 
 export type RetroFormat = 'start-stop-continue' | 'mad-sad-glad' | '4ls'
 
 export interface RetroItem {
-  id: string
-  text: string
-  votes: string[]
-  authorId: string
+  id: string; text: string; votes: string[]; authorId: string
 }
 
 export interface RetroAction {
-  id: string
-  text: string
-  ownerId: string
-  dueDate?: string
-  done: boolean
+  id: string; text: string; ownerId: string; dueDate?: string; done: boolean
 }
 
 export interface RetroSession {
-  id: string
-  sprintId: string
-  format: RetroFormat
-  columns: Record<string, RetroItem[]>
-  actions: RetroAction[]
-  date: string
+  id: string; sprintId: string; format: RetroFormat
+  columns: Record<string, RetroItem[]>; actions: RetroAction[]; date: string
 }
 
-export type HistoryEventType = 'item_create' | 'item_edit' | 'item_delete' | 'item_status' | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
+export type HistoryEventType =
+  | 'item_create' | 'item_edit' | 'item_delete' | 'item_status'
+  | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
 
 export interface HistoryEntry {
-  id: string
-  type: HistoryEventType
-  timestamp: string   // ISO
-  sprintId?: string
-  itemKey?: string
-  itemDesc?: string
-  author?: string     // TeamMember.id
-  detail?: string
-  from?: string
-  to?: string
+  id: string; type: HistoryEventType; timestamp: string
+  sprintId?: string; itemKey?: string; itemDesc?: string
+  author?: string; detail?: string; from?: string; to?: string
 }
 
 export interface AuthUser {
