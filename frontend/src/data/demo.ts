@@ -62,9 +62,14 @@ export const DEMO_STATE: CadenceState = {
     { memberId: 'm2', date: '2026-07-02', yesterday: 'Review du dashboard burndown', today: 'Implémentation KPIs direction', blockers: 'En attente des specs UI du PO' },
     { memberId: 'm3', date: '2026-07-02', yesterday: 'Tests calcul indemnités', today: 'Correction bug calcul TVA', blockers: '' },
   ],
+  roadmap: [
+    { id: 'g1', sprintId: 's1', icon: '🏗️', color: 'linear-gradient(135deg,#0891b2,#0e7490)', name: 'Fondations', goal: 'Mettre en place les fondations du produit AutoClaimsTech', metrics: ['Integration API sinistres stable', 'Detection fraude operationnelle > 90%', 'Dashboard temps reel < 2s'] },
+    { id: 'g2', sprintId: 's2', icon: '⚡', color: 'linear-gradient(135deg,#4f46e5,#4338ca)', name: 'Automatisation', goal: 'Automatiser le traitement des sinistres de bout en bout', metrics: ['Calcul indemnites automatise > 95% cas', 'Notifications envoyees < 1h apres sinistre', 'Rapports PDF exportables par les gestionnaires'] },
+    { id: 'g3', sprintId: 's3', icon: '📊', color: 'linear-gradient(135deg,#059669,#047857)', name: 'Reporting', goal: 'Fournir une visibilite complete aux directions et clients', metrics: ['KPIs direction disponibles en temps reel', 'Historique legacy importe a 100%', 'Tableau de bord operationnel valide par la DSI'] },
+  ],
   history: [
-    { id: 'h1', type: 'item_create' as const, timestamp: new Date(Date.now()-86400000*2).toISOString(), itemKey: 'AUT-001', itemDesc: 'Interface de connexion sécurisée', detail: 'US créée', author: 'm1' },
-    { id: 'h2', type: 'item_status' as const, timestamp: new Date(Date.now()-86400000).toISOString(), itemKey: 'AUT-001', itemDesc: 'Interface de connexion sécurisée', from: 'todo', to: 'inprogress', author: 'm1' },
-    { id: 'h3', type: 'item_create' as const, timestamp: new Date(Date.now()-3600000*5).toISOString(), itemKey: 'AUT-002', itemDesc: 'Tableau de bord analytique', detail: 'US créée', author: 'm2' },
+    { id: 'h1', type: 'item_create' as const, timestamp: new Date(Date.now()-86400000*2).toISOString(), itemKey: 'AUT-1', itemDesc: 'Integration API sinistres partenaires', detail: 'US creee', author: 'm1' },
+    { id: 'h2', type: 'item_status' as const, timestamp: new Date(Date.now()-86400000).toISOString(), itemKey: 'AUT-2', itemDesc: 'Module de detection de fraude automatique', from: 'todo', to: 'done', author: 'm2' },
+    { id: 'h3', type: 'item_create' as const, timestamp: new Date(Date.now()-3600000*5).toISOString(), itemKey: 'AUT-7', itemDesc: 'Tableau de bord KPIs direction', detail: 'US creee', author: 'm1' },
   ],
 }

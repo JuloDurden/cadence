@@ -11,6 +11,7 @@ import { TeamPage } from './pages/TeamPage'
 import { AutoPlanningPage } from './pages/AutoPlanningPage'
 import { HistoriquePage } from './pages/HistoriquePage'
 import { SettingsPage } from './pages/SettingsPage'
+import { RoadmapPage } from './pages/RoadmapPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { StateProvider } from './context/StateContext'
 import { TimerProvider } from './context/TimerContext'
@@ -35,6 +36,7 @@ function AppLayout() {
               <Route path="/clients" element={<ClientsPage />} />
               <Route path="/team" element={<TeamPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/roadmap" element={<RoadmapPage />} />
               <Route path="*" element={<Navigate to="/backlog" replace />} />
             </Routes>
           </div>

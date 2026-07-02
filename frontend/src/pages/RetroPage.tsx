@@ -40,7 +40,7 @@ function emptyColumns(format: RetroFormat): Record<string, RetroItem[]> {
 export function RetroPage() {
   const { state, dispatch, saveToServer } = useCadence()
 
-  const currentSprint = useMemo(() => state.sprints.find(s => !s.closed), [state.sprints])
+  _currentSprint = useMemo(() => state.sprints.find(s => !s.closed), [state.sprints])
   const [sprintIdx, setSprintIdx] = useState(() => {
     const idx = state.sprints.findIndex(s => !s.closed)
     return idx >= 0 ? idx : state.sprints.length - 1

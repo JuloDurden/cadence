@@ -13,7 +13,7 @@ interface Props {
   onDelete: (itemId: string) => void
 }
 
-export function RetroColumnCard({ colKey, label, color, items, team, currentUserId, onAdd, onVote, onDelete }: Props) {
+export function RetroColumnCard({ colKey: _colKey, label, color, items, team, currentUserId, onAdd, onVote, onDelete }: Props) {
   const [input, setInput] = useState('')
 
   function handleAdd() {

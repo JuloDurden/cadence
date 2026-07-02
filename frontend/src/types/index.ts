@@ -46,11 +46,21 @@ export interface Settings {
   sprintDuration: number; defaultCapacity: number; theme: 'light' | 'dark'
 }
 
+export interface RoadmapGoal {
+  id: string
+  sprintId: string
+  icon: string
+  color: string
+  name: string
+  goal: string
+  metrics: string[]
+}
+
 export interface CadenceState {
   sprints: Sprint[]; items: Item[]; team: TeamMember[]
   clients: Client[]; kanbanCols: KanbanCol[]; settings: Settings
   dailyEntries: DailyEntry[]; retroSessions: RetroSession[]
-  history: HistoryEntry[]
+  history: HistoryEntry[]; roadmap: RoadmapGoal[]
 }
 
 export interface DailyEntry {
@@ -86,7 +96,6 @@ export interface RetroSession {
   actions: RetroAction[]
   date: string
 }
-
 
 export type HistoryEventType = 'item_create' | 'item_edit' | 'item_delete' | 'item_status' | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
 
