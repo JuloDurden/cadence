@@ -5,6 +5,7 @@ import { KanbanPage } from './pages/KanbanPage'
 import { PlanningPage } from './pages/PlanningPage'
 import { DailyPage } from './pages/DailyPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { RetroPage } from './pages/RetroPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { StateProvider } from './context/StateContext'
@@ -28,7 +29,7 @@ function AppLayout() {
               <Route path="/kanban" element={<KanbanPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/daily" element={<DailyPage />} />
-              <Route path="/retro" element={<><Header title="Rétrospective" /><PlaceholderPage title="Rétrospective" /></>} />
+              <Route path="/retro" element={<RetroPage />} />
               <Route path="/clients" element={<><Header title="Clients" /><PlaceholderPage title="Clients" /></>} />
               <Route path="/settings" element={<><Header title="Réglages" /><PlaceholderPage title="Réglages" /></>} />
               <Route path="*" element={<Navigate to="/backlog" replace />} />

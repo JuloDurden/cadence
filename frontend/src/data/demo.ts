@@ -34,6 +34,29 @@ export const DEMO_STATE: CadenceState = {
     { id: 'blocked', label: 'Bloqué', color: '#ef4444', isDone: false },
   ],
   settings: { sprintDuration: 14, defaultCapacity: 40, theme: 'light' },
+  retroSessions: [
+    {
+      id: 'r1', sprintId: 's1', format: 'start-stop-continue' as const,
+      date: '2026-05-14',
+      columns: {
+        start: [
+          { id: 'ri1', text: 'Faire des revues de code plus régulières', votes: ['m1', 'm2'], authorId: 'm3' },
+          { id: 'ri2', text: 'Intégrer des tests automatisés dès le début', votes: ['m1'], authorId: 'm2' },
+        ],
+        stop: [
+          { id: 'ri3', text: 'Les réunions de statut trop longues', votes: ['m2', 'm3'], authorId: 'm1' },
+        ],
+        continue: [
+          { id: 'ri4', text: 'Le Daily de 15 minutes bien cadré', votes: ['m1', 'm2', 'm3'], authorId: 'm1' },
+          { id: 'ri5', text: 'La collaboration entre front et back', votes: ['m3'], authorId: 'm2' },
+        ],
+      },
+      actions: [
+        { id: 'ra1', text: 'Mettre en place une checklist de code review', ownerId: 'm1', dueDate: '2026-05-20', done: true },
+        { id: 'ra2', text: 'Réduire les réunions de statut à 10 min', ownerId: 'm3', dueDate: '2026-05-15', done: false },
+      ],
+    },
+  ],
   dailyEntries: [
     { memberId: 'm1', date: '2026-07-02', yesterday: 'Finalisé l\'intégration API sinistres', today: 'Démarrage module notifications', blockers: '' },
     { memberId: 'm2', date: '2026-07-02', yesterday: 'Review du dashboard burndown', today: 'Implémentation KPIs direction', blockers: 'En attente des specs UI du PO' },

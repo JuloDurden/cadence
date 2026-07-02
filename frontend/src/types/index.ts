@@ -49,6 +49,32 @@ export interface DailyEntry {
   blockers: string
 }
 
+export type RetroFormat = 'start-stop-continue' | 'mad-sad-glad' | '4ls'
+
+export interface RetroItem {
+  id: string
+  text: string
+  votes: string[]
+  authorId: string
+}
+
+export interface RetroAction {
+  id: string
+  text: string
+  ownerId: string
+  dueDate?: string
+  done: boolean
+}
+
+export interface RetroSession {
+  id: string
+  sprintId: string
+  format: RetroFormat
+  columns: Record<string, RetroItem[]>
+  actions: RetroAction[]
+  date: string
+}
+
 export interface AuthUser {
   id: string; email: string; name: string; role: UserRole
 }
