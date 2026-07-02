@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useCadence } from '../context/StateContext'
 import type { RoadmapGoal } from '../types'
 
@@ -16,7 +16,7 @@ function uid() { return Math.random().toString(36).slice(2) }
 function sprintDateLabel(start: string, end: string): string {
   if (!start || !end) return ''
   const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-  return `${fmt(start)} → ${fmt(end)}`
+  return `${fmt(start)} -> ${fmt(end)}`
 }
 
 export function RoadmapPage() {
@@ -24,7 +24,47 @@ export function RoadmapPage() {
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
   const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '' })
 
-  const roadmap = state.roadmap || []
+  const roadmapMap = new Map((state.roadmap || []).map(g => [g.sprintId, g]))
+
+  // Auto-create roadmap goals for sprints that don't have one yet
+  useEffect(() => {
+    const map = new Map((state.roadmap || []).map(g => [g.sprintId, g]))
+    state.sprints.forEach((sprint, idx) => {
+      if (!map.has(sprint.id)) {
+        dispatch({
+          type: 'ADD_ROADMAP_GOAL',
+          payload: {
+            id: 'g' + sprint.id,
+            sprintId: sprint.id,
+            icon: '🚀',
+            color: COLORS[idx % COLORS.length],
+            name: sprint.label || `Sprint ${sprint.number}`,
+            goal: sprint.goal || 'Sprint Goal a definir',
+            metrics: [],
+          },
+        })
+      }
+    })
+  }, [state.sprints.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Display in sprint order — every sprint gets a card
+  const cards = state.sprints.map((sprint, idx) => {
+    const goal = roadmapMap.get(sprint.id)
+    return {
+      sprint,
+      goal: goal ?? {
+        id: 'tmp-' + sprint.id,
+        sprintId: sprint.id,
+        icon: '🚀',
+        color: COLORS[idx % COLORS.length],
+        name: sprint.label || `Sprint ${sprint.number}`,
+        goal: sprint.goal || '',
+        metrics: [],
+      } as RoadmapGoal,
+    }
+  })
+
+  const totalAssigned = state.items.filter(i => i.sprintId).length
 
   function openModal(g: RoadmapGoal) {
     setEditGoal(g)
@@ -60,32 +100,29 @@ export function RoadmapPage() {
     dispatch({
       type: 'ADD_ROADMAP_GOAL', payload: {
         id: 'g' + uid(), sprintId: id, icon: '🚀',
-        color: COLORS[roadmap.length % COLORS.length],
+        color: COLORS[(state.roadmap || []).length % COLORS.length],
         name: `Sprint ${num}`,
-        goal: 'Sprint Goal à définir',
-        metrics: ['Métrique 1', 'Métrique 2'],
+        goal: 'Sprint Goal a definir',
+        metrics: [],
       }
     })
   }
 
   return (
     <div className="page-content">
-      {/* Header banner */}
       <div className="roadmap-header-box">
         <div>
-          <h2>🗺️ Product Roadmap</h2>
-          <p>{roadmap.length} sprint{roadmap.length !== 1 ? 's' : ''} planifiés · {state.items.filter(i => i.sprintId).length} items répartis</p>
+          <h2>Product Roadmap</h2>
+          <p>{cards.length} sprint{cards.length !== 1 ? 's' : ''} planifies  {totalAssigned} items repartis</p>
         </div>
       </div>
 
-      {/* Grid */}
       <div className="roadmap-grid">
-        {roadmap.map((g, gi) => {
-          const sprint = state.sprints.find(s => s.id === g.sprintId) ?? state.sprints[gi]
-          const items = sprint ? state.items.filter(i => i.sprintId === sprint.id) : []
+        {cards.map(({ sprint, goal }) => {
+          const items = state.items.filter(i => i.sprintId === sprint.id)
           const totalSP = items.reduce((acc, i) => acc + i.sp, 0)
-          const capLabel = sprint && sprint.capacity > 0 ? ` / ${sprint.capacity} SP` : ''
-          const dateLabel = sprint ? sprintDateLabel(sprint.startDate, sprint.endDate) : ''
+          const capLabel = sprint.capacity > 0 ? ` / ${sprint.capacity} SP` : ''
+          const dateLabel = sprintDateLabel(sprint.startDate, sprint.endDate)
 
           // Group items by client
           const byClient = new Map<string, typeof items>()
@@ -94,32 +131,36 @@ export function RoadmapPage() {
             byClient.set(item.clientId, [...list, item])
           })
 
+          const isTmp = goal.id.startsWith('tmp-')
+
           return (
-            <div key={g.id} className="roadmap-goal">
-              <div className="roadmap-goal-header" style={{ background: g.color }}>
-                <div className="roadmap-goal-icon">{g.icon}</div>
+            <div key={sprint.id} className="roadmap-goal">
+              <div className="roadmap-goal-header" style={{ background: goal.color }}>
+                <div className="roadmap-goal-icon">{goal.icon}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="roadmap-goal-sprint">Sprint {gi + 1} · {totalSP}{capLabel} SP</div>
-                  <div className="roadmap-goal-title">{g.name}</div>
-                  {dateLabel && <div className="roadmap-goal-date">📅 {dateLabel}</div>}
+                  <div className="roadmap-goal-sprint">Sprint {sprint.number}  {totalSP}{capLabel} SP</div>
+                  <div className="roadmap-goal-title">{goal.name}</div>
+                  {dateLabel && <div className="roadmap-goal-date">{dateLabel}</div>}
                 </div>
-                <button
-                  onClick={e => { e.stopPropagation(); openModal(g) }}
-                  style={{ background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, alignSelf: 'flex-start' }}
-                >✏️</button>
+                {!isTmp && (
+                  <button
+                    onClick={e => { e.stopPropagation(); openModal(goal) }}
+                    style={{ background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, alignSelf: 'flex-start' }}
+                  >edit</button>
+                )}
               </div>
 
               <div className="roadmap-section">
-                <div className="roadmap-section-label">🎯 Sprint Goal</div>
+                <div className="roadmap-section-label">Sprint Goal</div>
                 <p style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--text)', margin: 0 }}>
-                  {g.goal || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucun objectif défini.</span>}
+                  {goal.goal || <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucun objectif defini.</span>}
                 </p>
               </div>
 
-              {g.metrics.length > 0 && (
+              {goal.metrics.length > 0 && (
                 <div className="roadmap-section">
-                  <div className="roadmap-section-label">Métriques de succès</div>
-                  {g.metrics.map((m, mi) => (
+                  <div className="roadmap-section-label">Metriques de succes</div>
+                  {goal.metrics.map((m, mi) => (
                     <div key={mi} className="roadmap-metric">{m}</div>
                   ))}
                 </div>
@@ -133,7 +174,7 @@ export function RoadmapPage() {
                     <div key={clientId} className="roadmap-section">
                       <div className="roadmap-section-label">
                         <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: client?.color ?? '#888', marginRight: 5, verticalAlign: 'middle' }} />
-                        {client?.name ?? 'Client'} · <strong>{clientSP} SP</strong>
+                        {client?.name ?? 'Client'}  <strong>{clientSP} SP</strong>
                       </div>
                       {clientItems.map(item => (
                         <div key={item.id} className="roadmap-feature">
@@ -147,7 +188,7 @@ export function RoadmapPage() {
                 })
               ) : (
                 <div className="roadmap-section">
-                  <div className="roadmap-section-label">Fonctionnalités clés</div>
+                  <div className="roadmap-section-label">Fonctionnalites cles</div>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Aucun item dans ce sprint.</p>
                 </div>
               )}
@@ -155,55 +196,50 @@ export function RoadmapPage() {
           )
         })}
 
-        {/* Add sprint */}
         <div className="roadmap-add-btn-wrap">
-          <button
-            className="roadmap-add-btn"
-            onClick={addSprint}
-          >
-            <span style={{ fontSize: 24 }}>＋</span>
+          <button className="roadmap-add-btn" onClick={addSprint}>
+            <span style={{ fontSize: 24 }}>+</span>
             <span>Nouveau sprint</span>
           </button>
         </div>
       </div>
 
-      {/* Edit modal */}
       {editGoal && (
         <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditGoal(null) }}>
           <div className="modal" style={{ maxWidth: 500 }}>
             <div className="modal-header">
-              <span className="modal-title">✏️ {editGoal.name}</span>
-              <button className="modal-close" onClick={() => setEditGoal(null)}>✕</button>
+              <span className="modal-title">Modifier l objectif</span>
+              <button className="modal-close" onClick={() => setEditGoal(null)}>X</button>
             </div>
             <div className="modal-body" style={{ padding: '16px 20px', gap: 14, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', gap: 12 }}>
                 <div className="form-group" style={{ flex: '0 0 70px' }}>
-                  <label className="form-label">Icône</label>
+                  <label className="form-label">Icone</label>
                   <input className="form-input" value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} style={{ textAlign: 'center' }} />
                 </div>
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label className="form-label">Nom du sprint thème</label>
+                  <label className="form-label">Nom du sprint theme</label>
                   <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">🎯 Sprint Goal</label>
+                <label className="form-label">Sprint Goal</label>
                 <textarea className="form-input" rows={3} value={form.goal} onChange={e => setForm(f => ({ ...f, goal: e.target.value }))} style={{ resize: 'vertical' }} />
               </div>
               <div className="form-group">
                 <label className="form-label">
-                  Métriques de succès{' '}
+                  Metriques de succes{' '}
                   <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(une par ligne)</span>
                 </label>
                 <textarea className="form-input" rows={4} value={form.metrics} onChange={e => setForm(f => ({ ...f, metrics: e.target.value }))} style={{ resize: 'vertical' }} />
               </div>
               <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
-                💡 Les fonctionnalités sont dérivées automatiquement des items assignés au sprint correspondant.
+                Les fonctionnalites sont derivees automatiquement des items assignes au sprint correspondant.
               </p>
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setEditGoal(null)}>Annuler</button>
-              <button className="btn-primary" onClick={saveGoal}>💾 Enregistrer</button>
+              <button className="btn-primary" onClick={saveGoal}>Enregistrer</button>
             </div>
           </div>
         </div>
