@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import type { KanbanCol, Settings } from '../types'
@@ -7,6 +8,7 @@ function uid() { return Math.random().toString(36).slice(2, 9) }
 
 export function SettingsPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const navigate = useNavigate()
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
@@ -38,7 +40,7 @@ export function SettingsPage() {
         saveToServer(data)
         setSettings({ ...data.settings })
         setCols([...data.kanbanCols])
-        alert('Import réussi !')
+        alert('Import reussi !')
       } catch { alert('Fichier JSON invalide.') }
     }
     reader.readAsText(file)
@@ -53,9 +55,10 @@ export function SettingsPage() {
 
   return (
     <>
-      <Header title="Réglages">
+      <Header title="Reglages">
+        <button className="hdr-ctx-btn" onClick={() => navigate('/changelog')}>Changelog</button>
         <div style={{ flex: 1 }} />
-        {saved && <span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>✓ Enregistré</span>}
+        {saved && <span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600 }}>✓ Enregistre</span>}
         <button className="hdr-btn primary" onClick={save}>Enregistrer</button>
       </Header>
 
@@ -63,15 +66,15 @@ export function SettingsPage() {
 
         {/* Sprint settings */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>⚙️ Configuration des sprints</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Configuration des sprints</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="form-group">
-              <label className="form-label">Durée du sprint (semaines)</label>
+              <label className="form-label">Duree du sprint (semaines)</label>
               <input className="form-input" type="number" min={1} max={8} value={settings.sprintDuration}
                 onChange={e => setSettings(s => ({ ...s, sprintDuration: +e.target.value }))} />
             </div>
             <div className="form-group">
-              <label className="form-label">Capacité par défaut (SP/sprint)</label>
+              <label className="form-label">Capacite par defaut (SP/sprint)</label>
               <input className="form-input" type="number" min={1} max={500} value={settings.defaultCapacity}
                 onChange={e => setSettings(s => ({ ...s, defaultCapacity: +e.target.value }))} />
             </div>
@@ -80,9 +83,9 @@ export function SettingsPage() {
 
         {/* Theme */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>🎨 Apparence</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Apparence</h3>
           <div className="form-group">
-            <label className="form-label">Thème</label>
+            <label className="form-label">Theme</label>
             <div style={{ display: 'flex', gap: 10 }}>
               {(['light', 'dark'] as const).map(t => (
                 <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: settings.theme === t ? 700 : 400 }}>
@@ -90,7 +93,7 @@ export function SettingsPage() {
                     setSettings(s => ({ ...s, theme: t }))
                     document.documentElement.setAttribute('data-theme', t)
                   }} />
-                  {t === 'light' ? '☀️ Clair' : '🌙 Sombre'}
+                  {t === 'light' ? 'Clair' : 'Sombre'}
                 </label>
               ))}
             </div>
@@ -99,7 +102,7 @@ export function SettingsPage() {
 
         {/* Kanban columns */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>📌 Colonnes Kanban</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Colonnes Kanban</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
             {cols.map((col, i) => (
               <div key={col.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -110,14 +113,14 @@ export function SettingsPage() {
                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, whiteSpace: 'nowrap', cursor: 'pointer' }}>
                   <input type="checkbox" checked={col.isDone}
                     onChange={e => setCols(c => c.map((x, j) => j === i ? { ...x, isDone: e.target.checked } : x))} />
-                  Terminé
+                  Termine
                 </label>
-                <button className="btn-icon danger" onClick={() => setCols(c => c.filter((_, j) => j !== i))} disabled={cols.length <= 1}>🗑</button>
+                <button className="btn-icon danger" onClick={() => setCols(c => c.filter((_, j) => j !== i))} disabled={cols.length <= 1}>X</button>
               </div>
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input className="form-input" style={{ flex: 1 }} value={newColLabel} placeholder="Nouvelle colonne…"
+            <input className="form-input" style={{ flex: 1 }} value={newColLabel} placeholder="Nouvelle colonne..."
               onChange={e => setNewColLabel(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addCol()} />
             <button className="hdr-ctx-btn" onClick={addCol}>+ Ajouter</button>
@@ -126,14 +129,14 @@ export function SettingsPage() {
 
         {/* Import / Export */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>💾 Import / Export</h3>
+          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Import / Export</h3>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
-            Le fichier JSON contient tout l'état du projet (sprints, items, équipe, clients, historique). Utilisez-le pour migrer ou faire une sauvegarde manuelle.
+            Le fichier JSON contient tout l'etat du projet (sprints, items, equipe, clients, historique). Utilisez-le pour migrer ou faire une sauvegarde manuelle.
           </p>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button className="hdr-ctx-btn" onClick={exportJSON}>⬇️ Exporter JSON</button>
+            <button className="hdr-ctx-btn" onClick={exportJSON}>Exporter JSON</button>
             <label className="hdr-ctx-btn" style={{ cursor: 'pointer' }}>
-              ⬆️ Importer JSON
+              Importer JSON
               <input type="file" accept=".json" style={{ display: 'none' }} onChange={importJSON} />
             </label>
           </div>
