@@ -5930,7 +5930,7 @@ function autoSortItems(items){
 function runAutoPlanning(){
   const lastDoneCol=S.kanbanColumns[S.kanbanColumns.length-1];
   const allItemsList=[];
-  S.sprints.forEach(sp=>{sp.items.forEach(item=>{if(item.status!==lastDoneCol.id)allItemsList.push(item);});});
+  S.sprints.forEach(sp=>{if(sp.closed)return;sp.items.forEach(item=>{if(!isDoneStatus(item.status))allItemsList.push(item);});});
   S.unassigned.forEach(item=>allItemsList.push(item));
   // Epics with children → skip (plan individual stories instead)
   // Epics without children → plan as standalone unit
@@ -5942,9 +5942,10 @@ function runAutoPlanning(){
   // Build slots from non-completed sprints (with their numbers for date calc)
   const slots=[];
   S.sprints.forEach((sp,i)=>{
-    const allDone=sp.items.length>0&&sp.items.every(it=>it.status===lastDoneCol.id);
+    if(sp.closed)return;
+    const allDone=sp.items.length>0&&sp.items.every(it=>isDoneStatus(it.status));
     if(allDone)return;
-    const usedByDone=sp.items.filter(it=>it.status===lastDoneCol.id).reduce((s,it)=>s+itemContributionSP(it),0);
+    const usedByDone=sp.items.filter(it=>isDoneStatus(it.status)).reduce((s,it)=>s+itemContributionSP(it),0);
     slots.push({sprintId:sp.id,label:sprintName(sp),cap:effectiveMaxCap(sp,i),used:usedByDone,assigned:[],isNew:false,number:sp.number});
   });
 
@@ -6058,9 +6059,10 @@ function applyAutoPlanning(){
   const lastDoneCol=S.kanbanColumns[S.kanbanColumns.length-1];
   const curId=currentSprintId();
 
-  // 1. Remove all non-done items + clear labels for ALL reorganized sprints (except current)
+  // 1. Remove all non-done items + clear labels for ALL reorganized sprints (except closed/current)
   S.sprints.forEach(sp=>{
-    sp.items=sp.items.filter(it=>it.status===lastDoneCol.id);
+    if(sp.closed)return;
+    sp.items=sp.items.filter(it=>isDoneStatus(it.status));
     if(sp.id!==curId){
       // Wipe label - content is being entirely replanned
       sp.label='';
@@ -6112,9 +6114,10 @@ function renderAutoPreview(){
     const over=totalUsed>slot.cap;
     const isCurrent=!slot.isNew&&slot.sprintId===curId;
     const isModified=!slot.isNew&&!isCurrent;
+    const displayLabel=isCurrent?slot.label:slot.isNew?slot.label:`Sprint ${slot.number}`;
     html+=`<div class="auto-preview-sprint">
       <div class="auto-preview-sprint-head">
-        <span>${slot.label}</span>
+        <span>${displayLabel}</span>
         ${isCurrent?`<span class="auto-new-sprint-badge" style="background:#0891b2">Sprint en cours</span>`:''}
         ${slot.isNew?`<span class="auto-new-sprint-badge">✨ Nouveau sprint</span>`:''}
         ${isModified?`<span class="auto-new-sprint-badge" style="background:#7c3aed">📝 Sprint modifié</span>`:''}
@@ -8329,7 +8332,13 @@ function renderChangelog(targetEl){
 }
 
 const CHANGELOG=[
-  {version:'v0.56.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI v2 + fix filtres Backlog',current:true,changes:[
+  {version:'v0.57.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Fix auto-planning : sprints clos + US terminées',current:true,changes:[
+    {tag:'fix',text:'Auto-planning : les sprints clôturés (sp.closed=true) sont désormais ignorés — ils ne sont plus inclus dans la proposition ni modifiés à l\'application'},
+    {tag:'fix',text:'Auto-planning : utilisation de isDoneStatus() à la place de status===lastDoneCol.id — couvre les statuts "done", "delivered" et colonnes personnalisées'},
+    {tag:'fix',text:'Auto-planning : les US déjà terminées dans un sprint en cours ne sont plus reproposées ni déplacées'},
+    {tag:'fix',text:'Auto-planning : les noms des sprints futurs n\'apparaissent plus dans la preview — seul "Sprint N" est affiché (le nom est effacé à l\'application)'},
+  ]},
+    {version:'v0.56.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI v2 + fix filtres Backlog',current:false,changes:[
     {tag:'ux',   text:'Dashboard : selecteur Sprint affiche "Sprint N" court, nom complet apres separateur'},
     {tag:'ux',   text:'Dashboard : icone layout affiche l\'etat cible (pas l\'etat courant)'},
     {tag:'ux',   text:'Backlog : filtres Client/Sprint/Priorite/Grouper/Tags et "Nouvel Item" alignes a droite'},
