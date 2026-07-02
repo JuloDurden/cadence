@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { LoginPage } from './pages/LoginPage'
 import { BacklogPage } from './pages/BacklogPage'
+import { KanbanPage } from './pages/KanbanPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { StateProvider } from './context/StateContext'
@@ -19,7 +20,7 @@ function AppLayout() {
           <Routes>
             <Route path="/backlog" element={<BacklogPage />} />
             <Route path="/planning" element={<><Header title="Planning" /><PlaceholderPage title="Planning" /></>} />
-            <Route path="/kanban" element={<><Header title="Kanban" /><PlaceholderPage title="Kanban" /></>} />
+            <Route path="/kanban" element={<KanbanPage />} />
             <Route path="/dashboard" element={<><Header title="Dashboard" /><PlaceholderPage title="Dashboard" /></>} />
             <Route path="/daily" element={<><Header title="Daily Standup" /><PlaceholderPage title="Daily" /></>} />
             <Route path="/retro" element={<><Header title="Rétrospective" /><PlaceholderPage title="Rétrospective" /></>} />
