@@ -57,8 +57,9 @@ function SearchModal({ onClose }: { onClose: () => void }) {
   const results = q
     ? state.items.filter(it => {
         const client = state.clients.find(c => c.id === it.clientId)
-        return [it.key, it.desc, ...(it.notes?.map(n => n.text) ?? []), ...(it.tags ?? []), client?.name ?? '']
-          .some(f => f.toLowerCase().includes(q))
+        const noteTexts = Array.isArray(it.notes) ? it.notes.map(n => n.text ?? '') : []
+        return [it.key ?? '', it.desc ?? '', ...noteTexts, ...(it.tags ?? []), client?.name ?? '']
+          .some(f => typeof f === 'string' && f.toLowerCase().includes(q))
       }).slice(0, 20)
     : []
 
@@ -112,7 +113,7 @@ function SearchModal({ onClose }: { onClose: () => void }) {
                   {it.key}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="search-result-desc" dangerouslySetInnerHTML={{ __html: hl(it.desc) }} />
+                  <div className="search-result-desc" dangerouslySetInnerHTML={{ __html: hl(it.desc ?? '') }} />
                   <div className="search-result-sub">{spLabel}</div>
                 </div>
                 <span className="search-result-sp">{it.sp} SP</span>
