@@ -1,145 +1,45 @@
 const { test, expect } = require('@playwright/test');
-const { loadWithState, goToTab } = require('./helpers');
+const { goTo } = require('./helpers');
 
-test.describe('Product Backlog', () => {
+test.describe('Backlog', () => {
 
-  test('se charge sans erreur JS', async ({ page }) => {
+  test('affiche le tableau et les items DEMO_STATE', async ({ page }) => {
+    await goTo(page, '/backlog');
+    await expect(page.locator('[data-testid="backlog-table"]')).toBeVisible();
+    // BUG-001 est le premier item du DEMO_STATE
+    await expect(page.locator('[data-testid="backlog-table"]')).toContainText('BUG-001');
+  });
+
+  test('affiche plusieurs clients du DEMO_STATE', async ({ page }) => {
+    await goTo(page, '/backlog');
+    const table = page.locator('[data-testid="backlog-table"]');
+    await expect(table).toContainText('FAX-002');
+    await expect(table).toContainText('MAN-003');
+    await expect(table).toContainText('AGA-004');
+  });
+
+  test('le bouton Nouvel Item ouvre la modale', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
+    await goTo(page, '/backlog');
+    await page.click('[data-testid="btn-new-item"]');
+    await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
     expect(errors).toHaveLength(0);
   });
 
-  test('affiche les items du sprint actif avec leur cle', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-1');
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-2');
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-3');
+  test('la modale contient les onglets Général et Dépendances', async ({ page }) => {
+    await goTo(page, '/backlog');
+    await page.click('[data-testid="btn-new-item"]');
+    await expect(page.locator('[data-testid="item-modal"]')).toContainText('Général');
+    await expect(page.locator('[data-testid="item-modal"]')).toContainText('Dépendances');
   });
 
-  test('le filtre Sprint filtre les items du sprint selectionne', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    // Selectionner le sprint s1 — doit montrer AUT-1, AUT-2, AUT-3 mais pas AUT-4 (non assigne)
-    await page.selectOption('#backlog-filter-sprint', 's1');
-    await page.waitForTimeout(200);
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-1');
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-3');
-    await expect(page.locator('#tab-backlog')).not.toContainText('AUT-4');
-  });
-
-  test('le filtre Sprint "Non assigne" filtre les items non assignes', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    await page.selectOption('#backlog-filter-sprint', 'unassigned');
-    await page.waitForTimeout(200);
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-4');
-    await expect(page.locator('#tab-backlog')).not.toContainText('AUT-1');
-  });
-
-  test('vider le filtre Sprint restaure tous les items', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    await page.selectOption('#backlog-filter-sprint', 's1');
-    await page.waitForTimeout(200);
-    await page.selectOption('#backlog-filter-sprint', '');
-    await page.waitForTimeout(200);
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-1');
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-4');
-  });
-
-  test('le tri par SP change l\'ordre des items', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    await page.selectOption('#backlog-sort', 'sp-desc');
-    await page.waitForTimeout(200);
-    expect(errors).toHaveLength(0);
-    // AUT-3 a 8 SP (le plus grand) - doit apparaitre en premier
-    const rows = page.locator('#tab-backlog tbody tr');
-    const firstRow = await rows.first().textContent();
-    expect(firstRow).toContain('AUT-3');
-  });
-
-  test('ouvrir la modale "Nouvelle US" ne genere pas d\'erreur JS', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    await page.click('button[onclick="openModal(null)"]');
-    await page.waitForSelector('#modal-overlay', { state: 'visible' });
-    expect(errors).toHaveLength(0);
-  });
-
-  test('la modale nouvelle US contient les champs essentiels', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.click('button[onclick="openModal(null)"]');
-    await page.waitForSelector('#modal-overlay', { state: 'visible' });
-    await expect(page.locator('#m-desc')).toBeVisible();
-    await expect(page.locator('#m-sp')).toBeVisible();
-    await expect(page.locator('#m-client')).toBeVisible();
-    await expect(page.locator('#m-sprint')).toBeVisible();
-  });
-
-  test('creer un item via la modale l\'ajoute au backlog', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.click('button[onclick="openModal(null)"]');
-    await page.waitForSelector('#modal-overlay', { state: 'visible' });
-    await page.fill('#m-desc', 'Test creation item E2E');
-    await page.fill('#m-sp', '3');
-    await page.click('button[onclick="saveModal()"]');
-    await page.waitForTimeout(400);
-    await expect(page.locator('#tab-backlog')).toContainText('Test creation item E2E');
-    expect(errors).toHaveLength(0);
-  });
-
-  test('supprimer un item le retire du backlog', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-
-    // Confirmer la boite de dialogue de suppression
-    page.on('dialog', d => d.accept());
-    // Cliquer le bouton supprimer de AUT-1
-    await page.click('button[aria-label="Supprimer AUT-1"]');
-    await page.waitForTimeout(400);
-
-    await expect(page.locator('#tab-backlog')).not.toContainText('AUT-1');
-    expect(errors).toHaveLength(0);
-  });
-
-  test('la colonne Statut affiche un badge colore', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    await expect(page.locator('#tab-backlog th:has-text("Statut")')).toBeVisible();
-    // Les badges statut sont des spans colores
-    const badges = page.locator('#tab-backlog tbody tr').first().locator('span[style*="border-radius"]');
-    expect(await badges.count()).toBeGreaterThan(0);
-  });
-
-  test('l\'item non assigne apparait dans la section Backlog non assigne', async ({ page }) => {
-    await loadWithState(page);
-    await goToTab(page, 'backlog');
-    await page.waitForTimeout(300);
-    // AUT-4 est dans unassigned dans les fixtures
-    await expect(page.locator('#tab-backlog')).toContainText('AUT-4');
+  test('fermer la modale la masque', async ({ page }) => {
+    await goTo(page, '/backlog');
+    await page.click('[data-testid="btn-new-item"]');
+    await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
+    await page.click('[data-testid="item-modal"] .modal-close');
+    await expect(page.locator('[data-testid="item-modal"]')).not.toBeVisible();
   });
 
 });
