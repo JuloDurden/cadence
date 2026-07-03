@@ -268,14 +268,14 @@ export function BacklogPage() {
         </div>
 
         <div className="hdr-ctx-sep" />
-        <button className="hdr-btn primary" style={{ gap: 5, display: 'flex', alignItems: 'center' }}
+        <button className="hdr-btn primary" data-testid="btn-new-item" style={{ gap: 5, display: 'flex', alignItems: 'center' }}
           onClick={() => setModalItem(null)}>
           <Svg d={ICO_PLUS} size={11} /> Nouvel Item
         </button>
       </Header>
 
       <div className="page-content">
-        <table className="backlog-table">
+        <table className="backlog-table" data-testid="backlog-table">
           <thead>
             <tr>
               <th style={{ width: 28 }} />
@@ -489,3 +489,44 @@ export function BacklogPage() {
                               {hasUS && (
                                 <div className="ca-us-block">
                                   <div className="ca-label-top">User Story</div>
+                                  {item.role && <div className="ca-us-row"><span className="ca-us-prefix">En tant que</span><span>{item.role}</span></div>}
+                                  {item.need && <div className="ca-us-row"><span className="ca-us-prefix">je souhaite</span><span>{item.need}</span></div>}
+                                  {item.benefit && <div className="ca-us-row"><span className="ca-us-prefix">afin de</span><span>{item.benefit}</span></div>}
+                                </div>
+                              )}
+                              {criteria.length > 0 && (
+                                <div className="ca-bdd-block">
+                                  <div className="ca-label-top">
+                                    {item.type === 'bug' ? 'Critères de résolution' : "Critères d'acceptation"}
+                                  </div>
+                                  {criteria.map((c, ci) => (
+                                    <div key={c.id} className="ca-bdd-row">
+                                      <span className="ca-bdd-num">#{ci + 1}</span>
+                                      <span className="ca-bdd-field given">{c.given}</span>
+                                      <span className="ca-bdd-sep">→</span>
+                                      <span className="ca-bdd-field when">{c.when}</span>
+                                      <span className="ca-bdd-sep">→</span>
+                                      <span className="ca-bdd-field then">{c.then}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {modalItem !== undefined && (
+        <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} />
+      )}
+    </>
+  )
+}

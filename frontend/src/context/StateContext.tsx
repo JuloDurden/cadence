@@ -99,5 +99,23 @@ export function StateProvider({ children }: { children: ReactNode }) {
                 if (demoItem?.deps?.length && !item.deps?.length) return { ...item, deps: demoItem.deps }
                 return item
               }),
-            // Ajouter les items DEMO_STATE absents du serveur
-            ...DEMO_STATE.items.filter(d => !loaded.items.some
+            ...DEMO_STATE.items.filter(d => !loaded.items.some(l => l.id === d.id))
+          ]
+        }
+        dispatch({ type: 'SET_STATE', payload: merged })
+      }
+    } catch { /* use demo data */ }
+  }, [])
+
+  return (
+    <StateContext.Provider value={{ state, dispatch, saveToServer, loadFromServer }}>
+      {children}
+    </StateContext.Provider>
+  )
+}
+
+export function useCadence() {
+  const ctx = useContext(StateContext)
+  if (!ctx) throw new Error('useCadence must be used inside StateProvider')
+  return ctx
+}

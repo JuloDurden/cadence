@@ -140,5 +140,28 @@ export interface DailyEntry {
 
 export type RetroFormat = 'start-stop-continue' | 'mad-sad-glad' | '4ls'
 
-export interface RetroItem {
-  id: string; text: string; votes: string[]; authorId
+  id: string; text: string; votes: string[]; authorId?: string
+}
+
+export interface RetroAction {
+  id: string; text: string; ownerId: string; dueDate?: string; done: boolean
+}
+
+export interface RetroSession {
+  id: string; sprintId: string; format: RetroFormat
+  columns: Record<string, RetroItem[]>; actions: RetroAction[]; date: string
+}
+
+export type HistoryEventType =
+  | 'item_create' | 'item_edit' | 'item_delete' | 'item_status'
+  | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
+
+export interface HistoryEntry {
+  id: string; type: HistoryEventType; timestamp: string
+  sprintId?: string; itemKey?: string; itemDesc?: string
+  author?: string; detail?: string; from?: string; to?: string
+}
+
+export interface AuthUser {
+  id: string; email: string; name: string; role: UserRole
+}

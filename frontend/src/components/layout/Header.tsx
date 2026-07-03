@@ -251,5 +251,7 @@ export function Header({ title, children }: HeaderProps) {
         </div>
       </header>
 
-      {/* Search modal */}
-      {searchOpen && <SearchModal onClose={() => setSearchOpen(fal
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
+    </>
+  )
+}
