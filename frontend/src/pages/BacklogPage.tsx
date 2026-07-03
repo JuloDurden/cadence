@@ -526,3 +526,37 @@ export function BacklogPage() {
                                   <div className="ca-label-top">
                                     {item.type === 'bug' ? 'Critères de résolution' : "Critères d'acceptation"}
                                   </div>
+                                  {criteria.map((c, ci) => (
+                                    <div key={c.id} className="ca-bdd-row">
+                                      <span className="ca-bdd-num">#{ci + 1}</span>
+                                      <span className="ca-bdd-field given">{c.given}</span>
+                                      <span className="ca-bdd-sep">→</span>
+                                      <span className="ca-bdd-field when">{c.when}</span>
+                                      <span className="ca-bdd-sep">→</span>
+                                      <span className="ca-bdd-field then">{c.then}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+              </React.Fragment>
+            )
+          })}
+          </tbody>
+        </table>
+      </div>
+
+      {modalItem !== undefined && (
+        <ModalErrorBoundary key={modalItem?.id ?? 'new'} onClose={() => setModalItem(undefined)}>
+          <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} />
+        </ModalErrorBoundary>
+      )}
+    </>
+  )
+}

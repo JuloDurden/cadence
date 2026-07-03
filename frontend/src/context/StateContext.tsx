@@ -107,6 +107,11 @@ export function StateProvider({ children }: { children: ReactNode }) {
     } catch { /* use demo data */ }
   }, [])
 
+  // Charger depuis le serveur au démarrage si un token existe
+  useEffect(() => {
+    if (localStorage.getItem('cadence_token')) loadFromServer()
+  }, [loadFromServer])
+
   return (
     <StateContext.Provider value={{ state, dispatch, saveToServer, loadFromServer }}>
       {children}

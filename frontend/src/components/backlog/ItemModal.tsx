@@ -164,7 +164,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   const [assignees, setAssignees] = useState<string[]>(item?.assignees ?? [])
 
   /* Notes */
-  const [notes,              setNotes]              = useState<Note[]>(item?.notes ?? [])
+  const [notes,              setNotes]              = useState<Note[]>(Array.isArray(item?.notes) ? item.notes : [])
   const [noteText,           setNoteText]           = useState('')
   const [pendingAtts,        setPendingAtts]        = useState<NoteAttachment[]>([])
   const [addingLink,         setAddingLink]         = useState(false)
@@ -949,4 +949,8 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           <button className="hdr-btn primary" onClick={handleSave}>
             {isNew ? 'Créer' : 'Enregistrer'}
           </button>
-        </
+        </div>
+      </div>
+    </div>
+  )
+}

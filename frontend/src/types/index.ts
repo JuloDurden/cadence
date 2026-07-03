@@ -164,4 +164,5 @@ export interface HistoryEntry {
 }
 
 export interface AuthUser {
-  id: string; email: string; nam
+  id: string; email: string; name: string; role: UserRole
+}
