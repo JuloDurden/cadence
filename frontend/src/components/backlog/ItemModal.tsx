@@ -178,6 +178,10 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   /* DoR / DoD */
   const [dor, setDor] = useState<CheckItem[]>(item?.dor?.length ? item.dor : mkCheck(DOR_DEFAULT))
   const [dod, setDod] = useState<CheckItem[]>(item?.dod?.length ? item.dod : mkCheck(DOD_DEFAULT))
+  const [dorInput, setDorInput] = useState('')
+  const [dodInput, setDodInput] = useState('')
+  const dorDone = dor.filter(x => x.done).length
+  const dodDone = dod.filter(x => x.done).length
 
   /* ── Criterion helpers ── */
   function addCriterion() {

@@ -26,15 +26,16 @@ const operaPath = findOpera();
 module.exports = defineConfig({
   testDir: './tests',
   testMatch: ['**/tests/*.spec.js'],
-  timeout: 20000,
+  timeout: 30000,
   retries: 0,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
 
+  // Lance le dev server Vite (React) sur le port 4321
   webServer: {
-    command: 'node tests/server.js',
+    command: 'cd frontend && npm run dev -- --port ' + PORT,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 5000,
+    timeout: 60000,
   },
 
   use: {
@@ -44,13 +45,14 @@ module.exports = defineConfig({
     actionTimeout: 8000,
   },
 
-  // En CI (GitHub Actions), pas d'Opera/Chrome installé → Chromium headless
-  // En local, on utilise Opera si disponible, sinon Chrome
+  // En CI : chromium headless
+  // En local : Opera si dispo, sinon Chrome
   projects: process.env.CI
     ? [{ name: 'chromium', use: { browserName: 'chromium' } }]
     : [
         operaPath
           ? { name: 'opera', use: { browserName: 'chromium', executablePath: operaPath } }
-          : { name: 'chrome', use: { browserName: 'chromium', channel: 'chrome' } },
-      ],
+          : { name: 'chrome', use: { browserName: 'chromium', channel: 'chrome' }
+      },
+    ],
 });

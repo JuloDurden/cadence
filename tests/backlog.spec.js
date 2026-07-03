@@ -38,7 +38,7 @@ test.describe('Backlog', () => {
     await goTo(page, '/backlog');
     await page.click('[data-testid="btn-new-item"]');
     await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
-    await page.click('[data-testid="item-modal"] .modal-close');
+    await page.click('[data-testid="item-modal"] button[aria-label="Fermer"]');
     await expect(page.locator('[data-testid="item-modal"]')).not.toBeVisible();
   });
 

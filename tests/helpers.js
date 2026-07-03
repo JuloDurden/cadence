@@ -1,41 +1,35 @@
 /**
- * Helpers communs pour tous les tests E2E.
+ * Helpers E2E pour la version React (Vite + React Router).
+ *
+ * Strategie :
+ *  1. Injecter cadence_token dans localStorage pour bypasser la ProtectedRoute
+ *  2. Mocker /api/** pour eviter les erreurs reseau (l'app demarre sur DEMO_STATE)
+ *  3. Naviguer vers la route React cible
  */
-const { BASE_STATE } = require('./fixtures');
 
 const BASE_URL = 'http://localhost:4321';
 
 /**
- * Charge la page avec un etat de test injecte dans localStorage.
- * Strategie : goto -> evaluate (inject) -> reload -> wait
+ * Charge une route React avec auth injectee.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} route  ex: '/backlog', '/kanban', '/'
  */
-async function loadWithState(page, stateOverride = {}) {
-  const state = { ...BASE_STATE, ...stateOverride };
+async function goTo(page, route = '/backlog') {
+  // Intercepter les appels API pour eviter les erreurs reseau
+  await page.route('**/api/**', r =>
+    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: null }) })
+  );
 
-  // 1. Charger la page une premiere fois pour avoir acces a localStorage
-  await page.goto(BASE_URL + '/cadence.html');
+  // Charger la page login pour avoir acces au localStorage du bon domaine
+  await page.goto(BASE_URL + '/login');
   await page.waitForLoadState('domcontentloaded');
 
-  // 2. Injecter l'etat de test
-  await page.evaluate((stateJson) => {
-    localStorage.setItem('cadenceState_v1', JSON.stringify(stateJson));
-    localStorage.removeItem('act_undo');
-    localStorage.removeItem('act_redo');
-    // Effacer le flag demo pour eviter l'ecrasement de l'etat
-    localStorage.removeItem('cadenceDemo');
-  }, state);
+  // Injecter le token d'auth (bypass ProtectedRoute)
+  await page.evaluate(() => localStorage.setItem('cadence_token', 'test-token-e2e'));
 
-  // 3. Recharger pour que l'app lise le nouvel etat
-  await page.reload();
-  await page.waitForSelector('#main-content', { state: 'visible', timeout: 10000 });
+  // Naviguer vers la route cible
+  await page.goto(BASE_URL + route);
+  await page.waitForLoadState('networkidle');
 }
 
-/**
- * Navigue vers un onglet de la sidebar.
- */
-async function goToTab(page, tabId) {
-  await page.click(`[data-tab="${tabId}"], [onclick*="switchTab('${tabId}')"]`);
-  await page.waitForTimeout(200);
-}
-
-module.exports = { BASE_URL, loadWithState, goToTab };
+module.exports = { BASE_URL, goTo };

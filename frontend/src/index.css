@@ -908,4 +908,162 @@ tr:hover .ca-toggle { opacity: 1; }
   gap: 5px;
 }
 
-/* ─── WSJF scoring ─────────────────────────────────────
+/* ─── WSJF scoring ───────────────────────────────────── */
+
+.wsjf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+.wsjf-label {
+  font-size: 12px;
+  color: var(--text);
+  min-width: 160px;
+  flex-shrink: 0;
+}
+.wsjf-range {
+  flex: 1;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.wsjf-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 20px;
+  text-align: right;
+}
+
+/* ─── Notes tab ─────────────────────────────────────────────────── */
+.note-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+.note-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.note-header .note-date { flex: 1; }
+.note-text {
+  font-size: 13px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 6px;
+}
+.note-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.note-att-image {
+  position: relative;
+  display: inline-block;
+}
+.note-att-image img {
+  max-width: 120px;
+  max-height: 90px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+.note-att-remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0,0,0,.5);
+  border-radius: 50%;
+  padding: 1px;
+}
+.note-att-file {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 7px;
+  color: var(--text);
+}
+.note-att-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text);
+  max-width: 220px;
+}
+.note-att-link img { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+.note-att-link a { color: var(--primary); text-decoration: none; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.note-att-link a:hover { text-decoration: underline; }
+.note-replies {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.note-reply {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface2);
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+.note-reply-btn {
+  font-size: 11px;
+  color: var(--primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 4px;
+  font-weight: 500;
+}
+.note-reply-btn:hover { text-decoration: underline; }
+.note-reply-form {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+}
+.note-link-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.note-link-form input {
+  flex: 1;
+  font-size: 11px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+.note-compose {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface2);
+}
+.note-compose-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
