@@ -5,7 +5,7 @@ test.describe('Tags (Backlog)', () => {
 
   test('le backlog affiche la colonne Tags', async ({ page }) => {
     await goTo(page, '/backlog');
-    await expect(page.locator('[data-testid="backlog-table"] th')).toContainText('Tags');
+    await expect(page.locator('[data-testid="backlog-table"] th:has-text("Tags")')).toBeVisible();
   });
 
 });

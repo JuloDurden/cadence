@@ -3,14 +3,14 @@ const { goTo } = require('./helpers');
 
 test.describe('Dashboard', () => {
 
-  test('affiche au moins un widget', async ({ page }) => {
+  test('affiche les KPI StatCards', async ({ page }) => {
     await goTo(page, '/dashboard');
-    await expect(page.locator('.widget-card, .stat-card, .kpi-card, .dash-card').first()).toBeVisible();
+    await expect(page.getByText('US terminées')).toBeVisible();
+    await expect(page.getByText('Sprint actuel')).toBeVisible();
   });
 
-  test('affiche le nom du sprint actif', async ({ page }) => {
+  test('affiche la section page-content', async ({ page }) => {
     await goTo(page, '/dashboard');
-    // Le DEMO_STATE a un sprint avec un nom
     await expect(page.locator('.page-content')).toBeVisible();
   });
 
