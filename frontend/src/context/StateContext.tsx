@@ -1,8 +1,17 @@
-import { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
+import { createContext, useContext, useReducer, useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { CadenceState, Item, Sprint, RoadmapGoal } from '../types'
 import { DEMO_STATE } from '../data/demo'
 import { api } from '../services/api'
+
+const UNDOABLE = new Set([
+  'ADD_ITEM','UPDATE_ITEM','DELETE_ITEM',
+  'ADD_SPRINT','UPDATE_SPRINT','DELETE_SPRINT',
+  'ADD_CLIENT','UPDATE_CLIENT','DELETE_CLIENT',
+  'ADD_MEMBER','UPDATE_MEMBER','DELETE_MEMBER',
+  'UPDATE_SETTINGS','UPDATE_KANBAN_COLS',
+  'ADD_ROADMAP_GOAL','UPDATE_ROADMAP_GOAL','DELETE_ROADMAP_GOAL',
+])
 
 type Action =
   | { type: 'SET_STATE'; payload: CadenceState }
@@ -65,12 +74,18 @@ interface StateContextValue {
   dispatch: React.Dispatch<Action>
   saveToServer: (s: CadenceState) => Promise<void>
   loadFromServer: () => Promise<void>
+  undo: () => void
+  redo: () => void
+  canUndo: boolean
+  canRedo: boolean
 }
 
 const StateContext = createContext<StateContextValue | null>(null)
 
 export function StateProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, DEMO_STATE)
+  const [past, setPast] = useState<CadenceState[]>([])
+  const [future, setFuture] = useState<CadenceState[]>([])
 
   // Apply theme on state change
   useEffect(() => {
@@ -112,8 +127,36 @@ export function StateProvider({ children }: { children: ReactNode }) {
     if (localStorage.getItem('cadence_token')) loadFromServer()
   }, [loadFromServer])
 
+  // Dispatch avec snapshot undo/redo
+  const wrappedDispatch = useCallback((action: Action) => {
+    if (UNDOABLE.has(action.type)) {
+      setPast(p => [...p.slice(-49), state])
+      setFuture([])
+    }
+    dispatch(action)
+  }, [state])
+
+  const undo = useCallback(() => {
+    if (past.length === 0) return
+    const prev = past[past.length - 1]
+    setPast(p => p.slice(0, -1))
+    setFuture(f => [state, ...f.slice(0, 49)])
+    dispatch({ type: 'SET_STATE', payload: prev })
+  }, [past, state])
+
+  const redo = useCallback(() => {
+    if (future.length === 0) return
+    const next = future[0]
+    setFuture(f => f.slice(1))
+    setPast(p => [...p.slice(-49), state])
+    dispatch({ type: 'SET_STATE', payload: next })
+  }, [future, state])
+
   return (
-    <StateContext.Provider value={{ state, dispatch, saveToServer, loadFromServer }}>
+    <StateContext.Provider value={{
+      state, dispatch: wrappedDispatch, saveToServer, loadFromServer,
+      undo, redo, canUndo: past.length > 0, canRedo: future.length > 0
+    }}>
       {children}
     </StateContext.Provider>
   )

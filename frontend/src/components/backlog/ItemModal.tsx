@@ -308,7 +308,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     const now = new Date().toISOString()
     const client = state.clients.find(c => c.id === clientId) ?? state.clients[0]
     const prefix = client?.prefix ?? 'ITEM'
-    const nextNum = state.items.filter(i => i.key.startsWith(prefix + '-')).length + 1
+    const nextNum = state.items.length + 1
     const wsjf: WSJFScore | undefined = framework === 'wsjf' ? { businessValue: wBV, timeCriticality: wTC, riskReduction: wRR } : item?.wsjf
     const rice: RICEScore | undefined = framework === 'rice' ? { reach: rReach, impact: rImpact, confidence: rConf, effort: rEffort } : item?.rice
     const finalItem: Item = {

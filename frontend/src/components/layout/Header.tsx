@@ -130,7 +130,7 @@ function SearchModal({ onClose }: { onClose: () => void }) {
 
 export function Header({ title, children }: HeaderProps) {
   const { logout } = useAuth()
-  const { state, dispatch, saveToServer } = useCadence()
+  const { state, dispatch, saveToServer, undo, redo, canUndo, canRedo } = useCadence()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -208,10 +208,12 @@ export function Header({ title, children }: HeaderProps) {
         <div className="hdr-sep" />
 
         {/* Undo / Redo */}
-        <button className="hdr-btn hdr-btn-border" title="Rien a annuler" disabled aria-label="Annuler">
+        <button className="hdr-btn hdr-btn-border" title={canUndo ? 'Annuler' : 'Rien à annuler'}
+          disabled={!canUndo} onClick={undo} aria-label="Annuler">
           <Svg d={SVG.undo} />
         </button>
-        <button className="hdr-btn hdr-btn-border" title="Rien a retablir" disabled aria-label="Retablir">
+        <button className="hdr-btn hdr-btn-border" title={canRedo ? 'Rétablir' : 'Rien à rétablir'}
+          disabled={!canRedo} onClick={redo} aria-label="Rétablir">
           <Svg d={SVG.redo} />
         </button>
 

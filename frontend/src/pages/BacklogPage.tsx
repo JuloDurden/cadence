@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { useCadence } from '../context/StateContext'
+import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
 import type { Item, ItemType, BugSeverity } from '../types'
@@ -86,6 +87,7 @@ const ICO_PLUS   = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x
 /* ─── Component ─────────────────────────────────────────────────── */
 export function BacklogPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { userName } = useAuth()
   const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
   const [filterSprint,   setFilterSprint]   = useState('')
   const [filterClient,   setFilterClient]   = useState('')
@@ -199,11 +201,30 @@ export function BacklogPage() {
         dispatch({ type: 'UPDATE_ITEM', payload: child })
       })
     }
+    // Historique
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: isNew ? 'item_create' : 'item_edit',
+      timestamp: new Date().toISOString(),
+      itemKey: item.key,
+      itemDesc: item.desc,
+      sprintId: item.sprintId ?? undefined,
+      author: userName,
+    }})
     saveToServer({ ...state, items: base })
   }
   function handleDelete(id: string) {
     if (!confirm('Supprimer cet item ?')) return
+    const item = state.items.find(i => i.id === id)
     dispatch({ type: 'DELETE_ITEM', payload: id })
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'item_delete',
+      timestamp: new Date().toISOString(),
+      itemKey: item?.key,
+      itemDesc: item?.desc,
+      author: userName,
+    }})
     saveToServer({ ...state, items: state.items.filter(i => i.id !== id) })
   }
   function toggleExpand(id: string) {

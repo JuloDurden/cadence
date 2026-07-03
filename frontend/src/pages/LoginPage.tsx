@@ -15,8 +15,8 @@ export function LoginPage() {
     e.preventDefault()
     setError(null)
     try {
-      const { token } = await api.login(email, password)
-      login(token)
+      const { token, user } = await api.login(email, password)
+      login(token, user?.name)
       navigate('/')
     } catch {
       setError('Email ou mot de passe incorrect.')
