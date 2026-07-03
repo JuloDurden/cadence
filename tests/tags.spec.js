@@ -3,7 +3,7 @@ const { goTo } = require('./helpers');
 
 test.describe('Tags (Backlog)', () => {
 
-  test('le backlog s'affiche avec la colonne Tags', async ({ page }) => {
+  test('le backlog affiche la colonne Tags', async ({ page }) => {
     await goTo(page, '/backlog');
     await expect(page.locator('[data-testid="backlog-table"] th')).toContainText('Tags');
   });

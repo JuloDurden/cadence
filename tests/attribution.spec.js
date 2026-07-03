@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { goTo } = require('./helpers');
 
-test.describe('Attribution — Historique', () => {
+test.describe('Attribution - Historique', () => {
 
   test('la page Historique se charge sans erreur JS', async ({ page }) => {
     const errors = [];
@@ -11,7 +11,7 @@ test.describe('Attribution — Historique', () => {
     expect(errors).toHaveLength(0);
   });
 
-  test('affiche des entrées d'historique du DEMO_STATE', async ({ page }) => {
+  test('affiche des entrees dans le journal', async ({ page }) => {
     await goTo(page, '/historique');
     await expect(page.locator('.page-content')).toBeVisible();
   });
