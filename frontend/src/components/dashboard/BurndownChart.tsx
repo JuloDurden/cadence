@@ -38,7 +38,7 @@ export function BurndownChart({ sprint, items }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={1} />
           <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v: number, n: string) => [v + ' SP', n === 'ideal' ? 'Idéal' : 'Réel']} />
+          <Tooltip formatter={((v: unknown, n: string) => [v + ' SP', n === 'ideal' ? 'Idéal' : 'Réel']) as never} />
           <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
           <Line type="monotone" dataKey="ideal" stroke="var(--border)" strokeDasharray="4 4" dot={false} name="ideal" strokeWidth={2} />
           <Line type="monotone" dataKey="actual" stroke="var(--primary)" dot={false} name="actual" strokeWidth={2} connectNulls={false} />

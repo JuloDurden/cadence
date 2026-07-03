@@ -1,4 +1,4 @@
-export type ChangelogTag = 'feat' | 'fix' | 'ux' | 'refactor' | 'perf' | 'test' | 'info'
+export type ChangelogTag = 'feat' | 'fix' | 'ux' | 'refactor' | 'perf' | 'test' | 'info' | 'chore' | 'improve'
 
 export interface ChangelogChange {
   tag: ChangelogTag

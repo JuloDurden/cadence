@@ -23,7 +23,7 @@ export function VelocityChart({ sprints, items }: Props) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
           <YAxis tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(v: number, n: string) => [v + ' SP', n === 'velocity' ? 'Vélocité' : 'Planifié']} />
+          <Tooltip formatter={((v: unknown, n: string): [string, string] => [String(v) + ' SP', n === 'velocity' ? 'Vélocité' : 'Planifié']) as never} />
           {avg > 0 && <ReferenceLine y={avg} stroke="#ff9500" strokeDasharray="4 4" label={{ value: `Moy. ${Math.round(avg)}`, fontSize: 10, fill: '#ff9500', position: 'right' }} />}
           <Bar dataKey="planned" fill="var(--border)" radius={[3, 3, 0, 0]} name="planned" />
           <Bar dataKey="velocity" fill="var(--primary)" radius={[3, 3, 0, 0]} name="velocity" />

@@ -2,6 +2,7 @@ export type Priority = 'critical' | 'high' | 'medium' | 'low'
 export type RAG = 'R' | 'A' | 'G'
 export type UserRole = 'ADMIN' | 'MEMBER' | 'VIEWER'
 export type ItemType = 'story' | 'epic' | 'bug' | 'task' | 'spike'
+export type BugSeverity = 'critical' | 'major' | 'minor'
 
 export interface CheckItem { id: string; text: string; done: boolean }
 
@@ -12,9 +13,34 @@ export interface BDDCriterion {
   then: string
 }
 
+export interface Comment {
+  id: string
+  author: string
+  text: string
+  imageUrl?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export type MoscowValue = 'must' | 'should' | 'could' | 'wont'
+export type ScoringFramework = 'moscow' | 'wsjf' | 'rice' | 'manual'
+
 export interface Deadline {
   date: string
   type: 'none' | 'imposed' | 'negotiable'
+}
+
+export interface WSJFScore {
+  businessValue: number    // 1-10
+  timeCriticality: number  // 1-10
+  riskReduction: number    // 1-10
+}
+
+export interface RICEScore {
+  reach: number        // users/quarter
+  impact: number       // 0.25 | 0.5 | 1 | 2 | 3
+  confidence: number   // 0.5 | 0.8 | 1.0
+  effort: number       // person-weeks
 }
 
 export interface Item {
@@ -22,6 +48,7 @@ export interface Item {
   clientId: string; sprintId: string | null; priority: Priority
   assignees: string[]; tags: string[]
   type?: ItemType
+  severity?: BugSeverity
   epicId?: string | null
   role?: string; need?: string; benefit?: string
   bdd?: string               // deprecated, use criteria
@@ -31,6 +58,11 @@ export interface Item {
   dod?: CheckItem[]
   notes?: string
   deadline?: Deadline
+  moscow?: MoscowValue
+  scoringFramework?: ScoringFramework
+  wsjf?: WSJFScore
+  rice?: RICEScore
+  comments?: Comment[]
   createdAt: string
 }
 
@@ -99,11 +131,9 @@ export type HistoryEventType =
   | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
 
 export interface HistoryEntry {
-  id: string; type: HistoryEventType; timestamp: string
-  sprintId?: string; itemKey?: string; itemDesc?: string
-  author?: string; detail?: string; from?: string; to?: string
-}
-
-export interface AuthUser {
-  id: string; email: string; name: string; role: UserRole
-}
+  id: string
+  type: HistoryEventType
+  timestamp: string
+  author?: string          // teamMember id
+  sprintId?: string
+  item

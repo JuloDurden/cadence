@@ -2,43 +2,57 @@ import React, { useMemo, useState } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
-import type { Item, ItemType } from '../types'
+import type { Item, ItemType, BugSeverity } from '../types'
 
-/* ─── Helpers ────────────────────────────────────────────────────── */
-const PRIO_LABEL: Record<string, string>  = { critical: 'P1', high: 'P2', medium: 'P3', low: 'P4' }
-const PRIO_COLOR: Record<string, string>  = { critical: '#ef4444', high: '#f59e0b', medium: '#3b82f6', low: '#94a3b8' }
-const PRIO_ORDER: Record<string, number>  = { critical: 0, high: 1, medium: 2, low: 3 }
-const TYPE_LABEL: Record<ItemType, string> = { story: 'Story', epic: '⬡ EPIC', bug: '🐛 Bug', task: '🔧 Tâche', spike: '⚡ Spike' }
-const TYPE_COLOR: Record<ItemType, string> = {
-  story: '',
-  epic:  'var(--primary)',
-  bug:   '#dc2626',
-  task:  '#2563eb',
-  spike: '#d97706',
-}
+/* ─── Constants ─────────────────────────────────────────────────── */
 
-type GroupBy = 'sprint' | 'client' | 'type' | 'status' | 'none'
+const PRIO_LABEL:   Record<string, string> = { critical: 'P1', high: 'P2', medium: 'P3', low: 'P4' }
+const PRIO_COLOR:   Record<string, string> = { critical: '#FF2929', high: '#FF981C', medium: '#165FCC', low: '#9CC9F4' }
+const PRIO_TEXT:    Record<string, string> = { critical: '#fff', high: '#fff', medium: '#fff', low: '#0d1a33' }
+const PRIO_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+const TYPE_LABEL: Record<ItemType, string> = { story: 'US', epic: 'Epic', bug: 'Bug', task: 'Tâche', spike: 'Spike' }
+const TYPE_BG:    Record<ItemType, string> = { story: '#165FCC18', epic: '#7c3aed18', bug: '#FF292918', task: '#6b728018', spike: '#0891b218' }
+const TYPE_FG:    Record<ItemType, string> = { story: '#165FCC',   epic: '#7c3aed',   bug: '#FF2929',   task: '#6b7280',   spike: '#0891b2'   }
+const SEV_LABEL:  Record<BugSeverity, string> = { critical: 'Crit.', major: 'Maj.', minor: 'Min.' }
+const SEV_COLOR:  Record<BugSeverity, string> = { critical: '#FF2929', major: '#FF981C', minor: '#165FCC' }
+
+type GroupBy = 'sprint' | 'client' | 'type' | 'status' | 'epic' | 'none'
 
 interface Group {
-  id: string
-  label: string
-  sublabel?: string
-  color?: string
-  items: Item[]
-  capacity?: number
-  used?: number
+  id: string; label: string; sublabel?: string; color?: string
+  items: Item[]; capacity?: number; used?: number
+  epicSP?: number; epicFixed?: boolean; doneCount?: number
 }
 
-/* ─── SVG icons ──────────────────────────────────────────────────── */
+/* ─── SVG helpers ────────────────────────────────────────────────── */
 function Svg({ d, size = 13 }: { d: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-      dangerouslySetInnerHTML={{ __html: d }} />
-  )
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+    dangerouslySetInnerHTML={{ __html: d }} />
 }
+function FgIcon({ d }: { d: string }) {
+  return <svg className="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    dangerouslySetInnerHTML={{ __html: d }} />
+}
+function FgChev() {
+  return <svg className="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+}
+
 const SVG_EDIT   = '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/>'
-const SVG_DELETE = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'
+const SVG_DEL    = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'
+const SVG_CHEV_R = '<path d="m9 18 6-6-6-6"/>'
+const SVG_CHEV_D = '<path d="m6 9 6 6 6-6"/>'
+
+const ICO_USERS  = '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+const ICO_CAL    = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+const ICO_SORT   = '<line x1="4" y1="6" x2="11" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="14 9 17 6 20 9"/><polyline points="14 15 17 18 20 15"/>'
+const ICO_LAYERS = '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/>'
+const ICO_TAG    = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'
+const ICO_PLUS   = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 
 /* ─── Component ─────────────────────────────────────────────────── */
 export function BacklogPage() {
@@ -46,10 +60,32 @@ export function BacklogPage() {
   const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
   const [filterSprint,   setFilterSprint]   = useState('')
   const [filterClient,   setFilterClient]   = useState('')
-  const [filterPriority, setFilterPriority] = useState('')
+  const [filterPriority] = useState('')
   const [filterTag,      setFilterTag]      = useState('')
-  const [groupBy,        setGroupBy]        = useState<GroupBy>('sprint')
-  const [sortBy,         setSortBy]         = useState('priority')
+  const [groupBy,        setGroupBy]        = useState<GroupBy>('none')
+  const [sortBy,         setSortBy]         = useState('')
+  const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
+  const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
+  const [hoveredId,        setHoveredId]        = useState<string | null>(null)
+
+  /* ── dep chain: Map<itemId, depth> ── */
+  const depChain = useMemo(() => {
+    if (!hoveredId) return new Map<string, number>()
+    function collect(id: string, depth: number, visited: Set<string>): Map<string, number> {
+      const m = new Map<string, number>()
+      const it = state.items.find(x => x.id === id)
+      if (!it || visited.has(id)) return m
+      visited.add(id)
+      for (const depId of (it.deps ?? [])) {
+        if (!m.has(depId) || m.get(depId)! > depth) m.set(depId, depth)
+        collect(depId, depth + 1, visited).forEach((d, k) => {
+          if (!m.has(k) || m.get(k)! > d) m.set(k, d)
+        })
+      }
+      return m
+    }
+    return collect(hoveredId, 1, new Set<string>())
+  }, [hoveredId, state.items])
 
   const allTags = useMemo(() => {
     const s = new Set<string>()
@@ -57,7 +93,7 @@ export function BacklogPage() {
     return Array.from(s).sort()
   }, [state.items])
 
-  /* filter */
+  /* ── filter + sort ── */
   const filtered = useMemo(() => {
     let items = [...state.items]
     if (filterSprint === 'unassigned') items = items.filter(i => !i.sprintId)
@@ -66,70 +102,97 @@ export function BacklogPage() {
     if (filterPriority) items = items.filter(i => i.priority === filterPriority)
     if (filterTag)      items = items.filter(i => i.tags.includes(filterTag))
     items.sort((a, b) => {
-      if (sortBy === 'sp-desc') return b.sp - a.sp
-      if (sortBy === 'sp-asc')  return a.sp - b.sp
-      if (sortBy === 'created') return a.createdAt.localeCompare(b.createdAt)
-      return (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4)
+      if (sortBy === 'sp-desc')   return b.sp - a.sp
+      if (sortBy === 'sp-asc')    return a.sp - b.sp
+      if (sortBy === 'sprint')    return (a.sprintId ?? 'z').localeCompare(b.sprintId ?? 'z')
+      if (sortBy === 'deadline')  return (a.deadline?.date ?? 'z').localeCompare(b.deadline?.date ?? 'z')
+      if (sortBy === 'priority')  return (PRIO_ORDER[a.priority] ?? 4) - (PRIO_ORDER[b.priority] ?? 4)
+      // '' or 'key' → sort by numeric suffix (004 in AGA-004)
+      const keyNum = (k: string) => parseInt(k.match(/(\d+)$/)?.[1] ?? '0', 10)
+      return keyNum(a.key) - keyNum(b.key)
     })
     return items
   }, [state.items, filterSprint, filterClient, filterPriority, filterTag, sortBy])
 
-  /* group */
+  /* ── group ── */
   const groups = useMemo<Group[]>(() => {
     if (groupBy === 'sprint') {
       const result: Group[] = []
-      state.sprints.forEach(sp => {
+      const sprints = [...state.sprints].sort((a, b) => a.number - b.number)
+      for (const sp of sprints) {
         const items = filtered.filter(i => i.sprintId === sp.id)
         if (items.length || (!filterSprint && !filterClient && !filterPriority && !filterTag))
-          result.push({ id: sp.id, label: sp.label + (sp.closed ? ' ✓' : ''), items,
-            capacity: sp.capacity, used: items.reduce((s, i) => s + i.sp, 0) })
-      })
+          result.push({ id: sp.id, label: `Sprint ${sp.number}`, items, capacity: sp.capacity, used: items.reduce((s, i) => s + i.sp, 0) })
+      }
       const unassigned = filtered.filter(i => !i.sprintId)
       if (unassigned.length) result.push({ id: 'unassigned', label: 'Non assigné', items: unassigned })
-      return result.filter(g => g.items.length)
+      return result
     }
-    if (groupBy === 'client') {
-      return state.clients.map(c => ({
-        id: c.id, label: c.name, color: c.color,
-        items: filtered.filter(i => i.clientId === c.id)
-      })).filter(g => g.items.length)
+    if (groupBy === 'client') return state.clients.map(c => ({ id: c.id, label: c.name, color: c.color, items: filtered.filter(i => i.clientId === c.id) })).filter(g => g.items.length)
+    if (groupBy === 'type')   return (['story','epic','bug','task','spike'] as ItemType[]).map(t => ({ id: t, label: TYPE_LABEL[t], items: filtered.filter(i => (i.type ?? 'story') === t) })).filter(g => g.items.length)
+    if (groupBy === 'status') return state.kanbanCols.map(c => ({ id: c.id, label: c.label, color: c.color, items: filtered.filter(i => i.status === c.id) })).filter(g => g.items.length)
+    if (groupBy === 'epic') {
+      const allEpics = state.items.filter(i => i.type === 'epic')
+      const result: Group[] = allEpics.map(ep => {
+        const children = state.items.filter(i => i.epicId === ep.id)
+        const filteredChildren = filtered.filter(i => i.epicId === ep.id)
+        const childrenSP = children.reduce((s, i) => s + i.sp, 0)
+        const epicFixed = ep.sp > 0
+        const epicSP = epicFixed ? ep.sp : childrenSP
+        const doneCount = children.filter(i => i.status === 'done').length
+        const color = state.clients.find(c => c.id === ep.clientId)?.color
+        return { id: ep.id, label: ep.key, sublabel: ep.desc, color, items: filteredChildren, epicSP, epicFixed, doneCount, capacity: epicSP, used: doneCount }
+      }).filter(g => g.items.length > 0 || allEpics.find(e => e.id === g.id))
+      const noEpic = filtered.filter(i => !i.epicId && i.type !== 'epic')
+      if (noEpic.length) result.push({ id: 'no-epic', label: 'Sans Epic', items: noEpic })
+      return result
     }
-    if (groupBy === 'type') {
-      const order: ItemType[] = ['epic', 'story', 'bug', 'task', 'spike']
-      return order.map(t => ({
-        id: t, label: TYPE_LABEL[t], color: TYPE_COLOR[t] || 'var(--text-muted)',
-        items: filtered.filter(i => (i.type ?? 'story') === t)
-      })).filter(g => g.items.length)
-    }
-    if (groupBy === 'status') {
-      return state.kanbanCols.map(col => ({
-        id: col.id, label: col.label, color: col.color,
-        items: filtered.filter(i => i.status === col.id)
-      })).filter(g => g.items.length)
-    }
-    /* none */
-    return [{ id: 'all', label: `${filtered.length} items`, items: filtered }]
-  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols,
-      filterSprint, filterClient, filterPriority, filterTag])
+    return [{ id: 'all', label: 'Tous les items', items: filtered }]
+  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, filterSprint, filterClient, filterPriority, filterTag])
 
-  /* actions */
+  /* ── save / delete ── */
   function handleSave(item: Item) {
-    const exists = state.items.find(i => i.id === item.id)
-    const next = exists
-      ? state.items.map(i => i.id === item.id ? item : i)
-      : [...state.items, item]
-    dispatch({ type: exists ? 'UPDATE_ITEM' : 'ADD_ITEM', payload: item })
-    saveToServer({ ...state, items: next })
-    setModalItem(undefined)
-  }
+    const isNew = !state.items.find(i => i.id === item.id)
 
+    // Cascade: epic done → tous les enfants passent à 'done'
+    const doneStatus = state.kanbanCols.find(c => c.isDone)?.id ?? 'done'
+    const epicDoneCascade = item.type === 'epic' && item.status === doneStatus
+
+    let base = isNew ? [...state.items, item] : state.items.map(i => i.id === item.id ? item : i)
+    if (epicDoneCascade) {
+      base = base.map(i => i.epicId === item.id ? { ...i, status: doneStatus } : i)
+    }
+
+    // Dispatch: item principal + enfants mis à jour
+    dispatch({ type: isNew ? 'ADD_ITEM' : 'UPDATE_ITEM', payload: item })
+    if (epicDoneCascade) {
+      base.filter(i => i.epicId === item.id).forEach(child => {
+        dispatch({ type: 'UPDATE_ITEM', payload: child })
+      })
+    }
+    saveToServer({ ...state, items: base })
+  }
   function handleDelete(id: string) {
     if (!confirm('Supprimer cet item ?')) return
     dispatch({ type: 'DELETE_ITEM', payload: id })
     saveToServer({ ...state, items: state.items.filter(i => i.id !== id) })
   }
+  function toggleExpand(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  function toggleGroup(id: string) {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
-  /* lookup helpers */
+  /* ── lookups ── */
   function getClient(id: string) { return state.clients.find(c => c.id === id) }
   function getMember(id: string) { return state.team.find(m => m.id === id) }
   function getSprint(id: string | null) { return id ? state.sprints.find(s => s.id === id) : null }
@@ -139,71 +202,122 @@ export function BacklogPage() {
   return (
     <>
       <Header title="Product Backlog">
-        <div className="hdr-sep" />
-        <select className="hdr-select" value={filterClient} onChange={e => setFilterClient(e.target.value)}>
-          <option value="">Clients</option>
-          {state.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select className="hdr-select" value={filterSprint} onChange={e => setFilterSprint(e.target.value)}>
-          <option value="">Sprints</option>
-          {state.sprints.map(s => <option key={s.id} value={s.id}>Sprint {s.number}</option>)}
-          <option value="unassigned">Non assigné</option>
-        </select>
-        <select className="hdr-select" value={filterPriority} onChange={e => setFilterPriority(e.target.value)}>
-          <option value="">Priorité</option>
-          <option value="critical">P1 – Critique</option>
-          <option value="high">P2 – Haute</option>
-          <option value="medium">P3 – Normale</option>
-          <option value="low">P4 – Faible</option>
-        </select>
-        <select className="hdr-select" value={filterTag} onChange={e => setFilterTag(e.target.value)}>
-          <option value="">Tags</option>
-          {allTags.map(t => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <div className="hdr-sep" />
-        <select className="hdr-select" value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)}>
-          <option value="sprint">Grouper : Sprint</option>
-          <option value="client">Grouper : Client</option>
-          <option value="type">Grouper : Type</option>
-          <option value="status">Grouper : Statut</option>
-          <option value="none">Grouper : Aucun</option>
-        </select>
-        <select className="hdr-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option value="priority">Tri : Priorité</option>
-          <option value="sp-desc">Tri : SP ↓</option>
-          <option value="sp-asc">Tri : SP ↑</option>
-          <option value="created">Tri : Création</option>
-        </select>
         <div style={{ flex: 1 }} />
-        <button className="hdr-btn primary" onClick={() => setModalItem(null)}>+ Nouvel Item</button>
+
+        {/* Filter group — style copié du HTML */}
+        <div className="filter-group">
+          {/* Clients */}
+          <div className={`fg-item${filterClient ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_USERS} />
+            <select value={filterClient} onChange={e => setFilterClient(e.target.value)}>
+              <option value="">Clients</option>
+              {state.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <FgChev />
+          </div>
+
+          {/* Sprints */}
+          <div className={`fg-item${filterSprint ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_CAL} />
+            <select value={filterSprint} onChange={e => setFilterSprint(e.target.value)}>
+              <option value="">Sprints</option>
+              {state.sprints.map(s => <option key={s.id} value={s.id}>Sprint {s.number}</option>)}
+              <option value="unassigned">Non assigné</option>
+            </select>
+            <FgChev />
+          </div>
+
+          {/* Tri */}
+          <div className={`fg-item${sortBy ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_SORT} />
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
+              <option value="">Trier</option>
+              <option value="key">Clé</option>
+              <option value="priority">Priorité</option>
+              <option value="sprint">Sprint</option>
+              <option value="deadline">Deadline</option>
+              <option value="sp-desc">SP ↓</option>
+              <option value="sp-asc">SP ↑</option>
+            </select>
+            <FgChev />
+          </div>
+
+          {/* Grouper */}
+          <div className={`fg-item${groupBy !== 'none' ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_LAYERS} />
+            <select value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)}>
+              <option value="none">Grouper</option>
+              <option value="sprint">Sprint</option>
+              <option value="client">Client</option>
+              <option value="type">Type</option>
+              <option value="status">Statut</option>
+              <option value="epic">Epic</option>
+            </select>
+            <FgChev />
+          </div>
+
+          {/* Tags */}
+          <div className={`fg-item${filterTag ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_TAG} />
+            <select value={filterTag} onChange={e => setFilterTag(e.target.value)}>
+              <option value="">Tags</option>
+              {allTags.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <FgChev />
+          </div>
+        </div>
+
+        <div className="hdr-ctx-sep" />
+        <button className="hdr-btn primary" style={{ gap: 5, display: 'flex', alignItems: 'center' }}
+          onClick={() => setModalItem(null)}>
+          <Svg d={ICO_PLUS} size={11} /> Nouvel Item
+        </button>
       </Header>
 
       <div className="page-content">
         <table className="backlog-table">
           <thead>
             <tr>
-              <th style={{ width: 46 }}>Prio.</th>
-              <th style={{ width: 88 }}>Clé</th>
+              <th style={{ width: 28 }} />
+              <th style={{ width: 46, textAlign: 'center' }}>Prio.</th>
+              <th style={{ width: 72, textAlign: 'center' }}>Clé</th>
+              <th style={{ width: 68, textAlign: 'center' }}>Type</th>
               <th style={{ width: 50 }}>Sprint</th>
-              <th style={{ width: 108 }}>Client</th>
-              <th style={{ width: 100 }}>Statut</th>
-              <th>Description</th>
-              <th style={{ width: 110 }}>Tags</th>
-              <th style={{ width: 80 }}>Assignés</th>
+              <th style={{ width: 100, textAlign: 'center' }}>Client</th>
+              <th style={{ width: 90, textAlign: 'center' }}>Statut</th>
+              <th style={{ maxWidth: 200 }}>Description</th>
+              <th style={{ width: 200, textAlign: 'center' }}>Tags</th>
+              <th style={{ width: 72, textAlign: 'center' }}>Assignés</th>
               <th style={{ width: 42, textAlign: 'center' }}>SP</th>
-              <th style={{ width: 80 }}>Dép.</th>
+              <th style={{ width: 120 }}>Dépendances</th>
               <th style={{ width: 64, textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {groups.map(group => (
+            {groups.map(group => {
+              const isGroupCollapsed = groupBy === 'epic' && collapsedGroups.has(group.id)
+              return (
               <React.Fragment key={group.id}>
-                {/* Group header */}
                 <tr className="sprint-row">
-                  <td colSpan={11}>
+                  <td colSpan={13}>
                     <span className="sprint-badge" style={group.color ? { borderLeft: `3px solid ${group.color}`, paddingLeft: 10 } : undefined}>
+                      {groupBy === 'epic' && (
+                        <button className="btn-icon" style={{ opacity: .6, marginRight: 4 }}
+                          onClick={() => toggleGroup(group.id)}
+                          title={isGroupCollapsed ? 'Développer' : 'Réduire'}>
+                          <Svg d={isGroupCollapsed ? SVG_CHEV_R : SVG_CHEV_D} size={12} />
+                        </button>
+                      )}
                       {group.label}
-                      {group.capacity !== undefined && (
+                      {group.sublabel && <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-muted)', marginLeft: 6 }}>{group.sublabel}</span>}
+                      {group.epicSP !== undefined ? (
+                        <span className="sprint-capacity">
+                          {group.doneCount}/{group.items.length} US terminées
+                          <span style={{ marginLeft: 6, fontWeight: 600, color: group.color ?? 'var(--primary)' }}>{group.epicSP} SP</span>
+                          {group.epicFixed && <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 3 }}>fixé</span>}
+                          {!group.epicFixed && <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 3 }}>calculé</span>}
+                        </span>
+                      ) : group.capacity !== undefined ? (
                         <span className="sprint-capacity">
                           {group.used}/{group.capacity} SP
                           <span className="capacity-bar">
@@ -213,149 +327,165 @@ export function BacklogPage() {
                             }} />
                           </span>
                         </span>
-                      )}
+                      ) : null}
                       <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--text-faint)', fontWeight: 400 }}>
-                        {group.items.length} item{group.items.length !== 1 ? 's' : ''}
-                        {' · '}{group.items.reduce((s, i) => s + i.sp, 0)} SP
+                        {group.items.length} item{group.items.length !== 1 ? 's' : ''} · {group.epicSP === undefined ? `${group.items.reduce((s, i) => s + i.sp, 0)} SP` : ''}
                       </span>
                     </span>
                   </td>
                 </tr>
 
-                {/* Items */}
-                {group.items.map(item => {
+                {!isGroupCollapsed && group.items.map(item => {
                   const client   = getClient(item.clientId)
                   const sprint   = getSprint(item.sprintId)
                   const status   = getStatus(item.status)
                   const iType    = (item.type ?? 'story') as ItemType
                   const depItems = getDepItems(item.deps ?? [])
                   const dl       = item.deadline
+                  const criteria = item.criteria ?? []
+                  const hasUS = !!(item.role || item.need || item.benefit)
+                  const isExpanded = expandedIds.has(item.id)
+
+                  const depDepth = depChain.get(item.id)
+                  const hasDeps = (item.deps ?? []).length > 0
+                  const DEP_COLOR = 'var(--primary)'
 
                   return (
-                    <tr key={item.id} onDoubleClick={() => setModalItem(item)} style={{ cursor: 'default' }}>
+                    <React.Fragment key={item.id}>
+                      <tr
+                        onDoubleClick={() => setModalItem(item)}
+                        onMouseEnter={() => setHoveredId(hasDeps ? item.id : null)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        className={depDepth ? `dep-hl dep-hl-${depDepth}` : ''}
+                        style={{ cursor: 'default' }}>
+                        {/* Expand */}
+                        <td style={{ textAlign: 'center', padding: '0 4px' }}>
+                          {(criteria.length > 0 || hasUS) && (
+                            <button className="btn-icon" style={{ opacity: .55 }}
+                              onClick={e => { e.stopPropagation(); toggleExpand(item.id) }}
+                              title={isExpanded ? 'Masquer' : `US${criteria.length > 0 ? ' + CA' : ''}`}>
+                              <Svg d={isExpanded ? SVG_CHEV_D : SVG_CHEV_R} size={12} />
+                            </button>
+                          )}
+                        </td>
 
-                      {/* Prio */}
-                      <td style={{ textAlign: 'center' }}>
-                        <span className="prio-badge" style={{ background: PRIO_COLOR[item.priority] }}>
-                          {PRIO_LABEL[item.priority]}
-                        </span>
-                      </td>
-
-                      {/* Clé */}
-                      <td>
-                        <span className="item-key" style={{ color: client?.color ?? 'var(--primary)', background: (client?.color ?? '#4f46e5') + '18' }}>
-                          {item.key}
-                        </span>
-                      </td>
-
-                      {/* Sprint */}
-                      <td style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {sprint ? `S${sprint.number}` : '—'}
-                      </td>
-
-                      {/* Client */}
-                      <td>
-                        {client && (
-                          <span className="badge" style={{ background: client.color + '18', color: client.color }}>
-                            {client.name}
+                        {/* Prio */}
+                        <td style={{ textAlign: 'center' }}>
+                          <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: PRIO_COLOR[item.priority], color: PRIO_TEXT[item.priority], whiteSpace: 'nowrap' }}>
+                            {PRIO_LABEL[item.priority]}
                           </span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Statut */}
-                      <td>
-                        {status && (
-                          <span className="badge" style={{ background: status.color + '20', color: status.color }}>
-                            {status.label}
-                          </span>
-                        )}
-                      </td>
+                        {/* Clé */}
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="item-key">{item.key}</span>
+                        </td>
 
-                      {/* Description */}
-                      <td style={{ maxWidth: 320 }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                          {iType !== 'story' && (
-                            <span className="item-type-badge" style={{ background: (TYPE_COLOR[iType] || 'var(--primary)') + '18', color: TYPE_COLOR[iType] || 'var(--primary)', flexShrink: 0, marginTop: 1 }}>
+                        {/* Type */}
+                        <td style={{ textAlign: 'center' }}>
+                          <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                            <span style={{ display: 'inline-block', padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: TYPE_BG[iType], color: TYPE_FG[iType], whiteSpace: 'nowrap' }}>
                               {TYPE_LABEL[iType]}
                             </span>
-                          )}
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 12, lineHeight: 1.4 }}>
-                              {item.desc}
-                            </div>
-                            {dl && dl.type !== 'none' && dl.date && (
-                              <span className={`deadline-badge deadline-${dl.type}`} style={{ marginTop: 3, display: 'inline-flex' }}>
-                                📅 {new Date(dl.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })}
+                            {iType === 'bug' && item.severity && (
+                              <span style={{ fontSize: 9, fontWeight: 700, color: SEV_COLOR[item.severity] }}>
+                                {SEV_LABEL[item.severity]}
                               </span>
                             )}
-                          </div>
-                        </div>
-                      </td>
+                          </span>
+                        </td>
 
-                      {/* Tags */}
-                      <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                          {item.tags.map(t => <span key={t} className="tag">{t}</span>)}
-                        </div>
-                      </td>
+                        {/* Sprint */}
+                        <td style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                          {sprint ? `S${sprint.number}` : '—'}
+                        </td>
 
-                      {/* Assignés */}
-                      <td>
-                        <div style={{ display: 'flex' }}>
-                          {item.assignees.map(id => {
-                            const m = getMember(id)
-                            return m ? (
-                              <span key={id} className="avatar" title={m.name}>
-                                {m.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                              </span>
-                            ) : null
-                          })}
-                        </div>
-                      </td>
+                        {/* Client */}
+                        <td style={{ textAlign: 'center' }}>
+                          {client && <span style={{ fontSize: 11, fontWeight: 600, color: client.color, whiteSpace: 'nowrap' }}>{client.name}</span>}
+                        </td>
 
-                      {/* SP */}
-                      <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>
-                        {item.sp}
-                      </td>
+                        {/* Statut */}
+                        <td style={{ textAlign: 'center' }}>
+                          {status && <span className="badge" style={{ background: status.color + '20', color: status.color }}>{status.label}</span>}
+                        </td>
 
-                      {/* Dép. */}
-                      <td>
-                        {depItems.length === 0
-                          ? <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>—</span>
-                          : depItems.length <= 2
-                            ? depItems.map(d => (
-                                <span key={d.id} style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700,
-                                  color: 'var(--primary)', background: 'var(--primary-light)',
-                                  borderRadius: 4, padding: '1px 5px', marginRight: 3 }}>
-                                  {d.key}
+                        {/* Description */}
+                        <td style={{ maxWidth: 200 }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                            <div style={{ minWidth: 0 }}>
+                              {item.epicId && (() => {
+                                const ep = state.items.find(x => x.id === item.epicId)
+                                const epColor = ep ? (state.clients.find(c => c.id === ep.clientId)?.color ?? 'var(--primary)') : 'var(--primary)'
+                                return ep ? <span title={ep.desc} style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: epColor + '18', color: epColor, marginBottom: 2, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.key}</span> : null
+                              })()}
+                              <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 12, lineHeight: 1.4 }}>
+                                {item.desc}
+                              </div>
+                              {dl?.type !== 'none' && dl?.date && (
+                                <span className={`deadline-badge deadline-${dl.type}`} style={{ marginTop: 3, display: 'inline-flex' }}>
+                                  {new Date(dl.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })}
                                 </span>
-                              ))
-                            : <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{depItems.length} dép.</span>
-                        }
-                      </td>
+                              )}
+                            </div>
+                          </div>
+                        </td>
 
-                      {/* Actions */}
-                      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                        <button className="btn-icon" onClick={() => setModalItem(item)} title="Modifier" aria-label={`Modifier ${item.key}`}>
-                          <Svg d={SVG_EDIT} />
-                        </button>
-                        <button className="btn-icon danger" onClick={() => handleDelete(item.id)} title="Supprimer" aria-label={`Supprimer ${item.key}`}>
-                          <Svg d={SVG_DELETE} />
-                        </button>
-                      </td>
+                        {/* Tags */}
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+                            {item.tags.map(t => <span key={t} className="tag">{t}</span>)}
+                          </div>
+                        </td>
 
-                    </tr>
-                  )
-                })}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                        {/* Assignés */}
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            {item.assignees.map(id => {
+                              const m = getMember(id)
+                              return m ? <span key={id} className="avatar" title={m.name}>{m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}</span> : null
+                            })}
+                          </div>
+                        </td>
 
-      {modalItem !== undefined && (
-        <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} />
-      )}
-    </>
-  )
-}
+                        {/* SP */}
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>
+                          {iType === 'epic' ? (() => {
+                            const fixed = item.sp > 0
+                            const sp = fixed ? item.sp : state.items.filter(i => i.epicId === item.id).reduce((s, i) => s + i.sp, 0)
+                            return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                                {sp}
+                                {!fixed && <span style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 400 }} title="Somme des US enfants">Σ</span>}
+                              </span>
+                            )
+                          })() : item.sp}
+                        </td>
+
+                        {/* Dépendances */}
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {depItems.length === 0 && !depDepth && <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>—</span>}
+                          {depItems.slice(0, 2).map(d => (
+                            <span key={d.id} style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 4, padding: '1px 5px', marginRight: 3 }}>{d.key}</span>
+                          ))}
+                          {depItems.length > 2 && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 3 }}>{depItems.length} dép.</span>}
+                          {depDepth !== undefined && (
+                            <span className="dep-level-badge" style={{ background: DEP_COLOR }}>Niv.{depDepth}</span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <button className="btn-icon" onClick={() => setModalItem(item)} title="Modifier"><Svg d={SVG_EDIT} /></button>
+                          <button className="btn-icon danger" onClick={() => handleDelete(item.id)} title="Supprimer"><Svg d={SVG_DEL} /></button>
+                        </td>
+                      </tr>
+
+                      {/* US + CA expand */}
+                      {isExpanded && (hasUS || criteria.length > 0) && (
+                        <tr className="ca-expand-row">
+                          <td colSpan={13} className="ca-expand-cell">
+                            <div className="ca-expand-inner">
+                              {hasUS && (
+                                <div className="ca-us-block">
+                                  <div className="ca-label-top">User Story</div>
