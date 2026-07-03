@@ -140,6 +140,7 @@ export interface DailyEntry {
 
 export type RetroFormat = 'start-stop-continue' | 'mad-sad-glad' | '4ls'
 
+export interface RetroItem {
   id: string; text: string; votes: string[]; authorId?: string
 }
 
@@ -163,5 +164,4 @@ export interface HistoryEntry {
 }
 
 export interface AuthUser {
-  id: string; email: string; name: string; role: UserRole
-}
+  id: string; email: string; nam

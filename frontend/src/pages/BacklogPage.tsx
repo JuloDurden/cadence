@@ -4,6 +4,35 @@ import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
 import type { Item, ItemType, BugSeverity } from '../types'
 
+/* ─── Error Boundary ─────────────────────────────────────────────── */
+class ModalErrorBoundary extends React.Component<
+  { children: React.ReactNode; onClose: () => void },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode; onClose: () => void }) {
+    super(props)
+    this.state = { error: null }
+  }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('[ItemModal crash]', error, info)
+  }
+  render() {
+    if (this.state.error) return (
+      <div className="modal-overlay" onClick={this.props.onClose}>
+        <div className="modal" style={{ padding: 24 }}>
+          <p style={{ color: 'var(--danger)', fontWeight: 700, marginBottom: 8 }}>Erreur dans la modal :</p>
+          <pre style={{ fontSize: 11, whiteSpace: 'pre-wrap', color: 'var(--text)', background: 'var(--surface2)', padding: 10, borderRadius: 6 }}>
+            {this.state.error.message}
+          </pre>
+          <button className="hdr-ctx-btn" style={{ marginTop: 12 }} onClick={this.props.onClose}>Fermer</button>
+        </div>
+      </div>
+    )
+    return this.props.children
+  }
+}
+
 /* ─── Constants ─────────────────────────────────────────────────── */
 
 const PRIO_LABEL:   Record<string, string> = { critical: 'P1', high: 'P2', medium: 'P3', low: 'P4' }
@@ -383,14 +412,12 @@ export function BacklogPage() {
 
                         {/* Type */}
                         <td style={{ textAlign: 'center' }}>
-                          <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                             <span style={{ display: 'inline-block', padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: TYPE_BG[iType], color: TYPE_FG[iType], whiteSpace: 'nowrap' }}>
                               {TYPE_LABEL[iType]}
                             </span>
                             {iType === 'bug' && item.severity && (
-                              <span style={{ fontSize: 9, fontWeight: 700, color: SEV_COLOR[item.severity] }}>
-                                {SEV_LABEL[item.severity]}
-                              </span>
+                              <span title={SEV_LABEL[item.severity]} style={{ width: 7, height: 7, borderRadius: '50%', background: SEV_COLOR[item.severity], display: 'inline-block', flexShrink: 0 }} />
                             )}
                           </span>
                         </td>
@@ -402,7 +429,7 @@ export function BacklogPage() {
 
                         {/* Client */}
                         <td style={{ textAlign: 'center' }}>
-                          {client && <span style={{ fontSize: 11, fontWeight: 600, color: client.color, whiteSpace: 'nowrap' }}>{client.name}</span>}
+                          {client && <span style={{ fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap' }}>{client.name}</span>}
                         </td>
 
                         {/* Statut */}
@@ -499,35 +526,3 @@ export function BacklogPage() {
                                   <div className="ca-label-top">
                                     {item.type === 'bug' ? 'Critères de résolution' : "Critères d'acceptation"}
                                   </div>
-                                  {criteria.map((c, ci) => (
-                                    <div key={c.id} className="ca-bdd-row">
-                                      <span className="ca-bdd-num">#{ci + 1}</span>
-                                      <span className="ca-bdd-field given">{c.given}</span>
-                                      <span className="ca-bdd-sep">→</span>
-                                      <span className="ca-bdd-field when">{c.when}</span>
-                                      <span className="ca-bdd-sep">→</span>
-                                      <span className="ca-bdd-field then">{c.then}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  )
-                })}
-              </React.Fragment>
-            )
-          })}
-          </tbody>
-        </table>
-      </div>
-
-      {modalItem !== undefined && (
-        <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} />
-      )}
-    </>
-  )
-}

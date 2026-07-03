@@ -337,7 +337,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   }
 
   /* ── Tabs (dynamiques selon iType) ── */
-  const ALL_TABS: { id: Tab; label: string; icon: string }[] = [
+  const ALL_TABS: { id: Tab; label: string; icon: string; badge?: number }[] = [
     { id: 'general',  label: 'Général',            icon: ICO_GENERAL },
     { id: 'us',       label: usTabLabel(iType),     icon: ICO_BOOK },
     { id: 'deps',     label: 'Dépendances',         icon: ICO_DEPS },
@@ -798,12 +798,12 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               <button className="btn-icon danger" onClick={() => deleteNote(note.id)}><Svg d={ICO_TRASH} size={12} /></button>
             </div>
             {note.text && <div className="note-text">{note.text}</div>}
-            {note.attachments.length > 0 && (
+            {(note.attachments?.length ?? 0) > 0 && (
               <div className="note-attachments">
                 {note.attachments.map(att => renderAttachment(att))}
               </div>
             )}
-            {note.replies.length > 0 && (
+            {(note.replies?.length ?? 0) > 0 && (
               <div className="note-replies">
                 {note.replies.map(reply => (
                   <div key={reply.id} className="note-reply">
@@ -820,7 +820,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
                       <button className="btn-icon danger" onClick={() => deleteReply(note.id, reply.id)}><Svg d={ICO_TRASH} size={11} /></button>
                     </div>
                     {reply.text && <div className="note-text" style={{ fontSize: 11 }}>{reply.text}</div>}
-                    {reply.attachments.length > 0 && (
+                    {(reply.attachments?.length ?? 0) > 0 && (
                       <div className="note-attachments">
                         {reply.attachments.map(att => renderAttachment(att))}
                       </div>
@@ -949,8 +949,4 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           <button className="hdr-btn primary" onClick={handleSave}>
             {isNew ? 'Créer' : 'Enregistrer'}
           </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+        </
