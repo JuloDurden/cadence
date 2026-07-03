@@ -21,8 +21,11 @@ jobs:
           node-version: "22"
           cache: "npm"
 
-      - name: Installer les dépendances
+      - name: Installer les dépendances (root)
         run: npm ci
+
+      - name: Installer les dépendances (frontend)
+        run: npm ci --prefix frontend
 
       - name: Installer Playwright + Chromium
         run: npx playwright install --with-deps chromium
