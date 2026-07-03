@@ -57,7 +57,7 @@ function SearchModal({ onClose }: { onClose: () => void }) {
   const results = q
     ? state.items.filter(it => {
         const client = state.clients.find(c => c.id === it.clientId)
-        return [it.key, it.desc, it.notes ?? '', ...(it.tags ?? []), client?.name ?? '']
+        return [it.key, it.desc, ...(it.notes?.map(n => n.text) ?? []), ...(it.tags ?? []), client?.name ?? '']
           .some(f => f.toLowerCase().includes(q))
       }).slice(0, 20)
     : []
@@ -252,7 +252,4 @@ export function Header({ title, children }: HeaderProps) {
       </header>
 
       {/* Search modal */}
-      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
-    </>
-  )
-}
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(fal

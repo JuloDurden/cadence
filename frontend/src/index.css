@@ -801,6 +801,28 @@ tr:hover .ca-toggle { opacity: 1; }
 .comment-reply-btn { font-size: 11px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 4px 0 0; }
 .comment-reply-btn:hover { color: var(--primary); }
 
+/* ─── Notes ──────────────────────────────────────────────────────── */
+.note-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+.note-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.note-date { font-size: 10px; color: var(--text-muted); display: block; margin-top: 1px; }
+.note-text { font-size: 12px; color: var(--text); line-height: 1.55; white-space: pre-wrap; margin-bottom: 8px; }
+.note-attachments { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.note-att-image { position: relative; display: inline-block; max-width: 100%; }
+.note-att-image img { max-width: 100%; max-height: 220px; border-radius: 6px; cursor: zoom-in; display: block; border: 1px solid var(--border); }
+.note-att-remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,.5) !important; color: #fff !important; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
+.note-att-file { display: flex; align-items: center; gap: 6px; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; }
+.note-att-file a { color: var(--primary); text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-att-link { display: flex; align-items: center; gap: 6px; font-size: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; }
+.note-att-link a { color: var(--primary); text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-att-link a:hover, .note-att-file a:hover { text-decoration: underline; }
+.note-replies { border-left: 2px solid var(--border); margin: 8px 0 8px 14px; padding-left: 12px; display: flex; flex-direction: column; gap: 8px; }
+.note-reply { background: var(--surface); border-radius: 8px; padding: 8px 10px; }
+.note-reply-form { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.note-reply-btn { font-size: 11px; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 4px 0 0; margin-top: 4px; }
+.note-reply-btn:hover { color: var(--primary); }
+.note-compose { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px; }
+.note-link-form { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+
 /* ─── DoR / DoD ──────────────────────────────────────────────────── */
 .dordod-section { background: var(--surface2); border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; }
 .dordod-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
@@ -886,85 +908,4 @@ tr:hover .ca-toggle { opacity: 1; }
   gap: 5px;
 }
 
-/* ─── WSJF scoring ──────────────────────────────────────────────── */
-.wsjf-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 0;
-}
-.wsjf-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text);
-  min-width: 160px;
-}
-.wsjf-range {
-  flex: 1;
-  accent-color: var(--primary);
-  cursor: pointer;
-}
-.wsjf-val {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--primary);
-  min-width: 24px;
-  text-align: right;
-}
-
-/* ─── Backlog table column separators (td only, not th) ────────── */
-.backlog-table td:not(:last-child) {
-  border-right: 1px solid var(--border);
-}
-
-/* ─── btn-icon (edit/delete inline) ────────────────────────────── */
-.btn-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 3px;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: background .12s, color .12s;
-}
-.btn-icon:hover { background: var(--surface2); color: var(--text); }
-.btn-icon.danger:hover { background: #fee2e2; color: var(--danger); }
-
-/* ─── CA expand: User Story block ───────────────────────────────── */
-.ca-us-block { margin-bottom: 4px; }
-.ca-us-sentence {
-  display: flex; flex-wrap: wrap; gap: 6px 14px;
-  font-size: 12px; color: var(--text); line-height: 1.6;
-  background: var(--primary-light); border: 1px solid var(--primary);
-  border-radius: 8px; padding: 8px 12px;
-}
-.ca-us-prefix {
-  font-weight: 700; color: var(--primary); margin-right: 4px;
-}
-
-/* ─── Dependency chain highlight — box-shadow inset, ne décale rien */
-tr.dep-hl td {
-  background: rgba(79,70,229,.08) !important;
-  /* top + bottom en inset sur tous les td */
-  box-shadow: inset 0 1.5px 0 rgba(79,70,229,.55), inset 0 -1.5px 0 rgba(79,70,229,.55) !important;
-  transition: background .12s;
-}
-/* left border inset sur le 1er td seulement */
-tr.dep-hl td:first-child {
-  box-shadow: inset 0 1.5px 0 rgba(79,70,229,.55), inset 0 -1.5px 0 rgba(79,70,229,.55), inset 2px 0 0 var(--primary) !important;
-}
-/* right border inset sur le dernier td seulement */
-tr.dep-hl td:last-child {
-  box-shadow: inset 0 1.5px 0 rgba(79,70,229,.55), inset 0 -1.5px 0 rgba(79,70,229,.55), inset -2px 0 0 var(--primary) !important;
-}
-
-.dep-level-badge {
-  display: inline-block;
-  font-size: 9px; font-weight: 800; letter-spacing: .04em;
-  padding: 1px 5px; border-radius: 4px;
-  color: #fff; vertical-align: middle; flex-shrink: 0;
-}
-                                                                                                                      
+/* ─── WSJF scoring ─────────────────────────────────────

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Comment, MoscowValue, ScoringFramework, WSJFScore, RICEScore } from '../../types'
+import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore } from '../../types'
 
 /* ─── Constants ──────────────────────────────────────────────────── */
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
@@ -72,10 +72,15 @@ const ICO_CHECK    = '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 
 const ICO_CAL      = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
 const ICO_TAG      = '<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>'
 const ICO_CLOSE    = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
-const ICO_COMMENT  = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
-const ICO_PLUS     = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
+const ICO_COMMENT    = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
+const ICO_PLUS       = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
+const ICO_NOTE       = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>'
+const ICO_IMAGE      = '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'
+const ICO_PDF_ATTACH = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h3"/>'
+const ICO_LINK_ATT   = '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+const ICO_TRASH      = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'
 
-type Tab = 'general' | 'us' | 'deps' | 'priority' | 'team' | 'dordod'
+type Tab = 'general' | 'us' | 'deps' | 'priority' | 'team' | 'dordod' | 'notes'
 
 const SEV_OPTS: { value: BugSeverity; label: string; color: string }[] = [
   { value: 'critical', label: 'Critique', color: '#FF2929' },
@@ -92,6 +97,7 @@ function getVisibleTabs(type: ItemType): Tab[] {
   if (type === 'story' || type === 'epic' || type === 'bug') tabs.push('priority')
   tabs.push('team')
   if (type === 'story' || type === 'epic' || type === 'bug') tabs.push('dordod')
+  tabs.push('notes')
   return tabs
 }
 
@@ -157,11 +163,17 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   /* Team */
   const [assignees, setAssignees] = useState<string[]>(item?.assignees ?? [])
 
-  /* Comments */
-  const [comments,    setComments]    = useState<Comment[]>(item?.comments ?? [])
-  const [commentText, setCommentText] = useState('')
-  const [editingCmt,  setEditingCmt]  = useState<string | null>(null)
-  const [editCmtText, setEditCmtText] = useState('')
+  /* Notes */
+  const [notes,              setNotes]              = useState<Note[]>(item?.notes ?? [])
+  const [noteText,           setNoteText]           = useState('')
+  const [pendingAtts,        setPendingAtts]        = useState<NoteAttachment[]>([])
+  const [addingLink,         setAddingLink]         = useState(false)
+  const [linkTitle,          setLinkTitle]          = useState('')
+  const [linkUrl,            setLinkUrl]            = useState('')
+  const [replyingTo,         setReplyingTo]         = useState<string | null>(null)
+  const [replyText,          setReplyText]          = useState('')
+  const [replyAtts,          setReplyAtts]          = useState<NoteAttachment[]>([])
+  const [replyAddingLink,    setReplyAddingLink]    = useState(false)
 
   /* DoR / DoD */
   const [dor, setDor] = useState<CheckItem[]>(item?.dor?.length ? item.dor : mkCheck(DOR_DEFAULT))
@@ -198,16 +210,81 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
 
   const suggestedMembers = state.team.filter(m => !assignees.includes(m.id) && m.tags.some(t => tags.includes(t)))
 
-  function submitComment() {
-    const t = commentText.trim(); if (!t) return
-    setComments(c => [...c, { id: uid(), author: 'Invité', text: t, createdAt: new Date().toISOString() }])
-    setCommentText('')
+  /* ── Note helpers ── */
+  function getAuthorName(authorId?: string) {
+    return state.team.find(m => m.id === authorId)?.name ?? 'Invité'
   }
-  function deleteComment(id: string) { setComments(c => c.filter(x => x.id !== id)) }
-  function startEditComment(cmt: Comment) { setEditingCmt(cmt.id); setEditCmtText(cmt.text) }
-  function saveEditComment(id: string) {
-    setComments(c => c.map(x => x.id === id ? { ...x, text: editCmtText, updatedAt: new Date().toISOString() } : x))
-    setEditingCmt(null)
+  function getAuthorInitials(authorId?: string) {
+    return getAuthorName(authorId).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  }
+  function formatNoteDate(iso: string) {
+    return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
+  function handleFileUpload(
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: 'image' | 'pdf',
+    setter: React.Dispatch<React.SetStateAction<NoteAttachment[]>>
+  ) {
+    const file = e.target.files?.[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setter(a => [...a, { id: uid(), type, name: file.name, url: reader.result as string, mimeType: file.type }])
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  function addLinkToAtts(setter: React.Dispatch<React.SetStateAction<NoteAttachment[]>>) {
+    const url = linkUrl.trim(); if (!url) return
+    setter(a => [...a, { id: uid(), type: 'link', name: linkTitle.trim() || url, url }])
+    setLinkTitle(''); setLinkUrl(''); setAddingLink(false); setReplyAddingLink(false)
+  }
+
+  function submitNote() {
+    if (!noteText.trim() && pendingAtts.length === 0) return
+    setNotes(n => [...n, { id: uid(), text: noteText.trim(), createdAt: new Date().toISOString(), attachments: pendingAtts, replies: [] }])
+    setNoteText(''); setPendingAtts([]); setAddingLink(false)
+  }
+
+  function deleteNote(id: string) { setNotes(n => n.filter(x => x.id !== id)) }
+
+  function submitReply(noteId: string) {
+    if (!replyText.trim() && replyAtts.length === 0) return
+    setNotes(n => n.map(note => note.id !== noteId ? note : {
+      ...note,
+      replies: [...note.replies, { id: uid(), text: replyText.trim(), createdAt: new Date().toISOString(), attachments: replyAtts }]
+    }))
+    setReplyingTo(null); setReplyText(''); setReplyAtts([]); setReplyAddingLink(false)
+  }
+
+  function deleteReply(noteId: string, replyId: string) {
+    setNotes(n => n.map(note => note.id !== noteId ? note : { ...note, replies: note.replies.filter(r => r.id !== replyId) }))
+  }
+
+  function renderAttachment(att: NoteAttachment, removable = false, onRemove?: () => void) {
+    if (att.type === 'image') return (
+      <div key={att.id} className="note-att-image">
+        <img src={att.url} alt={att.name} onClick={() => window.open(att.url, '_blank')} />
+        {removable && <button className="note-att-remove btn-icon danger" onClick={onRemove}><Svg d={ICO_CLOSE} size={10} /></button>}
+      </div>
+    )
+    if (att.type === 'pdf') return (
+      <div key={att.id} className="note-att-file">
+        <Svg d={ICO_PDF_ATTACH} size={13} />
+        <a href={att.url} download={att.name}>{att.name}</a>
+        {removable && <button className="btn-icon danger" onClick={onRemove}><Svg d={ICO_CLOSE} size={10} /></button>}
+      </div>
+    )
+    if (att.type === 'link') {
+      let domain = ''; try { domain = new URL(att.url).hostname } catch { /**/ }
+      return (
+        <div key={att.id} className="note-att-link">
+          {domain && <img src={`https://www.google.com/s2/favicons?domain=${domain}`} width={13} height={13} alt="" />}
+          <a href={att.url} target="_blank" rel="noopener noreferrer">{att.name || att.url}</a>
+          {removable && <button className="btn-icon danger" onClick={onRemove}><Svg d={ICO_CLOSE} size={10} /></button>}
+        </div>
+      )
+    }
+    return null
   }
 
   /* ── Priority helpers ── */
@@ -248,7 +325,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
       dor: (iType === 'story' || iType === 'epic' || iType === 'bug') ? dor : undefined,
       dod: (iType === 'story' || iType === 'epic' || iType === 'bug') ? dod : undefined,
       deadline, moscow: (iType === 'story' || iType === 'epic' || iType === 'bug') ? moscow || undefined : undefined,
-      scoringFramework: framework, wsjf, rice, comments,
+      scoringFramework: framework, wsjf, rice, notes,
       createdAt: item?.createdAt ?? now,
     }
     onSave(finalItem)
@@ -263,6 +340,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     { id: 'priority', label: 'Priorité',            icon: ICO_STAR },
     { id: 'team',     label: 'Équipe',              icon: ICO_TEAM },
     { id: 'dordod',   label: 'DoD / DoR',           icon: ICO_CHECK },
+    { id: 'notes',    label: 'Notes',               icon: ICO_NOTE,  badge: notes.length > 0 ? notes.length : undefined },
   ]
   const visibleTabIds = getVisibleTabs(iType)
   const TABS = ALL_TABS.filter(t => visibleTabIds.includes(t.id))
@@ -580,85 +658,4 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
                   <input className="form-input" type="number" min={0.5} step={0.5} value={rEffort} onChange={e => setREffort(+e.target.value)} />
                 </div>
               </div>
-              <div className="moscow-summary" style={{ marginTop: 12 }}>
-                RICE = ({rReach} × {rImpact} × {rConf}) / {rEffort} = <strong>{score}</strong>
-                → <strong>{PRIO_OPTS.find(p => p.value === prio)?.label}</strong>
-                <button className="hdr-ctx-btn" style={{ marginLeft: 10, fontSize: 11 }} onClick={() => setPriority(prio as import('../../types').Priority)}>Appliquer</button>
-              </div>
-            </div>
-          )
-        })()}
-
-        {framework === 'manual' && (
-          <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--text-muted)' }}>
-            Utilise le sélecteur de priorité ci-dessus pour définir manuellement la priorité.
-          </div>
-        )}
-      </div>
-    )
-
-    /* ── ÉQUIPE & COMMENTAIRES ── */
-    if (tab === 'team') return (
-      <div className="modal-tab-body">
-        <div className="us-section-label">ASSIGNÉ(S)</div>
-        <div className="assignee-chips-grid">
-          {state.team.map(m => {
-            const sel = assignees.includes(m.id)
-            const initials = m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
-            return (
-              <button key={m.id} className={`assignee-member-chip${sel ? ' selected' : ''}`}
-                onClick={() => toggleAssignee(m.id)}>
-                <span className="avatar" style={{ background: sel ? 'var(--primary)' : undefined, flexShrink: 0 }}>{initials}</span>
-                <span style={{ fontSize: 12 }}>{m.name.split(' ')[0]}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {suggestedMembers.length > 0 && (
-          <div style={{ marginTop: 14 }}>
-            <div className="us-section-label">MEMBRES SUGGÉRÉS (PAR TAG COMMUN)</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              {suggestedMembers.map(m => {
-                const initials = m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
-                const commonTags = m.tags.filter(t => tags.includes(t))
-                return (
-                  <button key={m.id} className="assignee-member-chip suggested" onClick={() => toggleAssignee(m.id)}>
-                    <span className="avatar" style={{ background: 'var(--success)', flexShrink: 0 }}>{initials}</span>
-                    <span style={{ fontSize: 12 }}>{m.name.split(' ')[0]}</span>
-                    {commonTags.map(t => <span key={t} style={{ fontSize: 10, background: 'var(--surface2)', borderRadius: 4, padding: '1px 5px', color: 'var(--text-muted)' }}>{t}</span>)}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginTop: 22 }}>
-          <div className="us-section-label">COMMENTAIRES ({comments.length})</div>
-          {comments.map(cmt => (
-            <div key={cmt.id} className="comment-card">
-              <div className="comment-header">
-                <span className="comment-author">{cmt.author}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span className="comment-date">{new Date(cmt.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                  {editingCmt !== cmt.id && (
-                    <>
-                      <button className="btn-icon" onClick={() => startEditComment(cmt)}><Svg d={ICO_PENCIL} size={12} /></button>
-                      <button className="btn-icon danger" onClick={() => deleteComment(cmt.id)}><Svg d={ICO_CLOSE} size={12} /></button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {editingCmt === cmt.id ? (
-                <div style={{ marginTop: 8 }}>
-                  <textarea className="form-input" rows={3} value={editCmtText} onChange={e => setEditCmtText(e.target.value)} />
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button className="hdr-btn primary" style={{ fontSize: 11 }} onClick={() => saveEditComment(cmt.id)}>Enregistrer</button>
-                    <button className="hdr-ctx-btn" style={{ fontSize: 11 }} onClick={() => setEditingCmt(null)}>Annuler</button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="comment-text">{cmt.text}</div>
-                  <button className="co
+              <div className="moscow-summary" style=

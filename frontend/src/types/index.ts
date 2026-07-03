@@ -13,6 +13,7 @@ export interface BDDCriterion {
   then: string
 }
 
+/** @deprecated Remplacé par Note */
 export interface Comment {
   id: string
   author: string
@@ -20,6 +21,33 @@ export interface Comment {
   imageUrl?: string
   createdAt: string
   updatedAt?: string
+}
+
+export type NoteAttachmentType = 'image' | 'pdf' | 'link'
+
+export interface NoteAttachment {
+  id: string
+  type: NoteAttachmentType
+  name: string      // nom de fichier ou titre du lien
+  url: string       // data:... base64 pour fichiers, URL pour liens
+  mimeType?: string // pour images et PDF
+}
+
+export interface NoteReply {
+  id: string
+  text: string
+  authorId?: string
+  createdAt: string
+  attachments: NoteAttachment[]
+}
+
+export interface Note {
+  id: string
+  text: string
+  authorId?: string
+  createdAt: string
+  attachments: NoteAttachment[]
+  replies: NoteReply[]
 }
 
 export type MoscowValue = 'must' | 'should' | 'could' | 'wont'
@@ -56,13 +84,12 @@ export interface Item {
   deps?: string[]
   dor?: CheckItem[]
   dod?: CheckItem[]
-  notes?: string
+  notes?: Note[]
   deadline?: Deadline
   moscow?: MoscowValue
   scoringFramework?: ScoringFramework
   wsjf?: WSJFScore
   rice?: RICEScore
-  comments?: Comment[]
   createdAt: string
 }
 
@@ -114,26 +141,4 @@ export interface DailyEntry {
 export type RetroFormat = 'start-stop-continue' | 'mad-sad-glad' | '4ls'
 
 export interface RetroItem {
-  id: string; text: string; votes: string[]; authorId: string
-}
-
-export interface RetroAction {
-  id: string; text: string; ownerId: string; dueDate?: string; done: boolean
-}
-
-export interface RetroSession {
-  id: string; sprintId: string; format: RetroFormat
-  columns: Record<string, RetroItem[]>; actions: RetroAction[]; date: string
-}
-
-export type HistoryEventType =
-  | 'item_create' | 'item_edit' | 'item_delete' | 'item_status'
-  | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
-
-export interface HistoryEntry {
-  id: string
-  type: HistoryEventType
-  timestamp: string
-  author?: string          // teamMember id
-  sprintId?: string
-  item
+  id: string; text: string; votes: string[]; authorId
