@@ -519,7 +519,8 @@ export function BacklogPage() {
                   )
                 })}
               </React.Fragment>
-            ))}
+            )
+          })}
           </tbody>
         </table>
       </div>
