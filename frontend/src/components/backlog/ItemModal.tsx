@@ -658,4 +658,295 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
                   <input className="form-input" type="number" min={0.5} step={0.5} value={rEffort} onChange={e => setREffort(+e.target.value)} />
                 </div>
               </div>
-              <div className="moscow-summary" style=
+              <div className="moscow-summary" style={{ marginTop: 12 }}>
+                RICE = ({rReach} × {rImpact} × {rConf}) / {rEffort} = <strong>{score}</strong>
+                → <strong>{PRIO_OPTS.find(p => p.value === prio)?.label}</strong>
+                <button className="hdr-ctx-btn" style={{ marginLeft: 10, fontSize: 11 }} onClick={() => setPriority(prio as import('../../types').Priority)}>Appliquer</button>
+              </div>
+            </div>
+          )
+        })()}
+
+        {framework === 'manual' && (
+          <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+            Utilise le sélecteur de priorité ci-dessus pour définir manuellement la priorité.
+          </div>
+        )}
+      </div>
+    )
+
+    /* ── ÉQUIPE ── */
+    if (tab === 'team') return (
+      <div className="modal-tab-body">
+        <div className="us-section-label">ASSIGNÉ(S)</div>
+        <div className="assignee-chips-grid">
+          {state.team.map(m => {
+            const sel = assignees.includes(m.id)
+            const initials = m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
+            return (
+              <button key={m.id} className={`assignee-member-chip${sel ? ' selected' : ''}`}
+                onClick={() => toggleAssignee(m.id)}>
+                <span className="avatar" style={{ background: sel ? 'var(--primary)' : undefined, flexShrink: 0 }}>{initials}</span>
+                <span style={{ fontSize: 12 }}>{m.name.split(' ')[0]}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {suggestedMembers.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div className="us-section-label">MEMBRES SUGGÉRÉS (PAR TAG COMMUN)</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {suggestedMembers.map(m => {
+                const initials = m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
+                const commonTags = m.tags.filter(t => tags.includes(t))
+                return (
+                  <button key={m.id} className="assignee-member-chip suggested" onClick={() => toggleAssignee(m.id)}>
+                    <span className="avatar" style={{ background: 'var(--success)', flexShrink: 0 }}>{initials}</span>
+                    <span style={{ fontSize: 12 }}>{m.name.split(' ')[0]}</span>
+                    {commonTags.map(t => <span key={t} style={{ fontSize: 10, background: 'var(--surface2)', borderRadius: 4, padding: '1px 5px', color: 'var(--text-muted)' }}>{t}</span>)}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+
+    /* ── DoR / DoD ── */
+    if (tab === 'dordod') return (
+      <div className="modal-tab-body">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          {([
+            { label: 'Definition of Ready', items: dor, done: dorDone,
+              toggle: (id: string) => setDor(dor.map(x => x.id === id ? { ...x, done: !x.done } : x)),
+              remove: (id: string) => setDor(dor.filter(x => x.id !== id)),
+              input: dorInput, setInput: setDorInput,
+              add: () => { if (!dorInput.trim()) return; setDor([...dor, { id: uid(), text: dorInput.trim(), done: false }]); setDorInput('') }
+            },
+            { label: 'Definition of Done', items: dod, done: dodDone,
+              toggle: (id: string) => setDod(dod.map(x => x.id === id ? { ...x, done: !x.done } : x)),
+              remove: (id: string) => setDod(dod.filter(x => x.id !== id)),
+              input: dodInput, setInput: setDodInput,
+              add: () => { if (!dodInput.trim()) return; setDod([...dod, { id: uid(), text: dodInput.trim(), done: false }]); setDodInput('') }
+            }
+          ]).map(section => (
+            <div key={section.label}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>{section.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 700,
+                  color: section.done === section.items.length ? 'var(--success)' : 'var(--text-muted)' }}>
+                  {section.done}/{section.items.length}
+                </span>
+              </div>
+              <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, marginBottom: 12 }}>
+                <div style={{ height: 4, borderRadius: 2, transition: 'width .3s',
+                  background: section.done === section.items.length ? 'var(--success)' : 'var(--primary)',
+                  width: section.items.length ? `${(section.done / section.items.length) * 100}%` : '0%' }} />
+              </div>
+              <div className="checklist">
+                {section.items.map(x => (
+                  <div key={x.id} className="checklist-item" onClick={() => section.toggle(x.id)}>
+                    <input type="checkbox" checked={x.done} onChange={() => section.toggle(x.id)}
+                      onClick={e => e.stopPropagation()} />
+                    <span style={{ flex: 1, textDecoration: x.done ? 'line-through' : 'none',
+                      color: x.done ? 'var(--text-muted)' : 'var(--text)' }}>{x.text}</span>
+                    <button onClick={e => { e.stopPropagation(); section.remove(x.id) }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text-faint)', fontSize: 12, padding: '0 2px', flexShrink: 0 }}>✕</button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                <input className="form-input" value={section.input}
+                  onChange={e => section.setInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && section.add()}
+                  placeholder="Nouveau critère..." style={{ fontSize: 11 }} />
+                <button className="btn btn-secondary" onClick={section.add} style={{ flexShrink: 0 }}>+</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+
+    /* ── NOTES ── */
+    if (tab === 'notes') return (
+      <div className="modal-tab-body">
+        {notes.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 12 }}>
+            Aucune note. Ajoutez la première ci-dessous.
+          </div>
+        )}
+        {notes.map(note => (
+          <div key={note.id} className="note-item">
+            <div className="note-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="avatar" style={{ background: 'var(--primary)', flexShrink: 0, width: 26, height: 26, fontSize: 10 }}>
+                  {getAuthorInitials(note.authorId)}
+                </span>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{getAuthorName(note.authorId)}</span>
+                  <span className="note-date">{formatNoteDate(note.createdAt)}</span>
+                </div>
+              </div>
+              <button className="btn-icon danger" onClick={() => deleteNote(note.id)}><Svg d={ICO_TRASH} size={12} /></button>
+            </div>
+            {note.text && <div className="note-text">{note.text}</div>}
+            {note.attachments.length > 0 && (
+              <div className="note-attachments">
+                {note.attachments.map(att => renderAttachment(att))}
+              </div>
+            )}
+            {note.replies.length > 0 && (
+              <div className="note-replies">
+                {note.replies.map(reply => (
+                  <div key={reply.id} className="note-reply">
+                    <div className="note-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className="avatar" style={{ background: 'var(--success)', width: 22, height: 22, fontSize: 9, flexShrink: 0 }}>
+                          {getAuthorInitials(reply.authorId)}
+                        </span>
+                        <div>
+                          <span style={{ fontSize: 11, fontWeight: 600 }}>{getAuthorName(reply.authorId)}</span>
+                          <span className="note-date">{formatNoteDate(reply.createdAt)}</span>
+                        </div>
+                      </div>
+                      <button className="btn-icon danger" onClick={() => deleteReply(note.id, reply.id)}><Svg d={ICO_TRASH} size={11} /></button>
+                    </div>
+                    {reply.text && <div className="note-text" style={{ fontSize: 11 }}>{reply.text}</div>}
+                    {reply.attachments.length > 0 && (
+                      <div className="note-attachments">
+                        {reply.attachments.map(att => renderAttachment(att))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {replyingTo === note.id ? (
+              <div className="note-reply-form">
+                <textarea className="form-input" rows={2} value={replyText}
+                  onChange={e => setReplyText(e.target.value)}
+                  placeholder="Votre réponse..." style={{ fontSize: 11 }} />
+                {replyAtts.length > 0 && (
+                  <div className="note-attachments" style={{ marginTop: 6 }}>
+                    {replyAtts.map(att => renderAttachment(att, true, () => setReplyAtts(a => a.filter(x => x.id !== att.id))))}
+                  </div>
+                )}
+                {replyAddingLink && (
+                  <div className="note-link-form">
+                    <input className="form-input" placeholder="URL (https://...)" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} style={{ fontSize: 11, marginBottom: 6 }} />
+                    <input className="form-input" placeholder="Titre (optionnel)" value={linkTitle} onChange={e => setLinkTitle(e.target.value)} style={{ fontSize: 11 }} />
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                      <button className="hdr-ctx-btn" style={{ fontSize: 11 }} onClick={() => addLinkToAtts(setReplyAtts)}>Ajouter</button>
+                      <button className="hdr-ctx-btn" style={{ fontSize: 11 }} onClick={() => setReplyAddingLink(false)}>Annuler</button>
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                  <label className="btn-icon" title="Image" style={{ cursor: 'pointer' }}>
+                    <Svg d={ICO_IMAGE} size={13} />
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleFileUpload(e, 'image', setReplyAtts)} />
+                  </label>
+                  <label className="btn-icon" title="PDF" style={{ cursor: 'pointer' }}>
+                    <Svg d={ICO_PDF_ATTACH} size={13} />
+                    <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => handleFileUpload(e, 'pdf', setReplyAtts)} />
+                  </label>
+                  <button className="btn-icon" title="Lien" onClick={() => setReplyAddingLink(v => !v)}><Svg d={ICO_LINK_ATT} size={13} /></button>
+                  <div style={{ flex: 1 }} />
+                  <button className="hdr-ctx-btn" style={{ fontSize: 11 }} onClick={() => { setReplyingTo(null); setReplyText(''); setReplyAtts([]); setReplyAddingLink(false) }}>Annuler</button>
+                  <button className="hdr-btn primary" style={{ fontSize: 11 }} onClick={() => submitReply(note.id)}>Répondre</button>
+                </div>
+              </div>
+            ) : (
+              <button className="note-reply-btn" onClick={() => { setReplyingTo(note.id); setReplyText('') }}>
+                Répondre
+              </button>
+            )}
+          </div>
+        ))}
+        <div className="note-compose">
+          <textarea className="form-input" rows={3} value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            placeholder="Écrire une note... (texte libre)" style={{ resize: 'vertical' }} />
+          {pendingAtts.length > 0 && (
+            <div className="note-attachments" style={{ marginTop: 8 }}>
+              {pendingAtts.map(att => renderAttachment(att, true, () => setPendingAtts(a => a.filter(x => x.id !== att.id))))}
+            </div>
+          )}
+          {addingLink && (
+            <div className="note-link-form">
+              <input className="form-input" placeholder="URL (https://...)" value={linkUrl} onChange={e => setLinkUrl(e.target.value)} style={{ fontSize: 11, marginBottom: 6 }} />
+              <input className="form-input" placeholder="Titre (optionnel)" value={linkTitle} onChange={e => setLinkTitle(e.target.value)} style={{ fontSize: 11 }} />
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <button className="hdr-ctx-btn" style={{ fontSize: 11 }} onClick={() => addLinkToAtts(setPendingAtts)}>Ajouter</button>
+                <button className="hdr-ctx-btn" style={{ fontSize: 11 }} onClick={() => setAddingLink(false)}>Annuler</button>
+              </div>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+            <label className="btn-icon" title="Attacher une image" style={{ cursor: 'pointer' }}>
+              <Svg d={ICO_IMAGE} size={14} />
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" style={{ display: 'none' }} onChange={e => handleFileUpload(e, 'image', setPendingAtts)} />
+            </label>
+            <label className="btn-icon" title="Attacher un PDF" style={{ cursor: 'pointer' }}>
+              <Svg d={ICO_PDF_ATTACH} size={14} />
+              <input type="file" accept=".pdf" style={{ display: 'none' }} onChange={e => handleFileUpload(e, 'pdf', setPendingAtts)} />
+            </label>
+            <button className="btn-icon" title="Ajouter un lien" onClick={() => setAddingLink(v => !v)}><Svg d={ICO_LINK_ATT} size={14} /></button>
+            <div style={{ flex: 1 }} />
+            <button className="hdr-btn primary" style={{ fontSize: 12 }} onClick={submitNote}>
+              <Svg d={ICO_PLUS} size={13} /> Ajouter
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+
+    return null
+  }
+
+  /* ── Modal ── */
+  return (
+    <div className="modal-overlay" data-testid="item-modal" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-lg">
+        <div className="modal-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'var(--primary)',
+              background: 'var(--primary-light)', padding: '2px 8px', borderRadius: 6 }}>
+              {item?.key ?? 'NOUVEAU'}
+            </span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+              {isNew ? 'Créer un item' : "Modifier l'item"}
+            </span>
+          </div>
+          <button className="btn-icon" onClick={onClose} aria-label="Fermer">
+            <Svg d={ICO_CLOSE} size={16} />
+          </button>
+        </div>
+        <div className="modal-tabs">
+          {TABS.map(t => (
+            <button key={t.id}
+              className={`modal-tab-btn${tab === t.id ? ' active' : ''}`}
+              onClick={() => setTab(t.id as Tab)}>
+              <Svg d={t.icon} size={12} />
+              {t.label}
+              {'badge' in t && t.badge !== undefined && <span className="modal-tab-badge">{t.badge}</span>}
+            </button>
+          ))}
+        </div>
+        <div className="modal-body">
+          {renderTab()}
+        </div>
+        <div className="modal-footer">
+          <button className="hdr-ctx-btn" onClick={onClose}>Annuler</button>
+          <button className="hdr-btn primary" onClick={handleSave}>
+            {isNew ? 'Créer' : 'Enregistrer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
