@@ -11,6 +11,7 @@ const UNDOABLE = new Set([
   'ADD_MEMBER','UPDATE_MEMBER','DELETE_MEMBER',
   'UPDATE_SETTINGS','UPDATE_KANBAN_COLS',
   'ADD_ROADMAP_GOAL','UPDATE_ROADMAP_GOAL','DELETE_ROADMAP_GOAL',
+  'ADD_ABSENCE','UPDATE_ABSENCE','DELETE_ABSENCE',
 ])
 
 type Action =
@@ -36,6 +37,9 @@ type Action =
   | { type: 'UPDATE_ROADMAP_GOAL'; payload: RoadmapGoal }
   | { type: 'DELETE_ROADMAP_GOAL'; payload: string }
   | { type: 'SET_CUSTOM_TAGS'; payload: string[] }
+  | { type: 'ADD_ABSENCE'; payload: import('../types').Absence }
+  | { type: 'UPDATE_ABSENCE'; payload: import('../types').Absence }
+  | { type: 'DELETE_ABSENCE'; payload: string }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -59,6 +63,9 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'UPDATE_ROADMAP_GOAL': return { ...state, roadmap: (state.roadmap || []).map(g => g.id === action.payload.id ? action.payload : g) }
     case 'DELETE_ROADMAP_GOAL': return { ...state, roadmap: (state.roadmap || []).filter(g => g.id !== action.payload) }
     case 'SET_CUSTOM_TAGS': return { ...state, customTags: action.payload }
+    case 'ADD_ABSENCE': return { ...state, absences: [...(state.absences || []), action.payload] }
+    case 'UPDATE_ABSENCE': return { ...state, absences: (state.absences || []).map(a => a.id === action.payload.id ? action.payload : a) }
+    case 'DELETE_ABSENCE': return { ...state, absences: (state.absences || []).filter(a => a.id !== action.payload) }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

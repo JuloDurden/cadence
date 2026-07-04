@@ -101,6 +101,18 @@ export interface Sprint {
 
 export interface TeamMember {
   id: string; name: string; role: string; spPerDay: number; tags: string[]
+  photo?: string  // base64 data URL ou URL externe
+}
+
+export type AbsenceType = 'Congés payés' | 'Formation' | 'Urgence' | 'Maladie' | 'Autre'
+
+export interface Absence {
+  id: string
+  memberId: string
+  type: AbsenceType
+  title: string
+  start: string  // YYYY-MM-DD
+  end: string    // YYYY-MM-DD
 }
 
 export interface Contact {
@@ -133,6 +145,7 @@ export interface CadenceState {
   dailyEntries: DailyEntry[]; retroSessions: RetroSession[]
   history: HistoryEntry[]; roadmap: RoadmapGoal[]
   customTags: string[]   // tags créés par les utilisateurs (hors BASE_TAGS)
+  absences: Absence[]
 }
 
 export interface DailyEntry {

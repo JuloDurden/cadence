@@ -309,8 +309,9 @@ body {
 textarea { resize: vertical; min-height: 72px; }
 
 /* ─── Buttons (modal) ───────────────────────────────────────────────────── */
-.btn         { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; transition: background .15s; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
-.btn-primary   { background: var(--primary); color: #fff; }
+.btn, .btn-primary, .btn-secondary { padding: 8px 16px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600; transition: background .15s; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.btn           { border: none; }
+.btn-primary   { background: var(--primary); color: #fff; border: none; }
 .btn-primary:hover { background: #4338ca; }
 .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
 .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
@@ -361,6 +362,36 @@ tr.dep-hl   { background: color-mix(in srgb, var(--primary) 8%,  transparent) !i
 tr.dep-hl-1 { background: color-mix(in srgb, var(--primary) 16%, transparent) !important; outline: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: -1px; }
 tr.dep-hl-2 { background: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
 tr.dep-hl-3 { background: color-mix(in srgb, var(--primary) 6%,  transparent) !important; }
+
+/* ─── Team / RH ─────────────────────────────────────────────────────────── */
+.team-card-avatar { width: 100%; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 40px; position: relative; overflow: hidden; }
+.team-card-avatar img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+.team-card-absence { margin-top: 6px; font-size: 10px; padding: 2px 7px; border-radius: 20px; display: inline-block; font-weight: 600; }
+.absence-active { background: var(--danger-light); color: var(--danger); }
+.absence-none   { background: var(--success-light); color: var(--success); }
+
+.avatar-upload { width: 80px; height: 80px; border-radius: 50%; border: 3px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 32px; cursor: pointer; overflow: hidden; position: relative; transition: border-color .2s; flex-shrink: 0; }
+.avatar-upload:hover { border-color: var(--primary); }
+.avatar-upload img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; border-radius: 50%; }
+
+.absences-panel  { background: var(--surface); border-radius: 11px; border: 1px solid var(--border); overflow: hidden; }
+.holidays-panel  { background: var(--surface); border-radius: 11px; border: 1px solid var(--border); overflow: hidden; }
+.panel-header    { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 700; }
+
+.absence-table   { width: 100%; border-collapse: collapse; font-size: 12px; }
+.absence-table th { background: var(--surface2); font-size: 10px; font-weight: 700; text-align: left; padding: 7px 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+.absence-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); }
+.absence-table tr:last-child td { border-bottom: none; }
+.absence-table tr:hover td { background: var(--surface2); }
+
+.absence-status { display: inline-block; padding: 1px 7px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+.status-active  { background: var(--warning-light, #fef3c7); color: var(--warning, #d97706); }
+.status-planned { background: var(--primary-light); color: var(--primary); }
+.status-done    { background: var(--success-light); color: var(--success); }
+
+.holidays-grid  { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+.holiday-chip   { display: flex; align-items: center; gap: 6px; background: var(--primary-light); border-radius: 20px; padding: 4px 10px; font-size: 11px; color: var(--primary); font-weight: 500; }
+.holiday-weekend { background: var(--surface2); color: var(--text-muted); }
 
 /* ─── Roadmap ───────────────────────────────────────────────────────────── */
 .roadmap-header-box { background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; color: #fff; }

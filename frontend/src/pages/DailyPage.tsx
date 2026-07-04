@@ -43,7 +43,10 @@ export function DailyPage() {
       .catch(() => alert('Impossible de copier'))
   }
 
-  const blockers = state.team
+  const absentMembers  = state.team.filter(m => (state.absences ?? []).some(a => a.memberId === m.id && a.start <= date && a.end >= date))
+  const presentMembers = state.team.filter(m => !absentMembers.find(x => x.id === m.id))
+
+  const blockers = presentMembers
     .map(m => ({ member: m, entry: getEntry(m.id) }))
     .filter(({ entry }) => entry.blockers.trim().length > 0)
 
@@ -75,9 +78,25 @@ export function DailyPage() {
           )}
         </div>
 
-        {/* Cartes membres */}
+        {/* Encadré absents du jour */}
+        {absentMembers.length > 0 && (
+          <div style={{ marginBottom: 16, padding: '10px 16px', background: 'rgba(251,146,60,.08)', border: '1px solid rgba(251,146,60,.3)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#ea580c', flexShrink: 0 }}>🏖 Absents aujourd'hui :</span>
+            {absentMembers.map(m => {
+              const absence = (state.absences ?? []).find(a => a.memberId === m.id && a.start <= date && a.end >= date)
+              return (
+                <span key={m.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: 'rgba(251,146,60,.15)', color: '#ea580c' }}>
+                  {m.name}
+                  {absence && <span style={{ opacity: .7, fontWeight: 400 }}>· {absence.title}</span>}
+                </span>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Cartes membres présents */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16, marginBottom: 28 }}>
-          {state.team.map(member => (
+          {presentMembers.map(member => (
             <MemberCard
               key={member.id}
               member={member}
