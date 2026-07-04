@@ -35,6 +35,7 @@ type Action =
   | { type: 'ADD_ROADMAP_GOAL'; payload: RoadmapGoal }
   | { type: 'UPDATE_ROADMAP_GOAL'; payload: RoadmapGoal }
   | { type: 'DELETE_ROADMAP_GOAL'; payload: string }
+  | { type: 'SET_CUSTOM_TAGS'; payload: string[] }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -57,6 +58,7 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'ADD_ROADMAP_GOAL': return { ...state, roadmap: [...(state.roadmap || []), action.payload] }
     case 'UPDATE_ROADMAP_GOAL': return { ...state, roadmap: (state.roadmap || []).map(g => g.id === action.payload.id ? action.payload : g) }
     case 'DELETE_ROADMAP_GOAL': return { ...state, roadmap: (state.roadmap || []).filter(g => g.id !== action.payload) }
+    case 'SET_CUSTOM_TAGS': return { ...state, customTags: action.payload }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

@@ -356,6 +356,11 @@ textarea { resize: vertical; min-height: 72px; }
 /* ─── Dep chain badge ───────────────────────────────────────────────────── */
 .dep-chain-badge { display: none; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 9px; font-weight: 800; margin-right: 3px; flex-shrink: 0; vertical-align: middle; }
 .dep-chain-badge.visible { display: inline-flex; }
+.dep-level-badge { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 99px; font-size: 10px; font-weight: 700; color: #fff; margin-left: 4px; flex-shrink: 0; }
+tr.dep-hl   { background: color-mix(in srgb, var(--primary) 8%,  transparent) !important; }
+tr.dep-hl-1 { background: color-mix(in srgb, var(--primary) 16%, transparent) !important; outline: 1px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: -1px; }
+tr.dep-hl-2 { background: color-mix(in srgb, var(--primary) 10%, transparent) !important; }
+tr.dep-hl-3 { background: color-mix(in srgb, var(--primary) 6%,  transparent) !important; }
 
 /* ─── Roadmap ───────────────────────────────────────────────────────────── */
 .roadmap-header-box { background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; color: #fff; }

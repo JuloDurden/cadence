@@ -132,6 +132,7 @@ export interface CadenceState {
   clients: Client[]; kanbanCols: KanbanCol[]; settings: Settings
   dailyEntries: DailyEntry[]; retroSessions: RetroSession[]
   history: HistoryEntry[]; roadmap: RoadmapGoal[]
+  customTags: string[]   // tags créés par les utilisateurs (hors BASE_TAGS)
 }
 
 export interface DailyEntry {

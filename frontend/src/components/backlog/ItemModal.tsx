@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore } from '../../types'
+import { useCadence } from '../../context/StateContext'
+import { BASE_TAGS } from '../../data/baseTags'
 
 /* ─── Constants ──────────────────────────────────────────────────── */
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
@@ -64,8 +66,8 @@ function Svg({ d, size = 13, cls }: { d: string; size?: number; cls?: string }) 
 /* ─── SVG icons (monochrome) ─────────────────────────────────────── */
 const ICO_PENCIL   = '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>'
 const ICO_GENERAL  = '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>'
-const ICO_BOOK     = '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>'
-const ICO_DEPS     = '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h4"/>'
+const ICO_BOOK     = '<path d="M11 18H3"/><path d="m15 18 2 2 4-4"/><path d="M16 12H3"/><path d="M16 6H3"/>'
+const ICO_DEPS     = '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
 const ICO_STAR     = '<path d="M12 2l3.09 6.26 6.91.99-5 4.87 1.18 6.88L12 17.77l-6.18 3.23L7 14.12 2 9.25l6.91-.99z"/>'
 const ICO_TEAM     = '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
 const ICO_CHECK    = '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
@@ -118,6 +120,7 @@ interface Props {
 
 /* ─── Component ─────────────────────────────────────────────────── */
 export function ItemModal({ item, state, onSave, onClose }: Props) {
+  const { dispatch } = useCadence()
   const isNew = !item
   const defaultStatus = state.kanbanCols.find(c => c.isDefault)?.id ?? state.kanbanCols[0]?.id ?? 'todo'
 
@@ -135,6 +138,8 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   const [deadline, setDeadline] = useState<Deadline>(item?.deadline ?? { date: '', type: 'none' })
   const [tags,     setTags]     = useState<string[]>(item?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
+  const [showTagSug, setShowTagSug] = useState(false)
+  const tagWrapRef = useRef<HTMLDivElement>(null)
 
   /* User Story */
   const [role,    setRole]    = useState(item?.role ?? '')
@@ -195,10 +200,23 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     setCriteria(cs => cs.map(x => x.id === id ? { ...x, [field]: x[field] + (x[field] ? '\n' : '') } : x))
   }
 
-  function addTag() {
-    const t = tagInput.trim()
-    if (t && !tags.includes(t)) setTags(ts => [...ts, t])
+  const allKnownTags = [...BASE_TAGS, ...(state.customTags ?? [])]
+  const tagSuggestions = tagInput.trim()
+    ? allKnownTags
+        .filter(t => t.toLowerCase().includes(tagInput.trim().toLowerCase()) && !tags.includes(t))
+        .slice(0, 8)
+    : []
+
+  function addTag(value?: string) {
+    const t = (value ?? tagInput).trim()
+    if (!t || tags.includes(t)) { setTagInput(''); setShowTagSug(false); return }
+    setTags(ts => [...ts, t])
     setTagInput('')
+    setShowTagSug(false)
+    // Enregistrer dans customTags si nouveau tag
+    if (!allKnownTags.includes(t)) {
+      dispatch({ type: 'SET_CUSTOM_TAGS', payload: [...(state.customTags ?? []), t] })
+    }
   }
 
   const epicOptions = state.items.filter(i => (i.type ?? 'story') === 'epic')
@@ -443,9 +461,38 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               </span>
             ))}
           </div>
-          <input className="form-input" placeholder="Ajouter un tag..." value={tagInput}
-            onChange={e => setTagInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }} />
+          <div ref={tagWrapRef} style={{ position: 'relative' }}>
+            <input className="form-input" placeholder="Ajouter un tag..." value={tagInput}
+              onChange={e => { setTagInput(e.target.value); setShowTagSug(true) }}
+              onFocus={() => setShowTagSug(true)}
+              onBlur={() => setTimeout(() => setShowTagSug(false), 150)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); addTag() }
+                if (e.key === 'Escape') { setTagInput(''); setShowTagSug(false) }
+              }} />
+            {showTagSug && tagSuggestions.length > 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                background: 'var(--surface)', border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--r-sm)', boxShadow: 'var(--shadow-md)',
+                marginTop: 2, overflow: 'hidden',
+              }}>
+                {tagSuggestions.map(s => (
+                  <div key={s}
+                    onMouseDown={() => addTag(s)}
+                    style={{
+                      padding: '6px 10px', fontSize: 12, cursor: 'pointer',
+                      color: 'var(--text)', borderBottom: '1px solid var(--border)',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-light)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    {s}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     )

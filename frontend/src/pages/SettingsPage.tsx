@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCadence } from '../context/StateContext'
+import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
+import { BASE_TAGS } from '../data/baseTags'
 import type { KanbanCol, Settings } from '../types'
 
 function uid() { return Math.random().toString(36).slice(2, 9) }
 
 export function SettingsPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { userName } = useAuth()
+  const isAdmin = userName === 'Admin'
   const navigate = useNavigate()
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
@@ -124,6 +128,60 @@ export function SettingsPage() {
               onChange={e => setNewColLabel(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addCol()} />
             <button className="hdr-ctx-btn" onClick={addCol}>+ Ajouter</button>
+          </div>
+        </section>
+
+        {/* Tags */}
+        <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Tags</h3>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
+            Les tags de base ne peuvent pas etre supprimes{isAdmin ? ' (admin uniquement)' : ''}. Les tags personnalises peuvent etre supprimes par tous les utilisateurs.
+          </p>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Tags de base</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {BASE_TAGS.map(tag => (
+                <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500, background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
+                  <span style={{ fontSize: 10, opacity: .6 }}>🔒</span>
+                  {tag}
+                  {isAdmin && (
+                    <span
+                      title="Supprimer (admin)"
+                      style={{ cursor: 'pointer', opacity: .5, marginLeft: 2, fontSize: 13, lineHeight: 1 }}
+                      onClick={() => {
+                        if (!confirm(`Supprimer le tag de base "${tag}" ?`)) return
+                        // BASE_TAGS is a constant — admin override via a "removedBaseTags" list would be needed
+                        // For now, show a message explaining this is a code-level change
+                        alert('Pour supprimer un tag de base, modifiez le fichier baseTags.ts')
+                      }}
+                    >×</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Tags personnalises</div>
+            {(!state.customTags || state.customTags.length === 0) ? (
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucun tag personnalise pour l'instant. Ils apparaissent automatiquement quand vous en créez dans la modal d'item.</p>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {state.customTags.map(tag => (
+                  <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500, background: 'var(--surface-alt)', color: 'var(--text)', border: '1px solid var(--border-strong)' }}>
+                    {tag}
+                    <span
+                      title="Supprimer ce tag"
+                      style={{ cursor: 'pointer', opacity: .6, marginLeft: 2, fontSize: 13, lineHeight: 1 }}
+                      onClick={() => {
+                        dispatch({ type: 'SET_CUSTOM_TAGS', payload: (state.customTags ?? []).filter(t => t !== tag) })
+                      }}
+                    >×</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
