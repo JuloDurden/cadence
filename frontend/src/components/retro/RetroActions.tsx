@@ -25,8 +25,9 @@ export function RetroActions({ actions, team, onAdd, onToggle, onDelete }: Props
 
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', overflow: 'hidden', marginTop: 20 }}>
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(79,70,229,.05)', fontWeight: 700, fontSize: 13 }}>
-        ✅ Plan d'actions
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(79,70,229,.05)', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 7 }}>
+        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: '<path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/>' }} />
+        Plan d'actions
       </div>
       <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {actions.map(action => {

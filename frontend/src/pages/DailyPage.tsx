@@ -24,7 +24,7 @@ const ICO = {
   reset:     '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   copy:      '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   archive:   '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
-  eraser:    '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>',
+  shredder:  '<path d="M4 13V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 22v-5"/><path d="M14 19v-2"/><path d="M18 20v-3"/><path d="M2 13h20"/><path d="M6 20v-3"/>',
   chevDown:  '<path d="m6 9 6 6 6-6"/>',
   chevRight: '<path d="m9 18 6-6-6-6"/>',
   alert:     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
@@ -222,7 +222,8 @@ export function DailyPage() {
           <Svg d={ICO.reset} size={13} />
         </button>
         <select className="hdr-select" value={duration}
-          onChange={e => setDuration(Number(e.target.value))} disabled={running}>
+          onChange={e => setDuration(Number(e.target.value))} disabled={running}
+          style={{ width: 80, height: 30, border: '1px solid var(--border)', borderRadius: 7, backgroundColor: 'transparent', color: 'var(--text)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, padding: '0 28px 0 10px', cursor: 'pointer', outline: 'none', flexShrink: 0 }}>
           {DURATIONS.map(d => <option key={d} value={d}>{d} min</option>)}
         </select>
 
@@ -236,7 +237,7 @@ export function DailyPage() {
           <Svg d={ICO.archive} size={14} />
         </button>
         <button className="hdr-btn" onClick={clearEntries} title="Effacer toutes les saisies">
-          <Svg d={ICO.eraser} size={14} />
+          <Svg d={ICO.shredder} size={14} />
         </button>
 
         <div className="hdr-sep" />

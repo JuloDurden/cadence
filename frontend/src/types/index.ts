@@ -156,6 +156,7 @@ export interface CadenceState {
   customTags: string[]   // tags créés par les utilisateurs (hors BASE_TAGS)
   absences: Absence[]
   dailyArchives: DailyArchive[]
+  retroArchives: RetroArchive[]
 }
 
 export interface DailyEntry {
@@ -165,7 +166,18 @@ export interface DailyEntry {
 export type RetroFormat = 'start-stop-continue' | 'mad-sad-glad' | '4ls'
 
 export interface RetroItem {
-  id: string; text: string; votes: string[]; authorId?: string
+  id: string; text: string; votes: string[]; dislikes: string[]; authorId?: string
+}
+
+export interface RetroArchive {
+  id: string
+  date: string           // YYYY-MM-DD
+  sprintId?: string
+  sprintLabel?: string
+  format: RetroFormat
+  columns: Record<string, RetroItem[]>
+  actions: RetroAction[]
+  createdAt: string
 }
 
 export interface RetroAction {

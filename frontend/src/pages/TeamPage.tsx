@@ -311,7 +311,7 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
               <label className="form-label">Rôle</label>
               <select className="form-input form-select" value={form.role}
                 onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-                {ROLE_OPTIONS.map(r => <option key={r}>{r}</option>)}
+                {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
 
