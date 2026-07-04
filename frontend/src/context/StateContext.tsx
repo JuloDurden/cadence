@@ -40,6 +40,9 @@ type Action =
   | { type: 'ADD_ABSENCE'; payload: import('../types').Absence }
   | { type: 'UPDATE_ABSENCE'; payload: import('../types').Absence }
   | { type: 'DELETE_ABSENCE'; payload: string }
+  | { type: 'ADD_DAILY_ARCHIVE'; payload: import('../types').DailyArchive }
+  | { type: 'DELETE_DAILY_ARCHIVE'; payload: string }
+  | { type: 'CLEAR_DAILY_ENTRIES_DATE'; payload: string }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -66,6 +69,9 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'ADD_ABSENCE': return { ...state, absences: [...(state.absences || []), action.payload] }
     case 'UPDATE_ABSENCE': return { ...state, absences: (state.absences || []).map(a => a.id === action.payload.id ? action.payload : a) }
     case 'DELETE_ABSENCE': return { ...state, absences: (state.absences || []).filter(a => a.id !== action.payload) }
+    case 'ADD_DAILY_ARCHIVE': return { ...state, dailyArchives: [...(state.dailyArchives || []), action.payload] }
+    case 'DELETE_DAILY_ARCHIVE': return { ...state, dailyArchives: (state.dailyArchives || []).filter(a => a.id !== action.payload) }
+    case 'CLEAR_DAILY_ENTRIES_DATE': return { ...state, dailyEntries: state.dailyEntries.filter(e => e.date !== action.payload) }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

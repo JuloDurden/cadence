@@ -139,6 +139,15 @@ export interface RoadmapGoal {
   name: string; goal: string; metrics: string[]
 }
 
+export interface DailyArchive {
+  id: string
+  date: string           // YYYY-MM-DD
+  sprintId?: string
+  sprintLabel?: string   // e.g. "Sprint 2 - MODERNISATION"
+  entries: DailyEntry[]
+  createdAt: string      // ISO timestamp
+}
+
 export interface CadenceState {
   sprints: Sprint[]; items: Item[]; team: TeamMember[]
   clients: Client[]; kanbanCols: KanbanCol[]; settings: Settings
@@ -146,6 +155,7 @@ export interface CadenceState {
   history: HistoryEntry[]; roadmap: RoadmapGoal[]
   customTags: string[]   // tags créés par les utilisateurs (hors BASE_TAGS)
   absences: Absence[]
+  dailyArchives: DailyArchive[]
 }
 
 export interface DailyEntry {

@@ -11,6 +11,21 @@ interface Props {
 const MEMBER_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#ec4899','#14b8a6']
 function memberColor(id: string) { return MEMBER_COLORS[id.charCodeAt(id.length - 1) % MEMBER_COLORS.length] }
 
+function Ico({ d, size = 11 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+      dangerouslySetInnerHTML={{ __html: d }} />
+  )
+}
+
+const ICO = {
+  sun:      '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  target:   '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  alert:    '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  umbrella: '<path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/>',
+}
+
 export function MemberCard({ member, entry, onChange, absence }: Props) {
   const [local, setLocal] = useState(entry)
   const hasBlocker = local.blockers.trim().length > 0
@@ -54,12 +69,16 @@ export function MemberCard({ member, entry, onChange, absence }: Props) {
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{member.role}</div>
         </div>
         {isAbsent && (
-          <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(251,146,60,.15)', color: '#ea580c', padding: '2px 8px', borderRadius: 10 }}>
-            🏖 {absence.title}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, background: 'rgba(251,146,60,.15)', color: '#ea580c', padding: '2px 8px', borderRadius: 10 }}>
+            <Ico d={ICO.umbrella} size={10} />
+            {absence.title}
           </span>
         )}
         {hasBlocker && !isAbsent && (
-          <span style={{ fontSize: 10, fontWeight: 700, background: 'rgba(255,59,48,.12)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 10 }}>⚠ Bloqué</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, background: 'rgba(255,59,48,.12)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 10 }}>
+            <Ico d={ICO.alert} size={10} />
+            Bloqué
+          </span>
         )}
       </div>
 
@@ -70,20 +89,25 @@ export function MemberCard({ member, entry, onChange, absence }: Props) {
             Absent(e) · {absence.type}
           </div>
         )}
-        <Section label="☀ Hier" color="#34c759" value={local.yesterday} onChange={v => update('yesterday', v)} />
-        <Section label="🎯 Aujourd'hui" color="var(--primary)" value={local.today} onChange={v => update('today', v)} />
-        <Section label="⚠ Blocages" color="var(--danger)" value={local.blockers} onChange={v => update('blockers', v)} placeholder="Aucun blocage..." />
+        <Section icon={ICO.sun}    label="Hier"         value={local.yesterday} onChange={v => update('yesterday', v)} />
+        <Section icon={ICO.target} label="Aujourd'hui"  value={local.today}     onChange={v => update('today', v)} />
+        <Section icon={ICO.alert}  label="Blocages"     value={local.blockers}  onChange={v => update('blockers', v)} placeholder="Aucun blocage..." />
       </div>
     </div>
   )
 }
 
-function Section({ label, color, value, onChange, placeholder }: {
-  label: string; color: string; value: string; onChange: (v: string) => void; placeholder?: string
+function Section({ icon, label, value, onChange, placeholder }: {
+  icon: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string
 }) {
   return (
     <div>
-      <div style={{ fontSize: 10, fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+          dangerouslySetInnerHTML={{ __html: icon }} />
+        {label}
+      </div>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
