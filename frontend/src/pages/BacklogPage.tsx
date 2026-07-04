@@ -3,6 +3,7 @@ import { useCadence } from '../context/StateContext'
 import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
+import { EXTRA_STAGES } from './KanbanPage'
 import type { Item, ItemType, BugSeverity } from '../types'
 
 /* ─── Error Boundary ─────────────────────────────────────────────── */
@@ -246,7 +247,7 @@ export function BacklogPage() {
   function getClient(id: string) { return state.clients.find(c => c.id === id) }
   function getMember(id: string) { return state.team.find(m => m.id === id) }
   function getSprint(id: string | null) { return id ? state.sprints.find(s => s.id === id) : null }
-  function getStatus(id: string) { return state.kanbanCols.find(c => c.id === id) }
+  function getStatus(id: string) { return state.kanbanCols.find(c => c.id === id) ?? EXTRA_STAGES.find(s => s.id === id) }
   function getDepItems(ids: string[]) { return ids.map(id => state.items.find(i => i.id === id)).filter(Boolean) as Item[] }
 
   return (

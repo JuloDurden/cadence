@@ -134,7 +134,13 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   const [clientId, setClientId] = useState(item?.clientId ?? '')
   const [sp,       setSp]       = useState(item?.sp ?? 3)
   const [sprintId, setSprintId] = useState(item?.sprintId ?? '')
-  const [status] = useState(item?.status ?? defaultStatus)
+  const [status, setStatus] = useState(item?.status ?? (item?.sprintId ? defaultStatus : 'backlog'))
+
+  function handleSprintChange(newSprintId: string) {
+    setSprintId(newSprintId)
+    if (newSprintId && status === 'backlog') setStatus('todo')
+    if (!newSprintId && status === 'todo')   setStatus('backlog')
+  }
   const [deadline, setDeadline] = useState<Deadline>(item?.deadline ?? { date: '', type: 'none' })
   const [tags,     setTags]     = useState<string[]>(item?.tags ?? [])
   const [tagInput, setTagInput] = useState('')
@@ -424,7 +430,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: iType === 'task' || iType === 'spike' ? '1fr 1fr' : '1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">SPRINT ASSIGNÉ</label>
-            <select className="form-input" value={sprintId} onChange={e => setSprintId(e.target.value)}>
+            <select className="form-input" value={sprintId} onChange={e => handleSprintChange(e.target.value)}>
               <option value="">Non assigné</option>
               {state.sprints.map(s => <option key={s.id} value={s.id}>Sprint {s.number}{s.goal ? ` – ${s.goal}` : ''}</option>)}
             </select>
@@ -437,6 +443,21 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               </select>
             </div>
           )}
+        </div>
+        <div className="form-group" style={{ marginBottom: 14 }}>
+          <label className="form-label">STATUT</label>
+          <select className="form-input" value={status} onChange={e => setStatus(e.target.value)}>
+            <option value="backlog">Backlog</option>
+            <option value="todo">À faire</option>
+            <option value="doing">En cours</option>
+            <option value="review">En révision</option>
+            <option value="testing">En test</option>
+            <option value="waiting">En attente</option>
+            <option value="blocked">Bloqué</option>
+            <option value="validation">Validation</option>
+            <option value="deferred">Ajourné</option>
+            <option value="done">Terminé</option>
+          </select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">

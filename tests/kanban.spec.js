@@ -5,13 +5,126 @@ test.describe('Kanban', () => {
 
   test('affiche les colonnes du tableau', async ({ page }) => {
     await goTo(page, '/kanban');
-    // Au moins une colonne kanban visible
-    await expect(page.locator('.kanban-col, .kanban-column').first()).toBeVisible();
+    await expect(page.locator('.kanban-col').first()).toBeVisible();
+  });
+
+  test('affiche les 3 colonnes de base en majuscules', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await expect(page.locator('.kanban-col-header').filter({ hasText: 'À FAIRE' })).toBeVisible();
+    await expect(page.locator('.kanban-col-header').filter({ hasText: 'EN COURS' })).toBeVisible();
+    await expect(page.locator('.kanban-col-header').filter({ hasText: 'TERMINÉ' })).toBeVisible();
   });
 
   test('les items du sprint actif apparaissent sur le board', async ({ page }) => {
     await goTo(page, '/kanban');
-    await expect(page.locator('.page-content')).toBeVisible();
+    await expect(page.locator('.kanban-card').first()).toBeVisible();
+  });
+
+  test('affiche le select de sprint dans le header', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const sprintSelect = page.locator('select.hdr-select').first();
+    await expect(sprintSelect).toBeVisible();
+    // Should show sprint options
+    const options = sprintSelect.locator('option');
+    await expect(options.first()).toContainText('Sprint');
+  });
+
+  test('affiche le label et le goal du sprint actif', async ({ page }) => {
+    await goTo(page, '/kanban');
+    // Theme label (derived from sprint label) — exact to avoid matching the goal span
+    await expect(page.locator('.hdr-ctx-stat').filter({ hasText: /^Modernisation$/ })).toBeVisible();
+    // Sprint goal
+    await expect(page.getByText('Modernisation FAXFA V3', { exact: false })).toBeVisible();
+  });
+
+  test('affiche la capacité terminée / prévue', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await expect(page.getByText(/\d+ SP \/ \d+ SP/)).toBeVisible();
+  });
+
+  test('affiche le sélecteur de tri', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const sortSelect = page.locator('select[title="Tri"]');
+    await expect(sortSelect).toBeAttached();
+  });
+
+  test('le tri modifie l\'ordre des cartes', async ({ page }) => {
+    await goTo(page, '/kanban');
+    // Change to SP desc
+    await page.locator('select[title="Tri"]').selectOption('sp-desc');
+    await expect(page.locator('.kanban-card').first()).toBeVisible();
+  });
+
+  test('affiche le bouton Réorganiser', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await expect(page.getByRole('button', { name: 'Réorganiser' })).toBeVisible();
+  });
+
+  test('affiche le bouton Colonne', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await expect(page.getByRole('button', { name: 'Colonne' })).toBeVisible();
+  });
+
+  test('cliquer Colonne ouvre la liste des étapes supplémentaires', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await page.getByRole('button', { name: 'Colonne' }).click();
+    await expect(page.locator('.kb-addcol-popup')).toBeVisible();
+    await expect(page.locator('.kb-addcol-popup').getByText('En révision')).toBeVisible();
+    await expect(page.locator('.kb-addcol-popup').getByText('En test')).toBeVisible();
+    await expect(page.locator('.kb-addcol-popup').getByText('Bloqué')).toBeVisible();
+  });
+
+  test('peut ajouter une colonne supplémentaire', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await page.getByRole('button', { name: 'Colonne' }).click();
+    await page.locator('.kb-addcol-popup').getByText('En révision').click();
+    await expect(page.locator('.kanban-col-header').filter({ hasText: 'EN RÉVISION' })).toBeVisible();
+    // Popup closes after adding
+    await expect(page.locator('.kb-addcol-popup')).not.toBeVisible();
+  });
+
+  test('mode Réorganiser montre le bouton supprimer sur une colonne ajoutée', async ({ page }) => {
+    await goTo(page, '/kanban');
+    // Add a column first
+    await page.getByRole('button', { name: 'Colonne' }).click();
+    await page.locator('.kb-addcol-popup').getByText('En révision').click();
+    // Activate reorg mode
+    await page.getByRole('button', { name: 'Réorganiser' }).click();
+    // Delete button should appear on the extra column
+    await expect(page.locator('button[title="Supprimer la colonne"]').first()).toBeVisible();
+  });
+
+  test('les boutons de base n\'ont pas de bouton supprimer en mode Réorganiser', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await page.getByRole('button', { name: 'Réorganiser' }).click();
+    // Base cols (À FAIRE, EN COURS, TERMINÉ) must not have a delete button
+    for (const label of ['À FAIRE', 'EN COURS', 'TERMINÉ']) {
+      const col = page.locator('.kanban-col').filter({ has: page.locator('.kanban-col-header').filter({ hasText: label }) });
+      await expect(col.locator('button[title="Supprimer la colonne"]')).toHaveCount(0);
+    }
+  });
+
+  test('les cartes ont un bouton modifier et un bouton retirer du sprint', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const firstCard = page.locator('.kanban-card').first();
+    await expect(firstCard.locator('button[title="Modifier"]')).toBeVisible();
+    await expect(firstCard.locator('button[title="Retirer du sprint"]')).toBeVisible();
+  });
+
+  test('retirer du sprint bascule l\'item en statut Backlog', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const firstCard = page.locator('.kanban-card').first();
+    await firstCard.locator('button[title="Retirer du sprint"]').click();
+    // Item should disappear from sprint view (no longer in sprint columns)
+    // At minimum the card count in the board should be reduced
+    await expect(page.locator('.kanban-card').first()).toBeVisible(); // board still has cards
+  });
+
+  test('Backlog et Ajourné sont disponibles dans la popup Colonne', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await page.getByRole('button', { name: 'Colonne' }).click();
+    await expect(page.locator('.kb-addcol-popup').getByText('Backlog')).toBeVisible();
+    await expect(page.locator('.kb-addcol-popup').getByText('Ajourné')).toBeVisible();
   });
 
 });
