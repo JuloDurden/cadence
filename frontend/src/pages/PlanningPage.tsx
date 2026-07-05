@@ -51,6 +51,44 @@ export function PlanningPage() {
     saveToServer({ ...state, sprints: updatedSprints })
   }
 
+  function handleActivate(sprintId: string) {
+    const updatedSprints = state.sprints.map(s => ({
+      ...s,
+      active: s.id === sprintId,
+      closed: s.id === sprintId ? false : s.closed,
+    }))
+    updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
+    saveToServer({ ...state, sprints: updatedSprints })
+  }
+
+  function handleClose(sprintId: string) {
+    const sp = state.sprints.find(s => s.id === sprintId)
+    if (!sp) return
+    const updated = { ...sp, closed: true, active: false }
+    dispatch({ type: 'UPDATE_SPRINT', payload: updated })
+    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+  }
+
+  function handleReopen(sprintId: string) {
+    const sp = state.sprints.find(s => s.id === sprintId)
+    if (!sp) return
+    const updated = { ...sp, closed: false }
+    dispatch({ type: 'UPDATE_SPRINT', payload: updated })
+    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+  }
+
+  function handleUpdateCapacity(sprintId: string, capacity: number) {
+    const sp = state.sprints.find(s => s.id === sprintId)
+    if (!sp) return
+    const updated = { ...sp, capacity }
+    dispatch({ type: 'UPDATE_SPRINT', payload: updated })
+    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+  }
+
+  // Sprint actif = celui marqué active:true, sinon le premier non clôturé
+  const activeSprintId = (state.sprints.find(s => s.active)
+    ?? state.sprints.find(s => !s.closed))?.id ?? null
+
   function handleSave(item: Item) {
     const isNew = !state.items.find(i => i.id === item.id)
     dispatch({ type: isNew ? 'ADD_ITEM' : 'UPDATE_ITEM', payload: item })
@@ -143,11 +181,16 @@ export function PlanningPage() {
                 items={itemsForSprint(sprint.id)}
                 state={state}
                 isOver={dragOverSprint === sprint.id}
+                isActive={sprint.id === activeSprintId}
                 onDragStart={id => { dragItemId.current = id }}
                 onDragOver={sprintId => setDragOverSprint(sprintId)}
                 onDrop={handleDrop}
                 onEdit={item => setModalItem(item)}
                 onUpdateDates={handleUpdateDates}
+                onActivate={handleActivate}
+                onClose={handleClose}
+                onReopen={handleReopen}
+                onUpdateCapacity={handleUpdateCapacity}
               />
             ))}
             {/* Colonne non assigné */}

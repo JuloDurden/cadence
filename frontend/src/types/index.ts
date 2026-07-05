@@ -96,7 +96,7 @@ export interface Item {
 export interface Sprint {
   id: string; number: number; label: string
   startDate: string; endDate: string; capacity: number
-  closed: boolean; goal?: string; velocitySnapshot?: number
+  closed: boolean; active?: boolean; goal?: string; velocitySnapshot?: number
 }
 
 export interface TeamMember {
@@ -129,6 +129,92 @@ export interface Client {
 
 export interface KanbanCol {
   id: string; label: string; color: string; isDone: boolean; isDefault?: boolean
+}
+
+// ── What-if / Scenarios ───────────────────────────────────────────────────
+
+export type ScenarioType = 'current' | 'auto' | 'manual'
+
+/** Override des attributs d'un item réel dans un scénario (sans toucher la DB) */
+export interface ScenarioItemOverride {
+  itemId: string
+  statusOverride?: string
+  priorityOverride?: Priority
+  spOverride?: number
+  depsOverride?: string[]   // remplace complètement les deps de l'item
+}
+
+/** Item fictif qui n'existe que dans un scénario */
+export interface VirtualItem {
+  id: string                // commence par 'virt-'
+  scenarioId: string
+  type: ItemType
+  desc: string
+  sp: number
+  priority: Priority
+  clientId: string
+  status: string
+  deps?: string[]           // peut dépendre d'items réels ou d'autres items virtuels
+}
+
+/** Override de capacité pour un sprint donné dans un scénario */
+export interface ScenarioCapacityOverride {
+  sprintId: string
+  capacity: number
+  note?: string             // ex : "Jean absent 2 sem."
+}
+
+export interface ScenarioFork {
+  sourceScenarioId: string
+  fromSprintIndex: number   // les sprints 0..fromSprintIndex-1 sont hérités (non modifiables)
+}
+
+export interface ScenarioMerge {
+  targetScenarioId: string
+  atSprintIndex: number
+}
+
+/** Un slot de planification dans un scénario */
+export interface ScenarioSlot {
+  sprintId: string; label: string; cap: number; used: number
+  assigned: (Item | VirtualItem)[]; isNew: boolean; number: number
+  startDate?: string; endDate?: string
+  usedItems?: Item[]   // items already done — shown with ✓ badge, not placed by algo
+}
+
+export interface ScenarioViolation {
+  key: string; desc: string; detail: string; type: 'deadline' | 'dep'
+}
+
+export interface Scenario {
+  id: string
+  name: string
+  color: string             // couleur de la lane dans le graph
+  type: ScenarioType
+
+  // Critères (pour les scénarios 'auto')
+  criteriaActive: Record<string, boolean>   // critId → active
+  criteriaOrder: string[]                   // ordre des critères
+  clientOrder: string[]                     // ordre des clients pour critère 'client'
+
+  // Modifications d'items
+  itemOverrides: ScenarioItemOverride[]
+  virtualItems: VirtualItem[]
+
+  // Modifications de capacité
+  capacityOverrides: ScenarioCapacityOverride[]
+  velocityFactor: number                    // 1.0 = normal, 0.8 = 80%
+
+  // Relations entre scénarios
+  forkFrom?: ScenarioFork
+  mergeInto?: ScenarioMerge
+
+  // Résultat généré
+  slots: ScenarioSlot[]
+  violations: ScenarioViolation[]
+  newCount: number
+  generated: boolean
+  locked: boolean                           // sprints hérités (avant fork) sont locked
 }
 
 export interface Settings {

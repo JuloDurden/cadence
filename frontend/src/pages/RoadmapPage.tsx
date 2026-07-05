@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { computeSprintEndDate, effectiveCapacity } from '../utils/sprintCapacity'
@@ -21,10 +21,45 @@ function sprintDateLabel(start: string, end: string): string {
   return `${fmtDateShort(start)} → ${fmtDateShort(end)}`
 }
 
+const BTN: React.CSSProperties = {
+  fontSize: 10, padding: '2px 8px', border: '1px solid rgba(255,255,255,.4)',
+  borderRadius: 5, background: 'rgba(255,255,255,.15)', color: '#fff',
+  cursor: 'pointer', fontWeight: 600, backdropFilter: 'blur(2px)',
+}
+const BTN_DARK: React.CSSProperties = {
+  fontSize: 10, padding: '2px 8px', border: '1px solid var(--border)',
+  borderRadius: 5, background: 'transparent', color: 'var(--text-muted)',
+  cursor: 'pointer', fontWeight: 600,
+}
+
 export function RoadmapPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
   const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '', startDate: '', endDate: '' })
+
+  // Sprint actif = marqué active:true, sinon le premier non clôturé
+  const activeSprintId = (state.sprints.find(s => s.active)
+    ?? state.sprints.find(s => !s.closed))?.id ?? null
+
+  function handleActivate(sprintId: string) {
+    const updatedSprints = state.sprints.map(s => ({
+      ...s, active: s.id === sprintId, closed: s.id === sprintId ? false : s.closed,
+    }))
+    updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
+    saveToServer({ ...state, sprints: updatedSprints })
+  }
+  function handleClose(sprintId: string) {
+    const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
+    const updated = { ...sp, closed: true, active: false }
+    dispatch({ type: 'UPDATE_SPRINT', payload: updated })
+    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+  }
+  function handleReopen(sprintId: string) {
+    const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
+    const updated = { ...sp, closed: false }
+    dispatch({ type: 'UPDATE_SPRINT', payload: updated })
+    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+  }
 
   const roadmapMap = new Map((state.roadmap || []).map(g => [g.sprintId, g]))
 
@@ -79,18 +114,20 @@ export function RoadmapPage() {
     const updated: RoadmapGoal = {
       ...editGoal,
       icon: form.icon.trim() || editGoal.icon,
-      name: form.name.trim() || editGoal.name,
+      name: form.name.trim(),   // vide autorisé — efface le thème du sprint
       goal: form.goal.trim(),
       metrics: form.metrics.split('\n').map(s => s.trim()).filter(Boolean),
     }
     const idx = state.sprints.findIndex(s => s.id === updated.sprintId)
     const weeks = state.settings.sprintDuration ?? 2
     let updatedSprints = state.sprints
+    // label du sprint : thème saisi, sinon "Sprint N" (pas de tiret orphelin)
+    const sprintLabel = updated.name || `Sprint ${state.sprints[idx]?.number ?? ''}`
     if (idx !== -1 && form.startDate && form.endDate) {
       updatedSprints = cascadeSprintDates(state.sprints, idx, form.startDate, form.endDate, weeks)
-      updatedSprints[idx] = { ...updatedSprints[idx], label: updated.name }
+      updatedSprints[idx] = { ...updatedSprints[idx], label: sprintLabel }
     } else if (idx !== -1) {
-      updatedSprints = state.sprints.map((s, i) => i === idx ? { ...s, label: updated.name } : s)
+      updatedSprints = state.sprints.map((s, i) => i === idx ? { ...s, label: sprintLabel } : s)
     }
     dispatch({ type: 'UPDATE_ROADMAP_GOAL', payload: updated })
     updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
@@ -150,10 +187,11 @@ export function RoadmapPage() {
             byClient.set(item.clientId, [...list, item])
           })
 
-          const isTmp = goal.id.startsWith('tmp-')
+          const isTmp    = goal.id.startsWith('tmp-')
+          const isActive = sprint.id === activeSprintId
 
           return (
-            <div key={sprint.id} className="roadmap-goal">
+            <div key={sprint.id} className={`roadmap-goal${isActive && !sprint.closed ? ' roadmap-goal-active' : ''}`}>
               <div className="roadmap-goal-header" style={{ background: goal.color }}>
                 <div className="roadmap-goal-icon">{goal.icon}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -161,12 +199,45 @@ export function RoadmapPage() {
                   <div className="roadmap-goal-title">{goal.name}</div>
                   {dateLabel && <div className="roadmap-goal-date">{dateLabel}</div>}
                 </div>
-                {!isTmp && (
-                  <button
-                    onClick={e => { e.stopPropagation(); openModal(goal) }}
-                    style={{ background: 'rgba(255,255,255,.2)', border: 'none', borderRadius: 5, color: '#fff', fontSize: 11, padding: '3px 8px', cursor: 'pointer', flexShrink: 0, alignSelf: 'flex-start' }}
-                  >edit</button>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  {!isTmp && (
+                    <button
+                      onClick={e => { e.stopPropagation(); openModal(goal) }}
+                      style={{ ...BTN, alignSelf: 'flex-start' }}
+                    >✎ edit</button>
+                  )}
+                  {/* Sprint status controls */}
+                  {sprint.closed ? (
+                    <button style={BTN} onClick={e => { e.stopPropagation(); handleReopen(sprint.id) }}>
+                      🔓 Rouvrir
+                    </button>
+                  ) : isActive ? (
+                    <button style={{ ...BTN, borderColor: 'rgba(255,255,255,.6)' }} onClick={e => { e.stopPropagation(); handleClose(sprint.id) }}>
+                      🔒 Clôturer
+                    </button>
+                  ) : (
+                    <button style={BTN} onClick={e => { e.stopPropagation(); handleActivate(sprint.id) }}>
+                      ▶ Activer
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status bar */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', background: 'var(--surface2)',
+                borderBottom: '1px solid var(--border)',
+                fontSize: 10,
+              }}>
+                {sprint.closed ? (
+                  <span style={{ color: '#15803d', fontWeight: 700 }}>🔒 Clôturé</span>
+                ) : isActive ? (
+                  <span style={{ color: 'var(--primary)', fontWeight: 700 }}>★ Actif</span>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>○ À venir</span>
                 )}
+                <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>Cap. {sprint.capacity} SP</span>
               </div>
 
               <div className="roadmap-section">

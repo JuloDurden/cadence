@@ -1,10 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { goTo, BASE_URL } = require('./helpers');
 
-// Bouton "Annuler" de la proposition (pas le bouton undo global qui a aria-label="Annuler")
-const proposalAnnuler = (page) =>
-  page.locator('button:not([aria-label="Annuler"])').filter({ hasText: 'Annuler' });
-
 test.describe('Auto-planning', () => {
 
   test('affiche les stats dans le header (items, SP, sprints)', async ({ page }) => {
@@ -34,46 +30,44 @@ test.describe('Auto-planning', () => {
     await expect(page.getByText('Règles', { exact: true })).toBeVisible();
     await expect(page.getByText('Dépendances', { exact: true })).toBeVisible();
     await expect(page.getByText('Deadlines', { exact: true })).toBeVisible();
-    await expect(page.getByText('Chaînes', { exact: true })).toBeVisible();
   });
 
   test('le bouton Générer est visible', async ({ page }) => {
     await goTo(page, '/auto');
-    await expect(page.getByRole('button', { name: 'Générer la proposition' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Générer' }).first()).toBeVisible();
   });
 
-  test('les boutons Appliquer et Annuler ne sont pas visibles avant génération', async ({ page }) => {
+  test('le bouton Appliquer n\'est pas visible avant génération', async ({ page }) => {
     await goTo(page, '/auto');
     await expect(page.getByRole('button', { name: 'Appliquer' })).not.toBeVisible();
-    // Le bouton Annuler de la proposition (hors bouton undo global)
-    await expect(proposalAnnuler(page)).not.toBeVisible();
   });
 
   test('générer affiche une proposition avec au moins un sprint', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
-    await expect(page.locator('.page-content').getByText(/Sprint \d+/).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
+    // /\d+\/\d+ SP/ est unique aux en-têtes de slots (pas dans le SVG du graphe)
+    await expect(page.locator('.page-content').getByText(/\d+\/\d+ SP/).first()).toBeVisible();
   });
 
-  test('générer affiche les boutons Appliquer et Annuler', async ({ page }) => {
+  test('générer affiche le bouton Appliquer', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
-    await expect(page.getByRole('button', { name: 'Appliquer' })).toBeVisible();
-    await expect(proposalAnnuler(page)).toBeVisible();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
+    await expect(page.getByRole('button', { name: 'Appliquer' }).first()).toBeVisible();
   });
 
   test('chaque sprint de la proposition affiche SP utilisés / capacité', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
     await expect(page.locator('.page-content').getByText(/\d+\/\d+ SP/).first()).toBeVisible();
   });
 
-  test('Annuler masque la proposition', async ({ page }) => {
+  test('Regénérer conserve le bouton Appliquer', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
-    await expect(page.locator('.page-content').getByText(/Sprint \d+/).first()).toBeVisible();
-    await proposalAnnuler(page).click();
-    await expect(page.getByRole('button', { name: 'Appliquer' })).not.toBeVisible();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
+    await expect(page.getByRole('button', { name: 'Appliquer' }).first()).toBeVisible();
+    // Regénérer = cliquer à nouveau sur Générer — Appliquer reste visible
+    await page.getByRole('button', { name: 'Générer' }).first().click();
+    await expect(page.getByRole('button', { name: 'Appliquer' }).first()).toBeVisible();
   });
 
   test('activer le critère client affiche l\'ordre des clients', async ({ page }) => {
@@ -88,21 +82,21 @@ test.describe('Auto-planning', () => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
-    await page.getByRole('button', { name: 'Appliquer' }).click();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
+    await page.getByRole('button', { name: 'Appliquer' }).first().click();
     expect(errors).toHaveLength(0);
   });
 
   test('le premier sprint ouvert conserve son thème dans la proposition', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
     // Sprint 2 est le premier sprint ouvert dans DEMO_STATE, label "Sprint 2 - MODERNISATION"
     await expect(page.locator('.page-content').getByText(/Sprint 2\s*[–-]\s*Sprint 2 - MODERNISATION/).first()).toBeVisible();
   });
 
   test('les sprints suivants n\'affichent pas de thème dans la proposition', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
     // Sprint 3 ne doit pas afficher son thème "INTELLIGENCE" dans la proposition
     await expect(page.locator('.page-content').getByText(/Sprint 3\s*[–-]\s*Sprint 3 - INTELLIGENCE/)).toHaveCount(0);
     // Il apparaît juste comme "Sprint 3"
@@ -111,7 +105,7 @@ test.describe('Auto-planning', () => {
 
   test('la bannière de nouveaux sprints utilise la bonne grammaire', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
     const content = page.locator('.page-content');
     // Vérifie la forme correcte si des nouveaux sprints sont proposés
     const hasBanner = await content.getByText(/nouveau.* sprint/i).count() > 0;
@@ -126,8 +120,8 @@ test.describe('Auto-planning', () => {
 
   test('la proposition est persistée après navigation React Router', async ({ page }) => {
     await goTo(page, '/auto');
-    await page.getByRole('button', { name: 'Générer la proposition' }).click();
-    await expect(page.getByRole('button', { name: 'Appliquer' })).toBeVisible();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
+    await expect(page.getByRole('button', { name: 'Appliquer' }).first()).toBeVisible();
     // Navigation React Router vers Backlog (pas de rechargement de page)
     await page.getByRole('link', { name: /backlog/i }).first().click();
     await page.waitForTimeout(300);
@@ -135,7 +129,7 @@ test.describe('Auto-planning', () => {
     await page.getByRole('link', { name: /auto.planning/i }).first().click();
     await page.waitForTimeout(300);
     // La proposition doit être toujours présente
-    await expect(page.getByRole('button', { name: 'Appliquer' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Appliquer' }).first()).toBeVisible();
   });
 
   test('les critères sont draggables', async ({ page }) => {

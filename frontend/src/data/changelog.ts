@@ -15,7 +15,21 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.76.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Auto-planning : icons, grammaire, DnD, persistance, exclusion client',current:true,changes:[
+  {version:'v0.77.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'What-if : scénarios alternatifs, branches, forks et comparaison',current:true,changes:[
+    {tag:'feat',    text:'Mode What-if : N scénarios de planification simultanés (auto ou manuel) avec critères, capacités et items indépendants par scénario'},
+    {tag:'feat',    text:'Visualisation Git graph style métro : lanes colorées, cercles doubles, courbes de Bézier pour forks et merges'},
+    {tag:'feat',    text:'Fork de scénario : clic droit sur un point du graphe → crée un scénario B héritant des sprints précédents (non modifiables), divergeant à partir du sprint choisi'},
+    {tag:'feat',    text:'Merge de scénario : marqueur visuel de réunification entre deux branches'},
+    {tag:'feat',    text:'Item override : modifier statut, priorité ou SP d\'un item réel uniquement dans le scénario (sans toucher la DB)'},
+    {tag:'feat',    text:'Items fictifs (virtuels) : créer un bug/story/tâche d\'urgence qui n\'existe que dans le scénario, avec type, SP, priorité et client'},
+    {tag:'feat',    text:'Capacité par sprint override : saisir une capacité fictive avec note (ex : "Jean absent 2 sem.") par sprint et par scénario'},
+    {tag:'feat',    text:'Facteur de vélocité globale : slider 40%–120% appliqué à toutes les capacités du scénario (simulation baisse d\'équipe)'},
+    {tag:'feat',    text:'Mode comparaison : affichage côte à côte de deux scénarios au choix'},
+    {tag:'feat',    text:'État actuel : lane DB read-only toujours présente, affiche la répartition actuelle des items'},
+    {tag:'feat',    text:'Application sélective : appliquer un scénario spécifique en DB, indépendamment des autres'},
+    {tag:'refactor',text:'AutoPlanningPage entièrement réécrit — ScenarioBranches.tsx extrait comme composant SVG dédié'},
+  ]},
+  {version:'v0.76.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Auto-planning : icons, grammaire, DnD, persistance, exclusion client',current:false,changes:[
     {tag:'feat',    text:'Premier sprint ouvert : conservation du thème dans la proposition — les sprints suivants affichent uniquement "Sprint N"'},
     {tag:'fix',     text:'Grammaire : "1 nouveau sprint sera créé" / "N nouveaux sprints seront créés" (accord singulier/pluriel)'},
     {tag:'ux',      text:'Remplacement de tous les emojis par des icônes Lucide SVG : triangle-alert, arrowRight, equal, plus, star, link'},
