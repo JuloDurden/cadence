@@ -3,16 +3,16 @@ import type { CadenceState } from '../types'
 export const DEMO_STATE: CadenceState = {
   sprints: [
     { id: "s1", number: 1, label: "Sprint 1 - FOUNDATION",
-      startDate: '2026-06-17', endDate: '2026-06-28', capacity: 100,
+      startDate: '2026-06-15', endDate: '2026-06-28', capacity: 100,
       closed: true, goal: "Satisfaction clients majeurs + stabilit\u00e9 de la plateforme", velocitySnapshot: 100 },
     { id: "s2", number: 2, label: "Sprint 2 - MODERNISATION",
-      startDate: '2026-07-01', endDate: '2026-07-12', capacity: 100,
+      startDate: '2026-06-29', endDate: '2026-07-12', capacity: 100,
       closed: false, goal: "Modernisation FAXFA V3 et fiabilit\u00e9 technique" },
     { id: "s3", number: 3, label: "Sprint 3 - INTELLIGENCE",
-      startDate: '2026-07-15', endDate: '2026-07-26', capacity: 100,
+      startDate: '2026-07-13', endDate: '2026-07-26', capacity: 100,
       closed: false, goal: "Migration V3 compl\u00e8te et valeur ajout\u00e9e IA" },
     { id: "s4", number: 4, label: "Sprint 4 - EXCELLENCE",
-      startDate: '2026-07-29', endDate: '2026-08-09', capacity: 100,
+      startDate: '2026-07-27', endDate: '2026-08-09', capacity: 100,
       closed: false, goal: "Excellence op\u00e9rationnelle et livraison PME" },
   ],
   items: [
@@ -357,7 +357,7 @@ export const DEMO_STATE: CadenceState = {
   ],
 
   settings: {
-    sprintDuration: 10,
+    sprintDuration: 2,
     defaultCapacity: 100,
     theme: 'light',
   },

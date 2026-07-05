@@ -5,6 +5,8 @@ import { SprintColumn } from '../components/planning/SprintColumn'
 import { CalendarView } from '../components/planning/CalendarView'
 import { PlanningCard } from '../components/planning/PlanningCard'
 import { ItemModal } from '../components/backlog/ItemModal'
+import { computeSprintEndDate } from '../utils/sprintCapacity'
+import { cascadeSprintDates } from '../utils/dates'
 import type { Item, Sprint } from '../types'
 
 type View = 'grid' | 'calendar'
@@ -40,6 +42,15 @@ export function PlanningPage() {
     dragItemId.current = null
   }
 
+  function handleUpdateDates(sprintId: string, startDate: string, endDate: string) {
+    const idx = state.sprints.findIndex(s => s.id === sprintId)
+    if (idx === -1) return
+    const weeks = state.settings.sprintDuration ?? 2
+    const updatedSprints = cascadeSprintDates(state.sprints, idx, startDate, endDate, weeks)
+    updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
+    saveToServer({ ...state, sprints: updatedSprints })
+  }
+
   function handleSave(item: Item) {
     const isNew = !state.items.find(i => i.id === item.id)
     dispatch({ type: isNew ? 'ADD_ITEM' : 'UPDATE_ITEM', payload: item })
@@ -47,10 +58,21 @@ export function PlanningPage() {
     setModalItem(undefined)
   }
 
+  function nextMonday(dateStr: string): string {
+    const d = new Date(dateStr + 'T00:00:00')
+    d.setDate(d.getDate() + 1)
+    while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1)
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  }
   function addSprint() {
     const last = state.sprints[state.sprints.length - 1]
-    const startDate = last ? new Date(new Date(last.endDate).getTime() + 86400000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)
-    const endDate = new Date(new Date(startDate).getTime() + (state.settings.sprintDuration - 1) * 86400000).toISOString().slice(0, 10)
+    const workingDays = state.settings.sprintDuration ?? 2
+    const startDate = last ? nextMonday(last.endDate) : (() => {
+      const d = new Date(); d.setHours(0, 0, 0, 0)
+      while (d.getDay() !== 1) d.setDate(d.getDate() + 1)
+      return d.toISOString().slice(0, 10)
+    })()
+    const endDate = computeSprintEndDate(startDate, workingDays)
     const newSprint: Sprint = {
       id: 's' + uid(),
       number: (last?.number ?? 0) + 1,
@@ -125,6 +147,7 @@ export function PlanningPage() {
                 onDragOver={sprintId => setDragOverSprint(sprintId)}
                 onDrop={handleDrop}
                 onEdit={item => setModalItem(item)}
+                onUpdateDates={handleUpdateDates}
               />
             ))}
             {/* Colonne non assigné */}

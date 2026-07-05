@@ -16,7 +16,7 @@ const TYPE_CFG: Record<HistoryEventType, { bg: string; color: string; label: str
 
 function fmtTs(ts: string) {
   const d = new Date(ts)
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
 export function HistoriquePage() {

@@ -118,26 +118,7 @@ export function StateProvider({ children }: { children: ReactNode }) {
   const loadFromServer = useCallback(async () => {
     try {
       const { data } = await api.getState()
-      if (data) {
-        // Merge deps from DEMO_STATE so demo items keep their dependency chain
-        // Also include any DEMO_STATE items not yet on the server (added after last save)
-        const loaded = data as CadenceState
-        const merged = {
-          ...loaded,
-          items: [
-            // Conserver uniquement les items serveur dont l'ID est encore dans DEMO_STATE
-            ...loaded.items
-              .filter(item => DEMO_STATE.items.some(d => d.id === item.id))
-              .map(item => {
-                const demoItem = DEMO_STATE.items.find(d => d.id === item.id)
-                if (demoItem?.deps?.length && !item.deps?.length) return { ...item, deps: demoItem.deps }
-                return item
-              }),
-            ...DEMO_STATE.items.filter(d => !loaded.items.some(l => l.id === d.id))
-          ]
-        }
-        dispatch({ type: 'SET_STATE', payload: merged })
-      }
+      if (data) dispatch({ type: 'SET_STATE', payload: data as CadenceState })
     } catch { /* use demo data */ }
   }, [])
 

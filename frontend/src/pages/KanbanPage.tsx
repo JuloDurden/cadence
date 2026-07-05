@@ -3,6 +3,7 @@ import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
 import { ItemModal } from '../components/backlog/ItemModal'
+import { effectiveCapacity } from '../utils/sprintCapacity'
 import type { Item, KanbanCol } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
@@ -298,7 +299,9 @@ export function KanbanPage() {
           </>
         )}
         <div className="hdr-sep" />
-        <span className="hdr-ctx-stat">{doneSP} SP / {currentSprint?.capacity ?? 0} SP</span>
+        <span className="hdr-ctx-stat">
+          {doneSP} SP / {currentSprint ? effectiveCapacity(currentSprint, state.team) : 0} SP
+        </span>
 
         <div style={{ flex: 1 }} />
 

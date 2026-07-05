@@ -4,6 +4,8 @@ import { useCadence } from '../context/StateContext'
 import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { BASE_TAGS } from '../data/baseTags'
+import { cascadeSprintDates } from '../utils/dates'
+import { computeSprintEndDate } from '../utils/sprintCapacity'
 import type { KanbanCol, Settings } from '../types'
 
 function uid() { return Math.random().toString(36).slice(2, 9) }
@@ -17,11 +19,24 @@ export function SettingsPage() {
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
   const [newColLabel, setNewColLabel] = useState('')
+  const [sprint1Start, setSprint1Start] = useState(state.sprints[0]?.startDate ?? '')
 
   function save() {
+    let updatedSprints = state.sprints
+    const durationChanged = settings.sprintDuration !== state.settings.sprintDuration
+    const startChanged = sprint1Start !== '' && sprint1Start !== (state.sprints[0]?.startDate ?? '')
+
+    if ((startChanged || durationChanged) && state.sprints.length > 0) {
+      const newStart = startChanged ? sprint1Start : (state.sprints[0]?.startDate ?? sprint1Start)
+      const weeks = settings.sprintDuration ?? 2
+      const newEnd = computeSprintEndDate(newStart, weeks)
+      updatedSprints = cascadeSprintDates(state.sprints, 0, newStart, newEnd, weeks)
+      updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
+    }
+
     dispatch({ type: 'UPDATE_SETTINGS', payload: settings })
     dispatch({ type: 'UPDATE_KANBAN_COLS', payload: cols })
-    saveToServer({ ...state, settings, kanbanCols: cols })
+    saveToServer({ ...state, settings, kanbanCols: cols, sprints: updatedSprints })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -73,7 +88,7 @@ export function SettingsPage() {
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Configuration des sprints</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div className="form-group">
-              <label className="form-label">Duree du sprint (semaines)</label>
+              <label className="form-label">Durée du sprint (semaines)</label>
               <input className="form-input" type="number" min={1} max={8} value={settings.sprintDuration}
                 onChange={e => setSettings(s => ({ ...s, sprintDuration: +e.target.value }))} />
             </div>
@@ -81,6 +96,16 @@ export function SettingsPage() {
               <label className="form-label">Capacite par defaut (SP/sprint)</label>
               <input className="form-input" type="number" min={1} max={500} value={settings.defaultCapacity}
                 onChange={e => setSettings(s => ({ ...s, defaultCapacity: +e.target.value }))} />
+            </div>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label className="form-label">Date de debut du Sprint 1</label>
+              <input type="date" className="form-input" value={sprint1Start}
+                onChange={e => setSprint1Start(e.target.value)} />
+              {(sprint1Start !== (state.sprints[0]?.startDate ?? '') || settings.sprintDuration !== state.settings.sprintDuration) && sprint1Start && (
+                <span style={{ fontSize: 10, color: 'var(--warning, #f59e0b)', marginTop: 4, display: 'block' }}>
+                  Les dates de tous les sprints seront recalculees a l'enregistrement.
+                </span>
+              )}
             </div>
           </div>
         </section>

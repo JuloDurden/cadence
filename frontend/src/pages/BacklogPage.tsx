@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
 import { EXTRA_STAGES } from './KanbanPage'
+import { fmtDate } from '../utils/dates'
 import type { Item, ItemType, BugSeverity } from '../types'
 
 /* ─── Error Boundary ─────────────────────────────────────────────── */
@@ -473,7 +474,7 @@ export function BacklogPage() {
                               </div>
                               {dl?.type !== 'none' && dl?.date && (
                                 <span className={`deadline-badge deadline-${dl.type}`} style={{ marginTop: 3, display: 'inline-flex' }}>
-                                  {new Date(dl.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                  {fmtDate(dl.date)}
                                 </span>
                               )}
                             </div>

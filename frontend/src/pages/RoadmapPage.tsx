@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
+import { computeSprintEndDate, effectiveCapacity } from '../utils/sprintCapacity'
+import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import type { RoadmapGoal } from '../types'
 
 const COLORS = [
@@ -16,14 +18,13 @@ function uid() { return Math.random().toString(36).slice(2) }
 
 function sprintDateLabel(start: string, end: string): string {
   if (!start || !end) return ''
-  const fmt = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-  return `${fmt(start)} -> ${fmt(end)}`
+  return `${fmtDateShort(start)} → ${fmtDateShort(end)}`
 }
 
 export function RoadmapPage() {
-  const { state, dispatch } = useCadence()
+  const { state, dispatch, saveToServer } = useCadence()
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
-  const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '' })
+  const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '', startDate: '', endDate: '' })
 
   const roadmapMap = new Map((state.roadmap || []).map(g => [g.sprintId, g]))
 
@@ -68,8 +69,9 @@ export function RoadmapPage() {
   const totalAssigned = state.items.filter(i => i.sprintId).length
 
   function openModal(g: RoadmapGoal) {
+    const sprint = state.sprints.find(s => s.id === g.sprintId)
     setEditGoal(g)
-    setForm({ icon: g.icon, name: g.name, goal: g.goal, metrics: g.metrics.join('\n') })
+    setForm({ icon: g.icon, name: g.name, goal: g.goal, metrics: g.metrics.join('\n'), startDate: sprint?.startDate ?? '', endDate: sprint?.endDate ?? '' })
   }
 
   function saveGoal() {
@@ -81,9 +83,22 @@ export function RoadmapPage() {
       goal: form.goal.trim(),
       metrics: form.metrics.split('\n').map(s => s.trim()).filter(Boolean),
     }
+    const idx = state.sprints.findIndex(s => s.id === updated.sprintId)
+    const weeks = state.settings.sprintDuration ?? 2
+    let updatedSprints = state.sprints
+    if (idx !== -1 && form.startDate && form.endDate) {
+      updatedSprints = cascadeSprintDates(state.sprints, idx, form.startDate, form.endDate, weeks)
+      updatedSprints[idx] = { ...updatedSprints[idx], label: updated.name }
+    } else if (idx !== -1) {
+      updatedSprints = state.sprints.map((s, i) => i === idx ? { ...s, label: updated.name } : s)
+    }
     dispatch({ type: 'UPDATE_ROADMAP_GOAL', payload: updated })
-    const sprint = state.sprints.find(s => s.id === updated.sprintId)
-    if (sprint) dispatch({ type: 'UPDATE_SPRINT', payload: { ...sprint, label: updated.name } })
+    updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
+    saveToServer({
+      ...state,
+      roadmap: (state.roadmap || []).map(g => g.id === updated.id ? updated : g),
+      sprints: updatedSprints,
+    })
     setEditGoal(null)
   }
 
@@ -124,7 +139,8 @@ export function RoadmapPage() {
         {cards.map(({ sprint, goal }) => {
           const items = state.items.filter(i => i.sprintId === sprint.id)
           const totalSP = items.reduce((acc, i) => acc + i.sp, 0)
-          const capLabel = sprint.capacity > 0 ? ` / ${sprint.capacity} SP` : ''
+          const effCap   = effectiveCapacity(sprint, state.team)
+          const capLabel = sprint.capacity > 0 ? ` / ${effCap} SP` : ''
           const dateLabel = sprintDateLabel(sprint.startDate, sprint.endDate)
 
           // Group items by client
@@ -223,6 +239,20 @@ export function RoadmapPage() {
                 <div className="form-group" style={{ flex: 1 }}>
                   <label className="form-label">Nom du sprint theme</label>
                   <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Début du sprint</label>
+                  <input type="date" className="form-input" value={form.startDate} onChange={e => {
+                    const start = e.target.value
+                    const end = start ? computeSprintEndDate(start, state.settings.sprintDuration ?? 2) : ''
+                    setForm(f => ({ ...f, startDate: start, endDate: end }))
+                  }} />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Fin du sprint</label>
+                  <input type="date" className="form-input" value={form.endDate} onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
                 </div>
               </div>
               <div className="form-group">

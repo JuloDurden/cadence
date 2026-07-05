@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { ClientModal } from '../components/clients/ClientModal'
+import { fmtDateShort } from '../utils/dates'
 import type { Client } from '../types'
 
 type Tab = 'liste' | 'timeline'
@@ -145,7 +146,7 @@ function TimelineView({ state }: { state: ReturnType<typeof useCadence>['state']
               <th key={sp.id} style={{ padding: '10px 12px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
                 Sprint {sp.number}
                 <div style={{ fontWeight: 400, fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
-                  {new Date(sp.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                  {fmtDateShort(sp.startDate)}
                 </div>
               </th>
             ))}
