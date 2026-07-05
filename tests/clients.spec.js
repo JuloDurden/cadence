@@ -10,4 +10,26 @@ test.describe('Clients', () => {
     await expect(page.locator('.page-content')).toContainText('FAXFA');
   });
 
+  test('ouvre la modal Nouveau client', async ({ page }) => {
+    await goTo(page, '/clients');
+    await page.getByRole('button', { name: '+ Nouveau client' }).click();
+    await expect(page.getByRole('heading', { name: 'Nouveau client' })).toBeVisible();
+  });
+
+  test('la modal client contient la case Exclure du critère Importance client', async ({ page }) => {
+    await goTo(page, '/clients');
+    await page.getByRole('button', { name: '+ Nouveau client' }).click();
+    await expect(page.getByText('Exclure du critère "Importance client" (Auto-planning)')).toBeVisible();
+    // La case est décochée par défaut
+    const checkbox = page.locator('input[type="checkbox"]').last();
+    await expect(checkbox).not.toBeChecked();
+  });
+
+  test('la case Exclure est disponible en modification d\'un client existant', async ({ page }) => {
+    await goTo(page, '/clients');
+    // Ouvrir le premier client via le bouton modifier
+    await page.locator('button[title="Modifier"]').first().click();
+    await expect(page.getByText('Exclure du critère "Importance client" (Auto-planning)')).toBeVisible();
+  });
+
 });

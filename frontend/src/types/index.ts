@@ -124,6 +124,7 @@ export interface Client {
   rag: RAG; color: string; prefix: string
   contacts?: Contact[]
   notes?: string
+  excludeFromPlanning?: boolean  // exclure du critère "Importance client" en auto-planning
 }
 
 export interface KanbanCol {

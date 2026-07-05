@@ -45,6 +45,7 @@ export function ClientModal({ client, onSave, onClose }: Props) {
       color: form.color ?? '#4f46e5',
       contacts: form.contacts ?? [],
       notes: form.notes,
+      excludeFromPlanning: form.excludeFromPlanning ?? false,
     })
   }
 
@@ -97,6 +98,12 @@ export function ClientModal({ client, onSave, onClose }: Props) {
           <div className="form-group">
             <label>Notes</label>
             <textarea value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} rows={2} />
+          </div>
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+              <input type="checkbox" checked={form.excludeFromPlanning ?? false} onChange={e => set('excludeFromPlanning', e.target.checked)} />
+              <span>Exclure du critère "Importance client" (Auto-planning)</span>
+            </label>
           </div>
           <div className="form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

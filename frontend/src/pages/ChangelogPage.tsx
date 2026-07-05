@@ -9,9 +9,17 @@ function highlight(text: string, q: string): string {
   return text.replace(new RegExp(`(${esc})`, 'gi'), '<mark style="background:#fef08a;border-radius:2px;padding:0 1px">$1</mark>')
 }
 
+const TIMEFRAMES = [
+  { label: '15 j', days: 15 },
+  { label: '1 mois', days: 30 },
+  { label: '3 mois', days: 90 },
+  { label: '6 mois', days: 180 },
+]
+
 export function ChangelogPage() {
   const [search, setSearch] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [timeframe, setTimeframe] = useState(30)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -25,7 +33,7 @@ export function ChangelogPage() {
     : CHANGELOG
 
   /* ── Heatmap ── */
-  const DAYS = 21
+  const DAYS = timeframe
   const today = new Date()
   const heatData: Record<string, number> = {}
   CHANGELOG.forEach(v => {
@@ -75,14 +83,27 @@ export function ChangelogPage() {
             <div className="cl-heatmap-meta">
               <div>
                 <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{totalChanges} changements</span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> sur {activeDays} jours actifs (21 derniers jours)</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> sur {activeDays} jours actifs ({DAYS} derniers jours)</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-muted)' }}>
-                <span>Moins</span>
-                {COLORS.slice(0, 4).map((c, i) => (
-                  <div key={i} style={{ width: 11, height: 11, borderRadius: 3, background: c }} />
-                ))}
-                <span>Plus</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {TIMEFRAMES.map(tf => (
+                    <button key={tf.days} onClick={() => setTimeframe(tf.days)}
+                      style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4, border: '1px solid var(--border)', cursor: 'pointer',
+                        background: timeframe === tf.days ? 'var(--primary)' : 'transparent',
+                        color: timeframe === tf.days ? '#fff' : 'var(--text-muted)',
+                        fontWeight: timeframe === tf.days ? 700 : 400 }}>
+                      {tf.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-muted)' }}>
+                  <span>Moins</span>
+                  {COLORS.slice(0, 4).map((c, i) => (
+                    <div key={i} style={{ width: 11, height: 11, borderRadius: 3, background: c }} />
+                  ))}
+                  <span>Plus</span>
+                </div>
               </div>
             </div>
             <div className="cl-heatmap-bars">
@@ -104,7 +125,7 @@ export function ChangelogPage() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 9, color: 'var(--text-muted)' }}>
               <span>{cells[0].label}</span>
-              <span>{cells[10].label}</span>
+              <span>{cells[Math.floor(DAYS / 2)].label}</span>
               <span>Aujourd'hui</span>
             </div>
           </div>

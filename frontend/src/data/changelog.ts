@@ -15,7 +15,19 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.75.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Sprints : dates éditables, jours fériés, format FR',current:true,changes:[
+  {version:'v0.76.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Auto-planning : icons, grammaire, DnD, persistance, exclusion client',current:true,changes:[
+    {tag:'feat',    text:'Premier sprint ouvert : conservation du thème dans la proposition — les sprints suivants affichent uniquement "Sprint N"'},
+    {tag:'fix',     text:'Grammaire : "1 nouveau sprint sera créé" / "N nouveaux sprints seront créés" (accord singulier/pluriel)'},
+    {tag:'ux',      text:'Remplacement de tous les emojis par des icônes Lucide SVG : triangle-alert, arrowRight, equal, plus, star, link'},
+    {tag:'ux',      text:'DnD critères : retour visuel outline + opacité sur la zone de dépôt (identique au pattern colonnes Kanban)'},
+    {tag:'ux',      text:'DnD ordre des clients : même retour visuel outline + opacité que les critères'},
+    {tag:'feat',    text:'Persistance de la proposition : variable module-level _cachedProposal — survit aux navigations React Router sans rechargement'},
+    {tag:'feat',    text:'Case "Exclure du critère Importance client (Auto-planning)" dans la modal Client — nouveau champ excludeFromPlanning'},
+    {tag:'fix',     text:'Correction décalage UTC+2 dans estimateEndDate : localIso() remplace toISOString() pour les calculs de dates de livraison'},
+    {tag:'test',    text:'Tests Playwright : modal client (checkbox), auto-planning (thème, grammaire, persistance, draggable)'},
+    {tag:'feat',    text:'Changelog : heatmap configurable (15 j / 1 mois / 3 mois / 6 mois) — la légende et la date centrale suivent dynamiquement'},
+  ]},
+  {version:'v0.75.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Sprints : dates éditables, jours fériés, format FR',current:false,changes:[
     {tag:'feat',    text:'Édition inline des dates de sprint dans la page Planning (✎/✓/✕) — cliquer le range date ouvre les inputs'},
     {tag:'feat',    text:'Auto-calcul de la date de fin : modifier le début recalcule automatiquement la fin (début + semaines × 7 − 1)'},
     {tag:'feat',    text:'Cascade automatique : modifier le début d\'un sprint met à jour les dates de tous les sprints suivants'},

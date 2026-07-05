@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
-import { effectiveCapacity, computeSprintEndDate } from '../utils/sprintCapacity'
-import { fmtDate } from '../utils/dates'
+import { effectiveCapacity } from '../utils/sprintCapacity'
+import { fmtDate, localIso } from '../utils/dates'
 import type { Item, Sprint } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
 const ICO = {
-  zap:    '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
-  check:  '<path d="M20 6 9 17l-5-5"/>',
-  x:      '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
-  grip:   '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
-  warn:   '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
-  link:   '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-  clock:  '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  zap:        '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  check:      '<path d="M20 6 9 17l-5-5"/>',
+  x:          '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  grip:       '<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>',
+  warn:       '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  link:       '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  clock:      '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  equal:      '<line x1="5" x2="19" y1="9" y2="9"/><line x1="5" x2="19" y1="15" y2="15"/>',
+  plus:       '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  star:       '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
 }
 function Ico({ d, size = 13, stroke = 'currentColor' }: { d: string; size?: number; stroke?: string }) {
   return (
@@ -43,6 +47,9 @@ const DEFAULT_CRITERIA: Criterion[] = [
 ]
 const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
 
+// ── Module-level proposal cache (survives page navigation) ────────────────
+let _cachedProposal: Proposal | null = null
+
 // ── Topo sort (Kahn's algorithm) ──────────────────────────────────────────
 function topoSort(items: Item[]): Item[] {
   const keySet = new Set(items.map(i => i.key))
@@ -66,19 +73,18 @@ function topoSort(items: Item[]): Item[] {
       if (inDeg[nk] === 0) { const it = items.find(i => i.key === nk); if (it) queue.push(it) }
     })
   }
-  // Cycles → append at end (graceful degradation)
   items.forEach(i => { if (!result.includes(i)) result.push(i) })
   return result
 }
 
-// ── Sprint end date estimator for new slots ───────────────────────────────
+// ── Sprint end date estimator for new slots (UTC-safe) ────────────────────
 function estimateEndDate(slotIdx: number, existingSlots: Slot[], workingDays: number): string | undefined {
   const lastReal = [...existingSlots].reverse().find(s => s.endDate)
   if (!lastReal?.endDate) return undefined
   const lastRealIdx = existingSlots.indexOf(lastReal)
   const diffSlots = slotIdx - lastRealIdx
   const ms = diffSlots * workingDays * 7 * 24 * 3600 * 1000
-  return new Date(new Date(lastReal.endDate).getTime() + ms).toISOString().slice(0, 10)
+  return localIso(new Date(new Date(lastReal.endDate + 'T00:00:00').getTime() + ms))
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -86,16 +92,27 @@ export function AutoPlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const [criteria, setCriteria] = useState<Criterion[]>(DEFAULT_CRITERIA)
   const [clientOrder, setClientOrder] = useState<string[]>(() => state.clients.map(c => c.id))
-  const [proposal, setProposal] = useState<Proposal | null>(null)
+  const [proposal, setProposal] = useState<Proposal | null>(_cachedProposal)
   const [dragCritIdx, setDragCritIdx] = useState<number | null>(null)
+  const [dragOverCritIdx, setDragOverCritIdx] = useState<number | null>(null)
   const [dragClientIdx, setDragClientIdx] = useState<number | null>(null)
+  const [dragOverClientIdx, setDragOverClientIdx] = useState<number | null>(null)
 
-  // ── Sort items: topo first, then deadlines (priority absolue), then criteria ──
+  function updateProposal(p: Proposal | null) {
+    _cachedProposal = p
+    setProposal(p)
+  }
+
+  // ── Clients éligibles au critère Importance client ─────────────────────
+  const planningClientIds = new Set(
+    state.clients.filter(c => !c.excludeFromPlanning).map(c => c.id)
+  )
+
+  // ── Sort items ────────────────────────────────────────────────────────
   function sortItems(items: Item[]): Item[] {
     const topo = topoSort(items)
     const active = criteria.filter(c => c.active).map(c => c.id)
     return topo.sort((a, b) => {
-      // Deadlines always float first: imposed > negotiable > none, then by earliest date
       const dlRank = (i: Item) => i.deadline?.type === 'imposed' ? 0 : i.deadline?.type === 'negotiable' ? 1 : 2
       const ra = dlRank(a), rb = dlRank(b)
       if (ra !== rb) return ra - rb
@@ -103,12 +120,13 @@ export function AutoPlanningPage() {
         const da = a.deadline?.date ?? '9999', db = b.deadline?.date ?? '9999'
         if (da !== db) return da.localeCompare(db)
       }
-      // Then user-defined criteria
       for (const cid of active) {
         let diff = 0
         if (cid === 'priority') diff = (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)
         else if (cid === 'client') {
-          const ia = clientOrder.indexOf(a.clientId), ib = clientOrder.indexOf(b.clientId)
+          // Exclure les clients marqués excludeFromPlanning
+          const filteredOrder = clientOrder.filter(id => planningClientIds.has(id))
+          const ia = filteredOrder.indexOf(a.clientId), ib = filteredOrder.indexOf(b.clientId)
           diff = (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib)
         }
         else if (cid === 'socle') diff = (!a.clientId ? 0 : 1) - (!b.clientId ? 0 : 1)
@@ -124,39 +142,43 @@ export function AutoPlanningPage() {
     const doneSt = state.kanbanCols.filter(c => c.isDone).map(c => c.id)
     const durationWeeks = state.settings.sprintDuration ?? 2
 
-    // Epics that have child stories → skip them (plan stories individually)
     const epicIdsWithChildren = new Set(
       state.items.filter(i => i.epicId).map(i => i.epicId!)
     )
 
     const itemsToPlace = state.items.filter(i => {
       const sp = state.sprints.find(s => s.id === i.sprintId)
-      if (sp?.closed) return false                              // locked — don't touch
-      if (doneSt.includes(i.status)) return false              // already done
-      if (i.type === 'epic' && epicIdsWithChildren.has(i.id)) return false  // epic with children
+      if (sp?.closed) return false
+      if (doneSt.includes(i.status)) return false
+      if (i.type === 'epic' && epicIdsWithChildren.has(i.id)) return false
       return true
     })
 
     const sorted = sortItems(itemsToPlace)
 
-    // Build slots from open sprints (skip fully-done sprints)
-    const slots: Slot[] = state.sprints
+    // Build slots — premier sprint ouvert conserve son thème, les suivants non
+    const openNonDone = state.sprints
       .filter(sp => !sp.closed)
       .filter(sp => {
         const spItems = state.items.filter(i => i.sprintId === sp.id)
         return !(spItems.length > 0 && spItems.every(i => doneSt.includes(i.status)))
       })
-      .map(sp => {
-        const usedByDone = state.items
-          .filter(i => i.sprintId === sp.id && doneSt.includes(i.status))
-          .reduce((s, i) => s + i.sp, 0)
-        const label = sp.label ? `Sprint ${sp.number} – ${sp.label}` : `Sprint ${sp.number}`
-        const effCap = effectiveCapacity(sp, state.team) || state.settings.defaultCapacity
-        return {
-          sprintId: sp.id, label, cap: effCap,
-          used: usedByDone, assigned: [], isNew: false, number: sp.number, endDate: sp.endDate,
-        }
-      })
+
+    const slots: Slot[] = openNonDone.map((sp, idx) => {
+      const usedByDone = state.items
+        .filter(i => i.sprintId === sp.id && doneSt.includes(i.status))
+        .reduce((s, i) => s + i.sp, 0)
+      // Conserver le thème uniquement pour le sprint en cours (premier ouvert)
+      const isCurrent = idx === 0
+      const label = isCurrent && sp.label
+        ? `Sprint ${sp.number} – ${sp.label}`
+        : `Sprint ${sp.number}`
+      const effCap = effectiveCapacity(sp, state.team) || state.settings.defaultCapacity
+      return {
+        sprintId: sp.id, label, cap: effCap,
+        used: usedByDone, assigned: [], isNew: false, number: sp.number, endDate: sp.endDate,
+      }
+    })
 
     let newCount = 0
     function ensureSlot(idx: number) {
@@ -170,7 +192,6 @@ export function AutoPlanningPage() {
       }
     }
 
-    // Successor map: key → [keys that directly depend on it]
     const successors: Record<string, string[]> = {}
     sorted.forEach(item => {
       (item.deps ?? []).forEach(dk => {
@@ -179,14 +200,13 @@ export function AutoPlanningPage() {
       })
     })
 
-    const placedAt: Record<string, number> = {}  // key → slot index
+    const placedAt: Record<string, number> = {}
     const placedSet = new Set<string>()
     const violations: Violation[] = []
 
     function placeOne(item: Item) {
       if (placedSet.has(item.key)) return
 
-      // Hard constraint: after all deps
       const minIdx = (item.deps ?? []).reduce((mx, dk) => {
         return placedAt[dk] !== undefined ? Math.max(mx, placedAt[dk] + 1) : mx
       }, 0)
@@ -202,13 +222,12 @@ export function AutoPlanningPage() {
           sl.assigned.push(item)
           placedAt[item.key] = i
           placedSet.add(item.key)
-          // Deadline violation check
           if (hasDeadline && sl.endDate && item.deadline!.date < sl.endDate) {
             const why = minIdx > 0 ? ' (contraint par dépendances)' : ' (capacité insuffisante)'
             violations.push({
               key: item.key, desc: item.desc,
               type: 'deadline',
-              detail: `deadline ${item.deadline!.type === 'imposed' ? '🔴 imposée' : '🟡 négociable'} ${fmtDate(item.deadline!.date)} — placé en Sprint ${sl.number}${why}`,
+              detail: `deadline ${item.deadline!.type === 'imposed' ? 'imposée' : 'négociable'} ${fmtDate(item.deadline!.date)} — placé en Sprint ${sl.number}${why}`,
             })
           }
           placed = true; break
@@ -224,7 +243,6 @@ export function AutoPlanningPage() {
           violations.push({ key: item.key, desc: item.desc, type: 'deadline', detail: `deadline ${fmtDate(item.deadline!.date)} — item trop grand pour la capacité d'un sprint` })
       }
 
-      // Chain continuation: single successor → place immediately after
       const succs = (successors[item.key] ?? [])
         .map(k => sorted.find(i => i.key === k))
         .filter((i): i is Item => !!i && !placedSet.has(i.key))
@@ -235,7 +253,7 @@ export function AutoPlanningPage() {
       if (!placedSet.has(item.key)) placeOne(item)
     }
 
-    setProposal({
+    updateProposal({
       slots: slots.filter(s => s.assigned.length > 0),
       newCount,
       violations,
@@ -247,7 +265,6 @@ export function AutoPlanningPage() {
     if (!proposal) return
     const doneSt = state.kanbanCols.filter(c => c.isDone).map(c => c.id)
 
-    // Clear all non-done item assignments from open sprints
     let newItems = state.items.map(i => {
       if (doneSt.includes(i.status)) return i
       const sp = state.sprints.find(s => s.id === i.sprintId)
@@ -261,14 +278,13 @@ export function AutoPlanningPage() {
     for (const slot of proposal.slots) {
       if (slot.isNew) {
         const maxNum = [...newSprints, ...sprintsToAdd].reduce((m, s) => Math.max(m, s.number), 0)
-        const today = new Date().toISOString().slice(0, 10)
+        const today = localIso(new Date())
         sprintsToAdd.push({
           id: slot.sprintId, number: maxNum + 1, label: '',
           startDate: today, endDate: today,
           capacity: slot.cap, closed: false,
         })
       }
-      // Assign items to this slot's sprint
       slot.assigned.forEach(item => {
         newItems = newItems.map(i => i.id === item.id ? { ...i, sprintId: slot.sprintId, status: 'todo' } : i)
       })
@@ -278,19 +294,19 @@ export function AutoPlanningPage() {
     const newState = { ...state, sprints: finalSprints, items: newItems }
     dispatch({ type: 'SET_STATE', payload: newState })
     saveToServer(newState)
-    setProposal(null)
+    updateProposal(null)
   }
 
   // ── Drag helpers ──────────────────────────────────────────────────────────
   function critDrop(toIdx: number) {
     if (dragCritIdx === null || dragCritIdx === toIdx) return
     const arr = [...criteria]; const [el] = arr.splice(dragCritIdx, 1); arr.splice(toIdx, 0, el)
-    setCriteria(arr); setDragCritIdx(null)
+    setCriteria(arr); setDragCritIdx(null); setDragOverCritIdx(null)
   }
   function clientDrop(toIdx: number) {
     if (dragClientIdx === null || dragClientIdx === toIdx) return
     const arr = [...clientOrder]; const [el] = arr.splice(dragClientIdx, 1); arr.splice(toIdx, 0, el)
-    setClientOrder(arr); setDragClientIdx(null)
+    setClientOrder(arr); setDragClientIdx(null); setDragOverClientIdx(null)
   }
   function toggleCrit(idx: number, checked: boolean) {
     const arr = [...criteria]
@@ -309,7 +325,6 @@ export function AutoPlanningPage() {
 
   const clientCritActive = criteria.find(c => c.id === 'client' && c.active)
 
-  // Header buttons
   const CTRL: React.CSSProperties = { height: 30, border: '1px solid var(--border)', borderRadius: 7, backgroundColor: 'transparent', color: 'var(--text)', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: 'pointer', outline: 'none', display: 'flex', alignItems: 'center', gap: 6, padding: '0 12px' }
   const CTRL_PRIMARY: React.CSSProperties  = { ...CTRL, border: 'none', backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 600 }
   const CTRL_DANGER: React.CSSProperties   = { ...CTRL, border: '1px solid var(--danger)', color: 'var(--danger)' }
@@ -325,7 +340,7 @@ export function AutoPlanningPage() {
         <span className="hdr-ctx-stat">{openSprints} sprints ouverts</span>
         <div style={{ flex: 1 }} />
         {proposal && (
-          <button style={CTRL_DANGER} onClick={() => setProposal(null)}>
+          <button style={CTRL_DANGER} onClick={() => updateProposal(null)}>
             <Ico d={ICO.x} size={12} stroke="var(--danger)" /> Annuler
           </button>
         )}
@@ -355,17 +370,24 @@ export function AutoPlanningPage() {
 
               {criteria.map((c, i) => {
                 const rank = criteria.filter((x, j) => x.active && j <= i).length
+                const isDropTarget = dragOverCritIdx === i && dragCritIdx !== null && dragCritIdx !== i
                 return (
                   <div key={c.id}
                     draggable
-                    onDragStart={() => setDragCritIdx(i)}
-                    onDragOver={e => e.preventDefault()}
+                    onDragStart={() => { setDragCritIdx(i); setDragOverCritIdx(null) }}
+                    onDragOver={e => { e.preventDefault(); setDragOverCritIdx(i) }}
+                    onDragLeave={() => setDragOverCritIdx(null)}
                     onDrop={() => critDrop(i)}
+                    onDragEnd={() => { setDragCritIdx(null); setDragOverCritIdx(null) }}
                     style={{
                       display: 'flex', gap: 10, alignItems: 'flex-start',
                       padding: '8px 10px', marginBottom: 6, borderRadius: 8, cursor: 'grab',
                       background: c.active ? 'var(--primary-light)' : 'var(--surface2)',
                       border: `1.5px solid ${c.active ? 'var(--primary)' : 'var(--border)'}`,
+                      outline: isDropTarget ? '2px solid var(--primary)' : 'none',
+                      outlineOffset: 2,
+                      opacity: dragCritIdx === i ? 0.5 : 1,
+                      transition: 'outline .1s, opacity .15s',
                     }}>
                     <div style={{ width: 22, height: 22, borderRadius: '50%', background: c.active ? 'var(--primary)' : 'var(--border)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>
                       {c.active ? rank : '–'}
@@ -391,23 +413,30 @@ export function AutoPlanningPage() {
                     Ordre des clients
                     <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: 5 }}>glisser</span>
                   </div>
-                  {clientOrder.map((cid, i) => {
-                    const client = state.clients.find(c => c.id === cid)
-                    if (!client) return null
-                    return (
-                      <div key={cid}
-                        draggable
-                        onDragStart={() => setDragClientIdx(i)}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={() => clientDrop(i)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', marginBottom: 4, background: 'var(--surface2)', borderRadius: 6, cursor: 'grab' }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 16, textAlign: 'center' }}>{i + 1}</span>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: client.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, flex: 1 }}>{client.name}</span>
-                        <Ico d={ICO.grip} size={12} stroke="var(--text-muted)" />
-                      </div>
-                    )
-                  })}
+                  {clientOrder
+                    .filter(cid => planningClientIds.has(cid))
+                    .map((cid, i) => {
+                      const client = state.clients.find(c => c.id === cid)
+                      if (!client) return null
+                      const origIdx = clientOrder.indexOf(cid)
+                      const isClientDropTarget = dragOverClientIdx === origIdx && dragClientIdx !== null && dragClientIdx !== origIdx
+                      return (
+                        <div key={cid}
+                          draggable
+                          onDragStart={() => { setDragClientIdx(origIdx); setDragOverClientIdx(null) }}
+                          onDragOver={e => { e.preventDefault(); setDragOverClientIdx(origIdx) }}
+                          onDragLeave={() => setDragOverClientIdx(null)}
+                          onDrop={() => clientDrop(origIdx)}
+                          onDragEnd={() => { setDragClientIdx(null); setDragOverClientIdx(null) }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', marginBottom: 4, background: 'var(--surface2)', borderRadius: 6, cursor: 'grab', outline: isClientDropTarget ? '2px solid var(--primary)' : 'none', outlineOffset: 2, opacity: dragClientIdx === origIdx ? 0.5 : 1, transition: 'outline .1s, opacity .15s' }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 16, textAlign: 'center' }}>{i + 1}</span>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: client.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: 12, flex: 1 }}>{client.name}</span>
+                          <Ico d={ICO.grip} size={12} stroke="var(--text-muted)" />
+                        </div>
+                      )
+                    })
+                  }
                 </div>
               )}
             </div>
@@ -461,8 +490,9 @@ export function AutoPlanningPage() {
 
                 {/* New sprints banner */}
                 {proposal.newCount > 0 && (
-                  <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 11, color: '#c2410c', fontWeight: 600 }}>
-                    ⚠️ {proposal.newCount} nouveau{proposal.newCount > 1 ? 'x' : ''} sprint{proposal.newCount > 1 ? 's' : ''} seront créés
+                  <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, fontSize: 11, color: '#c2410c', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <Ico d={ICO.warn} size={13} stroke="#c2410c" />
+                    {proposal.newCount} nouveau{proposal.newCount > 1 ? 'x' : ''} sprint{proposal.newCount > 1 ? 's' : ''} {proposal.newCount > 1 ? 'seront créés' : 'sera créé'}
                   </div>
                 )}
 
@@ -477,10 +507,13 @@ export function AutoPlanningPage() {
                       <div style={{ padding: '8px 14px', background: 'var(--surface2)', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontWeight: 700, fontSize: 12 }}>{slot.label}</span>
                         {slot.isNew && (
-                          <span style={{ fontSize: 10, background: '#d1fae5', color: '#065f46', padding: '1px 6px', borderRadius: 10, fontWeight: 600 }}>✨ Nouveau</span>
+                          <span style={{ fontSize: 10, background: '#d1fae5', color: '#065f46', padding: '1px 6px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Ico d={ICO.star} size={9} stroke="#065f46" /> Nouveau
+                          </span>
                         )}
-                        <span style={{ marginLeft: 'auto', fontSize: 10, color: over ? 'var(--danger)' : 'var(--text-muted)', fontWeight: over ? 700 : 400 }}>
-                          {total}/{slot.cap} SP{over ? ' ⚠️' : ''}
+                        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: over ? 'var(--danger)' : 'var(--text-muted)', fontWeight: over ? 700 : 400 }}>
+                          {total}/{slot.cap} SP
+                          {over && <Ico d={ICO.warn} size={11} stroke="var(--danger)" />}
                         </span>
                       </div>
                       {/* Capacity bar */}
@@ -492,14 +525,24 @@ export function AutoPlanningPage() {
                       {/* Items */}
                       <div style={{ padding: '4px 14px 10px' }}>
                         {slot.assigned.map(item => {
-                          const client     = state.clients.find(c => c.id === item.clientId)
+                          const client      = state.clients.find(c => c.id === item.clientId)
                           const hasDeadline = item.deadline?.date && item.deadline.type !== 'none'
-                          const hasDeps    = (item.deps ?? []).length > 0
-                          // Badge: was this item already in this sprint?
-                          const wasHere    = item.sprintId === slot.sprintId
+                          const hasDeps     = (item.deps ?? []).length > 0
+                          const wasHere     = item.sprintId === slot.sprintId
                           const isUnassigned = !item.sprintId
-                          const badgeText  = slot.isNew ? '✨' : wasHere ? '=' : isUnassigned ? '+' : '→'
-                          const badgeColor = slot.isNew ? '#059669' : wasHere ? 'var(--text-muted)' : isUnassigned ? 'var(--primary)' : '#d97706'
+                          // Move badge: icône Lucide selon le mouvement
+                          const badgeIcon  = slot.isNew    ? ICO.plus
+                                           : wasHere       ? ICO.equal
+                                           : isUnassigned  ? ICO.plus
+                                           : ICO.arrowRight
+                          const badgeColor = slot.isNew    ? '#059669'
+                                           : wasHere       ? 'var(--text-muted)'
+                                           : isUnassigned  ? 'var(--primary)'
+                                           : '#d97706'
+                          const badgeTip   = slot.isNew    ? 'Nouveau sprint'
+                                           : wasHere       ? 'Inchangé'
+                                           : isUnassigned  ? 'Non assigné → planifié'
+                                           : 'Déplacé depuis un autre sprint'
                           return (
                             <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 0', borderBottom: '1px solid var(--surface2)', fontSize: 11 }}>
                               {/* Client dot */}
@@ -507,19 +550,23 @@ export function AutoPlanningPage() {
                               {/* Key */}
                               <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'var(--primary)', flexShrink: 0, minWidth: 54 }}>{item.key}</span>
                               {/* Move badge */}
-                              <span style={{ fontSize: 9, color: badgeColor, fontWeight: 700, flexShrink: 0, minWidth: 10 }} title={wasHere ? 'Inchangé' : isUnassigned ? 'Non assigné → planifié' : 'Déplacé'}>{badgeText}</span>
+                              <span style={{ color: badgeColor, flexShrink: 0, display: 'flex', alignItems: 'center' }} title={badgeTip}>
+                                <Ico d={badgeIcon} size={10} stroke={badgeColor} />
+                              </span>
                               {/* Description */}
                               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.desc}</span>
                               {/* Deadline badge */}
                               {hasDeadline && (
-                                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: item.deadline!.type === 'imposed' ? '#fee2e2' : '#fef3c7', color: item.deadline!.type === 'imposed' ? '#dc2626' : '#d97706', flexShrink: 0 }}>
-                                  {item.deadline!.type === 'imposed' ? '🔴' : '🟡'} {fmtDate(item.deadline!.date)}
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: item.deadline!.type === 'imposed' ? '#fee2e2' : '#fef3c7', color: item.deadline!.type === 'imposed' ? '#dc2626' : '#d97706', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor', flexShrink: 0, display: 'inline-block' }} />
+                                  {fmtDate(item.deadline!.date)}
                                 </span>
                               )}
                               {/* Dep indicator */}
                               {hasDeps && (
-                                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: '#dbeafe', color: '#1d4ed8', flexShrink: 0 }}>
-                                  ⛓{item.deps!.length}
+                                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 6, background: '#dbeafe', color: '#1d4ed8', flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                  <Ico d={ICO.link} size={9} stroke="#1d4ed8" />
+                                  {item.deps!.length}
                                 </span>
                               )}
                               {/* SP */}
