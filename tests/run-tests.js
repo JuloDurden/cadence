@@ -227,8 +227,180 @@ describe('tri clients', () => {
   });
 });
 
+
+// ── Auto-planning : fonctions pures ─────────────────────────────────────────
+
+// ── computeMoveBadge ────────────────────────────────────────────────────────
+function computeMoveBadge(item, slotNumber, sprintsMeta) {
+  if (!item.sprintId) return { text: '+', color: '#059669' };
+  const origSprint = sprintsMeta.find(s => s.id === item.sprintId);
+  if (!origSprint) return { text: '→', color: '#d97706' };
+  if (origSprint.number === slotNumber) return { text: '=', color: 'var(--text-muted)' };
+  const dir = origSprint.number > slotNumber ? '↗' : '↘';
+  return { text: 'S' + origSprint.number + dir, color: '#d97706' };
+}
+
+// ── isItemHighlighted ───────────────────────────────────────────────────────
+function isItemHighlighted(item, highlightClients, highlightTypes, highlightPriority) {
+  const hasAnyFilter = highlightClients.size > 0 || highlightTypes.size > 0 || highlightPriority.size > 0;
+  if (!hasAnyFilter) return false;
+  const clientMatch   = highlightClients.size   === 0 || highlightClients.has(item.clientId || '');
+  const typeMatch     = highlightTypes.size     === 0 || highlightTypes.has(item.type || '');
+  const priorityMatch = highlightPriority.size  === 0 || highlightPriority.has(item.priority || '');
+  return clientMatch && typeMatch && priorityMatch;
+}
+
+// ── nextScenarioIdx ─────────────────────────────────────────────────────────
+function nextScenarioIdx(removedIdx, totalAfterRemoval) {
+  if (totalAfterRemoval === 0) return 0;
+  return Math.max(0, Math.min(removedIdx - 1, totalAfterRemoval - 1));
+}
+
+// ── isSlotNonEmpty ──────────────────────────────────────────────────────────
+function isSlotNonEmpty(slot) {
+  return slot.assigned.length > 0 || ((slot.usedItems || []).length > 0);
+}
+
+// ── topoSort ────────────────────────────────────────────────────────────────
+function topoSort(items) {
+  const keySet = new Set(items.map(i => i.key));
+  const inDeg = {};
+  const adj = {};
+  items.forEach(i => { inDeg[i.key] = 0; adj[i.key] = []; });
+  items.forEach(i => {
+    (i.deps || []).forEach(dk => {
+      if (!keySet.has(dk)) return;
+      adj[dk].push(i.key);
+      inDeg[i.key] = (inDeg[i.key] || 0) + 1;
+    });
+  });
+  const queue = items.filter(i => inDeg[i.key] === 0);
+  const result = [];
+  while (queue.length) {
+    const node = queue.shift(); result.push(node);
+    (adj[node.key] || []).forEach(nk => {
+      inDeg[nk]--;
+      if (inDeg[nk] === 0) { const it = items.find(i => i.key === nk); if (it) queue.push(it); }
+    });
+  }
+  items.forEach(i => { if (!result.includes(i)) result.push(i); });
+  return result;
+}
+
+// ── Tests autoPlanning ───────────────────────────────────────────────────────
+
+const SPRINTS_META = [
+  { id: 's1', number: 1 },
+  { id: 's2', number: 2 },
+  { id: 's3', number: 3 },
+];
+
+describe('computeMoveBadge', () => {
+  test('item non assigne -> badge +', () => {
+    const badge = computeMoveBadge({ sprintId: null }, 2, SPRINTS_META);
+    expect(badge.text).toBe('+');
+  });
+  test('item deja dans ce sprint -> =', () => {
+    const badge = computeMoveBadge({ sprintId: 's2' }, 2, SPRINTS_META);
+    expect(badge.text).toBe('=');
+  });
+  test('item venant S3 place en S1 -> avance (fleche haut)', () => {
+    const badge = computeMoveBadge({ sprintId: 's3' }, 1, SPRINTS_META);
+    expect(badge.text).toBe('S3↗');
+  });
+  test('item venant S1 place en S3 -> recule (fleche bas)', () => {
+    const badge = computeMoveBadge({ sprintId: 's1' }, 3, SPRINTS_META);
+    expect(badge.text).toBe('S1↘');
+  });
+  test('sprintId inconnu -> fleche simple', () => {
+    const badge = computeMoveBadge({ sprintId: 'unknown' }, 2, SPRINTS_META);
+    expect(badge.text).toBe('→');
+  });
+});
+
+describe('isItemHighlighted (logique AND)', () => {
+  const item = { clientId: 'faxfa', type: 'bug', priority: 'critical' };
+
+  test('aucun filtre -> false', () => {
+    expect(isItemHighlighted(item, new Set(), new Set(), new Set())).toBeFalsy();
+  });
+  test('client seul correspondant -> true', () => {
+    expect(isItemHighlighted(item, new Set(['faxfa']), new Set(), new Set())).toBeTruthy();
+  });
+  test('client + type corrects -> true', () => {
+    expect(isItemHighlighted(item, new Set(['faxfa']), new Set(['bug']), new Set())).toBeTruthy();
+  });
+  test('client + type + priorite corrects -> true', () => {
+    expect(isItemHighlighted(item, new Set(['faxfa']), new Set(['bug']), new Set(['critical']))).toBeTruthy();
+  });
+  test('client correct mais type incorrect -> false (AND)', () => {
+    expect(isItemHighlighted(item, new Set(['faxfa']), new Set(['story']), new Set())).toBeFalsy();
+  });
+  test('client incorrect, type correct -> false (AND)', () => {
+    expect(isItemHighlighted(item, new Set(['manfife']), new Set(['bug']), new Set())).toBeFalsy();
+  });
+  test('type + priorite corrects mais client incorrect -> false (AND)', () => {
+    expect(isItemHighlighted(item, new Set(['manfife']), new Set(['bug']), new Set(['critical']))).toBeFalsy();
+  });
+});
+
+describe('nextScenarioIdx (navigation apres suppression)', () => {
+  test('supprimer le dernier (idx 4) -> atterrit sur idx 3', () => {
+    expect(nextScenarioIdx(4, 4)).toBe(3);
+  });
+  test('supprimer idx 2 sur 4 -> atterrit sur idx 1', () => {
+    expect(nextScenarioIdx(2, 3)).toBe(1);
+  });
+  test('supprimer premier non-current (idx 1) -> atterrit sur idx 0', () => {
+    expect(nextScenarioIdx(1, 1)).toBe(0);
+  });
+  test('plus aucun scenario -> idx 0', () => {
+    expect(nextScenarioIdx(0, 0)).toBe(0);
+  });
+});
+
+describe('isSlotNonEmpty', () => {
+  test('slot avec items assignes -> non vide', () => {
+    expect(isSlotNonEmpty({ assigned: [{ id: 'x' }], usedItems: [] })).toBeTruthy();
+  });
+  test('slot avec usedItems -> non vide', () => {
+    expect(isSlotNonEmpty({ assigned: [], usedItems: [{ id: 'x' }] })).toBeTruthy();
+  });
+  test('slot vide -> filtre', () => {
+    expect(isSlotNonEmpty({ assigned: [], usedItems: [] })).toBeFalsy();
+  });
+  test('slot vide sans usedItems -> filtre', () => {
+    expect(isSlotNonEmpty({ assigned: [] })).toBeFalsy();
+  });
+});
+
+describe('topoSort', () => {
+  test('sans dependances : ordre inchange', () => {
+    const items = [{ key: 'A', deps: [] }, { key: 'B', deps: [] }, { key: 'C', deps: [] }];
+    const result = topoSort(items).map(i => i.key);
+    expect(result.join(',')).toBe('A,B,C');
+  });
+  test('B depend de A : A avant B', () => {
+    const items = [{ key: 'B', deps: ['A'] }, { key: 'A', deps: [] }];
+    const result = topoSort(items).map(i => i.key);
+    expect(result.indexOf('A')).toBeLessThan(result.indexOf('B'));
+  });
+  test('chaine C->B->A : A en premier', () => {
+    const items = [{ key: 'C', deps: ['B'] }, { key: 'B', deps: ['A'] }, { key: 'A', deps: [] }];
+    const result = topoSort(items).map(i => i.key);
+    expect(result[0]).toBe('A');
+    expect(result[1]).toBe('B');
+    expect(result[2]).toBe('C');
+  });
+  test('dependance externe ignoree', () => {
+    const items = [{ key: 'A', deps: ['EXTERN'] }, { key: 'B', deps: [] }];
+    const result = topoSort(items).map(i => i.key);
+    expect(result.includes('A')).toBeTruthy();
+  });
+});
+
 // ── Bilan ────────────────────────────────────────────────────────────────────
 
-console.log('\n' + '─'.repeat(50));
-console.log(`${passed}/${total} tests passes` + (failed > 0 ? ` | ${failed} ECHEC(S)` : ' - Tous OK'));
+console.log('\n' + '-'.repeat(50));
+console.log(passed + '/' + total + ' tests passes' + (failed > 0 ? ' | ' + failed + ' ECHEC(S)' : ' - Tous OK'));
 if (failed > 0) process.exit(1);

@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 2 juillet 2026. v0.48 : Attribution utilisateur archivée. v0.49-v0.50 : Refonte visuelle Backlog (2 passes). v0.51 : Sidebar icones SVG + collapse. v0.52-v0.53 : Header fixe, dropdowns, fixes. v0.54 : Menu bar contextuel (style macOS) — contrôles de chaque page migrés dans le header. v0.55 : Corrections UI header contextuel — sidebar collapse, recherche, design boutons, Daily timer, Kanban/Retro/Planning. v0.56 : Corrections UI v2 — Sprint selects courts, filtres Backlog/Planning/Kanban/Retro alignés à droite, fix filtre Sprint/Tag Backlog, 144 tests Playwright.
+> Dernière mise à jour : 6 juillet 2026. v0.77 : Mode What-if — scénarios alternatifs, branches, forks, comparaison. v0.78 : What-if UX — wallet cards, État actuel highlights, badges de mouvement, 53 tests unitaires.
 
 ---
 
@@ -14,7 +14,6 @@
 ## 📋 Backlog & Planification
 
 - **Capacité nominative par sprint** — allocation individuelle (qui fait quoi sur ce sprint), pas seulement une capacité globale d'équipe.
-- **Mode "what-if"** — remplissage manuel d'un planning alternatif + vue comparaison avant/après (l'auto-planning existe déjà mais ne permet pas de comparaison).
 - **Épics et roadmap par thème** — regrouper les sprints ou les items par initiative / epic avec vue dédiée.
 - **Critères de départ / d'entrée de sprint** — check-list de Sprint Planning (DoR équipe validée, capacité confirmée, objectif défini).
 
@@ -45,6 +44,10 @@
 ---
 
 ## ✅ Réalisé (pour mémoire)
+
+### Auto-planning & What-if
+- **Mode What-if** ✅ *v0.77.0* — scénarios alternatifs de planification avec branches Git-graph, forks, comparaison côte à côte, items fictifs, capacités par sprint et facteur de vélocité
+- **What-if UX : wallet cards + highlights + badges** ✅ *v0.78.0* — layout iOS Wallet animé, État actuel avec filtres highlights combinables (AND), badges de mouvement S3↗/S1↘, extraction fonctions pures + 53 tests unitaires
 
 ### Design & UX
 - **Corrections UI header contextuel** ✅ *v0.55.0* — sidebar collapse décale le contenu, recherche avant notifications, design boutons uniformisé (référence Backlog), Daily timer à droite + 20/30 min + flash fin, Kanban sprint élargi + Ordre/Réorganiser/+Colonne dans header, Planning Client/Affichage en dropdowns, Retro sprint élargi + label format, icônes monochromes (Dashboard, Auto-planning).

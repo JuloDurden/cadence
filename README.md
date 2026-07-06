@@ -29,6 +29,7 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 - Sprint Goal affiché sur la carte sprint
 - Clôture de sprint avec snapshot de vélocité figé
 - Auto-planning : affectation automatique selon capacité, dépendances et critères personnalisables
+- Mode What-if : N scénarios de planification simultanés — wallet cards animées, forks, comparaison côte à côte, filtres highlights, badges de mouvement
 
 ### Kanban
 

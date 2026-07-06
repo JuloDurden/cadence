@@ -161,6 +161,57 @@ Le bouton **Copier le résumé** génère un export texte du daily (pour Slack o
 
 ---
 
+## Auto-planning & Mode What-if
+
+### Auto-planning
+
+La page **Auto-planning** génère automatiquement une proposition de planification en distribuant les items du backlog sur les sprints ouverts selon vos critères.
+
+Cliquez **Nouveau scénario** pour créer un scénario, configurez les critères (Priorité, Importance client, Socle commun, Dette technique) par drag-and-drop, puis cliquez **Générer**. La proposition apparaît sous forme de slots sprint avec SP utilisés / capacité.
+
+Cliquez **Appliquer** pour écrire la proposition en base.
+
+### Mode What-if
+
+Le mode What-if permet de comparer plusieurs planifications alternatives sans modifier les données réelles.
+
+**Concepts clés**
+
+| Élément | Description |
+|---------|-------------|
+| État actuel | Lane read-only toujours présente — affiche la répartition actuelle des items en base |
+| Scénario | Planification alternative indépendante avec ses propres critères, capacités et items fictifs |
+| Fork | Créer un scénario B qui hérite des sprints passés d'un scénario A et diverge à partir d'un sprint choisi |
+| Comparaison | Afficher deux scénarios côte à côte via le bouton **Comparer** |
+
+**Créer et utiliser un scénario**
+
+1. Cliquez **Nouveau scénario** — une card s'ajoute dans la pile (layout wallet)
+2. Configurez les critères, le facteur de vélocité (slider 40–120%) et les capacités par sprint
+3. Cliquez **Générer** pour voir la proposition
+4. Cliquez **Appliquer** pour écrire ce scénario en base
+
+**État actuel : filtres highlights**
+
+Dans la card État actuel, le panneau gauche permet de surligner les items selon trois filtres combinables en logique AND :
+
+- **Clients** : cocher un ou plusieurs clients
+- **Type** : Bug, Story, Tâche...
+- **Priorité** : Critique, Haute...
+
+Cocher FAXFA + Bug + Critique met en évidence uniquement les bugs critiques du client FAXFA (pas tous les bugs, pas tous les items FAXFA).
+
+**Badges de mouvement**
+
+Dans une proposition de scénario, chaque item affiche un badge indiquant s'il a été avancé ou reculé par rapport à son sprint d'origine :
+
+| Badge | Signification |
+|-------|--------------|
+| `+` | Item non assigné, nouvellement placé |
+| `=` | Item conservé dans son sprint d'origine |
+| `S3↗` | Item avancé depuis le Sprint 3 |
+| `S1↘` | Item reculé depuis le Sprint 1 |
+
 ## Recherche globale
 
 `Ctrl+K` (ou le bouton 🔍 en haut à droite) ouvre la recherche globale.

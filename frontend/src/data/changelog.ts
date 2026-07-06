@@ -15,7 +15,20 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.77.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'What-if : scénarios alternatifs, branches, forks et comparaison',current:true,changes:[
+  {version:'v0.78.0',date:'6 Juillet 2026',dateISO:'2026-07-06',title:'What-if : wallet cards, État actuel highlights, badges de mouvement',current:true,changes:[
+    {tag:'ux',      text:'Layout iOS Wallet : les scénarios s\'empilent en cards, la card active se déploie avec animation translateY (spring cubic-bezier)'},
+    {tag:'feat',    text:'État actuel : vue 2 colonnes — panneau de filtres highlights (Clients / Type / Priorité) et proposition côte à côte'},
+    {tag:'feat',    text:'Filtres highlights combinables en AND : cocher FAXFA + Bug + Critique met en évidence uniquement les bugs critiques de FAXFA'},
+    {tag:'feat',    text:'Badges de mouvement dans la proposition : S3↗ (avancé), S1↘ (reculé), + (non assigné), = (même sprint)'},
+    {tag:'fix',     text:'Rémanence 3 sprints au rechargement : pattern _lastBuildKey remplace _initDone, rebuild déclenché à chaque changement de counts'},
+    {tag:'fix',     text:'Sprint vide en fin de génération : isSlotNonEmpty filtre les slots sans assigned ni usedItems'},
+    {tag:'fix',     text:'Suppression de scénario : navigation vers le scénario précédent (nextScenarioIdx) plutôt que le premier'},
+    {tag:'fix',     text:'Au premier chargement, seul l\'État actuel est affiché — aucun Scénario A créé automatiquement'},
+    {tag:'refactor',text:'Fonctions pures extraites dans utils/autoPlanning.ts : topoSort, computeMoveBadge, isItemHighlighted, nextScenarioIdx, isSlotNonEmpty'},
+    {tag:'test',    text:'53 tests unitaires Node.js pour les 5 fonctions pures de autoPlanning.ts'},
+    {tag:'test',    text:'Specs Playwright mises à jour : what-if.spec.js et auto-planning.spec.js reflètent le nouveau comportement (Scénario A non créé par défaut)'},
+  ]},
+  {version:'v0.77.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'What-if : scénarios alternatifs, branches, forks et comparaison',current:false,changes:[
     {tag:'feat',    text:'Mode What-if : N scénarios de planification simultanés (auto ou manuel) avec critères, capacités et items indépendants par scénario'},
     {tag:'feat',    text:'Visualisation Git graph style métro : lanes colorées, cercles doubles, courbes de Bézier pour forks et merges'},
     {tag:'feat',    text:'Fork de scénario : clic droit sur un point du graphe → crée un scénario B héritant des sprints précédents (non modifiables), divergeant à partir du sprint choisi'},
