@@ -62,4 +62,30 @@ export function PlanningCard({ item, state, highlightClient, highlightType, spri
                 color: dlColor ?? 'var(--text-muted)',
                 border: `1px solid ${dlColor ?? 'var(--border)'}`,
               }}
-              title={`Deadline ${dl.type === 'imposed' ? 'imposée' : 'négociable'} : ${dl.date}${dlLate ? ' ⚠ spri
+              title={`Deadline ${dl.type === 'imposed' ? 'imposée' : 'négociable'} : ${dl.date}${dlLate ? ' ⚠ sprint trop tardif' : ''}`}
+            >
+              ⚑ {fmtDeadline(dl.date)}
+            </span>
+          )}
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: PRIORITY_DOT[item.priority] }} />
+          <span style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)' }}>{item.sp}</span>
+        </span>
+      </div>
+      <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {item.desc}
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+        {status && (
+          <span style={{ fontSize: 10, color: status.color, fontWeight: 600 }}>{status.label}</span>
+        )}
+        <div style={{ display: 'flex', marginLeft: 'auto' }}>
+          {assignees.map(m => m && (
+            <span key={m.id} className="avatar" title={m.name} style={{ width: 16, height: 16, fontSize: 7 }}>
+              {m.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

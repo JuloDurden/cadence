@@ -61,4 +61,7 @@ test.describe('Planning', () => {
   test('affiche le bouton + Sprint dans le header', async ({ page }) => {
     await goTo(page, '/planning');
     // exact:true pour ne pas matcher "dependances cross-sprint"
-    await expect(page.getByRole('button', { name: 'Sprint', exact: tr
+    await expect(page.getByRole('button', { name: 'Sprint', exact: true })).toBeVisible();
+  });
+
+});

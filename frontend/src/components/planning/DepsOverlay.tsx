@@ -100,20 +100,27 @@ export function DepsOverlay({ containerRef, items }: Props) {
       aria-hidden="true"
     >
       <defs>
-        <marker id="deps-arrow-ok"   markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
-          <polygon points="0 0, 8 3.5, 0 7" fill="#6366f1" />
+        {/*
+          markerUnits="userSpaceOnUse" → dimensions en px, indépendantes de strokeWidth.
+          polygon : base à x=0, pointe à x=10.
+          refX="0" → la BASE (x=0) du marker se pose sur l'extrémité du corps de la flèche.
+          Le corps s'arrête à toX-10 → la pointe tombe exactement sur le bord de la carte (toX).
+        */}
+        <marker id="deps-arrow-ok"   markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="8" refX="0" refY="4" orient="auto">
+          <polygon points="0 0, 10 4, 0 8" fill="#6366f1" />
         </marker>
-        <marker id="deps-arrow-late" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
-          <polygon points="0 0, 8 3.5, 0 7" fill="#dc2626" />
+        <marker id="deps-arrow-late" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="8" refX="0" refY="4" orient="auto">
+          <polygon points="0 0, 10 4, 0 8" fill="#dc2626" />
         </marker>
       </defs>
 
       {arrows.map(a => {
-        const color = a.late ? '#dc2626' : '#6366f1'
+        const color    = a.late ? '#dc2626' : '#6366f1'
         const markerId = a.late ? 'deps-arrow-late' : 'deps-arrow-ok'
-        // Courbe de Bézier cubique : handles horizontaux
-        const dx = Math.abs(a.toX - a.fromX) * 0.5
-        const d = `M ${a.fromX} ${a.fromY} C ${a.fromX + dx} ${a.fromY}, ${a.toX - dx} ${a.toY}, ${a.toX} ${a.toY}`
+        // Corps s'arrête à toX-10 (base de la tête) ; la pointe du marker tombe sur toX
+        const toXAdj = a.toX - 10
+        const dx = Math.abs(toXAdj - a.fromX) * 0.5
+        const d = `M ${a.fromX} ${a.fromY} C ${a.fromX + dx} ${a.fromY}, ${toXAdj - dx} ${a.toY}, ${toXAdj} ${a.toY}`
 
         return (
           <path

@@ -70,4 +70,13 @@
 - **Burndown Chart** ✅ *v0.12.0*
 - **Lead time & Cycle time** ✅ *v0.34.0*
 - **Cumulative Flow Diagram** ✅ *v0.34.0*
-- **DoR / DoD par item** ✅ *v0.20.0* �
+- **DoR / DoD par item** ✅ *v0.20.0* — jauges et compteur X/Y
+- **Critères d'acceptation BDD (Gherkin)** ✅ *en place*
+- **Scoring WSJF / RICE / MoSCoW** ✅ *en place*
+- **Sprint Goal** ✅ *v0.34.0*
+- **Clôture de sprint + snapshot vélocité** ✅ *v0.19.0*
+- **Auto-planning** ✅ *en place* — affectation selon capacité et dépendances
+- **Export Excel (backlog)** ✅ *v0.09.0*
+- **Export / Import JSON** ✅ *v0.46.0* — sauvegarde et restauration complète, import/export unifiés dans Réglages
+- **Export CSV natif (backlog)** ✅ *v0.46.0* — zéro dépendance, fallback auto si SheetJS indisponible
+- **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, ex

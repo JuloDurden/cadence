@@ -122,4 +122,22 @@ tests/
 Cadence est une Single Page Application monofichier :
 
 - **HTML** — structure et templates inline
-- **CSS** — design system intégré (variables CSS, dark m
+- **CSS** — design system intégré (variables CSS, dark mode, composants)
+- **JS** — logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
+
+La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime, chargée via `<script>` dans `cadence.html`.
+
+## CI/CD
+
+GitHub Actions exécute automatiquement les tests à chaque `push` et `pull_request` sur la branche `main`.
+
+Le pipeline (`.github/workflows/ci.yml`) lance :
+
+1. `npm run test:logic` — 29 tests logiques Node.js (zéro navigateur)
+2. `npm run test:e2e` — 144 tests Playwright en mode headless (Chromium)
+
+Un badge de statut est affiché en haut de ce README. Tout échec bloque le merge.
+
+## Licence
+
+Usage interne — prototype non distribué.

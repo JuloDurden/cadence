@@ -177,7 +177,7 @@ export function SprintColumn({
             <input type="date" value={draftEnd} onChange={e => setDraftEnd(e.target.value)}
               style={{ fontSize: 11, border: '1px solid var(--border)', borderRadius: 4, padding: '2px 5px', background: 'var(--surface)', color: 'var(--text)' }} />
             <button onClick={confirmDates} style={{ fontSize: 10, padding: '2px 7px', border: 'none', borderRadius: 4, background: 'var(--primary)', color: '#fff', cursor: 'pointer' }}>✓</button>
-            <button onClick={() => setEditDates(false)} style={{ fontSize: 10, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 4, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>✕</button>
+            <button onClick={() => setEditDates(false)} style={{ fontSize: 10, padding: '2px 7px', border: '1px solid var(--border)', borderRadius: 4, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>X</button>
           </div>
         ) : (
           <span
@@ -251,11 +251,103 @@ export function SprintColumn({
           </span>
         </div>
 
-        {/* Row 7 — Indicateur de faisabilité */}
-        {!sprint.closed && (
+        {/* Row 7 — Indicateur de faisabilité (masqué si pas d'historique de vélocité) */}
+        {!sprint.closed && feasibility !== 'unknown' && (
           <div style={{ marginTop: 5 }}>
             <span
               style={{
                 fontSize: 10, fontWeight: 600,
                 color: FEAS[feasibility].color,
-                background: FEAS[feasibility].
+                background: FEAS[feasibility].bg,
+                padding: '2px 7px', borderRadius: 8, display: 'inline-block',
+              }}
+              title={avgVelo ? `Vélocité moyenne (3 derniers sprints) : ${avgVelo} SP` : 'Aucun sprint clôturé pour calculer la vélocité'}
+            >
+              {FEAS[feasibility].label}{avgVelo ? ` — moy. ${avgVelo} SP` : ''}
+            </span>
+          </div>
+        )}
+
+        {/* Alertes deadlines dépassées */}
+        {(() => {
+          const lateItems = items.filter(i => {
+            const dl = i.deadline
+            return dl && dl.type !== 'none' && sprint.endDate && dl.date < sprint.endDate
+          })
+          return lateItems.length > 0 ? (
+            <div style={{ marginTop: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#dc2626', background: '#fee2e2', padding: '2px 7px', borderRadius: 8 }}
+                title={lateItems.map(i => `${i.key} — deadline ${i.deadline?.date}`).join('\n')}>
+                ⚑ {lateItems.length} deadline{lateItems.length > 1 ? 's' : ''} dépassée{lateItems.length > 1 ? 's' : ''}
+              </span>
+            </div>
+          ) : null
+        })()}
+
+        {/* Goal */}
+        {sprint.goal && (
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 4, lineHeight: 1.3 }}>🎯 {sprint.goal}</p>
+        )}
+      </div>
+
+      {/* ── ITEMS ─────────────────────────────────────────────────────────── */}
+      {(() => {
+        // Grouper les items par epicId
+        const byEpic = new Map<string, Item[]>()
+        const standalone: Item[] = []
+        for (const item of items) {
+          if (item.type === 'epic') continue  // epic = entête de groupe, pas une card
+          if (item.epicId) {
+            const arr = byEpic.get(item.epicId) ?? []
+            arr.push(item)
+            byEpic.set(item.epicId, arr)
+          } else {
+            standalone.push(item)
+          }
+        }
+        const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
+          epicId, stories, epic: state.items.find(i => i.id === epicId),
+        }))
+        const isEmpty = epicGroups.length === 0 && standalone.length === 0
+
+        return (
+          <div className="planning-items">
+            {epicGroups.map(({ epicId, epic, stories }) => (
+              <PlanningEpicGroup
+                key={epicId}
+                epicId={epicId}
+                epic={epic}
+                stories={stories}
+                state={state}
+                highlightClient={highlightClient}
+                highlightType={highlightType}
+                compact
+                sprintEndDate={sprint.endDate}
+                onEdit={onEdit}
+                onDragGroup={ids => onDragGroup(ids)}
+                onDragItem={id  => onDragStart(id)}
+              />
+            ))}
+            {standalone.map(item => (
+              <PlanningCard
+                key={item.id}
+                item={item}
+                state={state}
+                highlightClient={highlightClient}
+                highlightType={highlightType}
+                sprintEndDate={sprint.endDate}
+                onEdit={onEdit}
+                onDragStart={onDragStart}
+              />
+            ))}
+            {isEmpty && !sprint.closed && (
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
+                Glisser des US ici
+              </div>
+            )}
+          </div>
+        )
+      })()}
+    </div>
+  )
+}

@@ -594,4 +594,47 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Attributs ARIA sur les onglets et modales'},
     {tag:'ux',text:'Palette de couleurs refondue avec variables CSS pour les deux themes'},
   ]},
-  {version:'v0.6.0',date:'15 Juin 2026',dateISO:'2026-06-
+  {version:'v0.6.0',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Gestion de la capacite sprint et drag-and-drop',
+   changes:[
+    {tag:'feat',text:'Capacite max par sprint (SP) avec barre de progression coloree'},
+    {tag:'feat',text:'Drag-and-drop des US entre sprints et pool non assigne'},
+    {tag:'feat',text:'Alerte visuelle quand la capacite est depassee'},
+    {tag:'feat',text:'Colonne US non assignees separee du planning'},
+  ]},
+  {version:'v0.5.0',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Modale User Story complete et notes',
+   changes:[
+    {tag:'feat',text:'Modale US : champs User Story (En tant que / Je souhaite / Afin de)'},
+    {tag:'feat',text:'Notes libres sur chaque US avec historique horodate'},
+    {tag:'feat',text:'Champ Story Points editable avec validation numerique'},
+    {tag:'feat',text:'Priorite de 1 a 5 editable dans la modale et dans le backlog'},
+  ]},
+  {version:'v0.4.0',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Gestion multi-sprints et reordering',
+   changes:[
+    {tag:'feat',text:'Ajout / suppression de sprints depuis le Release Planning'},
+    {tag:'feat',text:'Reordonnancement des sprints par glisser-deposer'},
+    {tag:'feat',text:'Nom de sprint editable (label libre en plus du numero)'},
+    {tag:'feat',text:'Decompte des SP et du nombre d US par sprint'},
+  ]},
+  {version:'v0.3.0',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Clients et code couleur par US',
+   changes:[
+    {tag:'feat',text:'8 clients / types predefinis (FAXFA, MANFIFE, AGANOR, SOCLE, PME, Bugs)'},
+    {tag:'feat',text:'Badge colore par client sur chaque US dans le backlog et le planning'},
+    {tag:'feat',text:'Filtre par client dans le Product Backlog'},
+    {tag:'feat',text:'Prefixe de cle automatique selon le client (FAX-001, MAN-002...)'},
+  ]},
+  {version:'v0.2.0',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Product Backlog avec CRUD complet',
+   changes:[
+    {tag:'feat',text:'Tableau Product Backlog avec tri par priorite, SP, statut'},
+    {tag:'feat',text:'Ajout, edition et suppression d US via modale'},
+    {tag:'feat',text:'Attribution d une US a un sprint depuis le backlog'},
+    {tag:'feat',text:'Recherche textuelle dans le backlog'},
+  ]},
+  {version:'v0.1.0',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Premier prototype - Release Planning',
+   changes:[
+    {tag:'feat',text:'Structure HTML/CSS/JS monofichier sans framework'},
+    {tag:'feat',text:'Onglet Release Planning avec 5 sprints initiaux et US exemples AutoClaimsTech'},
+    {tag:'feat',text:'US de demonstration : FAXFA carte interactive, MANFIFE mode deconnecte, AGANOR contrat, bugs'},
+    {tag:'feat',text:'Header avec nom du projet, taille equipe et legende clients'},
+    {tag:'feat',text:'Navigation par onglets'},
+  ]},
+];

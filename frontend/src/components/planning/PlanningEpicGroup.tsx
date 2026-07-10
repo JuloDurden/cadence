@@ -48,4 +48,10 @@ export function PlanningEpicGroup({
             highlightType={highlightType}
             sprintEndDate={sprintEndDate}
             onEdit={onEdit}
-            onDragSt
+            onDragStart={id => onDragItem(id)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
