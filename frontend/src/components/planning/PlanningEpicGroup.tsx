@@ -9,13 +9,14 @@ interface Props {
   highlightClient?: string
   highlightType?: string
   compact?: boolean
+  sprintEndDate?: string
   onEdit: (item: Item) => void
   onDragGroup: (ids: string[]) => void
   onDragItem:  (id: string)   => void
 }
 
 export function PlanningEpicGroup({
-  epicId, epic, stories, state, highlightClient, highlightType, compact,
+  epicId, epic, stories, state, highlightClient, highlightType, compact, sprintEndDate,
   onEdit, onDragGroup, onDragItem,
 }: Props) {
   const client   = epic ? state.clients.find(c => c.id === epic.clientId) : undefined
@@ -45,11 +46,6 @@ export function PlanningEpicGroup({
             state={state}
             highlightClient={highlightClient}
             highlightType={highlightType}
+            sprintEndDate={sprintEndDate}
             onEdit={onEdit}
-            onDragStart={id => onDragItem(id)}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
+            onDragSt

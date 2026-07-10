@@ -27,8 +27,13 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 - Highlights Client × Type combinables (AND) — items non-ciblés en opacité 22%
 - Epic grouping : stories regroupées sous leur Epic dans le panneau non-assigné et dans chaque sprint ; DnD groupe (Epic + toutes ses US) ou US individuelle, dans les deux sens
 - Barre de capacité par sprint (SP planifiés vs capacité équipe) avec jours fériés
+- Indicateur de faisabilité par sprint — badge OK / Limite / Surcharge (vélocité moy. 3 derniers sprints)
+- Deadlines flottantes : badge ⚑ dd/mm sur chaque card, alerte dans le header du sprint concerné
 - Sprint Goal affiché sur la carte sprint
 - Clôture de sprint avec snapshot de vélocité figé
+- Gantt par membre : charge SP/capacité avec jours fériés déduits, barre de charge colorée
+- Swimlanes par client : vue en grille clients × sprints avec drag-drop
+- Vue dépendances cross-sprint : overlay SVG Bézier activable (bleu OK, rouge tirets = ordre inversé)
 - Auto-planning : affectation automatique selon capacité, dépendances et critères personnalisables
 - Mode What-if : N scénarios de planification simultanés — wallet cards animées, forks, comparaison côte à côte, filtres highlights, badges de mouvement
 
@@ -117,22 +122,4 @@ tests/
 Cadence est une Single Page Application monofichier :
 
 - **HTML** — structure et templates inline
-- **CSS** — design system intégré (variables CSS, dark mode, composants)
-- **JS** — logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
-
-La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime, chargée via `<script>` dans `cadence.html`.
-
-## CI/CD
-
-GitHub Actions exécute automatiquement les tests à chaque `push` et `pull_request` sur la branche `main`.
-
-Le pipeline (`.github/workflows/ci.yml`) lance :
-
-1. `npm run test:logic` — 29 tests logiques Node.js (zéro navigateur)
-2. `npm run test:e2e` — 144 tests Playwright en mode headless (Chromium)
-
-Un badge de statut est affiché en haut de ce README. Tout échec bloque le merge.
-
-## Licence
-
-Usage interne — prototype non distribué.
+- **CSS** — design system intégré (variables CSS, dark m

@@ -52,18 +52,3 @@ module.exports = defineConfig({
 
   use: {
     baseURL: BASE_URL,
-    headless: true,
-    viewport: { width: 1440, height: 900 },
-    actionTimeout: 8000,
-  },
-
-  // En CI : chromium headless
-  // En local : Vivaldi si dispo, sinon Opera, sinon Chrome
-  projects: process.env.CI
-    ? [{ name: 'chromium', use: { browserName: 'chromium' } }]
-    : [
-        localBrowser
-          ? { name: localBrowser.name, use: { browserName: 'chromium', executablePath: localBrowser.path } }
-          : { name: 'chrome',          use: { browserName: 'chromium', channel: 'chrome' } },
-      ],
-});

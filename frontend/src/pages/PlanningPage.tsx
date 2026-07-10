@@ -2,7 +2,9 @@ import { useState, useRef } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { SprintColumn } from '../components/planning/SprintColumn'
-import { CalendarView } from '../components/planning/CalendarView'
+import { GanttView } from '../components/planning/GanttView'
+import { SwimlanesView } from '../components/planning/SwimlanesView'
+import { DepsOverlay } from '../components/planning/DepsOverlay'
 import { PlanningCard } from '../components/planning/PlanningCard'
 import { PlanningEpicGroup } from '../components/planning/PlanningEpicGroup'
 import { ItemModal } from '../components/backlog/ItemModal'
@@ -10,7 +12,7 @@ import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { cascadeSprintDates } from '../utils/dates'
 import type { Item, Sprint } from '../types'
 
-type View = 'grid' | 'calendar'
+type View = 'grid' | 'gantt'
 
 function uid() { return Math.random().toString(36).slice(2, 10) }
 
@@ -34,7 +36,9 @@ function ViewIco({ d }: { d: string }) {
 const ICO_USERS = '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
 const ICO_TAG   = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'
 const ICO_GRID  = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'
-const ICO_CAL   = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+const ICO_GANTT = '<line x1="3" y1="6" x2="13" y2="6"/><line x1="3" y1="12" x2="18" y2="12"/><line x1="3" y1="18" x2="10" y2="18"/><rect x="3" y="3" width="10" height="6" rx="1" opacity=".3"/>'
+const ICO_SWIM  = '<line x1="3" y1="8" x2="21" y2="8"/><line x1="3" y1="16" x2="21" y2="16"/><rect x="5" y="4" width="6" height="4" rx="1"/><rect x="13" y="12" width="4" height="4" rx="1"/><rect x="5" y="12" width="6" height="4" rx="1"/>'
+const ICO_DEPS  = '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h6a2 2 0 0 1 2 2v8"/>'
 const ICO_PLUS  = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 
 const SEG_BTN = (active: boolean): React.CSSProperties => ({
@@ -52,8 +56,11 @@ export function PlanningPage() {
   const [highlightClient, setHighlightClient] = useState('')
   const [highlightType,   setHighlightType]   = useState('')
   const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
+  const [showSwimlanes, setShowSwimlanes] = useState(false)
+  const [showDeps,      setShowDeps]      = useState(false)
   const [dragOverSprint, setDragOverSprint] = useState<string | null>(null)
-  const dragIds = useRef<string[]>([])
+  const dragIds        = useRef<string[]>([])
+  const gridContainerRef = useRef<HTMLDivElement | null>(null)
 
   function itemsForSprint(sprintId: string | null) {
     return state.items.filter(i => i.sprintId === sprintId)
@@ -217,14 +224,35 @@ export function PlanningPage() {
           </div>
         </div>
 
+        {/* Toggle vue principale : Grille | Gantt */}
         <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
           <button style={SEG_BTN(view === 'grid')} onClick={() => setView('grid')} title="Vue grille">
             <ViewIco d={ICO_GRID} /> Grille
           </button>
-          <button style={{ ...SEG_BTN(view === 'calendar'), borderLeft: '1px solid var(--border)' }} onClick={() => setView('calendar')} title="Vue calendrier">
-            <ViewIco d={ICO_CAL} /> Calendrier
+          <button style={{ ...SEG_BTN(view === 'gantt'), borderLeft: '1px solid var(--border)' }} onClick={() => setView('gantt')} title="Gantt par membre">
+            <ViewIco d={ICO_GANTT} /> Gantt
           </button>
         </div>
+
+        {/* Options overlay (uniquement en vue Grille) */}
+        {view === 'grid' && (
+          <>
+            <button
+              style={{ ...SEG_BTN(showSwimlanes), border: '1px solid var(--border)', borderRadius: 6 }}
+              onClick={() => setShowSwimlanes(v => !v)}
+              title="Swimlanes par client"
+            >
+              <ViewIco d={ICO_SWIM} /> Swimlanes
+            </button>
+            <button
+              style={{ ...SEG_BTN(showDeps), border: '1px solid var(--border)', borderRadius: 6 }}
+              onClick={() => setShowDeps(v => !v)}
+              title="Vue dépendances cross-sprint"
+            >
+              <ViewIco d={ICO_DEPS} /> Dépendances
+            </button>
+          </>
+        )}
 
         <button className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <ViewIco d={ICO_PLUS} /> Sprint
@@ -232,35 +260,58 @@ export function PlanningPage() {
       </Header>
 
       <div className="page-content" style={{ padding: '24px 16px' }}>
-        {view === 'calendar' ? (
-          <CalendarView state={state} />
+        {view === 'gantt' ? (
+          <GanttView
+            state={state}
+            highlightClient={highlightClient}
+            highlightType={highlightType}
+            onEdit={item => setModalItem(item)}
+          />
+        ) : showSwimlanes ? (
+          <SwimlanesView
+            state={state}
+            highlightClient={highlightClient}
+            highlightType={highlightType}
+            dragIds={dragIds}
+            dragOverKey={dragOverSprint}
+            onDragOver={key => setDragOverSprint(key)}
+            onDragLeave={() => setDragOverSprint(null)}
+            onDrop={handleDrop}
+            onEdit={item => setModalItem(item)}
+          />
         ) : (
           <>
-          <div style={{ overflowX: 'auto' }}>
-          <div className="planning-grid">
-            {state.sprints.map(sprint => (
-              <SprintColumn
-                key={sprint.id}
-                sprint={sprint}
-                items={itemsForSprint(sprint.id)}
-                state={state}
-                isOver={dragOverSprint === sprint.id}
-                isActive={sprint.id === activeSprintId}
-                highlightClient={highlightClient}
-                highlightType={highlightType}
-                onDragStart={id  => { dragIds.current = [id] }}
-                onDragGroup={ids => { dragIds.current = ids }}
-                onDragOver={sprintId => setDragOverSprint(sprintId)}
-                onDrop={handleDrop}
-                onEdit={item => setModalItem(item)}
-                onUpdateDates={handleUpdateDates}
-                onActivate={handleActivate}
-                onClose={handleClose}
-                onReopen={handleReopen}
-                onUpdateCapacity={handleUpdateCapacity}
-              />
-            ))}
-          </div>
+          {/* Conteneur scrollable + référence pour DepsOverlay */}
+          <div style={{ overflowX: 'auto', position: 'relative' }} ref={gridContainerRef}>
+            <div className="planning-grid">
+              {state.sprints.map(sprint => (
+                <SprintColumn
+                  key={sprint.id}
+                  sprint={sprint}
+                  items={itemsForSprint(sprint.id)}
+                  state={state}
+                  isOver={dragOverSprint === sprint.id}
+                  isActive={sprint.id === activeSprintId}
+                  highlightClient={highlightClient}
+                  highlightType={highlightType}
+                  onDragStart={id  => { dragIds.current = [id] }}
+                  onDragGroup={ids => { dragIds.current = ids }}
+                  onDragOver={sprintId => setDragOverSprint(sprintId)}
+                  onDrop={handleDrop}
+                  onEdit={item => setModalItem(item)}
+                  onUpdateDates={handleUpdateDates}
+                  onActivate={handleActivate}
+                  onClose={handleClose}
+                  onReopen={handleReopen}
+                  onUpdateCapacity={handleUpdateCapacity}
+                />
+              ))}
+            </div>
+
+            {/* Overlay dépendances cross-sprint */}
+            {showDeps && (
+              <DepsOverlay containerRef={gridContainerRef} items={state.items} />
+            )}
           </div>
 
           {/* Panneau Non-assigné — sous les sprints */}
@@ -272,67 +323,4 @@ export function PlanningPage() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <span style={{ fontWeight: 700, fontSize: 13 }}>Non assigné</span>
-              <span style={{ fontSize: 11, color: 'var(--text-faint)', background: 'var(--surface-alt)', padding: '1px 7px', borderRadius: 8 }}>{unassigned.length}</span>
-            </div>
-            <div className="planning-unassigned-items">
-              {/* Groupes Epic (epic dans n'importe quel sprint ou non-assigné) */}
-              {epicGroupsUnassigned.map(({ epicId, epic, stories }) => (
-                <PlanningEpicGroup
-                  key={epicId}
-                  epicId={epicId}
-                  epic={epic}
-                  stories={stories}
-                  state={state}
-                  highlightClient={highlightClient}
-                  highlightType={highlightType}
-                  onEdit={item => setModalItem(item)}
-                  onDragGroup={ids => { dragIds.current = ids }}
-                  onDragItem={id  => { dragIds.current = [id] }}
-                />
-              ))}
-              {/* Epics non-assignés sans stories non-assignées */}
-              {lonelyUnassignedEpics.map(item => (
-                <PlanningCard
-                  key={item.id}
-                  item={item}
-                  state={state}
-                  highlightClient={highlightClient}
-                  highlightType={highlightType}
-                  onEdit={item => setModalItem(item)}
-                  onDragStart={id => { dragIds.current = [id] }}
-                />
-              ))}
-              {/* Items sans Epic */}
-              {standaloneUnassigned.map(item => (
-                <PlanningCard
-                  key={item.id}
-                  item={item}
-                  state={state}
-                  highlightClient={highlightClient}
-                  highlightType={highlightType}
-                  onEdit={item => setModalItem(item)}
-                  onDragStart={id => { dragIds.current = [id] }}
-                />
-              ))}
-              {unassigned.length === 0 && (
-                <div style={{ padding: '12px 20px', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
-                  Glisser des items ici pour les désassigner
-                </div>
-              )}
-            </div>
-          </div>
-          </>
-        )}
-      </div>
-
-      {modalItem !== undefined && (
-        <ItemModal
-          item={modalItem}
-          state={state}
-          onSave={handleSave}
-          onClose={() => setModalItem(undefined)}
-        />
-      )}
-    </>
-  )
-}
+              <span style={{ fontSize: 11, color: 'var(--text-faint)', background: 

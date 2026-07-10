@@ -94,6 +94,25 @@ export function SprintColumn({
   // ── Bar colour ────────────────────────────────────────────────────────────
   const barColor = over ? 'var(--danger)' : pct >= 90 ? '#d97706' : 'var(--primary)'
 
+  // ── Indicateur de faisabilité ─────────────────────────────────────────────
+  const closedWithVelo = state.sprints
+    .filter(s => s.closed && (s.velocitySnapshot ?? 0) > 0)
+    .sort((a, b) => a.number - b.number)
+    .slice(-3)
+  const avgVelo = closedWithVelo.length > 0
+    ? Math.round(closedWithVelo.reduce((s, sp) => s + (sp.velocitySnapshot ?? 0), 0) / closedWithVelo.length)
+    : null
+  const feasibility = !avgVelo ? 'unknown'
+    : usedSP <= avgVelo * 0.85 ? 'ok'
+    : usedSP <= avgVelo * 1.1  ? 'tight'
+    : 'overloaded'
+  const FEAS = {
+    ok:         { color: '#16a34a', bg: '#dcfce7', label: '✓ Vélocité OK' },
+    tight:      { color: '#d97706', bg: '#fef3c7', label: '⚡ Charge limite' },
+    overloaded: { color: '#dc2626', bg: '#fee2e2', label: '⚠ Surcharge' },
+    unknown:    { color: 'var(--text-faint)', bg: 'var(--surface2)', label: 'Historique insuffisant' },
+  }
+
   // ── Classes ───────────────────────────────────────────────────────────────
   const colClass = [
     'planning-col',
@@ -232,68 +251,11 @@ export function SprintColumn({
           </span>
         </div>
 
-        {/* Goal */}
-        {sprint.goal && (
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontStyle: 'italic', marginTop: 4, lineHeight: 1.3 }}>🎯 {sprint.goal}</p>
-        )}
-      </div>
-
-      {/* ── ITEMS ─────────────────────────────────────────────────────────── */}
-      {(() => {
-        // Grouper les items par epicId
-        const byEpic = new Map<string, Item[]>()
-        const standalone: Item[] = []
-        for (const item of items) {
-          if (item.type === 'epic') continue  // epic = entête de groupe, pas une card
-          if (item.epicId) {
-            const arr = byEpic.get(item.epicId) ?? []
-            arr.push(item)
-            byEpic.set(item.epicId, arr)
-          } else {
-            standalone.push(item)
-          }
-        }
-        const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
-          epicId, stories, epic: state.items.find(i => i.id === epicId),
-        }))
-        const isEmpty = epicGroups.length === 0 && standalone.length === 0
-
-        return (
-          <div className="planning-items">
-            {epicGroups.map(({ epicId, epic, stories }) => (
-              <PlanningEpicGroup
-                key={epicId}
-                epicId={epicId}
-                epic={epic}
-                stories={stories}
-                state={state}
-                highlightClient={highlightClient}
-                highlightType={highlightType}
-                compact
-                onEdit={onEdit}
-                onDragGroup={ids => onDragGroup(ids)}
-                onDragItem={id  => onDragStart(id)}
-              />
-            ))}
-            {standalone.map(item => (
-              <PlanningCard
-                key={item.id}
-                item={item}
-                state={state}
-                highlightClient={highlightClient}
-                highlightType={highlightType}
-                onEdit={onEdit}
-                onDragStart={onDragStart}
-              />
-            ))}
-            {isEmpty && !sprint.closed && (
-              <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
-                Glisser des US ici
-              </div>
-            )}
-          </div>
-        )
-      })()}
-    </div>
-  )
-}
+        {/* Row 7 — Indicateur de faisabilité */}
+        {!sprint.closed && (
+          <div style={{ marginTop: 5 }}>
+            <span
+              style={{
+                fontSize: 10, fontWeight: 600,
+                color: FEAS[feasibility].color,
+                background: FEAS[feasibility].

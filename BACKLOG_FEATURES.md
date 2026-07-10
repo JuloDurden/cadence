@@ -51,6 +51,7 @@
 
 ### Release Planning
 - **Release Planning v2** ✅ *v0.79.0* — header contextuel (stats SP + items), filtres highlights Client × Type (AND), colonnes sprint fixes 380px + scroll horizontal BFC, panneau Non-assigné sous la grille, Epic grouping avec DnD groupe/individuel bidirectionnel, icônes Lucide SVG inline
+- **Release Planning v3** ✅ *v0.80.0* — Gantt par membre (charge SP/capacité avec jours fériés, remplace Calendrier), Swimlanes par client (toggle Grille), indicateur de faisabilité sprint OK/Limite/Surcharge, deadlines flottantes sur les cards avec alerte header sprint, vue dépendances cross-sprint (overlay SVG Bézier activable)
 
 ### Design & UX
 - **Corrections UI header contextuel** ✅ *v0.55.0* — sidebar collapse décale le contenu, recherche avant notifications, design boutons uniformisé (référence Backlog), Daily timer à droite + 20/30 min + flash fin, Kanban sprint élargi + Ordre/Réorganiser/+Colonne dans header, Planning Client/Affichage en dropdowns, Retro sprint élargi + label format, icônes monochromes (Dashboard, Auto-planning).
@@ -69,13 +70,4 @@
 - **Burndown Chart** ✅ *v0.12.0*
 - **Lead time & Cycle time** ✅ *v0.34.0*
 - **Cumulative Flow Diagram** ✅ *v0.34.0*
-- **DoR / DoD par item** ✅ *v0.20.0* — jauges et compteur X/Y
-- **Critères d'acceptation BDD (Gherkin)** ✅ *en place*
-- **Scoring WSJF / RICE / MoSCoW** ✅ *en place*
-- **Sprint Goal** ✅ *v0.34.0*
-- **Clôture de sprint + snapshot vélocité** ✅ *v0.19.0*
-- **Auto-planning** ✅ *en place* — affectation selon capacité et dépendances
-- **Export Excel (backlog)** ✅ *v0.09.0*
-- **Export / Import JSON** ✅ *v0.46.0* — sauvegarde et restauration complète, import/export unifiés dans Réglages
-- **Export CSV natif (backlog)** ✅ *v0.46.0* — zéro dépendance, fallback auto si SheetJS indisponible
-- **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, ex
+- **DoR / DoD par item** ✅ *v0.20.0* �
