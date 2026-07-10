@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Item, Sprint, CadenceState } from '../../types'
 import { PlanningCard } from './PlanningCard'
+import { PlanningEpicGroup } from './PlanningEpicGroup'
 import { effectiveCapacity, holidaysInRange, computeSprintEndDate } from '../../utils/sprintCapacity'
 import { fmtDateShort } from '../../utils/dates'
 
@@ -10,7 +11,10 @@ interface Props {
   state: CadenceState
   isOver: boolean
   isActive: boolean
+  highlightClient?: string
+  highlightType?: string
   onDragStart: (id: string) => void
+  onDragGroup: (ids: string[]) => void
   onDragOver: (sprintId: string) => void
   onDrop: (sprintId: string) => void
   onEdit: (item: Item) => void
@@ -20,6 +24,20 @@ interface Props {
   onReopen: (sprintId: string) => void
   onUpdateCapacity: (sprintId: string, capacity: number) => void
 }
+
+// ── Icônes Lucide inline ──────────────────────────────────────────────────
+function Ico({ d, size = 12, style }: { d: string; size?: number; style?: React.CSSProperties }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0, ...style }}
+      dangerouslySetInnerHTML={{ __html: d }}
+    />
+  )
+}
+const ICO_CALENDAR  = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+const ICO_PENCIL    = '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>'
+const ICO_UMBRELLA  = '<path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/>'
 
 const BTN: React.CSSProperties = {
   fontSize: 10, padding: '2px 8px', border: '1px solid var(--border)',
@@ -34,8 +52,8 @@ const BTN_DANGER: React.CSSProperties = {
 }
 
 export function SprintColumn({
-  sprint, items, state, isOver, isActive,
-  onDragStart, onDragOver, onDrop, onEdit, onUpdateDates,
+  sprint, items, state, isOver, isActive, highlightClient, highlightType,
+  onDragStart, onDragGroup, onDragOver, onDrop, onEdit, onUpdateDates,
   onActivate, onClose, onReopen, onUpdateCapacity,
 }: Props) {
   const [editDates, setEditDates] = useState(false)
@@ -148,15 +166,17 @@ export function SprintColumn({
             title="Cliquer pour modifier les dates"
             style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
-            📅 {sprint.startDate && sprint.endDate
+            <Ico d={ICO_CALENDAR} size={11} style={{ color: 'var(--text-muted)' }} />
+            {sprint.startDate && sprint.endDate
               ? `${fmtDateShort(sprint.startDate)} — ${fmtDateShort(sprint.endDate)}`
               : <em>Dates non définies</em>}
             {holidays.length > 0 && (
-              <span style={{ color: '#d97706', fontWeight: 600 }} title={holidays.map(h => h.name).join(', ')}>
-                🏖 -{holidays.length}j
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#d97706', fontWeight: 600 }} title={holidays.map(h => h.name).join(', ')}>
+                <Ico d={ICO_UMBRELLA} size={11} style={{ color: '#d97706' }} />
+                -{holidays.length}j
               </span>
             )}
-            <span style={{ fontSize: 9, color: 'var(--text-faint)', marginLeft: 1 }}>✎</span>
+            <Ico d={ICO_PENCIL} size={10} style={{ color: 'var(--text-faint)', marginLeft: 1 }} />
           </span>
         )}
 
@@ -219,22 +239,61 @@ export function SprintColumn({
       </div>
 
       {/* ── ITEMS ─────────────────────────────────────────────────────────── */}
-      <div className="planning-items">
-        {items.map(item => (
-          <PlanningCard
-            key={item.id}
-            item={item}
-            state={state}
-            onEdit={onEdit}
-            onDragStart={onDragStart}
-          />
-        ))}
-        {items.length === 0 && !sprint.closed && (
-          <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
-            Glisser des US ici
+      {(() => {
+        // Grouper les items par epicId
+        const byEpic = new Map<string, Item[]>()
+        const standalone: Item[] = []
+        for (const item of items) {
+          if (item.type === 'epic') continue  // epic = entête de groupe, pas une card
+          if (item.epicId) {
+            const arr = byEpic.get(item.epicId) ?? []
+            arr.push(item)
+            byEpic.set(item.epicId, arr)
+          } else {
+            standalone.push(item)
+          }
+        }
+        const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
+          epicId, stories, epic: state.items.find(i => i.id === epicId),
+        }))
+        const isEmpty = epicGroups.length === 0 && standalone.length === 0
+
+        return (
+          <div className="planning-items">
+            {epicGroups.map(({ epicId, epic, stories }) => (
+              <PlanningEpicGroup
+                key={epicId}
+                epicId={epicId}
+                epic={epic}
+                stories={stories}
+                state={state}
+                highlightClient={highlightClient}
+                highlightType={highlightType}
+                compact
+                onEdit={onEdit}
+                onDragGroup={ids => onDragGroup(ids)}
+                onDragItem={id  => onDragStart(id)}
+              />
+            ))}
+            {standalone.map(item => (
+              <PlanningCard
+                key={item.id}
+                item={item}
+                state={state}
+                highlightClient={highlightClient}
+                highlightType={highlightType}
+                onEdit={onEdit}
+                onDragStart={onDragStart}
+              />
+            ))}
+            {isEmpty && !sprint.closed && (
+              <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
+                Glisser des US ici
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        )
+      })()}
     </div>
   )
 }

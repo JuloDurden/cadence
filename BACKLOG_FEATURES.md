@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 6 juillet 2026. v0.77 : Mode What-if — scénarios alternatifs, branches, forks, comparaison. v0.78 : What-if UX — wallet cards, État actuel highlights, badges de mouvement, 53 tests unitaires.
+> Dernière mise à jour : 10 juillet 2026. v0.78 : What-if UX — wallet cards, État actuel highlights, badges de mouvement, 53 tests unitaires. v0.79 : Release Planning — header contextuel, highlights Client × Type, Epic grouping DnD, scroll horizontal, icônes Lucide.
 
 ---
 
@@ -48,6 +48,9 @@
 ### Auto-planning & What-if
 - **Mode What-if** ✅ *v0.77.0* — scénarios alternatifs de planification avec branches Git-graph, forks, comparaison côte à côte, items fictifs, capacités par sprint et facteur de vélocité
 - **What-if UX : wallet cards + highlights + badges** ✅ *v0.78.0* — layout iOS Wallet animé, État actuel avec filtres highlights combinables (AND), badges de mouvement S3↗/S1↘, extraction fonctions pures + 53 tests unitaires
+
+### Release Planning
+- **Release Planning v2** ✅ *v0.79.0* — header contextuel (stats SP + items), filtres highlights Client × Type (AND), colonnes sprint fixes 380px + scroll horizontal BFC, panneau Non-assigné sous la grille, Epic grouping avec DnD groupe/individuel bidirectionnel, icônes Lucide SVG inline
 
 ### Design & UX
 - **Corrections UI header contextuel** ✅ *v0.55.0* — sidebar collapse décale le contenu, recherche avant notifications, design boutons uniformisé (référence Backlog), Daily timer à droite + 20/30 min + flash fin, Kanban sprint élargi + Ordre/Réorganiser/+Colonne dans header, Planning Client/Affichage en dropdowns, Retro sprint élargi + label format, icônes monochromes (Dashboard, Auto-planning).

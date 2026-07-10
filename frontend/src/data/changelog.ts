@@ -15,7 +15,17 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.78.0',date:'6 Juillet 2026',dateISO:'2026-07-06',title:'What-if : wallet cards, État actuel highlights, badges de mouvement',current:true,changes:[
+  {version:'v0.79.0',date:'10 Juillet 2026',dateISO:'2026-07-10',title:'Release Planning : header, highlights, Epic grouping, scroll horizontal',current:true,changes:[
+    {tag:'ux',      text:'Header Planning : stats (items assignés + SP total) à gauche du titre, filtres highlight Client + Type collés à droite des boutons de vue'},
+    {tag:'feat',    text:'Highlight combiné Client × Type (AND logic) sur les cards de planning — opacity 0.22 sur les items non ciblés'},
+    {tag:'fix',     text:'Scroll horizontal : colonnes sprint fixées à flex: 0 0 380px dans un wrapper BFC (overflow-x: auto) — scroll déclenché exactement à la limite du viewport'},
+    {tag:'ux',      text:'Panneau Non-assigné déplacé sous la grille des sprints en bande horizontale avec drag-drop'},
+    {tag:'feat',    text:'Epic grouping : stories groupées sous leur Epic dans le panneau non-assigné et dans chaque colonne sprint, quel que soit le sprint de l\'Epic'},
+    {tag:'feat',    text:'DnD Epic : glisser le header Epic déplace l\'Epic + toutes ses US ; glisser une US individuelle la déplace seule — fonctionne dans les deux sens (non-assigné ↔ sprint)'},
+    {tag:'fix',     text:'US d\'un Epic splitté sur plusieurs sprints : celles non-assignées restent regroupées sous leur Epic dans le panneau non-assigné'},
+    {tag:'improve', text:'Icônes calendrier, crayon et jours fériés dans les cards sprint remplacées par des SVG Lucide (suppression des emojis)'},
+  ]},
+  {version:'v0.78.0',date:'6 Juillet 2026',dateISO:'2026-07-06',title:'What-if : wallet cards, État actuel highlights, badges de mouvement',current:false,changes:[
     {tag:'ux',      text:'Layout iOS Wallet : les scénarios s\'empilent en cards, la card active se déploie avec animation translateY (spring cubic-bezier)'},
     {tag:'feat',    text:'État actuel : vue 2 colonnes — panneau de filtres highlights (Clients / Type / Priorité) et proposition côte à côte'},
     {tag:'feat',    text:'Filtres highlights combinables en AND : cocher FAXFA + Bug + Critique met en évidence uniquement les bugs critiques de FAXFA'},

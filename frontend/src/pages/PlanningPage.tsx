@@ -1,9 +1,10 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { SprintColumn } from '../components/planning/SprintColumn'
 import { CalendarView } from '../components/planning/CalendarView'
 import { PlanningCard } from '../components/planning/PlanningCard'
+import { PlanningEpicGroup } from '../components/planning/PlanningEpicGroup'
 import { ItemModal } from '../components/backlog/ItemModal'
 import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { cascadeSprintDates } from '../utils/dates'
@@ -13,33 +14,64 @@ type View = 'grid' | 'calendar'
 
 function uid() { return Math.random().toString(36).slice(2, 10) }
 
+// ── Header helpers ─────────────────────────────────────────────────────────
+function FgIcon({ d }: { d: string }) {
+  return <svg className="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    dangerouslySetInnerHTML={{ __html: d }} />
+}
+function FgChev() {
+  return <svg className="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+}
+function ViewIco({ d }: { d: string }) {
+  return <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+    dangerouslySetInnerHTML={{ __html: d }} />
+}
+const ICO_USERS = '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+const ICO_TAG   = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'
+const ICO_GRID  = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'
+const ICO_CAL   = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+const ICO_PLUS  = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
+
+const SEG_BTN = (active: boolean): React.CSSProperties => ({
+  display: 'flex', alignItems: 'center', gap: 5,
+  padding: '0 10px', height: 28, fontSize: 11, fontWeight: 500,
+  border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+  background: active ? 'var(--primary)' : 'transparent',
+  color: active ? '#fff' : 'var(--text-muted)',
+  transition: 'background .15s, color .15s',
+})
+
 export function PlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const [view, setView] = useState<View>('grid')
-  const [filterClient, setFilterClient] = useState('')
+  const [highlightClient, setHighlightClient] = useState('')
+  const [highlightType,   setHighlightType]   = useState('')
   const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
   const [dragOverSprint, setDragOverSprint] = useState<string | null>(null)
-  const dragItemId = useRef<string | null>(null)
-
-  const filteredItems = useMemo(() => {
-    return filterClient ? state.items.filter(i => i.clientId === filterClient) : state.items
-  }, [state.items, filterClient])
+  const dragIds = useRef<string[]>([])
 
   function itemsForSprint(sprintId: string | null) {
-    return filteredItems.filter(i => i.sprintId === sprintId)
+    return state.items.filter(i => i.sprintId === sprintId)
   }
 
   function handleDrop(sprintId: string) {
-    const id = dragItemId.current
-    if (!id) return
+    const ids = dragIds.current
+    if (!ids.length) return
     setDragOverSprint(null)
-    const item = state.items.find(i => i.id === id)
     const newSprintId = sprintId === 'unassigned' ? null : sprintId
-    if (!item || item.sprintId === newSprintId) return
-    const updated = { ...item, sprintId: newSprintId }
-    dispatch({ type: 'UPDATE_ITEM', payload: updated })
-    saveToServer({ ...state, items: state.items.map(i => i.id === id ? updated : i) })
-    dragItemId.current = null
+    const toMove = state.items.filter(i => ids.includes(i.id) && i.sprintId !== newSprintId)
+    if (!toMove.length) return
+    const updatedItems = state.items.map(i =>
+      toMove.find(m => m.id === i.id) ? { ...i, sprintId: newSprintId } : i
+    )
+    toMove.forEach(item => dispatch({ type: 'UPDATE_ITEM', payload: { ...item, sprintId: newSprintId } }))
+    saveToServer({ ...state, items: updatedItems })
+    dragIds.current = []
   }
 
   function handleUpdateDates(sprintId: string, startDate: string, endDate: string) {
@@ -123,56 +155,88 @@ export function PlanningPage() {
     saveToServer({ ...state, sprints: [...state.sprints, newSprint] })
   }
 
-  const unassigned = itemsForSprint(null)
-  const totalSP = state.items.reduce((s, i) => s + i.sp, 0)
+  const unassigned  = itemsForSprint(null)
+  const assigned    = state.items.filter(i => i.sprintId !== null)
+  const totalSP     = state.items.reduce((s, i) => s + i.sp, 0)
+
+  // Groupement Epic dans le panneau non-assigné
+  // On groupe TOUTES les stories non-assignées par epicId, peu importe où est l'Epic lui-même
+  const childrenByEpicId   = new Map<string, Item[]>()
+  const standaloneUnassigned: Item[] = []
+  for (const item of unassigned) {
+    if (item.type === 'epic') continue
+    if (item.epicId) {
+      const arr = childrenByEpicId.get(item.epicId) ?? []
+      arr.push(item)
+      childrenByEpicId.set(item.epicId, arr)
+    } else {
+      standaloneUnassigned.push(item)
+    }
+  }
+  // Epics non-assignés sans stories non-assignées (toutes en sprint) → carte standalone
+  const lonelyUnassignedEpics = unassigned.filter(i => i.type === 'epic' && !childrenByEpicId.has(i.id))
+  // Groupes à afficher (epic trouvé dans state.items, même s'il est dans un sprint)
+  const epicGroupsUnassigned = Array.from(childrenByEpicId.entries()).map(([epicId, stories]) => ({
+    epicId, stories, epic: state.items.find(i => i.id === epicId),
+  }))
 
   return (
     <>
       <Header title="Planning">
+        {/* Stats à gauche, collées au titre */}
         <div className="hdr-sep" />
-        {/* Filtre clients en pills */}
-        <button
-          className={`hdr-ctx-btn${!filterClient ? ' active' : ''}`}
-          onClick={() => setFilterClient('')}
-          style={!filterClient ? { background: 'var(--primary)', color: '#fff' } : {}}
-        >
-          Tous
-        </button>
-        {state.clients.map(c => (
-          <button
-            key={c.id}
-            className="hdr-ctx-btn"
-            onClick={() => setFilterClient(filterClient === c.id ? '' : c.id)}
-            style={filterClient === c.id ? { background: c.color, color: '#fff' } : { borderLeft: `3px solid ${c.color}` }}
-          >
-            {c.name}
-          </button>
-        ))}
+        <span className="hdr-ctx-stat">{assigned.length} items</span>
         <div className="hdr-sep" />
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{totalSP} SP total</span>
+        <span className="hdr-ctx-stat">{totalSP} SP</span>
+
         <div style={{ flex: 1 }} />
-        {/* Toggle vue */}
-        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-          <button
-            className="hdr-ctx-btn"
-            style={{ borderRadius: 0, background: view === 'grid' ? 'var(--primary)' : undefined, color: view === 'grid' ? '#fff' : undefined }}
-            onClick={() => setView('grid')}
-            title="Vue grille"
-          >⊞ Grille</button>
-          <button
-            className="hdr-ctx-btn"
-            style={{ borderRadius: 0, borderLeft: '1px solid var(--border)', background: view === 'calendar' ? 'var(--primary)' : undefined, color: view === 'calendar' ? '#fff' : undefined }}
-            onClick={() => setView('calendar')}
-            title="Vue calendrier"
-          >📅 Calendrier</button>
+
+        {/* Filtres highlight (client + type) + vue toggle + bouton sprint — tout à droite */}
+        <div className="filter-group">
+          <div className={`fg-item${highlightClient ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_USERS} />
+            <select value={highlightClient} onChange={e => setHighlightClient(e.target.value)}>
+              <option value="">Clients</option>
+              {state.clients.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <FgChev />
+          </div>
+          <div className={`fg-item${highlightType ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_TAG} />
+            <select value={highlightType} onChange={e => setHighlightType(e.target.value)}>
+              <option value="">Type</option>
+              <option value="bug">Bug</option>
+              <option value="story">Story</option>
+              <option value="task">Tâche</option>
+              <option value="epic">Epic</option>
+              <option value="spike">Spike</option>
+            </select>
+            <FgChev />
+          </div>
         </div>
-        <button className="hdr-btn primary" onClick={addSprint}>+ Sprint</button>
+
+        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+          <button style={SEG_BTN(view === 'grid')} onClick={() => setView('grid')} title="Vue grille">
+            <ViewIco d={ICO_GRID} /> Grille
+          </button>
+          <button style={{ ...SEG_BTN(view === 'calendar'), borderLeft: '1px solid var(--border)' }} onClick={() => setView('calendar')} title="Vue calendrier">
+            <ViewIco d={ICO_CAL} /> Calendrier
+          </button>
+        </div>
+
+        <button className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <ViewIco d={ICO_PLUS} /> Sprint
+        </button>
       </Header>
 
       <div className="page-content" style={{ padding: '24px 16px' }}>
         {view === 'calendar' ? (
           <CalendarView state={state} />
         ) : (
+          <>
+          <div style={{ overflowX: 'auto' }}>
           <div className="planning-grid">
             {state.sprints.map(sprint => (
               <SprintColumn
@@ -182,7 +246,10 @@ export function PlanningPage() {
                 state={state}
                 isOver={dragOverSprint === sprint.id}
                 isActive={sprint.id === activeSprintId}
-                onDragStart={id => { dragItemId.current = id }}
+                highlightClient={highlightClient}
+                highlightType={highlightType}
+                onDragStart={id  => { dragIds.current = [id] }}
+                onDragGroup={ids => { dragIds.current = ids }}
                 onDragOver={sprintId => setDragOverSprint(sprintId)}
                 onDrop={handleDrop}
                 onEdit={item => setModalItem(item)}
@@ -193,36 +260,68 @@ export function PlanningPage() {
                 onUpdateCapacity={handleUpdateCapacity}
               />
             ))}
-            {/* Colonne non assigné */}
-            {(unassigned.length > 0 || !filterClient) && (
-              <div
-                className={`planning-col planning-col-unassigned${dragOverSprint === 'unassigned' ? ' planning-col-over' : ''}`}
-                onDragOver={e => { e.preventDefault(); setDragOverSprint('unassigned') }}
-                onDrop={e => { e.preventDefault(); handleDrop('unassigned') }}
-              >
-                <div className="planning-col-header">
-                  <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-muted)' }}>Non assigné</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{unassigned.length} US</span>
-                </div>
-                <div className="planning-items">
-                  {unassigned.map(item => (
-                    <PlanningCard
-                      key={item.id}
-                      item={item}
-                      state={state}
-                      onEdit={item => setModalItem(item)}
-                      onDragStart={id => { dragItemId.current = id }}
-                    />
-                  ))}
-                  {unassigned.length === 0 && (
-                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
-                      Glisser des US ici
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
+          </div>
+
+          {/* Panneau Non-assigné — sous les sprints */}
+          <div
+            className={`planning-unassigned-row${dragOverSprint === 'unassigned' ? ' planning-col-over' : ''}`}
+            onDragOver={e => { e.preventDefault(); setDragOverSprint('unassigned') }}
+            onDragLeave={() => setDragOverSprint(null)}
+            onDrop={e => { e.preventDefault(); handleDrop('unassigned') }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>Non assigné</span>
+              <span style={{ fontSize: 11, color: 'var(--text-faint)', background: 'var(--surface-alt)', padding: '1px 7px', borderRadius: 8 }}>{unassigned.length}</span>
+            </div>
+            <div className="planning-unassigned-items">
+              {/* Groupes Epic (epic dans n'importe quel sprint ou non-assigné) */}
+              {epicGroupsUnassigned.map(({ epicId, epic, stories }) => (
+                <PlanningEpicGroup
+                  key={epicId}
+                  epicId={epicId}
+                  epic={epic}
+                  stories={stories}
+                  state={state}
+                  highlightClient={highlightClient}
+                  highlightType={highlightType}
+                  onEdit={item => setModalItem(item)}
+                  onDragGroup={ids => { dragIds.current = ids }}
+                  onDragItem={id  => { dragIds.current = [id] }}
+                />
+              ))}
+              {/* Epics non-assignés sans stories non-assignées */}
+              {lonelyUnassignedEpics.map(item => (
+                <PlanningCard
+                  key={item.id}
+                  item={item}
+                  state={state}
+                  highlightClient={highlightClient}
+                  highlightType={highlightType}
+                  onEdit={item => setModalItem(item)}
+                  onDragStart={id => { dragIds.current = [id] }}
+                />
+              ))}
+              {/* Items sans Epic */}
+              {standaloneUnassigned.map(item => (
+                <PlanningCard
+                  key={item.id}
+                  item={item}
+                  state={state}
+                  highlightClient={highlightClient}
+                  highlightType={highlightType}
+                  onEdit={item => setModalItem(item)}
+                  onDragStart={id => { dragIds.current = [id] }}
+                />
+              ))}
+              {unassigned.length === 0 && (
+                <div style={{ padding: '12px 20px', color: 'var(--text-faint)', fontSize: 11, border: '1.5px dashed var(--border)', borderRadius: 6 }}>
+                  Glisser des items ici pour les désassigner
+                </div>
+              )}
+            </div>
+          </div>
+          </>
         )}
       </div>
 

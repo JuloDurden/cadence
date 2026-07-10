@@ -7,14 +7,19 @@ const PRIORITY_DOT: Record<string, string> = {
 interface Props {
   item: Item
   state: CadenceState
+  highlightClient?: string
+  highlightType?: string
   onEdit: (item: Item) => void
   onDragStart: (id: string) => void
 }
 
-export function PlanningCard({ item, state, onEdit, onDragStart }: Props) {
+export function PlanningCard({ item, state, highlightClient, highlightType, onEdit, onDragStart }: Props) {
   const client = state.clients.find(c => c.id === item.clientId)
   const status = state.kanbanCols.find(c => c.id === item.status)
   const assignees = item.assignees.map(id => state.team.find(m => m.id === id)).filter(Boolean)
+  const clientMismatch = !!highlightClient && item.clientId !== highlightClient
+  const typeMismatch   = !!highlightType   && item.type    !== highlightType
+  const isDimmed = clientMismatch || typeMismatch
 
   return (
     <div
@@ -22,7 +27,11 @@ export function PlanningCard({ item, state, onEdit, onDragStart }: Props) {
       draggable
       onDragStart={() => onDragStart(item.id)}
       onClick={() => onEdit(item)}
-      style={{ borderLeft: `3px solid ${client?.color ?? 'var(--border)'}` }}
+      style={{
+        borderLeft: `3px solid ${client?.color ?? 'var(--border)'}`,
+        opacity: isDimmed ? 0.22 : 1,
+        transition: 'opacity .2s',
+      }}
       title={item.desc}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>

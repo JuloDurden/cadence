@@ -23,9 +23,10 @@ Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
 
 ### Release Planning
 
-- Vue multi-sprints avec glisser-déposer des items
-- Barre de capacité par sprint (SP planifiés vs capacité équipe)
-- Vue calendrier mensuelle
+- Vue multi-sprints avec glisser-déposer des items (colonnes fixes 380px, scroll horizontal)
+- Highlights Client × Type combinables (AND) — items non-ciblés en opacité 22%
+- Epic grouping : stories regroupées sous leur Epic dans le panneau non-assigné et dans chaque sprint ; DnD groupe (Epic + toutes ses US) ou US individuelle, dans les deux sens
+- Barre de capacité par sprint (SP planifiés vs capacité équipe) avec jours fériés
 - Sprint Goal affiché sur la carte sprint
 - Clôture de sprint avec snapshot de vélocité figé
 - Auto-planning : affectation automatique selon capacité, dépendances et critères personnalisables

@@ -67,7 +67,8 @@ test.describe('Planning', () => {
 
   test('affiche le bouton + Sprint dans le header', async ({ page }) => {
     await goTo(page, '/planning');
-    await expect(page.getByRole('button', { name: '+ Sprint' })).toBeVisible();
+    // Le "+" est un SVG (pas du texte) — l'accessible name est "Sprint"
+    await expect(page.getByRole('button', { name: 'Sprint' })).toBeVisible();
   });
 
 });
