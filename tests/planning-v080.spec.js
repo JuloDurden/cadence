@@ -3,25 +3,16 @@ const { goTo } = require('./helpers');
 
 test.describe('Planning v0.80.0 - toggle vues', () => {
 
-  test('les 3 boutons de vue sont presents (Grille, Swimlanes, Gantt)', async ({ page }) => {
+  test('les 2 boutons de vue sont presents (Grille, Swimlanes)', async ({ page }) => {
     await goTo(page, '/planning');
     await expect(page.getByTitle('Vue grille')).toBeVisible();
     await expect(page.getByTitle('Swimlanes par client')).toBeVisible();
-    await expect(page.getByTitle('Gantt par membre')).toBeVisible();
   });
 
   test('la vue Grille est active par defaut - .planning-grid visible', async ({ page }) => {
     await goTo(page, '/planning');
     await expect(page.locator('.planning-grid')).toBeVisible();
-    await expect(page.locator('.gantt-view')).not.toBeVisible();
     await expect(page.locator('.swimlanes-view')).not.toBeVisible();
-  });
-
-  test('cliquer Gantt affiche .gantt-view et masque .planning-grid', async ({ page }) => {
-    await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
-    await expect(page.locator('.gantt-view')).toBeVisible();
-    await expect(page.locator('.planning-grid')).not.toBeVisible();
   });
 
   test('cliquer Swimlanes affiche .swimlanes-view et masque .planning-grid', async ({ page }) => {
@@ -31,52 +22,12 @@ test.describe('Planning v0.80.0 - toggle vues', () => {
     await expect(page.locator('.planning-grid')).not.toBeVisible();
   });
 
-  test('retour en Grille depuis Gantt restaure .planning-grid', async ({ page }) => {
+  test('retour en Grille depuis Swimlanes restaure .planning-grid', async ({ page }) => {
     await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
+    await page.getByTitle('Swimlanes par client').click();
     await page.getByTitle('Vue grille').click();
     await expect(page.locator('.planning-grid')).toBeVisible();
-    await expect(page.locator('.gantt-view')).not.toBeVisible();
-  });
-
-});
-
-test.describe('Planning v0.80.0 - vue Gantt', () => {
-
-  test('le header Gantt liste les sprints', async ({ page }) => {
-    await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
-    const header = page.locator('.gantt-header');
-    await expect(header).toBeVisible();
-    await expect(header).toContainText('Sprint 1');
-    await expect(header).toContainText('Sprint 2');
-  });
-
-  test('le Gantt affiche les lignes membres (10 membres dans la demo)', async ({ page }) => {
-    await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
-    await expect(page.locator('.gantt-member-row')).toHaveCount(10);
-  });
-
-  test('le Gantt affiche le nom du premier membre', async ({ page }) => {
-    await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
-    await expect(page.locator('.gantt-member-row').first()).toContainText('Aldo Raines');
-  });
-
-  test('les cellules Gantt affichent la colonne Non assigne', async ({ page }) => {
-    await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
-    await expect(page.locator('.gantt-header')).toContainText('Non assign');
-  });
-
-  test('pas d erreur JS en vue Gantt', async ({ page }) => {
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
-    await page.waitForTimeout(300);
-    expect(errors).toHaveLength(0);
+    await expect(page.locator('.swimlanes-view')).not.toBeVisible();
   });
 
 });
@@ -128,12 +79,6 @@ test.describe('Planning v0.80.0 - bouton Dependances', () => {
     await expect(page.getByTitle('Vue dependances cross-sprint')).toBeVisible();
   });
 
-  test('le bouton Dependances est absent en vue Gantt', async ({ page }) => {
-    await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
-    await expect(page.getByTitle('Vue dependances cross-sprint')).not.toBeVisible();
-  });
-
   test('le bouton Dependances est absent en vue Swimlanes', async ({ page }) => {
     await goTo(page, '/planning');
     await page.getByTitle('Swimlanes par client').click();
@@ -149,9 +94,9 @@ test.describe('Planning v0.80.0 - bouton Dependances', () => {
     expect(errors).toHaveLength(0);
   });
 
-  test('le bouton Dependances reapparait apres retour en Grille depuis Gantt', async ({ page }) => {
+  test('le bouton Dependances reapparait apres retour en Grille depuis Swimlanes', async ({ page }) => {
     await goTo(page, '/planning');
-    await page.getByTitle('Gantt par membre').click();
+    await page.getByTitle('Swimlanes par client').click();
     await expect(page.getByTitle('Vue dependances cross-sprint')).not.toBeVisible();
     await page.getByTitle('Vue grille').click();
     await expect(page.getByTitle('Vue dependances cross-sprint')).toBeVisible();

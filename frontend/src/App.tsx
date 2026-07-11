@@ -13,6 +13,7 @@ import { HistoriquePage } from './pages/HistoriquePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { RoadmapPage } from './pages/RoadmapPage'
 import { ChangelogPage } from './pages/ChangelogPage'
+import { SprintPlanningPage } from './pages/SprintPlanningPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { StateProvider } from './context/StateContext'
 import { TimerProvider } from './context/TimerContext'
@@ -28,6 +29,7 @@ function AppLayout() {
             <Routes>
               <Route path="/backlog" element={<BacklogPage />} />
               <Route path="/planning" element={<PlanningPage />} />
+              <Route path="/sprint-planning" element={<SprintPlanningPage />} />
               <Route path="/auto" element={<AutoPlanningPage />} />
               <Route path="/kanban" element={<KanbanPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />

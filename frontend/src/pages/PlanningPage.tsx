@@ -2,7 +2,6 @@ import { useState, useRef } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { SprintColumn } from '../components/planning/SprintColumn'
-import { GanttView } from '../components/planning/GanttView'
 import { SwimlanesView } from '../components/planning/SwimlanesView'
 import { DepsOverlay } from '../components/planning/DepsOverlay'
 import { PlanningCard } from '../components/planning/PlanningCard'
@@ -12,7 +11,7 @@ import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { cascadeSprintDates } from '../utils/dates'
 import type { Item, Sprint } from '../types'
 
-type View = 'grid' | 'swimlanes' | 'gantt'
+type View = 'grid' | 'swimlanes'
 
 function uid() { return Math.random().toString(36).slice(2, 10) }
 
@@ -38,7 +37,6 @@ const ICO_TAG   = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8
 // Icônes Lucide — paths exacts depuis lucide-static@1.24.0
 const ICO_GRID  = '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>'
 const ICO_SWIM  = '<path d="M2 12q2.5 2 5 0t5 0 5 0 5 0"/><path d="M2 19q2.5 2 5 0t5 0 5 0 5 0"/><path d="M2 5q2.5 2 5 0t5 0 5 0 5 0"/>'
-const ICO_GANTT = '<path d="M10 6h8"/><path d="M12 16h6"/><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M8 11h7"/>'
 const ICO_DEPS  = '<path d="M17 19a1 1 0 0 1-1-1v-2a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2a1 1 0 0 1-1 1z"/><path d="M17 21v-2"/><path d="M19 14V6.5a1 1 0 0 0-7 0v11a1 1 0 0 1-7 0V10"/><path d="M21 21v-2"/><path d="M3 5V3"/><path d="M4 10a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a2 2 0 0 1-2 2z"/><path d="M7 5V3"/>'
 const ICO_PLUS  = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 
@@ -232,9 +230,6 @@ export function PlanningPage() {
           <button style={{ ...SEG_BTN(view === 'swimlanes'), padding: '0 10px', borderLeft: '1px solid var(--border)' }} onClick={() => setView('swimlanes')} title="Swimlanes par client">
             <ViewIco d={ICO_SWIM} />
           </button>
-          <button style={{ ...SEG_BTN(view === 'gantt'),     padding: '0 10px', borderLeft: '1px solid var(--border)' }} onClick={() => setView('gantt')}     title="Gantt par membre">
-            <ViewIco d={ICO_GANTT} />
-          </button>
         </div>
 
         {/* Dépendances — uniquement en vue Grille */}
@@ -255,14 +250,7 @@ export function PlanningPage() {
       </Header>
 
       <div className="page-content" style={{ padding: '24px 16px' }}>
-        {view === 'gantt' ? (
-          <GanttView
-            state={state}
-            highlightClient={highlightClient}
-            highlightType={highlightType}
-            onEdit={item => setModalItem(item)}
-          />
-        ) : view === 'swimlanes' ? (
+        {view === 'swimlanes' ? (
           <SwimlanesView
             state={state}
             highlightClient={highlightClient}

@@ -4,7 +4,8 @@ const { goTo } = require('./helpers');
 const ROUTES = [
   ['/backlog',    'Backlog'],
   ['/kanban',     'Kanban'],
-  ['/planning',   'Planning'],
+  ['/planning',         'Planning'],
+  ['/sprint-planning', 'Sprint Planning'],
   ['/dashboard',  'Dashboard'],
   ['/daily',      'Daily'],
   ['/retro',      'Rétrospective'],
