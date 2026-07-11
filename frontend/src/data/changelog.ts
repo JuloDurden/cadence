@@ -15,7 +15,16 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.80.0',date:'10 Juillet 2026',dateISO:'2026-07-10',title:'Release Planning : Gantt, Swimlanes, faisabilité, deadlines, dépendances',current:true,changes:[
+  {version:'v0.81.0',date:'11 Juillet 2026',dateISO:'2026-07-11',title:'Sprint Planning : page dédiée, kanban par membre, SP co-assignés corrigé',current:true,changes:[
+    {tag:'feat',    text:'Page dédiée /sprint-planning (section "Sprint en cours" dans la sidebar) — remplace la vue Attribution de Release Planning'},
+    {tag:'feat',    text:'Kanban par membre : colonnes par dev + colonne "Non attribué", sélecteur de sprint, drag-drop pour réassigner'},
+    {tag:'feat',    text:'Barre de charge par membre : SP utilisés / capacité (jours ouvrés − jours fériés − absences × spPerDay), indicateur vert/orange/rouge'},
+    {tag:'fix',     text:'SP co-assignés : la charge est désormais divisée proportionnellement (i.sp / nb assignees) — plus de double-comptage sur les items partagés'},
+    {tag:'ux',      text:'Affichage "6/30 SP" sur les cartes co-assignées pour distinguer la part individuelle du SP total'},
+    {tag:'refactor',text:'Release Planning réduit à 2 vues (Grille | Swimlanes) — la vue Attribution/Gantt est supprimée'},
+    {tag:'test',    text:'sprint-planning.spec.js créé (8 tests), planning-v080.spec.js nettoyé, route /sprint-planning ajoutée aux smoke tests'},
+  ]},
+  {version:'v0.80.0',date:'10 Juillet 2026',dateISO:'2026-07-10',title:'Release Planning : Gantt, Swimlanes, faisabilité, deadlines, dépendances',current:false,changes:[
     {tag:'feat',    text:'Gantt par membre : vue alternative (remplace le Calendrier) — grille membres × sprints, barre de charge SP utilisé/capacité avec indicateur rouge/orange, jours fériés déduits'},
     {tag:'feat',    text:'Swimlanes par client : toggle dans la vue Grille — lignes par client × colonnes sprint, drag-drop + Epic grouping intra-cellule'},
     {tag:'feat',    text:'Indicateur de faisabilité par sprint — badge OK / Limite / Surcharge calculé sur la vélocité moyenne des 3 derniers sprints clôturés'},
