@@ -288,6 +288,18 @@ body {
 .modal-body   { overflow-y: auto; flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-height: 0; scrollbar-gutter: stable; }
 .modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
 
+/* Modal — volet latéral */
+.modal-side-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; justify-content: flex-end; }
+.modal-side { position: relative; height: 100vh; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -4px 0 20px rgba(0,0,0,.12); display: flex; flex-direction: column; overflow: hidden; }
+.modal-side-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; cursor: ew-resize; z-index: 1; background: transparent; transition: background .15s; }
+.modal-side-handle:hover { background: var(--primary); }
+/* Modal — pleine page */
+.modal-fullpage { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: flex; flex-direction: column; overflow: hidden; padding: 0 20px; }
+.modal-fullpage .modal-body { padding: 20px 0; }
+.modal-fullpage .modal-header,
+.modal-fullpage .modal-tabs,
+.modal-fullpage .modal-footer { max-width: 860px; margin-left: auto; margin-right: auto; width: 100%; }
+
 /* ─── Forms ─────────────────────────────────────────────────────────────── */
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

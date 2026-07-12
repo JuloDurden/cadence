@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore } from '../../types'
 import { useCadence } from '../../context/StateContext'
 import { BASE_TAGS } from '../../data/baseTags'
@@ -76,12 +76,19 @@ const ICO_TAG      = '<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6
 const ICO_CLOSE    = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
 const ICO_COMMENT    = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
 const ICO_PLUS       = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
-const ICO_NOTE       = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>'
+const ICO_NOTE       = '<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4"/><path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/>'
 const ICO_IMAGE      = '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'
 const ICO_PDF_ATTACH = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h3"/>'
 const ICO_LINK_ATT   = '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
 const ICO_TRASH      = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'
 
+// Icônes des modes d'affichage
+const ICO_VIEW_MODAL    = '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/>'
+const ICO_VIEW_SIDE     = '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>'
+const ICO_CHEVRON_DOWN  = '<path d="M6 9l6 6 6-6"/>'
+const ICO_VIEW_FULLPAGE = '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'
+
+type ModalView = 'modal' | 'side' | 'fullpage'
 type Tab = 'general' | 'us' | 'deps' | 'priority' | 'team' | 'dordod' | 'notes'
 
 const SEV_OPTS: { value: BugSeverity; label: string; color: string }[] = [
@@ -125,6 +132,39 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   const defaultStatus = state.kanbanCols.find(c => c.isDefault)?.id ?? state.kanbanCols[0]?.id ?? 'todo'
 
   const [tab, setTab] = useState<Tab>('general')
+
+  /* Mode d'affichage */
+  const [view, setView] = useState<ModalView>(
+    () => (localStorage.getItem('modal-view') as ModalView | null) ?? 'modal'
+  )
+  const [sideWidth, setSideWidth] = useState<number>(
+    () => parseInt(localStorage.getItem('modal-side-width') ?? '520', 10)
+  )
+  const sideWidthRef = useRef(sideWidth)
+  const [showViewPicker, setShowViewPicker] = useState(false)
+
+  const handleViewChange = useCallback((v: ModalView) => {
+    setView(v)
+    localStorage.setItem('modal-view', v)
+  }, [])
+
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = sideWidthRef.current
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(320, Math.min(window.innerWidth * 0.9, startW + (startX - ev.clientX)))
+      setSideWidth(newW)
+      sideWidthRef.current = newW
+    }
+    const onUp = () => {
+      localStorage.setItem('modal-side-width', String(sideWidthRef.current))
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   /* Général */
   const [iType,    setIType]    = useState<ItemType>(item?.type ?? 'story')
@@ -982,43 +1022,126 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   }
 
   /* ── Modal ── */
-  return (
-    <div className="modal-overlay" data-testid="item-modal" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-lg">
-        <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'var(--primary)',
-              background: 'var(--primary-light)', padding: '2px 8px', borderRadius: 6 }}>
-              {item?.key ?? 'NOUVEAU'}
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-              {isNew ? 'Créer un item' : "Modifier l'item"}
-            </span>
+  // ── Toggle de mode d'affichage (partagé entre les 3 wrappers) ───────────
+  const VIEW_BTNS: { mode: ModalView; icon: string; title: string }[] = [
+    { mode: 'modal',    icon: ICO_VIEW_MODAL,    title: 'Fenêtre centrée' },
+    { mode: 'side',     icon: ICO_VIEW_SIDE,     title: 'Volet latéral' },
+    { mode: 'fullpage', icon: ICO_VIEW_FULLPAGE, title: 'Pleine page' },
+  ]
+
+  // ── Contenu interne (identique pour les 3 modes) ─────────────────────────
+  const innerContent = (
+    <>
+      <div className="modal-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'var(--primary)',
+            background: 'var(--primary-light)', padding: '2px 8px', borderRadius: 6 }}>
+            {item?.key ?? 'NOUVEAU'}
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+            {isNew ? 'Créer un item' : "Modifier l'item"}
+          </span>
+        </div>
+        {/* Groupe droite : sélecteur de mode + fermer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+          <div
+            style={{ position: 'relative' }}
+            tabIndex={-1}
+            onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setShowViewPicker(false) }}
+          >
+            <button
+              className="btn-icon"
+              title="Mode d'affichage"
+              onClick={() => setShowViewPicker(v => !v)}
+              style={showViewPicker ? { background: 'var(--primary-light)', color: 'var(--primary)' } : undefined}>
+              <Svg d={VIEW_BTNS.find(b => b.mode === view)!.icon} size={14} />
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ marginLeft: 3, transform: showViewPicker ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+            {showViewPicker && (
+              <div style={{
+                position: 'absolute', right: 0, top: 30, zIndex: 200,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.14)',
+                padding: 4, display: 'flex', flexDirection: 'column', gap: 1, minWidth: 152,
+              }}>
+                {VIEW_BTNS.map(({ mode, icon, title }) => (
+                  <button key={mode}
+                    onClick={() => { handleViewChange(mode); setShowViewPicker(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 10px', borderRadius: 5, border: 'none', cursor: 'pointer',
+                      background: view === mode ? 'var(--primary-light)' : 'transparent',
+                      color: view === mode ? 'var(--primary)' : 'var(--text)',
+                      fontSize: 12, fontFamily: 'inherit',
+                      fontWeight: view === mode ? 600 : 400, textAlign: 'left',
+                      transition: 'background .1s',
+                    }}>
+                    <Svg d={icon} size={13} />
+                    {title}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <button className="btn-icon" onClick={onClose} aria-label="Fermer">
             <Svg d={ICO_CLOSE} size={16} />
           </button>
         </div>
-        <div className="modal-tabs">
-          {TABS.map(t => (
-            <button key={t.id}
-              className={`modal-tab-btn${tab === t.id ? ' active' : ''}`}
-              onClick={() => setTab(t.id as Tab)}>
-              <Svg d={t.icon} size={12} />
-              {t.label}
-              {'badge' in t && t.badge !== undefined && <span className="modal-tab-badge">{t.badge}</span>}
-            </button>
-          ))}
-        </div>
-        <div className="modal-body">
-          {renderTab()}
-        </div>
-        <div className="modal-footer">
-          <button className="hdr-ctx-btn" onClick={onClose}>Annuler</button>
-          <button className="hdr-btn primary" onClick={handleSave}>
-            {isNew ? 'Créer' : 'Enregistrer'}
+      </div>
+      <div className="modal-tabs">
+        {TABS.map(t => (
+          <button key={t.id}
+            className={`modal-tab-btn${tab === t.id ? ' active' : ''}`}
+            onClick={() => setTab(t.id as Tab)}>
+            <Svg d={t.icon} size={12} />
+            {t.label}
+            {'badge' in t && t.badge !== undefined && <span className="modal-tab-badge">{t.badge}</span>}
           </button>
+        ))}
+      </div>
+      <div className="modal-body">
+        {renderTab()}
+      </div>
+      <div className="modal-footer">
+        <button className="hdr-ctx-btn" onClick={onClose}>Annuler</button>
+        <button className="hdr-btn primary" onClick={handleSave}>
+          {isNew ? 'Créer' : 'Enregistrer'}
+        </button>
+      </div>
+    </>
+  )
+
+  // ── Mode volet latéral ────────────────────────────────────────────────────
+  if (view === 'side') {
+    return (
+      <div className="modal-side-overlay" data-testid="item-modal" onClick={onClose}>
+        <div className="modal-side" style={{ width: sideWidth }} onClick={e => e.stopPropagation()}>
+          <div className="modal-side-handle" onMouseDown={onResizeStart} />
+          {innerContent}
         </div>
+      </div>
+    )
+  }
+
+  // ── Mode pleine page ──────────────────────────────────────────────────────
+  if (view === 'fullpage') {
+    return (
+      <div className="modal-fullpage" data-testid="item-modal">
+        <div style={{ maxWidth: 860, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          {innerContent}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Mode modal centré (défaut) ────────────────────────────────────────────
+  return (
+    <div className="modal-overlay" data-testid="item-modal" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal modal-lg">
+        {innerContent}
       </div>
     </div>
   )

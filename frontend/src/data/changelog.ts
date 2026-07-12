@@ -15,7 +15,16 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.82.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Sprint Planning : auto-attribution, co-assignation, absences, fixes deadline',current:true,changes:[
+  {version:'v0.83.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'ItemModal : 3 modes d\'affichage (fenêtre, volet latéral, pleine page)',current:true,changes:[
+    {tag:'feat',    text:'Sélecteur de mode d\'affichage dans le header de la modal : fenêtre centrée (défaut), volet latéral redimensionnable, pleine page'},
+    {tag:'feat',    text:'Volet latéral : panneau ancré à droite, redimensionnable par drag sur la poignée gauche (320px min, 90% max), cliquer à l\'extérieur ferme le volet'},
+    {tag:'feat',    text:'Pleine page : contenu centré sur 860px avec header, onglets et footer alignés'},
+    {tag:'ux',      text:'Chevron animé (rotation 180°) sur le bouton picker pour indiquer l\'état ouvert/fermé du dropdown'},
+    {tag:'ux',      text:'Persistance du mode choisi dans localStorage (modal-view) et de la largeur du volet (modal-side-width)'},
+    {tag:'improve', text:'Icône de l\'onglet Notes remplacée par notebook-pen (Lucide v1.24)'},
+    {tag:'test',    text:'modal-view.spec.js : 9 tests (picker visible, dropdown, 3 modes, clic extérieur volet, persistance localStorage, pas d\'erreur JS)'},
+  ]},
+  {version:'v0.82.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Sprint Planning : auto-attribution, co-assignation, absences, fixes deadline',current:false,changes:[
     {tag:'feat',    text:'Bouton "Auto-attribuer" : modal de configuration avec stats, explication de l\'algorithme et prévisualisation en temps réel avant application'},
     {tag:'feat',    text:'Co-assignation automatique (solo / duo / trio) : le nombre de co-assignés est calculé selon la capacité moyenne restante et le SP de l\'item'},
     {tag:'feat',    text:'Devs absents tout le sprint filtrés de la grille ; devs partiellement absents limités au rôle de co-assigné (jamais dev attitré)'},
