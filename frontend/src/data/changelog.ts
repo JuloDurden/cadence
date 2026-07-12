@@ -15,7 +15,10 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.84.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Auto-planning : groupement Epic, highlight deps, icône calendrier',current:true,changes:[
+  {version:'v0.84.1',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Release Planning : items Epic affichés dans leur sprint',current:true,changes:[
+    {tag:'fix', text:'SprintColumn : les items de type Epic sans enfants dans le sprint étaient silencieusement ignorés (continue trop large) — ils apparaissent désormais comme cards normales, au même titre que Bug ou US'},
+  ]},
+  {version:'v0.84.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Auto-planning : groupement Epic, highlight deps, icône calendrier',current:false,changes:[
     {tag:'feat',    text:'Groupement Epic dans ProposalPanel : les stories enfants (epicId) sont regroupées sous un en-tête Epic (carré coloré, clé, description, compteur N/M) — un même Epic peut être réparti sur plusieurs sprints'},
     {tag:'feat',    text:'Highlight des dépendances au hover : survoler un item colore en bleu toute sa chaîne transitive (prédécesseurs + successeurs via BFS) sans griser le reste'},
     {tag:'feat',    text:'Badge de dépendance revu : affiche la clé du prédécesseur direct (ex : PME-011) au lieu d\'un compteur, avec suffixe "Niv.N" pour les deps transitives'},

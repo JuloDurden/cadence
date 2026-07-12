@@ -187,7 +187,7 @@ export function SprintColumn({
           >
             <Ico d={ICO_CALENDAR} size={11} style={{ color: 'var(--text-muted)' }} />
             {sprint.startDate && sprint.endDate
-              ? `${fmtDateShort(sprint.startDate)} — ${fmtDateShort(sprint.endDate)}`
+              ? `${fmtDateShort(sprint.startDate)} - ${fmtDateShort(sprint.endDate)}`
               : <em>Dates non définies</em>}
             {holidays.length > 0 && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color: '#d97706', fontWeight: 600 }} title={holidays.map(h => h.name).join(', ')}>
@@ -263,7 +263,7 @@ export function SprintColumn({
               }}
               title={avgVelo ? `Vélocité moyenne (3 derniers sprints) : ${avgVelo} SP` : 'Aucun sprint clôturé pour calculer la vélocité'}
             >
-              {FEAS[feasibility].label}{avgVelo ? ` — moy. ${avgVelo} SP` : ''}
+              {FEAS[feasibility].label}{avgVelo ? ` - moy. ${avgVelo} SP` : ''}
             </span>
           </div>
         )}
@@ -294,16 +294,19 @@ export function SprintColumn({
       {(() => {
         // Grouper les items par epicId
         const byEpic = new Map<string, Item[]>()
+        for (const item of items) {
+          if (!item.epicId) continue
+          const arr = byEpic.get(item.epicId) ?? []
+          arr.push(item)
+          byEpic.set(item.epicId, arr)
+        }
         const standalone: Item[] = []
         for (const item of items) {
-          if (item.type === 'epic') continue  // epic = entête de groupe, pas une card
-          if (item.epicId) {
-            const arr = byEpic.get(item.epicId) ?? []
-            arr.push(item)
-            byEpic.set(item.epicId, arr)
-          } else {
-            standalone.push(item)
-          }
+          // Epic avec enfants dans ce sprint → rendu via epicGroups, pas comme card standalone
+          if (item.type === 'epic' && byEpic.has(item.id)) continue
+          // Items avec epicId → dans un groupe, pas standalone
+          if (item.epicId) continue
+          standalone.push(item)
         }
         const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
           epicId, stories, epic: state.items.find(i => i.id === epicId),
