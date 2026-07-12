@@ -261,7 +261,7 @@ export const DEMO_STATE: CadenceState = {
       sp: 30, status: "todo", clientId: "cl1",
       sprintId: "s4", priority: "low",
       assignees: [], tags: ["Dette technique"],
-      type: "story",
+      type: "story", epicId: "i7",
       role: "utilisateur FAXFA",
       need: "voir les anomalies signal\u00e9es depuis plus d'un an enfin corrig\u00e9es",
       benefit: "utiliser le logiciel sans les irritants qui nuisent \u00e0 la v\u00e9locit\u00e9",

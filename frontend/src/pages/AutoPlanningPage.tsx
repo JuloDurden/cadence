@@ -904,10 +904,47 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
     ghost: '<path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z"/>',
     pencil:'<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
     x:     '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    cal:   '<path d="M11 14h1v4"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/>',
   }
   function Ico2({ d, size = 12, stroke = 'currentColor' }: { d: string; size?: number; stroke?: string }) {
     return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: d }} />
   }
+
+  // ── Hover dep-chain state ────────────────────────────────────────────────
+  // deps stocke des IDs (ex: "i5"), pas des clés → byId depuis state.items (full objects)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const propItemIds = new Set(
+    scenario.slots.flatMap(s => [...s.assigned, ...(s.usedItems ?? [])])
+      .filter(i => !i.id.startsWith('virt-')).map(i => i.id)
+  )
+  const byId = new Map<string, Item>(
+    (state.items as Item[]).filter((i: Item) => propItemIds.has(i.id)).map((i: Item) => [i.id, i])
+  )
+  function depChain(startId: string): Set<string> {
+    const ch = new Set<string>()
+    function preds(id: string) { const it = byId.get(id); for (const d of (it?.deps ?? [])) { if (!ch.has(d)) { ch.add(d); preds(d) } } }
+    function succs(id: string) { for (const [iid, it] of byId) { if ((it.deps ?? []).includes(id) && !ch.has(iid)) { ch.add(iid); succs(iid) } } }
+    preds(startId); succs(startId); return ch
+  }
+  const lvlCache = new Map<string, number>()
+  function topoLvl(id: string, vis = new Set<string>()): number {
+    if (lvlCache.has(id)) return lvlCache.get(id)!
+    if (vis.has(id)) return 0; vis.add(id)
+    const it = byId.get(id)
+    if (!it || !(it.deps ?? []).length) { lvlCache.set(id, 0); return 0 }
+    const lv = 1 + Math.max(0, ...it.deps.map(d => topoLvl(d, new Set(vis))))
+    lvlCache.set(id, lv); return lv
+  }
+  const hovChain = hoveredId ? depChain(hoveredId) : null
+
+  // ── Epic map ─────────────────────────────────────────────────────────────
+  const epicMap = new Map<string, Item>(
+    (state.items as Item[]).filter((i: Item) => i.type === 'epic').map((i: Item) => [i.id, i])
+  )
+  const epicChildCount = new Map<string, number>()
+  ;(state.items as Item[]).filter((i: Item) => i.epicId).forEach((i: Item) => {
+    epicChildCount.set(i.epicId!, (epicChildCount.get(i.epicId!) ?? 0) + 1)
+  })
 
   return (
     <div style={{ minHeight: 100 }}>
@@ -942,6 +979,24 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
             const total = slot.used + slot.assigned.reduce((s, i) => s + i.sp, 0)
             const pct   = slot.cap > 0 ? Math.min(Math.round(total / slot.cap * 100), 100) : 0
             const over  = total > slot.cap
+
+            // ── Grouper les items par epicId ───────────────────────────
+            type Row = { kind: 'epic'; epicId: string } | { kind: 'item'; item: Item | VirtualItem; inEpic?: string }
+            const epicGroups = new Map<string, (Item | VirtualItem)[]>()
+            const noEpicItems: (Item | VirtualItem)[] = []
+            for (const it of slot.assigned) {
+              const eid = !it.id.startsWith('virt-') ? (it as Item).epicId : undefined
+              if (eid) { if (!epicGroups.has(eid)) epicGroups.set(eid, []); epicGroups.get(eid)!.push(it) }
+              else noEpicItems.push(it)
+            }
+            const rows: Row[] = [
+              ...noEpicItems.map(it => ({ kind: 'item' as const, item: it })),
+              ...[...epicGroups.entries()].flatMap(([eid, items]) => [
+                { kind: 'epic' as const, epicId: eid },
+                ...items.map(it => ({ kind: 'item' as const, item: it, inEpic: eid })),
+              ]),
+            ]
+
             return (
               <div key={slot.sprintId} style={{ marginBottom: 12, border: '1px solid var(--border)', borderRadius: 9, overflow: 'hidden' }}>
                 <div style={{ padding: '7px 12px', background: 'var(--surface2)', display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -961,18 +1016,18 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                   </div>
                   {(slot.startDate || slot.endDate) && (
                     <span style={{ fontSize: 9, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                      📅 {slot.startDate ? fmtDateShort(slot.startDate) : '?'} → {slot.endDate ? fmtDateShort(slot.endDate) : '?'}
+                      <Ico2 d={ICO2.cal} size={9} /> {slot.startDate ? fmtDateShort(slot.startDate) : '?'} {'->'} {slot.endDate ? fmtDateShort(slot.endDate) : '?'}
                     </span>
                   )}
                 </div>
                 <div style={{ height: 3, background: 'var(--border)', margin: '0 12px 1px' }}>
                   <div style={{ height: '100%', width: `${pct}%`, background: over ? 'var(--danger)' : scenario.color, borderRadius: 2 }} />
                 </div>
-                <div style={{ padding: '3px 12px 8px' }}>
+                <div style={{ padding: '3px 0 8px' }}>
                   {(slot.usedItems ?? []).map(item => {
                     const client = state.clients.find((c: any) => c.id === item.clientId)
                     return (
-                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: '1px solid var(--surface2)', fontSize: 10, opacity: .55 }}>
+                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 12px', borderBottom: '1px solid var(--surface2)', fontSize: 10, opacity: .55 }}>
                         <span style={{ fontSize: 9, color: '#059669', fontWeight: 700, flexShrink: 0 }}>✓</span>
                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: client?.color ?? 'var(--border)', flexShrink: 0 }} />
                         <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'var(--primary)', flexShrink: 0, minWidth: 54 }}>{item.key}</span>
@@ -981,36 +1036,67 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                       </div>
                     )
                   })}
-                  {slot.assigned.map(item => {
+                  {rows.map((row, rowIdx) => {
+                    if (row.kind === 'epic') {
+                      const epic = epicMap.get(row.epicId)
+                      if (!epic) return null
+                      const storiesHere  = epicGroups.get(row.epicId)!.length
+                      const storiesTotal = epicChildCount.get(row.epicId) ?? 0
+                      const epicClient   = state.clients.find((c: any) => c.id === epic.clientId)
+                      return (
+                        <div key={'ehdr-' + row.epicId}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px 3px', marginTop: rowIdx > 0 ? 5 : 0, borderBottom: '1.5px solid var(--border)', fontSize: 10 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: epicClient?.color ?? 'var(--primary)', flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>{epic.key}</span>
+                          <span style={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.desc}</span>
+                          <span style={{ fontSize: 8, color: 'var(--text-muted)', flexShrink: 0 }}>{storiesHere}/{storiesTotal}</span>
+                        </div>
+                      )
+                    }
+                    const { item, inEpic } = row
                     const isVirt       = item.id.startsWith('virt-')
                     const realItem     = isVirt ? null : state.items.find((i: Item) => i.id === item.id)
+                    const fullItem     = isVirt ? null : byId.get(item.id) ?? realItem
                     const hasOv        = realItem && scenario.itemOverrides.some((o: ScenarioItemOverride) => o.itemId === item.id)
                     const client       = state.clients.find((c: any) => c.id === item.clientId)
                     const hasDeadline  = !isVirt && (item as Item).deadline?.date && (item as Item).deadline!.type !== 'none'
-                    const hasDeps      = (item.deps ?? []).length > 0
-
-                    // ── Movement badge with sprint number + direction ──
-                    const wasHere = !isVirt && (item as Item).sprintId === slot.sprintId
-                    const moveBadge = (!isVirt && !hasOv && !wasHere)
+                    const itemDeps     = fullItem?.deps ?? []
+                    const hasDeps      = itemDeps.length > 0
+                    const level        = hasDeps ? topoLvl(item.id) : 0
+                    // Clés lisibles des deps directes (comme dans le Backlog)
+                    const depKeys      = itemDeps.map(depId =>
+                      ((state.items as Item[]).find((i: Item) => i.id === depId))?.key ?? depId
+                    )
+                    const wasHere      = !isVirt && (item as Item).sprintId === slot.sprintId
+                    const moveBadge    = (!isVirt && !hasOv && !wasHere)
                       ? computeMoveBadge(item as Item, slot.number, sprintsMeta)
-                      : wasHere && !isVirt && !hasOv
-                        ? { text: '=', color: 'var(--text-muted)' }
-                        : null
-
-                    // highlight for état actuel — AND logic via util
+                      : wasHere && !isVirt && !hasOv ? { text: '=', color: 'var(--text-muted)' } : null
                     const isHighlighted = isItemHighlighted(
                       { clientId: item.clientId, type: (item as Item).type, priority: (item as Item).priority },
                       highlightClients ?? new Set(), highlightTypes ?? new Set(), highlightPriority ?? new Set(),
                     )
+                    const inChain = !isVirt && (hovChain?.has(item.id) ?? false)
+                    const isHov   = !isVirt && item.id === hoveredId
+                    // boxShadow inset = pas de layout shift (contrairement à border)
+                    const shadow  = inChain ? 'inset 0 0 0 1px rgba(59,130,246,.35)'
+                      : isHighlighted ? `inset 0 0 0 1px ${state.clients.find((c: any) => c.id === item.clientId)?.color ?? 'var(--primary)'}44`
+                      : isVirt ? 'inset 0 0 0 1px rgba(127,119,221,.3)' : undefined
 
                     return (
                       <div key={item.id}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--surface2)', fontSize: 10,
-                          background: isHighlighted ? (state.clients.find((c: any) => c.id === item.clientId)?.color ?? 'var(--primary)') + '15'
+                        onMouseEnter={() => !isVirt && setHoveredId(item.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderBottom: '1px solid var(--surface2)', fontSize: 10,
+                          paddingLeft: inEpic ? 22 : 12,
+                          background: isHov ? 'rgba(59,130,246,.10)'
+                            : inChain ? 'rgba(59,130,246,.05)'
+                            : isHighlighted ? (state.clients.find((c: any) => c.id === item.clientId)?.color ?? 'var(--primary)') + '12'
                             : isVirt ? 'rgba(127,119,221,.05)' : hasOv ? 'rgba(218,90,48,.04)' : 'transparent',
-                          border: isHighlighted ? `1px solid ${state.clients.find((c: any) => c.id === item.clientId)?.color ?? 'var(--primary)'}44`
-                            : isVirt ? '1px dashed rgba(127,119,221,.3)' : undefined,
-                          borderRadius: (isHighlighted || isVirt) ? 4 : undefined, marginBottom: (isHighlighted || isVirt) ? 2 : 0, paddingLeft: (isHighlighted || isVirt) ? 6 : 0, paddingRight: (isHighlighted || isVirt) ? 6 : 0 }}>
+                          boxShadow: shadow,
+                          borderRadius: 3,
+                          transition: 'background .12s',
+                          cursor: 'default',
+                        }}>
                         {isVirt
                           ? <span title="Item fictif"><Ico2 d={ICO2.ghost} size={10} stroke="#7F77DD" /></span>
                           : hasOv
@@ -1020,7 +1106,6 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                         <span style={{ fontFamily: 'monospace', fontSize: 9, color: isVirt ? '#7F77DD' : 'var(--primary)', flexShrink: 0, minWidth: 54 }}>
                           {isVirt ? '✦ FICTIF' : (item as Item).key}
                         </span>
-                        {/* Fixed-width badge column — keeps descriptions aligned */}
                         <span style={{ width: 36, flexShrink: 0, display: 'flex', justifyContent: 'flex-start' }}>
                           {moveBadge && (
                             <span style={{ fontSize: 8, fontWeight: 600, padding: '1px 4px', borderRadius: 3, background: moveBadge.color + '22', color: moveBadge.color }}>
@@ -1034,7 +1119,13 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                             {fmtDate((item as Item).deadline!.date)}
                           </span>
                         )}
-                        {hasDeps && <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 5, background: '#dbeafe', color: '#1d4ed8', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 2 }}><Ico2 d={ICO2.link} size={8} stroke="#1d4ed8" />{(item.deps ?? []).length}</span>}
+                        {hasDeps && (
+                          <span style={{ fontSize: 8, padding: '1px 5px', borderRadius: 5, background: (inChain || isHov) ? '#bfdbfe' : '#dbeafe', color: '#1d4ed8', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3, fontWeight: (inChain || isHov) ? 700 : 400, whiteSpace: 'nowrap' }}>
+                            <Ico2 d={ICO2.link} size={8} stroke="#1d4ed8" />
+                            {depKeys.length === 1 ? depKeys[0] : `${depKeys.length} dép.`}
+                            {level > 1 && <span style={{ opacity: .6, fontWeight: 400 }}>Niv.{level}</span>}
+                          </span>
+                        )}
                         <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontSize: 9 }}>{item.sp} SP</span>
                         {isVirt && (
                           <button title="Supprimer l'item fictif"

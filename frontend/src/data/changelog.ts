@@ -15,7 +15,18 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.83.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'ItemModal : 3 modes d\'affichage (fenêtre, volet latéral, pleine page)',current:true,changes:[
+  {version:'v0.84.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Auto-planning : groupement Epic, highlight deps, icône calendrier',current:true,changes:[
+    {tag:'feat',    text:'Groupement Epic dans ProposalPanel : les stories enfants (epicId) sont regroupées sous un en-tête Epic (carré coloré, clé, description, compteur N/M) — un même Epic peut être réparti sur plusieurs sprints'},
+    {tag:'feat',    text:'Highlight des dépendances au hover : survoler un item colore en bleu toute sa chaîne transitive (prédécesseurs + successeurs via BFS) sans griser le reste'},
+    {tag:'feat',    text:'Badge de dépendance revu : affiche la clé du prédécesseur direct (ex : PME-011) au lieu d\'un compteur, avec suffixe "Niv.N" pour les deps transitives'},
+    {tag:'fix',     text:'Chaîne de deps : byId construit depuis state.items (IDs réels) au lieu de byKey — les deps stockées en IDs ("i5", "i11"…) sont désormais correctement résolues'},
+    {tag:'ux',      text:'Emoji 📅 remplacé par l\'icône Lucide calendar-1 dans les en-têtes de slot'},
+    {tag:'ux',      text:'Padding de chaque ligne item géré individuellement (12px L/R) — le highlight ne provoque plus de layout shift'},
+    {tag:'ux',      text:'Bordure de highlight uniquement sur les items de la chaîne dep, pas sur l\'item actif (fond bleu seul pour le survol)'},
+    {tag:'test',    text:'auto-planning.spec.js : 11 tests (calendrier, Epic header, compteur N/M, badge dep clé + Niv., hover sans erreur JS, opacité pleine hors chaîne)'},
+    {tag:'chore',   text:'demo.ts : epicId: "i7" ajouté à FAX-019 pour activer le groupement Epic dans les données de démo'},
+  ]},
+  {version:'v0.83.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'ItemModal : 3 modes d\'affichage (fenêtre, volet latéral, pleine page)',current:false,changes:[
     {tag:'feat',    text:'Sélecteur de mode d\'affichage dans le header de la modal : fenêtre centrée (défaut), volet latéral redimensionnable, pleine page'},
     {tag:'feat',    text:'Volet latéral : panneau ancré à droite, redimensionnable par drag sur la poignée gauche (320px min, 90% max), cliquer à l\'extérieur ferme le volet'},
     {tag:'feat',    text:'Pleine page : contenu centré sur 860px avec header, onglets et footer alignés'},
