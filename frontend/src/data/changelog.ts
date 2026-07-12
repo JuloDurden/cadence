@@ -15,7 +15,18 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.81.0',date:'11 Juillet 2026',dateISO:'2026-07-11',title:'Sprint Planning : page dédiée, kanban par membre, SP co-assignés corrigé',current:true,changes:[
+  {version:'v0.82.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Sprint Planning : auto-attribution, co-assignation, absences, fixes deadline',current:true,changes:[
+    {tag:'feat',    text:'Bouton "Auto-attribuer" : modal de configuration avec stats, explication de l\'algorithme et prévisualisation en temps réel avant application'},
+    {tag:'feat',    text:'Co-assignation automatique (solo / duo / trio) : le nombre de co-assignés est calculé selon la capacité moyenne restante et le SP de l\'item'},
+    {tag:'feat',    text:'Devs absents tout le sprint filtrés de la grille ; devs partiellement absents limités au rôle de co-assigné (jamais dev attitré)'},
+    {tag:'feat',    text:'Warning overflow SP dans la modal : alerte rouge si le total SP à attribuer dépasse la capacité restante de l\'équipe'},
+    {tag:'feat',    text:'Bouton "Effacer toutes les attributions" (icône déchiqueteuse) dans le header, avec confirmation — renvoie tous les items en "Non attribué"'},
+    {tag:'fix',     text:'Deadline affichée comme "Invalid Date" : item.deadline est un objet { date, type }, pas une string — corrigé dans GanttView et ItemModal'},
+    {tag:'fix',     text:'ItemModal : deadline vide ({ date: "", type: "none" }) n\'est plus sauvegardée comme objet — enregistrée undefined pour éviter les faux positifs'},
+    {tag:'ux',      text:'Séparateur entre le bouton shredder et le bouton de recherche global du header'},
+    {tag:'test',    text:'sprint-planning.spec.js porté à 18 tests : header, panneau gauche, grille membres, modal auto-attribution (ouverture, stats, solo/duo/trio, Annuler, clic extérieur), Invalid Date'},
+  ]},
+  {version:'v0.81.0',date:'11 Juillet 2026',dateISO:'2026-07-11',title:'Sprint Planning : page dédiée, kanban par membre, SP co-assignés corrigé',current:false,changes:[
     {tag:'feat',    text:'Page dédiée /sprint-planning (section "Sprint en cours" dans la sidebar) — remplace la vue Attribution de Release Planning'},
     {tag:'feat',    text:'Kanban par membre : colonnes par dev + colonne "Non attribué", sélecteur de sprint, drag-drop pour réassigner'},
     {tag:'feat',    text:'Barre de charge par membre : SP utilisés / capacité (jours ouvrés − jours fériés − absences × spPerDay), indicateur vert/orange/rouge'},

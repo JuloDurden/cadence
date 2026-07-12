@@ -361,23 +361,39 @@ textarea { resize: vertical; min-height: 72px; }
 .epic-group-compact .epic-group-header { padding: 6px 8px; }
 .epic-group-compact .epic-group-stories { padding: 4px; gap: 4px; }
 
-/* ─── Gantt par membre ──────────────────────────────────────────────────── */
-/* ─── Sprint Planning (Attribution par membre) ──────────────────────────── */
-.sp-view { display: flex; flex-direction: column; height: calc(100vh - var(--header-h) - 60px); }
-.sp-top-bar { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; flex-shrink: 0; }
-.sp-sprint-select { font-size: 13px; font-weight: 600; padding: 5px 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); cursor: pointer; }
-.sp-stat { font-size: 11px; color: var(--text-muted); padding: 3px 9px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; }
-.sp-board { display: flex; gap: 10px; overflow-x: auto; flex: 1; align-items: flex-start; padding-bottom: 16px; }
-.sp-column { flex: 0 0 190px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; max-height: calc(100vh - var(--header-h) - 120px); transition: outline .1s; }
+/* ─── Sprint Planning ────────────────────────────────────────────────────── */
+/* Layout principal : panneau gauche (non-attribués) + grille membres */
+.sp-view { display: flex; gap: 14px; height: calc(100vh - var(--header-h) - 24px); overflow: hidden; }
+
+/* Panneau gauche — items non-attribués */
+.sp-left { width: 440px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; transition: outline .1s, background .1s; }
+.sp-left-drop { outline: 2px dashed var(--primary); outline-offset: -2px; background: var(--primary-light); }
+.sp-left-hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 12px; flex-shrink: 0; }
+.sp-left-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.sp-left-empty { padding: 20px; text-align: center; font-size: 11px; color: var(--text-faint); border: 1.5px dashed var(--border); border-radius: 6px; }
+
+/* Carte item non-attribué */
+.sp-uitem { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; cursor: grab; transition: box-shadow .1s, opacity .15s; }
+.sp-uitem:hover { box-shadow: var(--shadow-md); }
+
+/* Panneau droit — grille membres */
+.sp-right { flex: 1; min-width: 0; overflow: hidden; }
+.sp-members-wrap { display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(2, 1fr); gap: 8px; height: 100%; }
+
+/* Card membre */
+.sp-member-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); display: flex; flex-direction: column; overflow: hidden; transition: outline .1s; min-height: 0; }
 .sp-col-drop { outline: 2px dashed var(--primary); outline-offset: -2px; background: var(--primary-light); }
-.sp-col-header { padding: 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.sp-col-unassigned { background: var(--surface2); }
-.sp-col-body { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 5px; }
-.sp-col-empty { padding: 12px 8px; text-align: center; font-size: 10px; color: var(--text-faint); border: 1.5px dashed var(--border); border-radius: 5px; }
-.sp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 8px; transition: box-shadow .1s, opacity .15s; display: flex; flex-direction: column; gap: 2px; }
-.sp-card:hover { box-shadow: var(--shadow-md); }
-.sp-card-desc { font-size: 11px; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.sp-cap-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 5px; margin-bottom: 2px; }
+.sp-member-hd { padding: 10px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.sp-member-body { flex: 1; overflow-y: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 3px; min-height: 0; }
+.sp-member-item { display: flex; flex-direction: column; gap: 3px; padding: 7px 8px; border-radius: 5px; background: var(--surface); border: 1px solid var(--border); cursor: grab; transition: box-shadow .1s, opacity .15s; }
+.sp-member-item:hover { box-shadow: var(--shadow-sm); }
+.sp-member-item-co { background: var(--warning-light); border: 1px dashed rgba(245,158,11,.5); }
+.sp-member-item-co:hover { background: rgba(245,158,11,.15); }
+.sp-member-co-sep { font-size: 9px; color: var(--text-faint); font-style: italic; padding: 4px 2px 1px; }
+.sp-member-empty { padding: 12px 8px; text-align: center; font-size: 11px; color: var(--text-faint); border: 1.5px dashed var(--border); border-radius: 4px; margin: 2px; }
+
+/* Barre de capacité (réutilisée) */
+.sp-cap-bar-wrap { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; margin-bottom: 1px; }
 .sp-cap-bar { height: 100%; border-radius: 2px; transition: width .3s; }
 
 /* ─── Ancien Gantt (conservé pour compatibilité tests) ──────────────────── */

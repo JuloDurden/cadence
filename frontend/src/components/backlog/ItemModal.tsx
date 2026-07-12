@@ -352,7 +352,8 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
       deps,
       dor: (iType === 'story' || iType === 'epic' || iType === 'bug') ? dor : undefined,
       dod: (iType === 'story' || iType === 'epic' || iType === 'bug') ? dod : undefined,
-      deadline, moscow: (iType === 'story' || iType === 'epic' || iType === 'bug') ? moscow || undefined : undefined,
+      deadline: (deadline.date && deadline.type !== 'none') ? deadline : undefined,
+      moscow: (iType === 'story' || iType === 'epic' || iType === 'bug') ? moscow || undefined : undefined,
       scoringFramework: framework, wsjf, rice, notes,
       createdAt: item?.createdAt ?? now,
     }

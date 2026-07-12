@@ -1,6 +1,7 @@
 /**
  * Utilitaires sprint : dates, capacité, jours fériés français.
  */
+import type { TeamMember, Sprint, CadenceState } from '../types'
 
 // ── Calcul de la date de fin d'un sprint ─────────────────────────────────
 /**
@@ -100,4 +101,59 @@ export function effectiveCapacity(
   const teamSpPerDay = team.reduce((sum, m) => sum + (m.spPerDay || 1), 0)
   const spLost      = holidays.length * teamSpPerDay
   return Math.max(0, sprint.capacity - spLost)
+}
+
+// ── Capacité individuelle d'un membre sur un sprint ──────────────────────
+
+function workingDaysCount(start: string, end: string): number {
+  const s = new Date(start + 'T00:00:00'), e = new Date(end + 'T00:00:00')
+  let n = 0; const d = new Date(s)
+  while (d <= e) { const wd = d.getDay(); if (wd !== 0 && wd !== 6) n++; d.setDate(d.getDate() + 1) }
+  return n
+}
+
+/**
+ * Capacité SP d'un membre sur le sprint donné,
+ * en déduisant jours fériés et absences.
+ */
+export function computeMemberCapacity(member: TeamMember, sprint: Sprint, state: CadenceState): number {
+  if (!sprint.startDate || !sprint.endDate) return 0
+  const wd  = workingDaysCount(sprint.startDate, sprint.endDate)
+  const hol = holidaysInRange(sprint.startDate, sprint.endDate).length
+  const abs = state.absences
+    .filter(a => a.memberId === member.id)
+    .reduce((tot, a) => {
+      const os = a.start > sprint.startDate ? a.start : sprint.startDate
+      const oe = a.end   < sprint.endDate   ? a.end   : sprint.endDate
+      return os > oe ? tot : tot + workingDaysCount(os, oe)
+    }, 0)
+  return Math.max(0, Math.round(member.spPerDay * (wd - hol - abs)))
+}
+
+/**
+ * Retourne true si le membre est absent sur TOUTE la durée du sprint
+ * (au moins une absence continue couvrant [startDate, endDate]).
+ */
+export function isMemberFullyAbsent(memberId: string, sprint: Sprint, state: CadenceState): boolean {
+  if (!sprint.startDate || !sprint.endDate) return false
+  return state.absences.some(a =>
+    a.memberId === memberId &&
+    a.start <= sprint.startDate &&
+    a.end   >= sprint.endDate
+  )
+}
+
+/**
+ * Retourne true si le membre a une absence qui chevauche partiellement le sprint
+ * (sans le couvrir entièrement — pour ça, utiliser isMemberFullyAbsent).
+ * Un dev partiellement absent ne devrait être que co-assigné, jamais dev attitré.
+ */
+export function isMemberPartiallyAbsent(memberId: string, sprint: Sprint, state: CadenceState): boolean {
+  if (!sprint.startDate || !sprint.endDate) return false
+  if (isMemberFullyAbsent(memberId, sprint, state)) return false
+  return state.absences.some(a =>
+    a.memberId === memberId &&
+    a.start <= sprint.endDate &&
+    a.end   >= sprint.startDate
+  )
 }
