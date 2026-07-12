@@ -86,7 +86,8 @@ test.describe('Auto-planning — ProposalPanel v0.84.0', () => {
     await generateScenario(page);
     const pme023 = page.locator('.page-content').getByText('PME-023').first();
     if (await pme023.count() > 0) {
-      await pme023.hover();
+      // force: true contourne les éléments intercepteurs (header sticky, SVG overlay) sur CI
+      await pme023.hover({ force: true });
       await page.waitForTimeout(300);
     }
     expect(errors).toHaveLength(0);
@@ -98,8 +99,9 @@ test.describe('Auto-planning — ProposalPanel v0.84.0', () => {
     const pme023Key = page.locator('.page-content').getByText('PME-023', { exact: true }).first();
     if (await pme023Key.count() === 0) return;
     const pme023Row = pme023Key.locator('..');
-    await pme023Row.hover();
-    await page.waitForTimeout(200);
+    // React onMouseEnter est déclenché via mouseover (bubble) : évite les interceptions pointer-events CI
+    await pme023Row.dispatchEvent('mouseover');
+    await page.waitForTimeout(300);
     const bg = await pme023Row.evaluate(el => window.getComputedStyle(el).backgroundColor);
     // fond bleu rgba(59,130,246,...) ≠ transparent
     expect(bg).not.toBe('rgba(0, 0, 0, 0)');
