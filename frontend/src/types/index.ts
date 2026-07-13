@@ -131,6 +131,13 @@ export interface KanbanCol {
   id: string; label: string; color: string; isDone: boolean; isDefault?: boolean
 }
 
+export interface ClientGroup {
+  id: string
+  name: string
+  color?: string        // couleur optionnelle pour l'affichage
+  clientIds: string[]   // ids des clients membres (ordonnés)
+}
+
 // ── What-if / Scenarios ───────────────────────────────────────────────────
 
 export type ScenarioType = 'current' | 'auto' | 'manual'
@@ -244,6 +251,7 @@ export interface CadenceState {
   absences: Absence[]
   dailyArchives: DailyArchive[]
   retroArchives: RetroArchive[]
+  clientGroups: ClientGroup[]
 }
 
 export interface DailyEntry {

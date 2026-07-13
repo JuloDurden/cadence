@@ -12,7 +12,7 @@ test.describe('Changelog', () => {
     await goTo(page, '/changelog');
     // v0.83.0 est la version courante
     await expect(page.locator('.cl-card.current')).toBeVisible();
-    await expect(page.locator('.cl-card.current')).toContainText('v0.86');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.87');
   });
 
   test('affiche le badge "En cours" sur la version courante', async ({ page }) => {

@@ -45,6 +45,9 @@ type Action =
   | { type: 'CLEAR_DAILY_ENTRIES_DATE'; payload: string }
   | { type: 'ADD_RETRO_ARCHIVE'; payload: import('../types').RetroArchive }
   | { type: 'DELETE_RETRO_ARCHIVE'; payload: string }
+  | { type: 'ADD_CLIENT_GROUP'; payload: import('../types').ClientGroup }
+  | { type: 'UPDATE_CLIENT_GROUP'; payload: import('../types').ClientGroup }
+  | { type: 'DELETE_CLIENT_GROUP'; payload: string }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -76,6 +79,9 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'CLEAR_DAILY_ENTRIES_DATE': return { ...state, dailyEntries: state.dailyEntries.filter(e => e.date !== action.payload) }
     case 'ADD_RETRO_ARCHIVE': return { ...state, retroArchives: [...(state.retroArchives || []), action.payload] }
     case 'DELETE_RETRO_ARCHIVE': return { ...state, retroArchives: (state.retroArchives || []).filter(a => a.id !== action.payload) }
+    case 'ADD_CLIENT_GROUP': return { ...state, clientGroups: [...(state.clientGroups ?? []), action.payload] }
+    case 'UPDATE_CLIENT_GROUP': return { ...state, clientGroups: (state.clientGroups ?? []).map(g => g.id === action.payload.id ? action.payload : g) }
+    case 'DELETE_CLIENT_GROUP': return { ...state, clientGroups: (state.clientGroups ?? []).filter(g => g.id !== action.payload) }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

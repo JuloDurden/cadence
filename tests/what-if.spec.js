@@ -99,9 +99,9 @@ test.describe('What-if — Scénarios', () => {
     await expect(page.getByRole('button', { name: 'Ajouter', exact: true })).toBeVisible();
   });
 
-  test('le changelog affiche v0.86 comme version courante', async ({ page }) => {
+  test('le changelog affiche v0.87 comme version courante', async ({ page }) => {
     await goTo(page, '/changelog');
-    await expect(page.locator('.cl-card.current')).toContainText('v0.86');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.87');
   });
 
 });

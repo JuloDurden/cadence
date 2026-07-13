@@ -35,9 +35,62 @@ const BTN_DARK: React.CSSProperties = {
 // ── Header helpers ─────────────────────────────────────────────────────
 const ICO_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 
-function ViewIco({ d }: { d: string }) {
+// Grouper par client (users) / par groupe (layers)
+const ICO_USERS =
+  '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>' +
+  '<circle cx="9" cy="7" r="4"/>' +
+  '<path d="M22 21v-2a4 4 0 0 0-3-3.87"/>' +
+  '<path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+
+const ICO_LAYERS =
+  '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/>' +
+  '<path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/>' +
+  '<path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>'
+
+// Icônes des boutons de carte et du statut
+const ICO_SQUARE_PEN =
+  '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>' +
+  '<path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>'
+const ICO_LOCK =
+  '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>' +
+  '<path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+const ICO_LOCK_OPEN =
+  '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>' +
+  '<path d="M7 11V7a5 5 0 0 1 9.9-1"/>'
+const ICO_POWER =
+  '<path d="M12 2v10"/>' +
+  '<path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>'
+const ICO_ZAP =
+  '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>'
+const ICO_CLOCK =
+  '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'
+
+// Vue Sprints — icône custom (fournie par l'utilisateur)
+// viewBox: 0 250 1650 1100  (x: 0→1650, y: 250→1350)
+const ICO_VIEW_SPRINTS =
+  '<path d="M704.74,570.727l-375.261,186.977l75.575,-412.395l299.686,225.418Z"/>' +
+  '<path d="M40.088,1224.64c0,0 751.133,5.291 824.115,0c34.149,-2.476 364.511,-112.873 348.1,-448.755c-18.03,-369.01 -482.471,-550.438 -702.49,-257.929" style="fill:none;stroke:currentColor;stroke-width:125px;"/>' +
+  '<path d="M1182.088,1165.793l307.617,0l95.312,65.155l-95.312,57.241l-469.805,0c16.367,-8.791 122.887,-86.632 162.188,-122.396Z"/>' +
+  '<path d="M568.529,824.115l136.304,136.304l251.638,-257.929" style="fill:none;stroke:currentColor;stroke-width:91.67px;stroke-linecap:round;"/>'
+const ICO_VIEW_SPRINTS_BOX = "0 250 1650 1100"
+
+// Vue Vision Board : œil (Lucide eye)
+const ICO_VIEW_VISION =
+  '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>' +
+  '<circle cx="12" cy="12" r="3"/>'
+
+// Vue NNL — icône custom (fournie par l'utilisateur)
+// viewBox: 230 150 750 750  (zone carrée, contenu x:277→954 y:191→867)
+const ICO_VIEW_NNL =
+  '<path d="M425.889,648.085c-42.312,-28.723 -93.369,-45.511 -148.315,-45.511l0,-75c75.678,0 145.607,24.813 202.088,66.739l-53.772,53.772Zm124.483,16.938c41.927,56.481 66.739,126.41 66.739,202.088l-75,0c0,-54.947 -16.789,-106.003 -45.511,-148.315l53.772,-53.772Z"/>' +
+  '<path d="M575.402,498.571c-81.406,-65.888 -185.043,-105.373 -297.829,-105.373l0,-75c133.49,0 255.914,47.754 351.106,127.095l-53.278,53.278Zm123.988,17.433c79.342,95.193 127.095,217.617 127.095,351.106l-75,0c0,-112.786 -39.485,-216.422 -105.373,-297.829l53.278,-53.278Z"/>' +
+  '<path d="M715.116,270.468l238.649,-79.55l-79.55,238.649l-159.099,-159.099Z"/>' +
+  '<path d="M318.198,826.486l508.288,-508.288" style="fill:none;stroke:currentColor;stroke-width:75px;"/>'
+const ICO_VIEW_NNL_BOX = "230 150 750 750"
+
+function ViewIco({ d, viewBox = "0 0 24 24", fill = "none" }: { d: string; viewBox?: string; fill?: string }) {
   return (
-    <svg width={14} height={14} viewBox="0 0 24 24" fill="none"
+    <svg width={14} height={14} viewBox={viewBox} fill={fill}
       stroke="currentColor" strokeWidth="1.75"
       strokeLinecap="round" strokeLinejoin="round"
       dangerouslySetInnerHTML={{ __html: d }} />
@@ -49,16 +102,17 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
   color: active ? '#fff' : 'var(--text-muted)',
   border: 'none',
   cursor: 'pointer',
-  fontWeight: active ? 600 : 400,
-  fontSize: 12,
-  padding: '0 12px',
+  padding: '0 9px',
   height: 30,
+  display: 'flex',
+  alignItems: 'center',
   transition: 'background .15s, color .15s',
 })
 
 export function RoadmapPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const [view, setView] = useState<'sprints' | 'vision' | 'nnl'>('sprints')
+  const [groupBy, setGroupBy] = useState<'client' | 'group'>('client')
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
   const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '', startDate: '', endDate: '' })
 
@@ -196,24 +250,39 @@ export function RoadmapPage() {
 
       <div style={{ flex: 1 }} />
 
-      {/* Toggle de vues */}
+      {/* Toggle de vues — icônes uniquement */}
       <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
         <button style={SEG_BTN(view === 'sprints')} onClick={() => setView('sprints')} title="Vue Sprints">
-          Sprints
+          <ViewIco d={ICO_VIEW_SPRINTS} viewBox={ICO_VIEW_SPRINTS_BOX} fill="currentColor" />
         </button>
         <button
           style={{ ...SEG_BTN(false), borderLeft: '1px solid var(--border)', opacity: 0.4, cursor: 'not-allowed' }}
           disabled title="Vision Board — v0.88"
         >
-          Vision
+          <ViewIco d={ICO_VIEW_VISION} />
         </button>
         <button
           style={{ ...SEG_BTN(false), borderLeft: '1px solid var(--border)', opacity: 0.4, cursor: 'not-allowed' }}
           disabled title="Now / Next / Later — v0.89"
         >
-          NNL
+          <ViewIco d={ICO_VIEW_NNL} viewBox={ICO_VIEW_NNL_BOX} fill="currentColor" />
         </button>
       </div>
+
+      {/* Toggle groupement : par client / par groupe de clients (visible si groupes définis) */}
+      {(state.clientGroups ?? []).length > 0 && (
+        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+          <button style={SEG_BTN(groupBy === 'client')} onClick={() => setGroupBy('client')}
+            title="Grouper par client" data-testid="btn-groupby-client">
+            <ViewIco d={ICO_USERS} />
+          </button>
+          <button style={{ ...SEG_BTN(groupBy === 'group'), borderLeft: '1px solid var(--border)' }}
+            onClick={() => setGroupBy('group')}
+            title="Grouper par groupe de clients" data-testid="btn-groupby-group">
+            <ViewIco d={ICO_LAYERS} />
+          </button>
+        </div>
+      )}
 
       <button data-testid="btn-add-sprint" className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
         <ViewIco d={ICO_PLUS} /> Sprint
@@ -255,25 +324,36 @@ export function RoadmapPage() {
                   <div className="roadmap-goal-title">{goal.name}</div>
                   {dateLabel && <div className="roadmap-goal-date">{dateLabel}</div>}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                {/* Boutons d'action — groupe d'icônes */}
+                <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,.35)', borderRadius: 6,
+                  overflow: 'hidden', flexShrink: 0, alignSelf: 'flex-start' }}>
                   {!isTmp && (
-                    <button
-                      onClick={e => { e.stopPropagation(); openModal(goal) }}
-                      style={{ ...BTN, alignSelf: 'flex-start' }}
-                    >✎ edit</button>
+                    <>
+                      <button onClick={e => { e.stopPropagation(); openModal(goal) }} title="Modifier l'objectif"
+                        style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                          padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                        <ViewIco d={ICO_SQUARE_PEN} />
+                      </button>
+                      <div style={{ width: 1, background: 'rgba(255,255,255,.35)', flexShrink: 0 }} />
+                    </>
                   )}
-                  {/* Sprint status controls */}
                   {sprint.closed ? (
-                    <button style={BTN} onClick={e => { e.stopPropagation(); handleReopen(sprint.id) }}>
-                      🔓 Rouvrir
+                    <button onClick={e => { e.stopPropagation(); handleReopen(sprint.id) }} title="Rouvrir le sprint"
+                      style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                        padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                      <ViewIco d={ICO_LOCK_OPEN} />
                     </button>
                   ) : isActive ? (
-                    <button style={{ ...BTN, borderColor: 'rgba(255,255,255,.6)' }} onClick={e => { e.stopPropagation(); handleClose(sprint.id) }}>
-                      🔒 Clôturer
+                    <button onClick={e => { e.stopPropagation(); handleClose(sprint.id) }} title="Clôturer le sprint"
+                      style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                        padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                      <ViewIco d={ICO_LOCK} />
                     </button>
                   ) : (
-                    <button style={BTN} onClick={e => { e.stopPropagation(); handleActivate(sprint.id) }}>
-                      ▶ Activer
+                    <button onClick={e => { e.stopPropagation(); handleActivate(sprint.id) }} title="Activer le sprint"
+                      style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                        padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                      <ViewIco d={ICO_POWER} />
                     </button>
                   )}
                 </div>
@@ -287,13 +367,18 @@ export function RoadmapPage() {
                 fontSize: 10,
               }}>
                 {sprint.closed ? (
-                  <span style={{ color: '#15803d', fontWeight: 700 }}>🔒 Clôturé</span>
+                  <span style={{ color: '#15803d', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <ViewIco d={ICO_LOCK} /> Clôturé
+                  </span>
                 ) : isActive ? (
-                  <span style={{ color: 'var(--primary)', fontWeight: 700 }}>★ Actif</span>
+                  <span style={{ color: 'var(--primary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <ViewIco d={ICO_ZAP} /> Actif
+                  </span>
                 ) : (
-                  <span style={{ color: 'var(--text-muted)' }}>○ À venir</span>
+                  <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <ViewIco d={ICO_CLOCK} /> À venir
+                  </span>
                 )}
-                <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>Cap. {sprint.capacity} SP</span>
               </div>
 
               <div className="roadmap-section">
@@ -312,61 +397,205 @@ export function RoadmapPage() {
                 </div>
               )}
 
-              {/* ── Epics + leurs stories ── */}
-              {epicItems.map(epic => {
-                const stories = storiesInEpics.filter(s => s.epicId === epic.id)
-                const epicClient = state.clients.find(c => c.id === epic.clientId)
-                const groupSP = epic.sp + stories.reduce((acc, s) => acc + s.sp, 0)
-                return (
-                  <div key={epic.id} className="roadmap-section">
-                    <div className="roadmap-section-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{
-                        fontSize: 9, fontWeight: 700, flexShrink: 0,
-                        background: epicClient?.color ?? '#6366f1', color: '#fff',
-                        borderRadius: 3, padding: '1px 4px',
-                      }}>EPIC</span>
-                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {epic.desc}
-                      </span>
-                      <strong style={{ flexShrink: 0 }}>{groupSP} SP</strong>
-                    </div>
-                    {stories.map(story => (
-                      <div key={story.id} className="roadmap-feature">
-                        <div className="roadmap-feature-dot" style={{ background: epicClient?.color ?? '#888' }} />
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{story.desc}</span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{story.sp} SP</span>
+              {/* ── Épics + items : par client (défaut, alpha) ou par groupe de clients (épics inclus) ── */}
+              {groupBy === 'group' && (state.clientGroups ?? []).length > 0 ? (() => {
+                const allGroups = state.clientGroups!
+                const clientToGroup = new Map<string, typeof allGroups[0]>()
+                allGroups.forEach(g => g.clientIds.forEach(cid => clientToGroup.set(cid, g)))
+
+                type GrpSec = { group: typeof allGroups[0] | null; gEpics: typeof epicItems; gOrphans: typeof orphanItems }
+                const byGid = new Map<string, GrpSec>()
+                const ensure = (key: string, grp: typeof allGroups[0] | null): GrpSec => {
+                  if (!byGid.has(key)) byGid.set(key, { group: grp, gEpics: [], gOrphans: [] })
+                  return byGid.get(key)!
+                }
+                epicItems.forEach(epic => {
+                  const g = clientToGroup.get(epic.clientId) ?? null
+                  ensure(g?.id ?? '__none__', g).gEpics.push(epic)
+                })
+                orphanItems.forEach(item => {
+                  const g = clientToGroup.get(item.clientId) ?? null
+                  ensure(g?.id ?? '__none__', g).gOrphans.push(item)
+                })
+
+                const renderEpicRow = (epic: typeof epicItems[0]) => {
+                  const stories = storiesInEpics.filter(s => s.epicId === epic.id)
+                  const epicClient = state.clients.find(c => c.id === epic.clientId)
+                  const eSP = epic.sp + stories.reduce((a, s) => a + s.sp, 0)
+                  return (
+                    <React.Fragment key={epic.id}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 12px 3px 14px', fontSize: 11 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, background: epicClient?.color ?? '#6366f1', color: '#fff',
+                          borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
+                          EPIC · {epicClient?.prefix ?? '?'}
+                        </span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.desc}</span>
+                        <strong style={{ flexShrink: 0, fontSize: 9 }}>{eSP} SP</strong>
                       </div>
-                    ))}
+                      {stories.map(story => (
+                        <div key={story.id} className="roadmap-feature" style={{ paddingLeft: 22 }}>
+                          <div className="roadmap-feature-dot" style={{ background: epicClient?.color ?? '#888' }} />
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{story.desc}</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{story.sp} SP</span>
+                        </div>
+                      ))}
+                    </React.Fragment>
+                  )
+                }
+
+                const renderOrphanRows = (orphans: typeof orphanItems) => {
+                  const byC = new Map<string, typeof orphanItems>()
+                  orphans.forEach(item => { byC.set(item.clientId, [...(byC.get(item.clientId) ?? []), item]) })
+                  return Array.from(byC.entries())
+                    .sort(([a], [b]) => (state.clients.find(c => c.id === a)?.name ?? '').localeCompare(state.clients.find(c => c.id === b)?.name ?? ''))
+                    .flatMap(([cid, cItems]) => {
+                      const client = state.clients.find(c => c.id === cid)
+                      return cItems.map(item => (
+                        <div key={item.id} className="roadmap-feature">
+                          <div className="roadmap-feature-dot" style={{ background: client?.color ?? '#888' }} />
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.desc}</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{item.sp} SP</span>
+                        </div>
+                      ))
+                    })
+                }
+
+                const result: React.ReactElement[] = []
+
+                allGroups.forEach(g => {
+                  const sec = byGid.get(g.id)
+                  if (!sec || (sec.gEpics.length === 0 && sec.gOrphans.length === 0)) return
+                  const gc = g.color ?? '#6366f1'
+                  const totalSP =
+                    sec.gEpics.reduce((acc, epic) => acc + epic.sp + storiesInEpics.filter(s => s.epicId === epic.id).reduce((a, s) => a + s.sp, 0), 0) +
+                    sec.gOrphans.reduce((acc, i) => acc + i.sp, 0)
+                  result.push(
+                    <div key={g.id} className="roadmap-section" data-testid={`roadmap-group-${g.id}`}>
+                      <div className="roadmap-section-label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: gc, display: 'inline-block', flexShrink: 0 }} />
+                        <span style={{ color: gc, fontWeight: 700, flex: 1 }}>{g.name}</span>
+                        <strong>{totalSP} SP</strong>
+                      </div>
+                      {sec.gEpics.map(renderEpicRow)}
+                      {renderOrphanRows(sec.gOrphans)}
+                    </div>
+                  )
+                })
+
+                // Items sans groupe : épics plats puis orphelins par client (alpha)
+                const none = byGid.get('__none__')
+                if (none) {
+                  none.gEpics.forEach(epic => {
+                    const stories = storiesInEpics.filter(s => s.epicId === epic.id)
+                    const epicClient = state.clients.find(c => c.id === epic.clientId)
+                    const eSP = epic.sp + stories.reduce((a, s) => a + s.sp, 0)
+                    result.push(
+                      <div key={epic.id} className="roadmap-section">
+                        <div className="roadmap-section-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, background: epicClient?.color ?? '#6366f1', color: '#fff',
+                            borderRadius: 3, padding: '1px 4px', flexShrink: 0 }}>
+                            EPIC · {epicClient?.prefix ?? '?'}
+                          </span>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.desc}</span>
+                          <strong style={{ flexShrink: 0 }}>{eSP} SP</strong>
+                        </div>
+                        {stories.map(story => (
+                          <div key={story.id} className="roadmap-feature" style={{ paddingLeft: 10 }}>
+                            <div className="roadmap-feature-dot" style={{ background: epicClient?.color ?? '#888' }} />
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{story.desc}</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{story.sp} SP</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })
+                  const byC = new Map<string, typeof orphanItems>()
+                  none.gOrphans.forEach(item => { byC.set(item.clientId, [...(byC.get(item.clientId) ?? []), item]) })
+                  Array.from(byC.entries())
+                    .sort(([a], [b]) => (state.clients.find(c => c.id === a)?.name ?? '').localeCompare(state.clients.find(c => c.id === b)?.name ?? ''))
+                    .forEach(([cid, cItems]) => {
+                      const client = state.clients.find(c => c.id === cid)
+                      const clientSP = cItems.reduce((acc, i) => acc + i.sp, 0)
+                      result.push(
+                        <div key={cid} className="roadmap-section">
+                          <div className="roadmap-section-label">
+                            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: client?.color ?? '#888', marginRight: 5, verticalAlign: 'middle' }} />
+                            {client?.name ?? 'Client'} <strong>{clientSP} SP</strong>
+                          </div>
+                          {cItems.map(item => (
+                            <div key={item.id} className="roadmap-feature">
+                              <div className="roadmap-feature-dot" style={{ background: client?.color ?? '#888' }} />
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.desc}</span>
+                              <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{item.sp} SP</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })
+                }
+
+                return result.length > 0 ? result : (
+                  <div className="roadmap-section">
+                    <div className="roadmap-section-label">Fonctionnalites cles</div>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Aucun item dans ce sprint.</p>
                   </div>
                 )
-              })}
-
-              {/* ── Items orphelins groupés par client ── */}
-              {Array.from(byClient.entries()).map(([clientId, clientItems]) => {
-                const client = state.clients.find(c => c.id === clientId)
-                const clientSP = clientItems.reduce((acc, i) => acc + i.sp, 0)
-                return (
-                  <div key={clientId} className="roadmap-section">
-                    <div className="roadmap-section-label">
-                      <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: client?.color ?? '#888', marginRight: 5, verticalAlign: 'middle' }} />
-                      {client?.name ?? 'Client'}  <strong>{clientSP} SP</strong>
-                    </div>
-                    {clientItems.map(item => (
-                      <div key={item.id} className="roadmap-feature">
-                        <div className="roadmap-feature-dot" style={{ background: client?.color ?? '#888' }} />
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.desc}</span>
-                        <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{item.sp} SP</span>
+              })() : (
+                // ── Mode par client (défaut) : épics plats, orphelins triés alpha ──
+                <>
+                  {epicItems.map(epic => {
+                    const stories = storiesInEpics.filter(s => s.epicId === epic.id)
+                    const epicClient = state.clients.find(c => c.id === epic.clientId)
+                    const groupSP = epic.sp + stories.reduce((acc, s) => acc + s.sp, 0)
+                    return (
+                      <div key={epic.id} className="roadmap-section">
+                        <div className="roadmap-section-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, flexShrink: 0,
+                            background: epicClient?.color ?? '#6366f1', color: '#fff',
+                            borderRadius: 3, padding: '1px 4px' }}>
+                            EPIC · {epicClient?.prefix ?? '?'}
+                          </span>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.desc}</span>
+                          <strong style={{ flexShrink: 0 }}>{groupSP} SP</strong>
+                        </div>
+                        {stories.map(story => (
+                          <div key={story.id} className="roadmap-feature" style={{ paddingLeft: 10 }}>
+                            <div className="roadmap-feature-dot" style={{ background: epicClient?.color ?? '#888' }} />
+                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{story.desc}</span>
+                            <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{story.sp} SP</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )
-              })}
-
-              {epicItems.length === 0 && byClient.size === 0 && (
-                <div className="roadmap-section">
-                  <div className="roadmap-section-label">Fonctionnalites cles</div>
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Aucun item dans ce sprint.</p>
-                </div>
+                    )
+                  })}
+                  {Array.from(byClient.entries())
+                    .sort(([a], [b]) => (state.clients.find(c => c.id === a)?.name ?? '').localeCompare(state.clients.find(c => c.id === b)?.name ?? ''))
+                    .map(([clientId, clientItems]) => {
+                      const client = state.clients.find(c => c.id === clientId)
+                      const clientSP = clientItems.reduce((acc, i) => acc + i.sp, 0)
+                      return (
+                        <div key={clientId} className="roadmap-section">
+                          <div className="roadmap-section-label">
+                            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: client?.color ?? '#888', marginRight: 5, verticalAlign: 'middle' }} />
+                            {client?.name ?? 'Client'} <strong>{clientSP} SP</strong>
+                          </div>
+                          {clientItems.map(item => (
+                            <div key={item.id} className="roadmap-feature">
+                              <div className="roadmap-feature-dot" style={{ background: client?.color ?? '#888' }} />
+                              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.desc}</span>
+                              <span style={{ color: 'var(--text-muted)', fontSize: 9, whiteSpace: 'nowrap', marginLeft: 6, flexShrink: 0 }}>{item.sp} SP</span>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  {epicItems.length === 0 && byClient.size === 0 && (
+                    <div className="roadmap-section">
+                      <div className="roadmap-section-label">Fonctionnalites cles</div>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Aucun item dans ce sprint.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )

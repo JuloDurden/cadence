@@ -418,4 +418,9 @@ export const DEMO_STATE: CadenceState = {
   absences: [],
   dailyArchives: [],
   retroArchives: [],
+  clientGroups: [
+    { id: "cg1", name: "Grands comptes",  color: "#1d4ed8", clientIds: ["cl1", "cl2", "cl3"] },
+    { id: "cg2", name: "PME",             color: "#c2410c", clientIds: ["cl5"] },
+    { id: "cg3", name: "Socle & Qualité", color: "#475569", clientIds: ["cl4", "cl6"] },
+  ],
 }

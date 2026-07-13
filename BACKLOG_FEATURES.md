@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 13 juillet 2026. v0.86 : Roadmap header unifié, toggle vues Sprints/Vision/NNL, groupement par Epic. v0.85 : Backlog colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning. v0.84.x : Auto-planning ProposalPanel, fix SprintColumn Epic, ItemModal 3 modes, Sprint Planning dédié.
+> Dernière mise à jour : 13 juillet 2026. v0.87 : Groupes de clients (onglet Groupes dans la page Clients, CRUD, badge dans la liste). v0.86 : Roadmap header unifié, toggle vues Sprints/Vision/NNL, groupement par Epic. v0.85 : Backlog colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning.
 
 ---
 
@@ -44,6 +44,10 @@
 ---
 
 ## ✅ Réalisé (pour mémoire)
+
+### Clients & Roadmap
+- **Groupes de clients — Page Clients** ✅ *v0.87* — layout 50/50 : dropzones dashed en couleur de groupe à gauche (cards clients visibles à l'intérieur), toutes les cards clients draggables à droite (badge de groupe si assigné). DnD : glisser vers un groupe assigne, glisser vers le panneau droit désassigne. Header : toggle Liste/Timeline (icônes Lucide), dropdown "+ Ajouter". CRUD de groupes via modal (nom, couleur 8 tons, membres par checkbox). 3 groupes prédéfinis dans le DEMO_STATE.
+- **Groupement Roadmap par groupe de clients** ✅ *v0.87* — toggle "par client / par groupe" (icônes users/layers) dans le header Roadmap, visible si des groupes sont définis. En mode groupe : épics ET items orphelins regroupés sous les sections de groupe (couleur, SP total) ; items hors groupe en groupement client classique. Tri alphabétique des clients dans les deux modes.
 
 ### Auto-planning & What-if
 - **Mode What-if** ✅ *v0.77.0* — scénarios alternatifs de planification avec branches Git-graph, forks, comparaison côte à côte, items fictifs, capacités par sprint et facteur de vélocité

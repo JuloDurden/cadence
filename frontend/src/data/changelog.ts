@@ -15,7 +15,24 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.86',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Roadmap : header unifié, toggle de vues, groupement par Epic',current:true,changes:[
+  {version:'v0.87',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Clients : groupes, layout DnD, groupement Roadmap',current:true,changes:[
+    {tag:'feat',    text:'Page Clients redessinée : layout 50/50, groupes à gauche (dropzones en pointillés colorés) avec cards clients visibles à l\'intérieur, cards clients draggables à droite'},
+    {tag:'feat',    text:'Drag-and-drop : glisser une card client dans un groupe l\'y assigne ; glisser sur le panneau droit la désassigne'},
+    {tag:'feat',    text:'Header Clients : stats (N clients, N groupes), toggle vue Liste / Timeline (icônes Lucide layout-list et chart-gantt), dropdown "+ Ajouter" (Nouveau client / Nouveau groupe)'},
+    {tag:'feat',    text:'Cards clients compactes à l\'intérieur des groupes (prefix, nom, RAG, barre de progression) ; badge de groupe sur les cards du panneau droit'},
+    {tag:'feat',    text:'Vue Timeline : tableau client × sprint avec cellules SP et pourcentage'},
+    {tag:'feat',    text:'Roadmap : toggle "Grouper par client / Grouper par groupe de clients" (icônes users / layers) dans le header — visible si des groupes sont définis'},
+    {tag:'feat',    text:'Roadmap mode "groupe" : épics ET items orphelins regroupés par groupe de clients (en-tête coloré, SP total) ; items hors groupe en groupement client classique. Tri alphabétique des clients dans les deux modes.'},
+    {tag:'ux',      text:'Roadmap — cartes sprint : boutons Éditer / Clôturer / Rouvrir / Activer regroupés en un seul groupe d\'icônes (square-pen | lock / lock-open / power)'},
+    {tag:'ux',      text:'Roadmap — barre de statut : icônes SVG (lock, zap, clock) en remplacement des emoji/symboles ; suppression du "Cap. X SP" redondant'},
+    {tag:'ux',      text:'Roadmap — épics : badge "EPIC · PREFIX" (couleur client) dans les deux modes ; stories indentées sous leur epic'},
+    {tag:'ux',      text:'Icônes d\'édition et de suppression remplacées par les icônes Lucide square-pen et trash-2 dans les cards clients et les dropzones de groupes'},
+    {tag:'fix',     text:'Dropdown "+ Ajouter" : ajout d\'un ref sur le menu pour que le mousedown document ne ferme plus le menu avant que le click des items soit traité'},
+    {tag:'chore',   text:'Modèle de données : type ClientGroup (id, name, color, clientIds), 3 groupes prédéfinis dans le DEMO_STATE'},
+    {tag:'test',    text:'clients-groups.spec.js : layout groupes + cards, menu dropdown, CRUD groupes (via dropdown header)'},
+    {tag:'test',    text:'roadmap.spec.js : 5 tests pour le toggle groupBy et le rendu par groupe de clients'},
+  ]},
+  {version:'v0.86',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Roadmap : header unifié, toggle de vues, groupement par Epic',current:false,changes:[
     {tag:'feat',    text:'Header Roadmap unifié : stats (sprints, items) dans la barre d\'entête, bouton + Sprint déplacé dans le header, suppression du bloc hero roadmap-header-box'},
     {tag:'feat',    text:'Toggle de vues Sprints / Vision / NNL dans le header Roadmap (Vision et NNL préparés, activables en v0.88 et v0.89)'},
     {tag:'feat',    text:'Groupement par Epic dans les cartes sprint de la Roadmap : les épics apparaissent comme en-têtes avec badge EPIC coloré, leurs stories sont listées en dessous ; les items sans epic restent groupés par client'},
