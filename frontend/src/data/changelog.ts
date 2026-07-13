@@ -15,7 +15,14 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.85.0',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Backlog : colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning',current:true,changes:[
+  {version:'v0.86',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Roadmap : header unifié, toggle de vues, groupement par Epic',current:true,changes:[
+    {tag:'feat',    text:'Header Roadmap unifié : stats (sprints, items) dans la barre d\'entête, bouton + Sprint déplacé dans le header, suppression du bloc hero roadmap-header-box'},
+    {tag:'feat',    text:'Toggle de vues Sprints / Vision / NNL dans le header Roadmap (Vision et NNL préparés, activables en v0.88 et v0.89)'},
+    {tag:'feat',    text:'Groupement par Epic dans les cartes sprint de la Roadmap : les épics apparaissent comme en-têtes avec badge EPIC coloré, leurs stories sont listées en dessous ; les items sans epic restent groupés par client'},
+    {tag:'chore',   text:'Démo enrichie : 3 stories (FAX-024, MAN-025, FAX-026) liées à leurs épics respectifs pour illustrer le groupement'},
+    {tag:'test',    text:'roadmap.spec.js : tests header unifié, toggle de vues, groupement Epic dans les cartes sprint'},
+  ]},
+  {version:'v0.85',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Backlog : colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning',current:false,changes:[
     {tag:'feat',    text:'Colonne DoR dans le tableau Product Backlog : encoche verte si tous les critères sont validés, compteur X/N en orange sinon, tiret si aucun critère défini'},
     {tag:'feat',    text:'Colonne DoD dans le tableau Product Backlog : même logique que DoR'},
     {tag:'feat',    text:'Filtre "Prêt" dans la toolbar Backlog : affiche uniquement les items avec DoR à 100% (prêts pour le sprint)'},

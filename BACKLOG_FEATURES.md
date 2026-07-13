@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 13 juillet 2026. v0.85.0 : Backlog colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning. v0.84.x : Auto-planning ProposalPanel, fix SprintColumn Epic, ItemModal 3 modes, Sprint Planning dédié.
+> Dernière mise à jour : 13 juillet 2026. v0.86 : Roadmap header unifié, toggle vues Sprints/Vision/NNL, groupement par Epic. v0.85 : Backlog colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning. v0.84.x : Auto-planning ProposalPanel, fix SprintColumn Epic, ItemModal 3 modes, Sprint Planning dédié.
 
 ---
 
@@ -14,7 +14,7 @@
 ## 📋 Backlog & Planification
 
 - **Capacité nominative par sprint** — allocation individuelle (qui fait quoi sur ce sprint), pas seulement une capacité globale d'équipe.
-- **Épics et roadmap par thème** — regrouper les sprints ou les items par initiative / epic avec vue dédiée.
+- ~~**Épics et roadmap par thème**~~ ✅ *v0.86 (partiel)* — groupement Epic dans les cartes sprint Roadmap Go, header unifié avec toggle Sprints/Vision/NNL. Vision Board (v0.88) et Now/Next/Later (v0.89) restent à implémenter.
 - ~~**Critères de départ / d'entrée de sprint**~~ ✅ *v0.85.0* — colonnes DoR/DoD dans le Backlog (encoche si 100%), filtre "Prêt", filtre Statut, bandeau Sprint Planning pour les items sans DoR complète.
 
 ---
