@@ -423,6 +423,40 @@ export function SprintPlanningPage() {
       </Header>
 
       <div className="page-content" style={{ padding: '12px 16px' }}>
+        {/* Bandeau DoR : items assignés au sprint sans DoR complète */}
+        {(() => {
+          const notReady = sprintItems.filter(i => {
+            const dor = i.dor ?? []
+            return dor.length > 0 && dor.some(c => !c.done)
+          })
+          if (notReady.length === 0) return null
+          return (
+            <div data-testid="dor-banner" style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: 'rgba(245,158,11,.08)', borderLeft: '3px solid #f59e0b',
+              borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: 12,
+              color: 'var(--text-muted)'
+            }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
+                strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <span>
+                <strong style={{ color: '#f59e0b' }}>{notReady.length} item{notReady.length > 1 ? 's' : ''}</strong>
+                {' '}dans ce sprint {notReady.length > 1 ? "n'ont" : "n'a"} pas leur DoR complète :{' '}
+                {notReady.slice(0, 4).map(i => (
+                  <span key={i.id} style={{ fontFamily: 'monospace', fontSize: 10, fontWeight: 700,
+                    color: 'var(--primary)', background: 'var(--primary-light)',
+                    borderRadius: 4, padding: '1px 5px', marginRight: 3 }}>{i.key}</span>
+                ))}
+                {notReady.length > 4 && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>+{notReady.length - 4}</span>}
+              </span>
+            </div>
+          )
+        })()}
+
         <GanttView
           state={state}
           sprintId={selectedSprintId}

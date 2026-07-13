@@ -15,7 +15,15 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.84.1',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Release Planning : items Epic affichés dans leur sprint',current:true,changes:[
+  {version:'v0.85.0',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Backlog : colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning',current:true,changes:[
+    {tag:'feat',    text:'Colonne DoR dans le tableau Product Backlog : encoche verte si tous les critères sont validés, compteur X/N en orange sinon, tiret si aucun critère défini'},
+    {tag:'feat',    text:'Colonne DoD dans le tableau Product Backlog : même logique que DoR'},
+    {tag:'feat',    text:'Filtre "Prêt" dans la toolbar Backlog : affiche uniquement les items avec DoR à 100% (prêts pour le sprint)'},
+    {tag:'feat',    text:'Filtre Statut dans la toolbar Backlog : filtrer par statut Kanban (En cours, Terminé, etc.)'},
+    {tag:'feat',    text:'Bandeau d\'avertissement en haut de la page Sprint Planning : liste les clés des items assignés au sprint dont la DoR n\'est pas complète'},
+    {tag:'test',    text:'dor-dod.spec.js étendu : colonnes DoR/DoD visibles, filtre Prêt, filtre Statut, bandeau Sprint Planning sans erreur JS'},
+  ]},
+  {version:'v0.84.1',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Release Planning : items Epic affichés dans leur sprint',current:false,changes:[
     {tag:'fix', text:'SprintColumn : les items de type Epic sans enfants dans le sprint étaient silencieusement ignorés (continue trop large) — ils apparaissent désormais comme cards normales, au même titre que Bug ou US'},
   ]},
   {version:'v0.84.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Auto-planning : groupement Epic, highlight deps, icône calendrier',current:false,changes:[

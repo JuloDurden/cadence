@@ -84,7 +84,39 @@ const ICO_CAL    = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="1
 const ICO_SORT   = '<line x1="4" y1="6" x2="11" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="14 9 17 6 20 9"/><polyline points="14 15 17 18 20 15"/>'
 const ICO_LAYERS = '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/>'
 const ICO_TAG    = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'
-const ICO_PLUS   = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
+const ICO_PLUS    = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
+const ICO_CHECK   = '<path d="M20 6 9 17l-5-5"/>'
+const ICO_STATUS  = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>'
+
+/** Retourne null si pas de critères ; sinon { done, total } */
+function dorDodStat(items: { done: boolean }[] | undefined): { done: number; total: number } | null {
+  if (!items || items.length === 0) return null
+  return { done: items.filter(c => c.done).length, total: items.length }
+}
+
+/** Pastille DoR ou DoD : ✓ vert si 100%, "X/N" sinon */
+function DorDodBadge({ stat, label }: { stat: { done: number; total: number } | null; label: string }) {
+  if (!stat) return <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>—</span>
+  if (stat.done === stat.total) {
+    return (
+      <span title={`${label} : ${stat.done}/${stat.total} critères validés`}
+        style={{ color: 'var(--success, #22c55e)', display: 'inline-flex', alignItems: 'center' }}>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+      </span>
+    )
+  }
+  const pct = stat.done / stat.total
+  const color = pct === 0 ? 'var(--text-faint)' : pct >= 0.6 ? '#f59e0b' : 'var(--danger)'
+  return (
+    <span title={`${label} : ${stat.done}/${stat.total} critères validés`}
+      style={{ fontSize: 10, fontWeight: 600, color, fontFamily: 'monospace' }}>
+      {stat.done}/{stat.total}
+    </span>
+  )
+}
 
 /* ─── Component ─────────────────────────────────────────────────── */
 export function BacklogPage() {
@@ -95,6 +127,8 @@ export function BacklogPage() {
   const [filterClient,   setFilterClient]   = useState('')
   const [filterPriority] = useState('')
   const [filterTag,      setFilterTag]      = useState('')
+  const [filterStatus,   setFilterStatus]   = useState('')
+  const [filterReady,    setFilterReady]    = useState(false)
   const [groupBy,        setGroupBy]        = useState<GroupBy>('none')
   const [sortBy,         setSortBy]         = useState('')
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
@@ -126,6 +160,17 @@ export function BacklogPage() {
     return Array.from(s).sort()
   }, [state.items])
 
+  /** Catalogue complet des statuts connus (colonnes actives + extra stages) */
+  const allStatusCols = useMemo(() => {
+    const catalog = new Map([...state.kanbanCols, ...EXTRA_STAGES].map(c => [c.id, c]))
+    // Garder uniquement les statuts présents dans les items
+    const usedIds = new Set(state.items.map(i => i.status).filter(Boolean))
+    return Array.from(usedIds)
+      .map(id => catalog.get(id))
+      .filter(Boolean)
+      .sort((a, b) => a!.label.localeCompare(b!.label)) as typeof EXTRA_STAGES
+  }, [state.items, state.kanbanCols])
+
   /* ── filter + sort ── */
   const filtered = useMemo(() => {
     let items = [...state.items]
@@ -134,6 +179,8 @@ export function BacklogPage() {
     if (filterClient)   items = items.filter(i => i.clientId === filterClient)
     if (filterPriority) items = items.filter(i => i.priority === filterPriority)
     if (filterTag)      items = items.filter(i => i.tags.includes(filterTag))
+    if (filterStatus)   items = items.filter(i => i.status === filterStatus)
+    if (filterReady)    items = items.filter(i => { const s = dorDodStat(i.dor); return s !== null && s.done === s.total })
     items.sort((a, b) => {
       if (sortBy === 'sp-desc')   return b.sp - a.sp
       if (sortBy === 'sp-asc')    return a.sp - b.sp
@@ -145,7 +192,7 @@ export function BacklogPage() {
       return keyNum(a.key) - keyNum(b.key)
     })
     return items
-  }, [state.items, filterSprint, filterClient, filterPriority, filterTag, sortBy])
+  }, [state.items, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady, sortBy])
 
   /* ── group ── */
   const groups = useMemo<Group[]>(() => {
@@ -154,7 +201,7 @@ export function BacklogPage() {
       const sprints = [...state.sprints].sort((a, b) => a.number - b.number)
       for (const sp of sprints) {
         const items = filtered.filter(i => i.sprintId === sp.id)
-        if (items.length || (!filterSprint && !filterClient && !filterPriority && !filterTag))
+        if (items.length || (!filterSprint && !filterClient && !filterPriority && !filterTag && !filterStatus && !filterReady))
           result.push({ id: sp.id, label: `Sprint ${sp.number}`, items, capacity: sp.capacity, used: items.reduce((s, i) => s + i.sp, 0) })
       }
       const unassigned = filtered.filter(i => !i.sprintId)
@@ -181,7 +228,7 @@ export function BacklogPage() {
       return result
     }
     return [{ id: 'all', label: 'Tous les items', items: filtered }]
-  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, filterSprint, filterClient, filterPriority, filterTag])
+  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady])
 
   /* ── save / delete ── */
   function handleSave(item: Item) {
@@ -317,6 +364,29 @@ export function BacklogPage() {
             </select>
             <FgChev />
           </div>
+
+          {/* Statut */}
+          <div className={`fg-item${filterStatus ? ' filter-active' : ''}`}>
+            <FgIcon d={ICO_STATUS} />
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+              <option value="">Statut</option>
+              {allStatusCols.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+            <FgChev />
+          </div>
+
+          {/* Prêt (DoR 100%) */}
+          <button
+            className={`hdr-ctx-btn${filterReady ? ' filter-active' : ''}`}
+            onClick={() => setFilterReady(v => !v)}
+            title="Afficher uniquement les items avec DoR complète (prêts pour le sprint)"
+            style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: filterReady ? 700 : undefined }}>
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5"/>
+            </svg>
+            Prêt
+          </button>
         </div>
 
         <div className="hdr-ctx-sep" />
@@ -342,6 +412,8 @@ export function BacklogPage() {
               <th style={{ width: 72, textAlign: 'center' }}>Assignés</th>
               <th style={{ width: 42, textAlign: 'center' }}>SP</th>
               <th style={{ width: 120 }}>Dépendances</th>
+              <th style={{ width: 38, textAlign: 'center' }} title="Definition of Ready">DoR</th>
+              <th style={{ width: 38, textAlign: 'center' }} title="Definition of Done">DoD</th>
               <th style={{ width: 64, textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
@@ -351,7 +423,7 @@ export function BacklogPage() {
               return (
               <React.Fragment key={group.id}>
                 <tr className="sprint-row">
-                  <td colSpan={13}>
+                  <td colSpan={15}>
                     <span className="sprint-badge" style={group.color ? { borderLeft: `3px solid ${group.color}`, paddingLeft: 10 } : undefined}>
                       {groupBy === 'epic' && (
                         <button className="btn-icon" style={{ opacity: .6, marginRight: 4 }}
@@ -524,6 +596,16 @@ export function BacklogPage() {
                           )}
                         </td>
 
+                        {/* DoR */}
+                        <td style={{ textAlign: 'center' }} data-testid="dor-cell">
+                          <DorDodBadge stat={dorDodStat(item.dor)} label="DoR" />
+                        </td>
+
+                        {/* DoD */}
+                        <td style={{ textAlign: 'center' }} data-testid="dod-cell">
+                          <DorDodBadge stat={dorDodStat(item.dod)} label="DoD" />
+                        </td>
+
                         {/* Actions */}
                         <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                           <button className="btn-icon" onClick={() => setModalItem(item)} title="Modifier"><Svg d={SVG_EDIT} /></button>
@@ -534,7 +616,7 @@ export function BacklogPage() {
                       {/* US + CA expand */}
                       {isExpanded && (hasUS || criteria.length > 0) && (
                         <tr className="ca-expand-row">
-                          <td colSpan={13} className="ca-expand-cell">
+                          <td colSpan={15} className="ca-expand-cell">
                             <div className="ca-expand-inner">
                               {hasUS && (
                                 <div className="ca-us-block">
