@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+// Vision Board moved to VisionPage (/vision)
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { computeSprintEndDate, effectiveCapacity } from '../utils/sprintCapacity'
@@ -74,20 +75,6 @@ const ICO_VIEW_SPRINTS =
   '<path d="M568.529,824.115l136.304,136.304l251.638,-257.929" style="fill:none;stroke:currentColor;stroke-width:91.67px;stroke-linecap:round;"/>'
 const ICO_VIEW_SPRINTS_BOX = "0 250 1650 1100"
 
-// Vue Vision Board : œil (Lucide eye)
-const ICO_VIEW_VISION =
-  '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>' +
-  '<circle cx="12" cy="12" r="3"/>'
-
-// Vue NNL — icône custom (fournie par l'utilisateur)
-// viewBox: 230 150 750 750  (zone carrée, contenu x:277→954 y:191→867)
-const ICO_VIEW_NNL =
-  '<path d="M425.889,648.085c-42.312,-28.723 -93.369,-45.511 -148.315,-45.511l0,-75c75.678,0 145.607,24.813 202.088,66.739l-53.772,53.772Zm124.483,16.938c41.927,56.481 66.739,126.41 66.739,202.088l-75,0c0,-54.947 -16.789,-106.003 -45.511,-148.315l53.772,-53.772Z"/>' +
-  '<path d="M575.402,498.571c-81.406,-65.888 -185.043,-105.373 -297.829,-105.373l0,-75c133.49,0 255.914,47.754 351.106,127.095l-53.278,53.278Zm123.988,17.433c79.342,95.193 127.095,217.617 127.095,351.106l-75,0c0,-112.786 -39.485,-216.422 -105.373,-297.829l53.278,-53.278Z"/>' +
-  '<path d="M715.116,270.468l238.649,-79.55l-79.55,238.649l-159.099,-159.099Z"/>' +
-  '<path d="M318.198,826.486l508.288,-508.288" style="fill:none;stroke:currentColor;stroke-width:75px;"/>'
-const ICO_VIEW_NNL_BOX = "230 150 750 750"
-
 function ViewIco({ d, viewBox = "0 0 24 24", fill = "none" }: { d: string; viewBox?: string; fill?: string }) {
   return (
     <svg width={14} height={14} viewBox={viewBox} fill={fill}
@@ -111,7 +98,6 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 
 export function RoadmapPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const [view, setView] = useState<'sprints' | 'vision' | 'nnl'>('sprints')
   const [groupBy, setGroupBy] = useState<'client' | 'group'>('client')
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
   const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '', startDate: '', endDate: '' })
@@ -250,26 +236,7 @@ export function RoadmapPage() {
 
       <div style={{ flex: 1 }} />
 
-      {/* Toggle de vues — icônes uniquement */}
-      <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-        <button style={SEG_BTN(view === 'sprints')} onClick={() => setView('sprints')} title="Vue Sprints">
-          <ViewIco d={ICO_VIEW_SPRINTS} viewBox={ICO_VIEW_SPRINTS_BOX} fill="currentColor" />
-        </button>
-        <button
-          style={{ ...SEG_BTN(false), borderLeft: '1px solid var(--border)', opacity: 0.4, cursor: 'not-allowed' }}
-          disabled title="Vision Board — v0.88"
-        >
-          <ViewIco d={ICO_VIEW_VISION} />
-        </button>
-        <button
-          style={{ ...SEG_BTN(false), borderLeft: '1px solid var(--border)', opacity: 0.4, cursor: 'not-allowed' }}
-          disabled title="Now / Next / Later — v0.89"
-        >
-          <ViewIco d={ICO_VIEW_NNL} viewBox={ICO_VIEW_NNL_BOX} fill="currentColor" />
-        </button>
-      </div>
-
-      {/* Toggle groupement : par client / par groupe de clients (visible si groupes définis) */}
+      {/* Toggle groupement : par client / par groupe de clients */}
       {(state.clientGroups ?? []).length > 0 && (
         <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
           <button style={SEG_BTN(groupBy === 'client')} onClick={() => setGroupBy('client')}

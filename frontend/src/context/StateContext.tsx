@@ -48,6 +48,7 @@ type Action =
   | { type: 'ADD_CLIENT_GROUP'; payload: import('../types').ClientGroup }
   | { type: 'UPDATE_CLIENT_GROUP'; payload: import('../types').ClientGroup }
   | { type: 'DELETE_CLIENT_GROUP'; payload: string }
+  | { type: 'UPDATE_VISION_BOARD'; payload: import('../types').VisionBoard }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -82,6 +83,7 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'ADD_CLIENT_GROUP': return { ...state, clientGroups: [...(state.clientGroups ?? []), action.payload] }
     case 'UPDATE_CLIENT_GROUP': return { ...state, clientGroups: (state.clientGroups ?? []).map(g => g.id === action.payload.id ? action.payload : g) }
     case 'DELETE_CLIENT_GROUP': return { ...state, clientGroups: (state.clientGroups ?? []).filter(g => g.id !== action.payload) }
+    case 'UPDATE_VISION_BOARD': return { ...state, visionBoard: action.payload }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

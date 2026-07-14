@@ -423,4 +423,17 @@ export const DEMO_STATE: CadenceState = {
     { id: "cg2", name: "PME",             color: "#c2410c", clientIds: ["cl5"] },
     { id: "cg3", name: "Socle & Qualité", color: "#475569", clientIds: ["cl4", "cl6"] },
   ],
+  visionBoard: {
+    productName: "AutoClaimsTech",
+    vision:
+      "Démocratiser la gestion intelligente des sinistres auto en offrant aux assureurs une plateforme IA qui réduit les délais de traitement, détecte les fraudes en temps réel et améliore l'expérience du déclarant.",
+    targetGroup:
+      "Compagnies d'assurance auto et mutuelles mid-market à Enterprise (250–5 000 salariés). Gestionnaires sinistres, experts terrain et DSI souhaitant digitaliser et automatiser leurs opérations.",
+    needs:
+      "Réduire le délai de traitement des sinistres de 14 à 3 jours. Détecter automatiquement les fraudes (30 % des dossiers suspects non détectés). Offrir aux déclarants une expérience 100 % digitale, transparente et en temps réel.",
+    product:
+      "Plateforme SaaS sinistres augmentée par IA : OCR des pièces justificatives, scoring de fraude, workflow métier configurable, portail déclarant mobile-first, tableaux de bord prédictifs et API d'intégration assureur.",
+    businessGoals:
+      "Signer 10 clients Enterprise d'ici S1 2027. Réduire le coût de gestion par dossier de 40 %. Atteindre 2 M€ ARR en année 2. Devenir la référence IA sinistres en Europe francophone.",
+  },
 }

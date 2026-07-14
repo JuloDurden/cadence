@@ -242,6 +242,15 @@ export interface DailyArchive {
   createdAt: string      // ISO timestamp
 }
 
+export interface VisionBoard {
+  productName:   string
+  vision:        string
+  targetGroup:   string
+  needs:         string
+  product:       string
+  businessGoals: string
+}
+
 export interface CadenceState {
   sprints: Sprint[]; items: Item[]; team: TeamMember[]
   clients: Client[]; kanbanCols: KanbanCol[]; settings: Settings
@@ -252,6 +261,7 @@ export interface CadenceState {
   dailyArchives: DailyArchive[]
   retroArchives: RetroArchive[]
   clientGroups: ClientGroup[]
+  visionBoard: VisionBoard
 }
 
 export interface DailyEntry {

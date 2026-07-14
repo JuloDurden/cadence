@@ -16,11 +16,28 @@ const TIMEFRAMES = [
   { label: '6 mois', days: 180 },
 ]
 
+/** Une version est "mineure" (retrait dans la nav) si :
+ *  - patch > 0 : v0.84.1, v0.19.1… (déjà le cas avant)
+ *  - ET si ce n'est PAS : la version courante, l'une des 9 premières (v0.1–v0.9),
+ *    ni un "jalon dizaine" (v0.10, v0.20, v0.30…)
+ */
+function isNavMinor(v: ChangelogVersion): boolean {
+  if (v.current) return false
+  if (/v\d+\.\d+\.[1-9]/.test(v.version)) return true
+  const m = v.version.match(/v\d+\.(\d+)/)
+  if (!m) return false
+  const minor = parseInt(m[1], 10)
+  if (minor < 10) return false          // v0.1–v0.9 : prominents
+  if (minor % 10 === 0) return false    // v0.10, v0.20… : jalons, prominents
+  return true                           // tout le reste : en retrait
+}
+
 export function ChangelogPage() {
   const [search, setSearch] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
   const [timeframe, setTimeframe] = useState(30)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const navItemRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const q = search.trim().toLowerCase()
@@ -70,6 +87,46 @@ export function ChangelogPage() {
 
   function scrollTo(ver: string) {
     cardRefs.current.get(ver)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  /* ── Effet Dock macOS ── */
+  function handleNavMouseMove(e: React.MouseEvent) {
+    const mouseY = e.clientY
+    navItemRefs.current.forEach(item => {
+      const ir = item.getBoundingClientRect()
+      const center = ir.top + ir.height / 2
+      const dist = Math.abs(mouseY - center)
+      const range = 75
+      const t = Math.max(0, 1 - dist / range)
+      const isMajor = item.dataset.major === '1'
+      const dot = item.querySelector('.cl-nav-dot') as HTMLElement | null
+      const lbl = item.querySelector('.cl-nav-ver') as HTMLElement | null
+      if (dot) {
+        const baseD = isMajor ? 8 : 5
+        const maxD  = isMajor ? 14 : 9
+        dot.style.width  = `${baseD + (maxD - baseD) * t}px`
+        dot.style.height = `${baseD + (maxD - baseD) * t}px`
+        if (t > 0.08) { dot.style.background = 'var(--primary)'; dot.style.opacity = isMajor ? '1' : '0.55' }
+        else { dot.style.background = ''; dot.style.opacity = '' }
+      }
+      if (lbl) {
+        const baseF = isMajor ? 10.5 : 9.5
+        const maxF  = isMajor ? 13.5 : 11.5
+        lbl.style.fontSize   = `${baseF + (maxF - baseF) * t}px`
+        lbl.style.fontWeight = t > 0.3 ? '700' : (isMajor ? '600' : '400')
+        if (t > 0.08) lbl.style.color = 'var(--primary)'
+        else lbl.style.color = ''
+      }
+    })
+  }
+
+  function handleNavMouseLeave() {
+    navItemRefs.current.forEach(item => {
+      const dot = item.querySelector('.cl-nav-dot') as HTMLElement | null
+      const lbl = item.querySelector('.cl-nav-ver') as HTMLElement | null
+      if (dot) { dot.style.width = ''; dot.style.height = ''; dot.style.background = ''; dot.style.opacity = '' }
+      if (lbl) { lbl.style.fontSize = ''; lbl.style.fontWeight = ''; lbl.style.color = '' }
+    })
   }
 
   return (
@@ -145,18 +202,22 @@ export function ChangelogPage() {
           <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
 
             {/* Left nav */}
-            <div className="cl-nav" style={{ flexShrink: 0, width: 108 }}>
+            <div className="cl-nav" style={{ flexShrink: 0, width: 108 }}
+              onMouseMove={handleNavMouseMove}
+              onMouseLeave={handleNavMouseLeave}>
               {filtered.map(v => {
-                const isMinor = /\d+\.\d+\.[1-9]/.test(v.version)
+                const minor  = isNavMinor(v)
                 const isActive = activeId === v.version
                 return (
                   <div
                     key={v.version}
+                    ref={el => { if (el) navItemRefs.current.set(v.version, el); else navItemRefs.current.delete(v.version) }}
+                    data-major={minor ? '0' : '1'}
                     className={`cl-nav-item${isActive ? ' active' : ''}${v.current ? ' current' : ''}`}
                     onClick={() => scrollTo(v.version)}
                   >
-                    <div className={`cl-nav-dot${v.current ? ' current' : ''}${isMinor ? ' minor' : ''}`} />
-                    <span className={`cl-nav-ver${isMinor ? ' minor' : ''}`}>{v.version}</span>
+                    <div className={`cl-nav-dot${v.current ? ' current' : ''}${minor ? ' minor' : ''}`} />
+                    <span className={`cl-nav-ver${minor ? ' minor' : ''}`}>{v.version}</span>
                   </div>
                 )
               })}

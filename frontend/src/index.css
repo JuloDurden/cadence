@@ -664,6 +664,83 @@ body.sb-collapsed .app-header { left: 52px; }
 .cl-heatmap-bar { flex: 1; border-radius: 3px 3px 0 0; min-height: 4px; }
 .cl-heatmap-bar:hover { filter: brightness(1.15); }
 
+/* ── Vision Board ──────────────────────────────────────────────────────── */
+.vision-board {
+  max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 0;
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.vb-header {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 10px 20px; background: var(--surface2);
+  border-bottom: 1.5px solid var(--border);
+}
+.vb-header-label { font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text); }
+.vb-header-sub   { font-size: 11px; color: var(--text-muted); }
+
+.vb-section {
+  padding: 18px 20px 20px; border-bottom: 1.5px solid var(--border);
+  background: var(--surface);
+}
+.vb-section:last-child { border-bottom: none; }
+.vb-section-top { background: var(--surface2); }
+
+.vb-section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.vb-icon-circle {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--text); color: var(--surface);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+[data-theme="dark"] .vb-icon-circle { background: var(--text-muted); }
+.vb-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text); margin: 0; }
+
+.vb-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+}
+.vb-grid .vb-section {
+  border-bottom: none; border-right: 1.5px solid var(--border);
+}
+.vb-grid .vb-section:last-child { border-right: none; }
+
+.vb-textarea {
+  width: 100%; box-sizing: border-box; resize: none;
+  background: transparent; border: 1.5px solid transparent;
+  border-radius: 6px; padding: 8px; font-size: 13px; line-height: 1.55;
+  color: var(--text); font-family: inherit;
+  transition: border-color .15s;
+}
+.vb-textarea:focus { outline: none; border-color: var(--primary); background: var(--surface2); }
+.vb-textarea::placeholder { color: var(--text-faint); font-style: italic; }
+
+/* Vision Board — responsive 2×2 */
+@media (max-width: 900px) {
+  .vb-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .vb-grid .vb-section:nth-child(even) { border-right: none; }
+  .vb-grid .vb-section:nth-child(1),
+  .vb-grid .vb-section:nth-child(2) { border-bottom: 1.5px solid var(--border); }
+}
+
+/* Vision Board — PDF export (A4 paysage) */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  .sidebar, .app-header, .hdr-btn, .vb-product-name-input { display: none !important; }
+  .main-area { margin-left: 0 !important; }
+  .page-content { padding: 0 !important; overflow: visible !important; }
+  .vision-board {
+    max-width: 100% !important; width: 100% !important;
+    box-shadow: none !important; page-break-inside: avoid;
+  }
+  .vb-textarea { resize: none !important; overflow: hidden !important; }
+}
+
+/* Toast animation */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* Cards */
 .cl-card {
   background: var(--surface); border: 1px solid var(--border);

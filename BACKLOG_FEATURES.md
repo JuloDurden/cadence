@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 13 juillet 2026. v0.87 : Groupes de clients (onglet Groupes dans la page Clients, CRUD, badge dans la liste). v0.86 : Roadmap header unifié, toggle vues Sprints/Vision/NNL, groupement par Epic. v0.85 : Backlog colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning.
+> Dernière mise à jour : 14 juillet 2026. v0.88 : Vision Board produit (Roman Pichler, édition inline, 5 sections). v0.87 : Groupes de clients (layout DnD, CRUD), groupement Roadmap. v0.86 : Roadmap header unifié, toggle Sprints/Vision/NNL, groupement Epic.
 
 ---
 
@@ -44,6 +44,9 @@
 ---
 
 ## ✅ Réalisé (pour mémoire)
+
+### Roadmap
+- **Vision Board produit** ✅ *v0.88* — vue Vision Board (Roman Pichler) dans le toggle Sprints/Vision/NNL de la Roadmap. 5 sections éditables inline (Vision, Groupe cible, Besoins, Produit, Objectifs business), placeholders guide en français, sauvegarde auto, icônes Lucide, contenu AutoClaimsTech en démo.
 
 ### Clients & Roadmap
 - **Groupes de clients — Page Clients** ✅ *v0.87* — layout 50/50 : dropzones dashed en couleur de groupe à gauche (cards clients visibles à l'intérieur), toutes les cards clients draggables à droite (badge de groupe si assigné). DnD : glisser vers un groupe assigne, glisser vers le panneau droit désassigne. Header : toggle Liste/Timeline (icônes Lucide), dropdown "+ Ajouter". CRUD de groupes via modal (nom, couleur 8 tons, membres par checkbox). 3 groupes prédéfinis dans le DEMO_STATE.

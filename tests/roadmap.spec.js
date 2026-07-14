@@ -30,22 +30,15 @@ test.describe('Roadmap — Header unifié (v0.86)', () => {
     await expect(page.locator('[data-testid="btn-add-sprint"]')).toBeVisible();
   });
 
-  test('le toggle Sprints est actif par défaut', async ({ page }) => {
+  test('la grille de sprints est visible par défaut', async ({ page }) => {
     await goTo(page, '/roadmap');
-    // Le bouton Sprints est icon-only — on l'identifie par son title
-    const toggle = page.locator('.app-header button[title="Vue Sprints"]');
-    await expect(toggle).toBeVisible();
+    await expect(page.locator('.roadmap-grid')).toBeVisible();
   });
 
-  test('les boutons Vision et NNL sont présents mais désactivés', async ({ page }) => {
+  test('le toggle Vision/NNL n\'est plus sur la page Roadmap (déplacé sur /vision)', async ({ page }) => {
     await goTo(page, '/roadmap');
-    // Les boutons sont icon-only, on les identifie par leur title
-    const visionBtn = page.locator('.app-header button[title="Vision Board — v0.88"]');
-    const nnlBtn    = page.locator('.app-header button[title="Now / Next / Later — v0.89"]');
-    await expect(visionBtn).toBeVisible();
-    await expect(nnlBtn).toBeVisible();
-    await expect(visionBtn).toBeDisabled();
-    await expect(nnlBtn).toBeDisabled();
+    await expect(page.locator('button[title="Vision Board"]')).toHaveCount(0);
+    await expect(page.locator('button[title="Now / Next / Later — v0.89"]')).toHaveCount(0);
   });
 
   test('le roadmap-header-box (ancien bloc hero) n\'existe plus', async ({ page }) => {

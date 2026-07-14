@@ -12,15 +12,18 @@ import { AutoPlanningPage } from './pages/AutoPlanningPage'
 import { HistoriquePage } from './pages/HistoriquePage'
 import { SettingsPage } from './pages/SettingsPage'
 import { RoadmapPage } from './pages/RoadmapPage'
+import { VisionPage } from './pages/VisionPage'
 import { ChangelogPage } from './pages/ChangelogPage'
 import { SprintPlanningPage } from './pages/SprintPlanningPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { StateProvider } from './context/StateContext'
 import { TimerProvider } from './context/TimerContext'
+import { ToastProvider } from './context/ToastContext'
 import { useAuth } from './hooks/useAuth'
 
 function AppLayout() {
   return (
+    <ToastProvider>
     <TimerProvider>
       <StateProvider>
         <div className="app-shell">
@@ -39,6 +42,7 @@ function AppLayout() {
               <Route path="/clients" element={<ClientsPage />} />
               <Route path="/team" element={<TeamPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/vision" element={<VisionPage />} />
               <Route path="/roadmap" element={<RoadmapPage />} />
               <Route path="/changelog" element={<ChangelogPage />} />
               <Route path="*" element={<Navigate to="/backlog" replace />} />
@@ -47,6 +51,7 @@ function AppLayout() {
         </div>
       </StateProvider>
     </TimerProvider>
+    </ToastProvider>
   )
 }
 

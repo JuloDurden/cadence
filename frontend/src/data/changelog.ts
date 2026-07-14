@@ -15,7 +15,26 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.87',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Clients : groupes, layout DnD, groupement Roadmap',current:true,changes:[
+  {version:'v0.88',date:'14 Juillet 2026',dateISO:'2026-07-14',title:'Vision Board produit (Roman Pichler) — page dédiée',current:true,changes:[
+    {tag:'feat',    text:'Nouvelle page /vision dédiée au Vision Board produit (Roman Pichler) : accessible depuis la sidebar section "Backlog & Vision", séparée de la Roadmap'},
+    {tag:'feat',    text:'Layout Vision Board : section Vision pleine largeur + grille 4 colonnes (Groupe cible, Besoins, Produit, Objectifs business), responsive 2×2 sous 900 px'},
+    {tag:'feat',    text:'Nom du produit éditable dans le header de la page Vision (icône | nom modifiable on-blur), hardcodé "Vision Board" en préfixe'},
+    {tag:'feat',    text:'Toggle Vision / NNL dans le header — NNL désactivé avec tooltip "v0.89"'},
+    {tag:'feat',    text:'Bouton "Exporter PDF" dans le header (icône Lucide share) : déclenche window.print() avec @media print A4 paysage, board 100% largeur, sidebar et header masqués'},
+    {tag:'feat',    text:'Auto-resize synchronisé des 4 textareas de la grille : quand l\'un dépasse sa hauteur par défaut, tous s\'alignent sur le max scrollHeight (grow-only, via refs)'},
+    {tag:'ux',      text:'Toast "Vision Board enregistré" à chaque sauvegarde (onBlur) — système toast global accessible (role="status", aria-live="polite")'},
+    {tag:'ux',      text:'Placeholders en français avec les questions guides de Roman Pichler quand les champs sont vides'},
+    {tag:'ux',      text:'Icônes Lucide SVG par section : eye (Vision), users (Groupe cible), heart (Besoins), package (Produit), trending-up (Objectifs)'},
+    {tag:'chore',   text:'Modèle de données : productName ajouté à l\'interface VisionBoard ; contenu AutoClaimsTech pré-rempli dans le DEMO_STATE'},
+    {tag:'chore',   text:'ToastContext global (ToastProvider dans App.tsx) : showToast(message, type?) disponible dans toute l\'app — @keyframes toast-in dans index.css'},
+    {tag:'chore',   text:'Roadmap nettoyée : toggle Vision/NNL supprimé, page Roadmap affiche uniquement les sprints sans vue Vision'},
+  ]},
+  {version:'v0.87.1',date:'14 Juillet 2026',dateISO:'2026-07-14',title:'Changelog : versions standardisées, nav indentée, effet Dock',current:false,changes:[
+    {tag:'ux',  text:'Suppression du suffixe ".0" dans toutes les versions (v0.87.0 → v0.87) — les versions patch (v0.84.1, v0.19.1…) conservent leur numérotation complète'},
+    {tag:'ux',  text:'Nav Changelog : seuls les jalons (dizaines v0.10, v0.20 … v0.80), les 10 premières versions et la version courante sont affichés en taille normale — toutes les versions intermédiaires sont mises en retrait (style minor)'},
+    {tag:'ux',  text:'Effet Dock macOS sur la nav : le point et le texte de chaque version grandissent proportionnellement à leur proximité du curseur (rayon 75 px), avec retour progressif à la souris hors nav'},
+  ]},
+  {version:'v0.87',date:'13 Juillet 2026',dateISO:'2026-07-13',title:'Clients : groupes, layout DnD, groupement Roadmap',current:false,changes:[
     {tag:'feat',    text:'Page Clients redessinée : layout 50/50, groupes à gauche (dropzones en pointillés colorés) avec cards clients visibles à l\'intérieur, cards clients draggables à droite'},
     {tag:'feat',    text:'Drag-and-drop : glisser une card client dans un groupe l\'y assigne ; glisser sur le panneau droit la désassigne'},
     {tag:'feat',    text:'Header Clients : stats (N clients, N groupes), toggle vue Liste / Timeline (icônes Lucide layout-list et chart-gantt), dropdown "+ Ajouter" (Nouveau client / Nouveau groupe)'},
@@ -50,7 +69,7 @@ export const CHANGELOG: ChangelogVersion[] = [
   {version:'v0.84.1',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Release Planning : items Epic affichés dans leur sprint',current:false,changes:[
     {tag:'fix', text:'SprintColumn : les items de type Epic sans enfants dans le sprint étaient silencieusement ignorés (continue trop large) — ils apparaissent désormais comme cards normales, au même titre que Bug ou US'},
   ]},
-  {version:'v0.84.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Auto-planning : groupement Epic, highlight deps, icône calendrier',current:false,changes:[
+  {version:'v0.84',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Auto-planning : groupement Epic, highlight deps, icône calendrier',current:false,changes:[
     {tag:'feat',    text:'Groupement Epic dans ProposalPanel : les stories enfants (epicId) sont regroupées sous un en-tête Epic (carré coloré, clé, description, compteur N/M) — un même Epic peut être réparti sur plusieurs sprints'},
     {tag:'feat',    text:'Highlight des dépendances au hover : survoler un item colore en bleu toute sa chaîne transitive (prédécesseurs + successeurs via BFS) sans griser le reste'},
     {tag:'feat',    text:'Badge de dépendance revu : affiche la clé du prédécesseur direct (ex : PME-011) au lieu d\'un compteur, avec suffixe "Niv.N" pour les deps transitives'},
@@ -61,7 +80,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'test',    text:'auto-planning.spec.js : 11 tests (calendrier, Epic header, compteur N/M, badge dep clé + Niv., hover sans erreur JS, opacité pleine hors chaîne)'},
     {tag:'chore',   text:'demo.ts : epicId: "i7" ajouté à FAX-019 pour activer le groupement Epic dans les données de démo'},
   ]},
-  {version:'v0.83.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'ItemModal : 3 modes d\'affichage (fenêtre, volet latéral, pleine page)',current:false,changes:[
+  {version:'v0.83',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'ItemModal : 3 modes d\'affichage (fenêtre, volet latéral, pleine page)',current:false,changes:[
     {tag:'feat',    text:'Sélecteur de mode d\'affichage dans le header de la modal : fenêtre centrée (défaut), volet latéral redimensionnable, pleine page'},
     {tag:'feat',    text:'Volet latéral : panneau ancré à droite, redimensionnable par drag sur la poignée gauche (320px min, 90% max), cliquer à l\'extérieur ferme le volet'},
     {tag:'feat',    text:'Pleine page : contenu centré sur 860px avec header, onglets et footer alignés'},
@@ -70,7 +89,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'improve', text:'Icône de l\'onglet Notes remplacée par notebook-pen (Lucide v1.24)'},
     {tag:'test',    text:'modal-view.spec.js : 9 tests (picker visible, dropdown, 3 modes, clic extérieur volet, persistance localStorage, pas d\'erreur JS)'},
   ]},
-  {version:'v0.82.0',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Sprint Planning : auto-attribution, co-assignation, absences, fixes deadline',current:false,changes:[
+  {version:'v0.82',date:'12 Juillet 2026',dateISO:'2026-07-12',title:'Sprint Planning : auto-attribution, co-assignation, absences, fixes deadline',current:false,changes:[
     {tag:'feat',    text:'Bouton "Auto-attribuer" : modal de configuration avec stats, explication de l\'algorithme et prévisualisation en temps réel avant application'},
     {tag:'feat',    text:'Co-assignation automatique (solo / duo / trio) : le nombre de co-assignés est calculé selon la capacité moyenne restante et le SP de l\'item'},
     {tag:'feat',    text:'Devs absents tout le sprint filtrés de la grille ; devs partiellement absents limités au rôle de co-assigné (jamais dev attitré)'},
@@ -81,7 +100,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'ux',      text:'Séparateur entre le bouton shredder et le bouton de recherche global du header'},
     {tag:'test',    text:'sprint-planning.spec.js porté à 18 tests : header, panneau gauche, grille membres, modal auto-attribution (ouverture, stats, solo/duo/trio, Annuler, clic extérieur), Invalid Date'},
   ]},
-  {version:'v0.81.0',date:'11 Juillet 2026',dateISO:'2026-07-11',title:'Sprint Planning : page dédiée, kanban par membre, SP co-assignés corrigé',current:false,changes:[
+  {version:'v0.81',date:'11 Juillet 2026',dateISO:'2026-07-11',title:'Sprint Planning : page dédiée, kanban par membre, SP co-assignés corrigé',current:false,changes:[
     {tag:'feat',    text:'Page dédiée /sprint-planning (section "Sprint en cours" dans la sidebar) — remplace la vue Attribution de Release Planning'},
     {tag:'feat',    text:'Kanban par membre : colonnes par dev + colonne "Non attribué", sélecteur de sprint, drag-drop pour réassigner'},
     {tag:'feat',    text:'Barre de charge par membre : SP utilisés / capacité (jours ouvrés − jours fériés − absences × spPerDay), indicateur vert/orange/rouge'},
@@ -90,7 +109,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'refactor',text:'Release Planning réduit à 2 vues (Grille | Swimlanes) — la vue Attribution/Gantt est supprimée'},
     {tag:'test',    text:'sprint-planning.spec.js créé (8 tests), planning-v080.spec.js nettoyé, route /sprint-planning ajoutée aux smoke tests'},
   ]},
-  {version:'v0.80.0',date:'10 Juillet 2026',dateISO:'2026-07-10',title:'Release Planning : Gantt, Swimlanes, faisabilité, deadlines, dépendances',current:false,changes:[
+  {version:'v0.80',date:'10 Juillet 2026',dateISO:'2026-07-10',title:'Release Planning : Gantt, Swimlanes, faisabilité, deadlines, dépendances',current:false,changes:[
     {tag:'feat',    text:'Gantt par membre : vue alternative (remplace le Calendrier) — grille membres × sprints, barre de charge SP utilisé/capacité avec indicateur rouge/orange, jours fériés déduits'},
     {tag:'feat',    text:'Swimlanes par client : toggle dans la vue Grille — lignes par client × colonnes sprint, drag-drop + Epic grouping intra-cellule'},
     {tag:'feat',    text:'Indicateur de faisabilité par sprint — badge OK / Limite / Surcharge calculé sur la vélocité moyenne des 3 derniers sprints clôturés'},
@@ -98,7 +117,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',    text:'Vue dépendances cross-sprint — overlay SVG activable par bouton, flèches de Bézier bleues (ordre OK) ou rouges en tirets (ordre inversé)'},
     {tag:'ux',      text:'Header Planning : toggle Grille | Gantt + boutons Swimlanes et Dépendances (visibles uniquement en vue Grille)'},
   ]},
-  {version:'v0.79.0',date:'10 Juillet 2026',dateISO:'2026-07-10',title:'Release Planning : header, highlights, Epic grouping, scroll horizontal',current:false,changes:[
+  {version:'v0.79',date:'10 Juillet 2026',dateISO:'2026-07-10',title:'Release Planning : header, highlights, Epic grouping, scroll horizontal',current:false,changes:[
     {tag:'ux',      text:'Header Planning : stats (items assignés + SP total) à gauche du titre, filtres highlight Client + Type collés à droite des boutons de vue'},
     {tag:'feat',    text:'Highlight combiné Client × Type (AND logic) sur les cards de planning — opacity 0.22 sur les items non ciblés'},
     {tag:'fix',     text:'Scroll horizontal : colonnes sprint fixées à flex: 0 0 380px dans un wrapper BFC (overflow-x: auto) — scroll déclenché exactement à la limite du viewport'},
@@ -108,7 +127,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',     text:'US d\'un Epic splitté sur plusieurs sprints : celles non-assignées restent regroupées sous leur Epic dans le panneau non-assigné'},
     {tag:'improve', text:'Icônes calendrier, crayon et jours fériés dans les cards sprint remplacées par des SVG Lucide (suppression des emojis)'},
   ]},
-  {version:'v0.78.0',date:'6 Juillet 2026',dateISO:'2026-07-06',title:'What-if : wallet cards, État actuel highlights, badges de mouvement',current:false,changes:[
+  {version:'v0.78',date:'6 Juillet 2026',dateISO:'2026-07-06',title:'What-if : wallet cards, État actuel highlights, badges de mouvement',current:false,changes:[
     {tag:'ux',      text:'Layout iOS Wallet : les scénarios s\'empilent en cards, la card active se déploie avec animation translateY (spring cubic-bezier)'},
     {tag:'feat',    text:'État actuel : vue 2 colonnes — panneau de filtres highlights (Clients / Type / Priorité) et proposition côte à côte'},
     {tag:'feat',    text:'Filtres highlights combinables en AND : cocher FAXFA + Bug + Critique met en évidence uniquement les bugs critiques de FAXFA'},
@@ -121,7 +140,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'test',    text:'53 tests unitaires Node.js pour les 5 fonctions pures de autoPlanning.ts'},
     {tag:'test',    text:'Specs Playwright mises à jour : what-if.spec.js et auto-planning.spec.js reflètent le nouveau comportement (Scénario A non créé par défaut)'},
   ]},
-  {version:'v0.77.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'What-if : scénarios alternatifs, branches, forks et comparaison',current:false,changes:[
+  {version:'v0.77',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'What-if : scénarios alternatifs, branches, forks et comparaison',current:false,changes:[
     {tag:'feat',    text:'Mode What-if : N scénarios de planification simultanés (auto ou manuel) avec critères, capacités et items indépendants par scénario'},
     {tag:'feat',    text:'Visualisation Git graph style métro : lanes colorées, cercles doubles, courbes de Bézier pour forks et merges'},
     {tag:'feat',    text:'Fork de scénario : clic droit sur un point du graphe → crée un scénario B héritant des sprints précédents (non modifiables), divergeant à partir du sprint choisi'},
@@ -135,7 +154,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',    text:'Application sélective : appliquer un scénario spécifique en DB, indépendamment des autres'},
     {tag:'refactor',text:'AutoPlanningPage entièrement réécrit — ScenarioBranches.tsx extrait comme composant SVG dédié'},
   ]},
-  {version:'v0.76.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Auto-planning : icons, grammaire, DnD, persistance, exclusion client',current:false,changes:[
+  {version:'v0.76',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Auto-planning : icons, grammaire, DnD, persistance, exclusion client',current:false,changes:[
     {tag:'feat',    text:'Premier sprint ouvert : conservation du thème dans la proposition — les sprints suivants affichent uniquement "Sprint N"'},
     {tag:'fix',     text:'Grammaire : "1 nouveau sprint sera créé" / "N nouveaux sprints seront créés" (accord singulier/pluriel)'},
     {tag:'ux',      text:'Remplacement de tous les emojis par des icônes Lucide SVG : triangle-alert, arrowRight, equal, plus, star, link'},
@@ -147,7 +166,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'test',    text:'Tests Playwright : modal client (checkbox), auto-planning (thème, grammaire, persistance, draggable)'},
     {tag:'feat',    text:'Changelog : heatmap configurable (15 j / 1 mois / 3 mois / 6 mois) — la légende et la date centrale suivent dynamiquement'},
   ]},
-  {version:'v0.75.0',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Sprints : dates éditables, jours fériés, format FR',current:false,changes:[
+  {version:'v0.75',date:'5 Juillet 2026',dateISO:'2026-07-05',title:'Sprints : dates éditables, jours fériés, format FR',current:false,changes:[
     {tag:'feat',    text:'Édition inline des dates de sprint dans la page Planning (✎/✓/✕) — cliquer le range date ouvre les inputs'},
     {tag:'feat',    text:'Auto-calcul de la date de fin : modifier le début recalcule automatiquement la fin (début + semaines × 7 − 1)'},
     {tag:'feat',    text:'Cascade automatique : modifier le début d\'un sprint met à jour les dates de tous les sprints suivants'},
@@ -165,7 +184,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'refactor',text:'loadFromServer simplifié : la DB est l\'unique source de vérité, le DEMO_STATE n\'est plus fusionné au chargement'},
     {tag:'test',    text:'Tests Playwright : dates sprint en format JJ/MM, ✎ édition inline, champ Sprint 1 dans Réglages'},
   ]},
-  {version:'v0.74.0',date:'4 Juillet 2026',dateISO:'2026-07-04',title:'Kanban : refonte complète React',current:false,changes:[
+  {version:'v0.74',date:'4 Juillet 2026',dateISO:'2026-07-04',title:'Kanban : refonte complète React',current:false,changes:[
     {tag:'refactor',text:'Réécriture complète de KanbanPage, KanbanColumn et KanbanCard en React/TypeScript'},
     {tag:'feat',    text:'Header contextuel : sélecteur de sprint, thème et objectif du sprint, capacité SP terminée / prévue'},
     {tag:'feat',    text:'Tri des cartes : Priorité / SP ↓ / SP ↑ / Assigné via select overlay transparent'},
@@ -185,7 +204,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',    text:'BacklogPage : badge Statut étendu aux statuts hors colonnes Kanban actives (Backlog, Ajourné)'},
     {tag:'test',    text:'17 tests Playwright couvrant colonnes, DnD, popup Colonne, Réorganiser, Retirer du sprint, Backlog/Ajourné'},
   ]},
-  {version:'v0.73.0',date:'3 Juillet 2026',dateISO:'2026-07-03',title:'Rétrospective : refonte complète React',current:false,changes:[
+  {version:'v0.73',date:'3 Juillet 2026',dateISO:'2026-07-03',title:'Rétrospective : refonte complète React',current:false,changes:[
     {tag:'refactor',text:'Réécriture complète de RetroPage.tsx — sous-composants extraits (RetroArchiveCard, RetroArchiveCol, RetroArchiveItem)'},
     {tag:'feat',    text:'Sélecteur de format stylé 170px avec 3 formats : Start/Stop/Continue, Mad/Sad/Glad, 4Ls'},
     {tag:'ux',      text:'Boutons header icon-only avec infobulles : Copier le résumé, Archiver, Effacer toutes les saisies'},
@@ -196,19 +215,19 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',     text:'max-width: 100% sur .hdr-select (était 80px, bloquait les largeurs personnalisées)'},
     {tag:'test',    text:'{exact: true} sur les textes de colonnes pour éviter les violations strict mode Playwright'},
   ]},
-  {version:'v0.72.0',date:'3 Juillet 2026',dateISO:'2026-07-03',title:'Daily Standup : refonte React, icons Lucide, select durée',current:false,changes:[
+  {version:'v0.72',date:'3 Juillet 2026',dateISO:'2026-07-03',title:'Daily Standup : refonte React, icons Lucide, select durée',current:false,changes:[
     {tag:'refactor',text:'Refonte du composant DailyPage : icônes Lucide SVG (shredder, copy, archive) via composant Ico'},
     {tag:'feat',    text:'Sélecteur de durée stylé 80px (même convention que les selects header : border, borderRadius, backgroundColor)'},
     {tag:'ux',      text:'Icône shredder sur le bouton Effacer toutes les saisies (cohérence avec Retro)'},
     {tag:'test',    text:'Tests Playwright : timer, cartes membres, absences, Daily archives, labels Hier/Aujourd\'hui/Blocages'},
   ]},
-  {version:'v0.71.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Équipe : CRUD complet, photo upload, tests',current:false,changes:[
+  {version:'v0.71',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Équipe : CRUD complet, photo upload, tests',current:false,changes:[
     {tag:'feat',    text:'Upload et recadrage de photo de profil (crop modal) pour chaque membre'},
     {tag:'fix',     text:'z-index crop modal corrigé — s\'affiche au-dessus de tous les autres éléments'},
     {tag:'ux',      text:'Boutons membre : style unifié, dropdown tags avec autocomplete'},
     {tag:'test',    text:'Tests Playwright : CRUD membres, absences, jours fériés, membres absents sur Daily'},
   ]},
-  {version:'v0.70.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Backlog : types d\'items, modal React adaptative',current:false,changes:[
+  {version:'v0.70',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Backlog : types d\'items, modal React adaptative',current:false,changes:[
     {tag:'feat',    text:'Types d\'items spécifiques : Story, Bug (urgent/medium/minor), Tâche, Spike, Epic'},
     {tag:'feat',    text:'Modal adaptative selon le type : onglets et champs contextuels (ex. sévérité Bug, no Scoring sur Tâche)'},
     {tag:'feat',    text:'23 items de démo (400 SP) avec types variés, assignés, scoring WSJF/RICE/MoSCoW'},
@@ -216,7 +235,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',    text:'Onglet Notes React : pièces jointes, liens, réponses threadées, auteur par profil actif'},
     {tag:'test',    text:'Tests Playwright réécrits pour la version React (80 tests, 8 workers)'},
   ]},
-  {version:'v0.60.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Transfert complet du projet sous React + TypeScript',current:false,changes:[
+  {version:'v0.60',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Transfert complet du projet sous React + TypeScript',current:false,changes:[
     {tag:'refactor',text:'Migration complète de l\'application monofichier HTML/JS vers React 18 + TypeScript + Vite'},
     {tag:'refactor',text:'Architecture : React Context + useReducer (CadenceState), composants par domaine, typage strict'},
     {tag:'refactor',text:'Toutes les pages portées en React : Backlog, Kanban, Dashboard, Planning, Roadmap, Retro, Daily, Équipe, Clients, Historique, Réglages, Changelog'},
@@ -226,13 +245,13 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',    text:'CI : pipeline GitHub Actions avec build Vite + tests Playwright E2E (Opera)'},
     {tag:'chore',   text:'Renommage du projet : AutoClaimsTech → Cadence ; clé état cadenceState_v1'},
   ]},
-  {version:'v0.57.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Fix auto-planning : sprints clos + US terminées',current:false,changes:[
+  {version:'v0.57',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Fix auto-planning : sprints clos + US terminées',current:false,changes:[
     {tag:'fix',text:'Auto-planning : les sprints clôturés (sp.closed=true) sont désormais ignorés — ils ne sont plus inclus dans la proposition ni modifiés à l\'application'},
     {tag:'fix',text:'Auto-planning : utilisation de isDoneStatus() à la place de status===lastDoneCol.id — couvre les statuts "done", "delivered" et colonnes personnalisées'},
     {tag:'fix',text:'Auto-planning : les US déjà terminées dans un sprint en cours ne sont plus reproposées ni déplacées'},
     {tag:'fix',text:'Auto-planning : les noms des sprints futurs n\'apparaissent plus dans la preview — seul "Sprint N" est affiché (le nom est effacé à l\'application)'},
   ]},
-    {version:'v0.56.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI v2 + fix filtres Backlog',current:false,changes:[
+    {version:'v0.56',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI v2 + fix filtres Backlog',current:false,changes:[
     {tag:'ux',   text:'Dashboard : selecteur Sprint affiche "Sprint N" court, nom complet apres separateur'},
     {tag:'ux',   text:'Dashboard : icone layout affiche l\'etat cible (pas l\'etat courant)'},
     {tag:'ux',   text:'Backlog : filtres Client/Sprint/Priorite/Grouper/Tags et "Nouvel Item" alignes a droite'},
@@ -248,7 +267,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',  text:'Recherche : ajout aria-label="Recherche" sur le bouton de recherche globale'},
     {tag:'test', text:'Tests Playwright : 16 tests mis a jour suite a deplacement des controles dans le header'},
   ]},
-    {version:'v0.55.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI header contextuel',current:false,changes:[
+    {version:'v0.55',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Corrections UI header contextuel',current:false,changes:[
     {tag:'fix',text:'Sidebar collapsed : le contenu se decale correctement vers la gauche (selecteur CSS ~ au lieu de +)'},
     {tag:'ux',text:'Header : recherche placee avant notifications (acces plus frequent)'},
     {tag:'ux',text:'Dashboard : champ Sprint elargi (min-width:170px), icones monochromes (crayon, direction, reset)'},
@@ -264,7 +283,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'ux',text:'Daily : boutons Copier/Archiver/Supprimer en icones seules avec infobulles'},
     {tag:'ux',text:'Retrospective : champ Sprint elargi ; selecteur de format avec icone/label'},
   ]},
-  {version:'v0.54.0',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Menu bar contextuel (macOS style)',current:false,changes:[
+  {version:'v0.54',date:'2 Juillet 2026',dateISO:'2026-07-02',title:'Menu bar contextuel (macOS style)',current:false,changes:[
     {tag:'fix',text:'Titre du header se met a jour selon la page active'},
     {tag:'fix',text:'Onglet actif sidebar correctement identifie (matching par onclick, pas par index)'},
     {tag:'fix',text:'Activite recente dans le dropdown affiche les bonnes descriptions'},
@@ -283,24 +302,24 @@ export const CHANGELOG: ChangelogVersion[] = [
   ]},
   
   
-  {version:'v0.50.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Backlog – 3e passe design',current:false,changes:[
+  {version:'v0.50',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Backlog – 3e passe design',current:false,changes:[
     {tag:'fix',text:'Separateurs verticaux thead supprimes'},
     {tag:'fix',text:'Colonne Cle centree : dep-chain-badge en display:none'},
     {tag:'ux',text:'Toolbar : champ recherche + selects connectes en pill-group avec icones'},
     {tag:'ux',text:'Selects renommes Clients / Sprints / Trier par / Grouper / Tags'},
     {tag:'ux',text:'Badges assignes : fond uni couleur role, texte blanc, cote a cote'},
   ]},
-  {version:'v0.49.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Refonte visuelle du Backlog',current:false,changes:[
+  {version:'v0.49',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Refonte visuelle du Backlog',current:false,changes:[
     {tag:'feat',text:'Contrôles filtres/tri/groupe unifiés dans une zone visuelle cohérente (filter-group)'},
     {tag:'feat',text:'Séparateurs verticaux entre les colonnes du tableau backlog'},
     {tag:'feat',text:'Boutons d\'action remplacés par des icônes SVG monochrome (cohérence visuelle)'},
   ]},
-  {version:'v0.48.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Attribution utilisateur dans l\'historique',current:false,changes:[
+  {version:'v0.48',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Attribution utilisateur dans l\'historique',current:false,changes:[
     {tag:'feat',text:'Nom de l\'auteur affiché sur chaque entrée du journal d\'activité (Historique et widget Dashboard)'},
     {tag:'feat',text:'Filtre par auteur dans le journal d\'activité'},
     {tag:'feat',text:'Données de démo enrichies avec attribution réaliste sur toutes les entrées historiques'},
   ]},
-  {version:'v0.47.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Tags / labels libres',current:false,changes:[
+  {version:'v0.47',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Tags / labels libres',current:false,changes:[
     {tag:'feat',text:'Tags libres sur les items : picker avec autocomplete, multi-tags, chips dans le backlog'},
     {tag:'feat',text:'Tags de competences sur les membres : associer des tags a chaque membre'},
     {tag:'feat',text:'Membres suggeres dans la modale US (onglet Equipe) selon les tags communs'},
@@ -309,7 +328,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Export CSV et Excel : colonne Tags ajoutee'},
     {tag:'fix', text:'Bouton Restaurer JSON : remplacement par label natif (fiabilite navigateur)'},
   ]},
-  {version:'v0.46.0',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Export/Import JSON + CSV, unification des exports',current:false,changes:[
+  {version:'v0.46',date:'1 Juillet 2026',dateISO:'2026-07-01',title:'Export/Import JSON + CSV, unification des exports',current:false,changes:[
     {tag:'feat', text:'Export JSON : sauvegarde complète de l\'état (sprints, items, équipe, clients, historique) en un fichier JSON téléchargeable'},
     {tag:'feat', text:'Import JSON : restauration depuis un fichier JSON précédemment exporté, avec validation de structure'},
     {tag:'feat', text:'Export CSV : export natif du backlog sans dépendance externe — fonctionne en mode hors ligne'},
@@ -319,13 +338,13 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'chore',text:'Renommage : release-planning.html → cadence.html, clé localStorage aclaimsState_v1 → cadenceState_v1'},
     {tag:'chore',text:'Documentation : README enrichi (badge CI, architecture, raccourcis), USER-GUIDE.md complet'},
   ]},
-  {version:'v0.45.0',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Fixes : DoR/DoD, Dashboard statuts, tri CA clients',current:false,changes:[
+  {version:'v0.45',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Fixes : DoR/DoD, Dashboard statuts, tri CA clients',current:false,changes:[
     {tag:'fix',  text:'DoR/DoD : les cases a cocher mettaient a jour le wrapper findItem et non l\'item lui-meme — jauge et barre de progression maintenant correctes'},
     {tag:'fix',  text:'Dashboard : introduction d\'isDoneStatus() — les colonnes Termine et Livre comptent toutes les deux comme statuts valides pour les metriques'},
     {tag:'fix',  text:'Stats du Sprint, Stats Globales, Lead/Cycle Time, Velocite devs : tous mis a jour pour utiliser isDoneStatus()'},
     {tag:'fix',  text:'Tri clients par CA annuel : la comparaison utilisait localeCompare sur des nombres — remplace par soustraction numerique'},
   ]},
-  {version:'v0.44.0',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Clients : importance + organigramme + statut dans le Backlog',current:false,changes:[
+  {version:'v0.44',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Clients : importance + organigramme + statut dans le Backlog',current:false,changes:[
     {tag:'feat', text:'Fiche client enrichie : niveau d\'importance (A Stratégique / B Important / C Standard) + CA annuel estimé'},
     {tag:'feat', text:'Organigramme client : liste de contacts avec rôle, email, téléphone et type (Décideur, Sponsor, Technique...)'},
     {tag:'ux',   text:'Colonne Statut ajoutée dans le tableau Product Backlog — statut Kanban visible au niveau du projet'},
@@ -334,7 +353,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',  text:'Drag-and-drop Kanban : stopPropagation sur les cartes pour éviter le déclenchement du DnD colonne'},
     {tag:'ux',   text:'Réorganisation des colonnes via bouton dédié — les deux modes DnD (cartes vs colonnes) sont maintenant exclusifs'},
   ]},
-  {version:'v0.43.0',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Kanban : catalogue de statuts + colonnes réorganisables',current:false,changes:[
+  {version:'v0.43',date:'30 Juin 2026',dateISO:'2026-06-30',title:'Kanban : catalogue de statuts + colonnes réorganisables',current:false,changes:[
     {tag:'feat', text:'STATUS_CATALOG : 12 statuts prédéfinis avec couleur et description (Backlog, En revue, Bloqué, Livré...)'},
     {tag:'ux',   text:'Bouton + Colonne ouvre un panneau catalogue — statuts déjà actifs grisés, description de chaque statut'},
     {tag:'feat', text:'Drag-and-drop des colonnes Kanban pour réorganiser leur ordre'},
@@ -342,14 +361,14 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat', text:'Réglages > Cérémonies Scrum : participants au Daily (dev uniquement / toute l\'équipe)'},
     {tag:'fix',  text:'Compte Invité renommé Admin (accès complet sans profil sélectionné)'},
   ]},
-  {version:'v0.42.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Daily Standup : absences, archives, fix blocages',current:false,changes:[
+  {version:'v0.42',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Daily Standup : absences, archives, fix blocages',current:false,changes:[
     {tag:'fix',  text:'Saisie Blocages ne provoque plus de re-render complet (focus préservé)'},
     {tag:'feat', text:'Membres absents (RH) exclus des cartes actives, affiches en section dédiée'},
     {tag:'feat', text:'Bouton Archiver : sauvegarde le daily du jour dans S.dailyArchives'},
     {tag:'feat', text:'Archives consultables en accordeon avec copie et suppression'},
     {tag:'feat', text:'Export Copier résumé exclut les absents'},
   ]},
-  {version:'v0.41.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Graphiques et interactions glisser-deposer',current:false,changes:[
+  {version:'v0.41',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Graphiques et interactions glisser-deposer',current:false,changes:[
     {tag:'ux', text:'Burndown : grille allégée (3 lignes), labels 10px system-ui, lignes de grille plus fines'},
     {tag:'ux', text:'Burndown : ligne Idéal annotée par texte (pas seulement par couleur)'},
     {tag:'ux', text:'Burndown : label SP restants sur le dernier point réel'},
@@ -357,7 +376,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'ux', text:'Glisser-déposer dashboard : lift visuel (is-dragging), zone de dépôt en outline pointillé'},
     {tag:'fix', text:'Changelog : suppression des références de conception tierces'},
   ]},
-  {version:'v0.40.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Design system — hierarchie visuelle',current:false,changes:[
+  {version:'v0.40',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Design system — hierarchie visuelle',current:false,changes:[
     {tag:'ux', text:'Variables CSS semantiques : 4 niveaux de label, ombres, rayons, echelle typo'},
     {tag:'ux', text:'Dark mode : fonds noirs (#000/#1c1c1e/#2c2c2e), textes calibres pour accessibilite'},
     {tag:'ux', text:'Sidebar : fond blanc, labels de section plus espaces, items 34px, antialiasing'},
@@ -367,14 +386,14 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'ux', text:'Activite sidebar : pastille couleur (dot) au lieu des badges pleins'},
     {tag:'ux', text:'Base body : 13px, letter-spacing -.01em, -webkit-font-smoothing antialiased'},
   ]},
-  {version:'v0.39.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard grid + canvas fix + activite footer',current:false,changes:[
+  {version:'v0.39',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard grid + canvas fix + activite footer',current:false,changes:[
     {tag:'fix',text:'Canvas burndown/CFD : hauteur lue depuis le conteneur (plus de hardcode 200px)'},
     {tag:'fix',text:'Widgets : grille CSS Grid 6 colonnes avec dense auto-flow (S=2, M=3, L=6)'},
     {tag:'ux', text:'2 widgets S cote a cote quelque soit leur position dans la zone'},
     {tag:'ux', text:'Activite recente deplacee dans le footer sidebar, expansion vers le haut'},
     {tag:'ux', text:'Chevron activite : pointe vers le haut (pret a s ouvrir) ou vers le bas (ouvert)'},
   ]},
-  {version:'v0.38.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard fixes + Activite sidebar',current:false,changes:[
+  {version:'v0.38',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard fixes + Activite sidebar',current:false,changes:[
     {tag:'fix',text:'Canvas burndown/CFD : timing corrige avec requestAnimationFrame'},
     {tag:'fix',text:'2 widgets compact (S) cote a cote : min-width reduit a 140px'},
     {tag:'ux', text:'Header widget ultra-compact : titre discret, info au premier plan'},
@@ -383,7 +402,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Activite recente deplacee dans la sidebar (panneau collapsible)'},
     {tag:'feat',text:'Etat ouvert/ferme de l activite persiste dans localStorage'},
   ]},
-  {version:'v0.37.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard v2 : zones, tailles, densité widgets',current:false,changes:[
+  {version:'v0.37',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard v2 : zones, tailles, densité widgets',current:false,changes:[
     {tag:'feat',text:'Zones verticales cote a cote avec largeur configurable (1/3, 1/2, 2/3)'},
     {tag:'feat',text:'Couleur de zone personnalisable (5 teintes : bleu, vert, ambre, violet, rose)'},
     {tag:'feat',text:'Bascule horizontal/vertical pour les zones (bouton dans la toolbar)'},
@@ -392,7 +411,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Bouton agrandir uniquement sur les widgets avec plus de detail en modal'},
     {tag:'fix', text:'Ajout de renderSidebarSprintGoal() appele a chaque activation de sprint'},
   ]},
-  {version:'v0.36.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard widget iOS',current:false,changes:[
+  {version:'v0.36',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Dashboard widget iOS',current:false,changes:[
     {tag:'feat',text:'Dashboard entierement refondu : grille de widgets reorganisables par glisser-deposer, inspiration iOS'},
     {tag:'feat',text:'Deux zones distinctes : Vue generale et Sprint en cours'},
     {tag:'feat',text:'3 tailles de widgets (S/M/L) selectionnables en mode edition'},
@@ -403,26 +422,26 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix', text:'Lead time et Cycle time : fallback sur date de debut de sprint si createdAt absent'},
     {tag:'fix', text:'Metriques de flow visibles sur la demodonnees sans avoir a bouger des items'},
   ]},
-  {version:'v0.35.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Commentaires collaboratifs',current:false,changes:[
+  {version:'v0.35',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Commentaires collaboratifs',current:false,changes:[
     {tag:'feat',text:'Commentaires threadés sur les items : répondre à un commentaire avec indentation'},
     {tag:'feat',text:'Auteur tagué automatiquement via le profil actif (gestion utilisateurs)'},
     {tag:'feat',text:'Support URL image : preview inline dans le commentaire (utile pour maquettes)'},
     {tag:'feat',text:'Auto-linkification des URLs dans le texte des commentaires'},
     {tag:'improve',text:'Migration backward-compatible : les notes existantes deviennent des commentaires sans auteur'},
   ]},
-  {version:'v0.34.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Lead time, Cycle time et CFD',current:false,changes:[
+  {version:'v0.34',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Lead time, Cycle time et CFD',current:false,changes:[
     {tag:'feat',text:'Lead time : temps moyen création -> livraison par sprint et global (Dashboard)'},
     {tag:'feat',text:'Cycle time : temps moyen démarrage -> livraison par sprint et global (Dashboard)'},
     {tag:'feat',text:'Cumulative Flow Diagram (CFD) : canvas stacked bars par jour de sprint (Dashboard)'},
     {tag:'feat',text:'startedAt tracké automatiquement au premier déplacement Kanban hors colonne initiale'},
     {tag:'feat',text:'createdAt ajouté aux nouveaux items dès leur création'},
   ]},
-  {version:'v0.33.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Sprint Goal sur Kanban et Dashboard',current:false,changes:[
+  {version:'v0.33',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Sprint Goal sur Kanban et Dashboard',current:false,changes:[
     {tag:'improve',text:'"Objectif stratégique" renommé "Sprint Goal" dans la Roadmap'},
     {tag:'feat',text:'Sprint Goal affiché en bannière dans la toolbar Kanban (sprint actif)'},
     {tag:'feat',text:'Sprint Goal affiché dans la section Sprint du Dashboard'},
   ]},
-  {version:'v0.32.0',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Réorganisation sidebar et métriques',current:false,changes:[
+  {version:'v0.32',date:'26 Juin 2026',dateISO:'2026-06-26',title:'Réorganisation sidebar et métriques',current:false,changes:[
     {tag:'improve',text:'Footer : 3 groupes macOS-style - undo/redo | recherche (star) | config (petits)'},
     {tag:'feat',text:'Menu Clients collapsible avec chevron dans la sidebar'},
     {tag:'feat',text:'Bouton Rapport client visible sur chaque carte dans l\'onglet Clients'},
@@ -430,26 +449,26 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',text:'Bug Kanban : sélecteur de sprint débloqué même quand un sprint est actif'},
     {tag:'fix',text:'Tirets cadratins supprimés dans changelog et demo-data.js'},
   ]},
-  {version:'v0.31.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Gestion utilisateurs - profil actif',current:false,changes:[
+  {version:'v0.31',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Gestion utilisateurs - profil actif',current:false,changes:[
     {tag:'feat',text:'Sélecteur "Je suis…" dans la sidebar - choisir son profil parmi les membres de l\'équipe'},
     {tag:'feat',text:'Profil persisté en localStorage - retrouvé à chaque rechargement'},
     {tag:'feat',text:'Votes de Rétrospective nominatifs par userId (1 vote/personne/carte, persisté)'},
     {tag:'feat',text:'Historique des actions tagué par auteur'},
   ]},
-  {version:'v0.30.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Rapport client exportable',current:false,changes:[
+  {version:'v0.30',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Rapport client exportable',current:false,changes:[
     {tag:'feat',text:'Bouton 📄 Rapport sur chaque carte client - génère un fichier HTML standalone'},
     {tag:'feat',text:'Rapport : KPIs (items, SP engagés, SP terminés, avancement %), barre de progression'},
     {tag:'feat',text:'Rapport : détail par sprint avec table items, statut coloré, assignés'},
     {tag:'feat',text:'Rapport : CSS print intégré - imprimable directement depuis le navigateur'},
   ]},
-  {version:'v0.29.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Daily Standup + Recherche globale',current:false,changes:[
+  {version:'v0.29',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Daily Standup + Recherche globale',current:false,changes:[
     {tag:'feat',text:'Onglet Daily Standup : cards par membre (Hier / Aujourd\'hui / Blocages), timer 15 min'},
     {tag:'feat',text:'Daily : blocker board automatique si des blocages sont saisis'},
     {tag:'feat',text:'Daily : export résumé copié dans le presse-papier (format Slack/email)'},
     {tag:'feat',text:'Recherche globale Ctrl+K : live search sur clés, descriptions, US, notes, critères'},
     {tag:'feat',text:'Recherche : navigation clavier ↑↓ + Entrée, icône 🔍 dans la sidebar'},
   ]},
-  {version:'v0.28.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Rétrospective + fix Dashboard sprint',current:false,changes:[
+  {version:'v0.28',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Rétrospective + fix Dashboard sprint',current:false,changes:[
     {tag:'feat',text:'Onglet Rétrospective : board Start/Stop/Continue, Mad/Sad/Glad ou 4Ls au choix'},
     {tag:'feat',text:'Cartes sticky notes par colonne - ajout, suppression, vote 👍'},
     {tag:'feat',text:'Actions issues de la retro : propriétaire, deadline, statut (À faire / En cours / Fait)'},
@@ -457,13 +476,13 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'refactor',text:'demo-data.js : 2 retros de démo (Sprint 1 terminée, Sprint 2 en cours)'},
     {tag:'fix',text:'Dashboard : sélecteur de sprint libre même avec un sprint actif'},
   ]},
-  {version:'v0.27.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Definition of Done / Definition of Ready',current:false,changes:[
+  {version:'v0.27',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Definition of Done / Definition of Ready',current:false,changes:[
     {tag:'feat',text:'Onglet DoD/DoR dans chaque item : checklists DoR (prêt à entrer en sprint) et DoD (prêt à livrer)'},
     {tag:'feat',text:'Configuration des critères dans Réglages - ajout/suppression à la volée'},
     {tag:'feat',text:'Barre de progression par item (couleur rouge→orange→vert selon avancement)'},
     {tag:'refactor',text:'demo-data.js : DoD/DoR pré-cochées sur Sprint 1 (done=100%, doing=partiel) et Sprint 2 (DoR en cours)'},
   ]},
-   {version:'v0.26.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Réglages nettoyés + état vide + données enrichies',current:false,changes:[
+   {version:'v0.26',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Réglages nettoyés + état vide + données enrichies',current:false,changes:[
     {tag:'refactor',text:'Page Réglages : sections Thème et Export supprimées'},
     {tag:'feat',text:'SP/jour déplacé dans l\'onglet RH - bannière capacité sprint en temps réel'},
     {tag:'feat',text:'Premier lancement : projet vide au lieu de la démo automatique'},
@@ -472,7 +491,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'refactor',text:'demo-data.js enrichi : assignés, notes, scoring WSJF/MoSCoW/RICE, statuts Sprint 1'},
     {tag:'fix',text:'LS_KEY/UNDO_KEY/REDO_KEY déplacés avant buildState - fix chargement démo'},
   ]},
-  {version:'v0.25.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Séparation données / logique',current:false,
+  {version:'v0.25',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Séparation données / logique',current:false,
    changes:[
     {tag:'feat',text:'Données de démo extraites dans demo-data.js (séparation données / logique applicative)'},
     {tag:'feat',text:'DEMO_DATA : objet autonome avec sprints, équipe, clients, roadmap, settings, absences'},
@@ -480,14 +499,14 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Bouton "Charger les données de démo" dans Réglages - restaure l\'état AutoClaimsTech en un clic'},
     {tag:'refactor',text:'const S allégé : seuls les champs d\'état runtime restent inline (editingItemId, history, etc.)'},
    ]},
-  {version:'v0.24.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Navigation Cérémonies Scrum',current:false,
+  {version:'v0.24',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Navigation Cérémonies Scrum',current:false,
    changes:[
     {tag:'feat',text:'Sidebar reorganisée par cérémonies Scrum : Vue d\'ensemble, Backlog & Vision, Planification, Sprint en cours, Fin de Sprint, Référentiel'},
     {tag:'feat',text:'3 nouveaux onglets stubs : Daily Standup, Sprint Review, Rétrospective - avec page de présentation et features planifiées'},
     {tag:'feat',text:'Badge "À venir" sur les onglets en cours de développement'},
     {tag:'feat',text:'Changelog accessible via icône 📋 dans le footer sidebar'},
    ]},
-  {version:'v0.23.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Modale détail sprint (calendrier)',current:false,
+  {version:'v0.23',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Modale détail sprint (calendrier)',current:false,
    changes:[
     {tag:'feat',text:'Clic sur barre sprint ou légende du calendrier ouvre une modale dédiée'},
     {tag:'feat',text:'Modale sprint : KPIs (SP planifiés, capacité, vélocité), barre de capacité'},
@@ -497,7 +516,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Bouton "Voir dans la grille" : ferme la modale et scrolle vers la card sprint'},
     {tag:'fix',text:'Décalage timezone +1 jour corrigé sur la vue calendrier (localIso vs toISOString UTC)'},
    ]},
-  {version:'v0.22.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Vue calendrier',current:false,
+  {version:'v0.22',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Vue calendrier',current:false,
    changes:[
     {tag:'feat',text:'Vue calendrier mensuelle dans Release Planning (toggle ▦/📅)'},
     {tag:'feat',text:'Barres de sprint sur grille 7 colonnes, continuité multi-semaine'},
@@ -505,7 +524,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Légende interactive : clic pour aller à la carte sprint'},
     {tag:'feat',text:'Affichage SP réels/estimés et % de complétion par sprint'},
    ]},
-  {version:'v0.21.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Clôture de sprint',current:false,
+  {version:'v0.21',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Clôture de sprint',current:false,
    changes:[
     {tag:'feat',text:'Bouton Clôturer / Réouvrir sur chaque sprint dans le planning'},
     {tag:'feat',text:'Snapshot figé au moment de la clôture : SP réels, SP estimés, liste des items'},
@@ -513,7 +532,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Drill-down sprint clos affiche la liste des items du snapshot avec badge "FIGÉ"'},
     {tag:'fix',text:'Vélocité réelle vs estimée est désormais vraiment historique pour les sprints clos'},
    ]},
-  {version:'v0.20.0',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Historique & Undo',current:false,
+  {version:'v0.20',date:'25 Juin 2026',dateISO:'2026-06-25',title:'Historique & Undo',current:false,
    changes:[
     {tag:'feat',text:'Onglet Historique : journal d\'activite complet avec filtres par sprint et par type'},
     {tag:'feat',text:'Velocite reelle vs estimee : graphique par sprint dans l\'onglet Historique'},
@@ -529,7 +548,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',text:'Timeline nav : v0.19.0 restait allumee en scrollant hors viewport (reset sans exception current)'},
     {tag:'fix',text:'Timeline nav : decalage scroll corrige - rootMargin remplace par listener viewport reel'},
   ]},
-  {version:'v0.19.0',date:'24 Juin 2026',dateISO:'2026-06-24',title:'Refonte macOS & corrections',current:false,
+  {version:'v0.19',date:'24 Juin 2026',dateISO:'2026-06-24',title:'Refonte macOS & corrections',current:false,
    changes:[
     {tag:'ux', text:'Refonte graphique macOS : sidebar de navigation fixe inspiree de Finder/Mail'},
     {tag:'ux', text:'Navigation verticale avec sections (Referentiel, Reglages) et dividers'},
@@ -538,7 +557,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',text:'Release Planning : filtre client/bugs - tous les Epics s affichaient en surbrillance quel que soit le filtre'},
     {tag:'fix',text:'Sidebar : icone mode sombre/clair mal centree dans le bouton'},
   ]},
-  {version:'v0.18.0',date:'23 Juin 2026',dateISO:'2026-06-23',title:'Hierarchie Epic Story',current:false,
+  {version:'v0.18',date:'23 Juin 2026',dateISO:'2026-06-23',title:'Hierarchie Epic Story',current:false,
    changes:[
     {tag:'feat',text:'Type d item : Epic ou Story, selectionnable dans la modale'},
     {tag:'feat',text:'Cle Epic au format FAX-E001 distincte des Stories FAX-001'},
@@ -554,7 +573,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',text:'Stories dans un sprint different de leur Epic correctement groupees sous un header Epic virtuel'},
     {tag:'fix',text:'SP Epic correctement mis a jour dans Release Planning, Backlog et Roadmap'},
   ]},
-  {version:'v0.17.0',date:'22 Juin 2026',dateISO:'2026-06-22',title:'Theming DESIGN.md',current:false,
+  {version:'v0.17',date:'22 Juin 2026',dateISO:'2026-06-22',title:'Theming DESIGN.md',current:false,
    changes:[
     {tag:'feat',text:'Import DESIGN.md dans Reglages : coller un fichier de design pour personnaliser la palette'},
     {tag:'feat',text:'Parser de tableaux Markdown extrayant les tokens couleur et la famille typographique'},
@@ -565,7 +584,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Palette de swatches en temps reel refletant les variables CSS courantes'},
     {tag:'feat',text:'Generation du DESIGN.md canonique de l outil (light + dark, typo, espacement, elevation)'},
   ]},
-  {version:'v0.16.0',date:'21 Juin 2026',dateISO:'2026-06-21',title:'Sprint actif et statut RAG par client',current:false,
+  {version:'v0.16',date:'21 Juin 2026',dateISO:'2026-06-21',title:'Sprint actif et statut RAG par client',current:false,
    changes:[
     {tag:'feat',text:'Sprint actif : bouton Activer dans chaque carte sprint du Release Planning'},
     {tag:'feat',text:'Sprint actif : indicateur Jour X / Y avec barre de progression dans le Dashboard'},
@@ -590,7 +609,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',text:'Burndown Chart : items termines un week-end comptabilises sur le dernier jour ouvre'},
     {tag:'fix',text:'Burndown Chart : ligne Aujourd hui s affiche sur le dernier jour ouvre si on est un week-end'},
   ]},
-  {version:'v0.15.0',date:'20 Juin 2026',dateISO:'2026-06-20',title:'Onglet Clients, Export Excel, localStorage',
+  {version:'v0.15',date:'20 Juin 2026',dateISO:'2026-06-20',title:'Onglet Clients, Export Excel, localStorage',
    changes:[
     {tag:'feat',text:'Onglet Clients : CRUD clients avec Timeline/Gantt'},
     {tag:'feat',text:'Export Excel multi-feuilles via SheetJS'},
@@ -606,14 +625,14 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'fix',text:'Modal tab bar sans ascenseur parasite'},
     {tag:'fix',text:'Dropdown dependances en position fixed'},
   ]},
-  {version:'v0.14.0',date:'19 Juin 2026',dateISO:'2026-06-19',title:'Refonte modal US et Product Backlog',
+  {version:'v0.14',date:'19 Juin 2026',dateISO:'2026-06-19',title:'Refonte modal US et Product Backlog',
    changes:[
     {tag:'feat',text:'Modal US : 5 onglets (General, User Story, Dependances, Scoring, Equipe)'},
     {tag:'feat',text:'Backlog : colonnes Cle et Dependances, actions icone uniquement'},
     {tag:'feat',text:'Scoring auto-applique sans bouton'},
     {tag:'feat',text:'Deadlines dans la modale avec type impose ou negociable'},
   ]},
-  {version:'v0.13.0',date:'19 Juin 2026',dateISO:'2026-06-19',title:'Auto-planning avec contraintes de capacite et dependances',
+  {version:'v0.13',date:'19 Juin 2026',dateISO:'2026-06-19',title:'Auto-planning avec contraintes de capacite et dependances',
    changes:[
     {tag:'feat',text:'Onglet Auto-planning : proposition automatique de sprints selon capacite et dependances'},
     {tag:'feat',text:'Tri topologique des US pour respecter les dependances (constraint solving)'},
@@ -621,7 +640,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Comparaison avant / apres avec badges Sprint en cours / Modifie / Nouveau'},
     {tag:'feat',text:'Bouton Appliquer la proposition pour remplacer le planning actuel'},
   ]},
-  {version:'v0.12.0',date:'18 Juin 2026',dateISO:'2026-06-18',title:'Dashboard : velocite, burndown et indicateurs cles',
+  {version:'v0.12',date:'18 Juin 2026',dateISO:'2026-06-18',title:'Dashboard : velocite, burndown et indicateurs cles',
    changes:[
     {tag:'feat',text:'Dashboard avec velocite reelle par sprint (graphique barres)'},
     {tag:'feat',text:'Burndown chart du sprint en cours'},
@@ -629,7 +648,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Repartition des SP par client (camembert / barres)'},
     {tag:'feat',text:'Top 3 des US les plus prioritaires non assignees'},
   ]},
-  {version:'v0.11.0',date:'18 Juin 2026',dateISO:'2026-06-18',title:'Onglet RH : equipe, roles et gestion des absences',
+  {version:'v0.11',date:'18 Juin 2026',dateISO:'2026-06-18',title:'Onglet RH : equipe, roles et gestion des absences',
    changes:[
     {tag:'feat',text:'Onglet RH avec liste des membres de l equipe et leurs roles'},
     {tag:'feat',text:'CRUD membres : nom, role, avatar (initiales coloreees)'},
@@ -637,7 +656,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Calendrier des absences groupe par semaine ou par personne'},
     {tag:'feat',text:'Calcul de la capacite sprint tenant compte des absences'},
   ]},
-  {version:'v0.10.0',date:'17 Juin 2026',dateISO:'2026-06-17',title:'Kanban board avec drag-and-drop inter-colonnes',
+  {version:'v0.10',date:'17 Juin 2026',dateISO:'2026-06-17',title:'Kanban board avec drag-and-drop inter-colonnes',
    changes:[
     {tag:'feat',text:'Onglet Kanban : colonnes A faire / En cours / A tester / Termine'},
     {tag:'feat',text:'Drag-and-drop des cartes US entre les colonnes'},
@@ -645,7 +664,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Compteur de SP et de cartes par colonne'},
     {tag:'feat',text:'Couleur de carte selon le client de l US'},
   ]},
-  {version:'v0.9.0',date:'17 Juin 2026',dateISO:'2026-06-17',title:'Dependances entre US et Product Roadmap Go',
+  {version:'v0.9',date:'17 Juin 2026',dateISO:'2026-06-17',title:'Dependances entre US et Product Roadmap Go',
    changes:[
     {tag:'feat',text:'Dependances entre US : selection multi-cle dans la modale'},
     {tag:'feat',text:'Onglet Product Roadmap Go : vue par groupe / epic sur la timeline'},
@@ -653,7 +672,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Lien roadmap <-> sprint : un epic est associe a un sprint'},
     {tag:'feat',text:'Validation : alerte si une US est planifiee avant sa dependance'},
   ]},
-  {version:'v0.8.0',date:'16 Juin 2026',dateISO:'2026-06-16',title:'Scoring WSJF, RICE et MoSCoW',
+  {version:'v0.8',date:'16 Juin 2026',dateISO:'2026-06-16',title:'Scoring WSJF, RICE et MoSCoW',
    changes:[
     {tag:'feat',text:'Onglet Scoring dans la modale US : WSJF, RICE et MoSCoW'},
     {tag:'feat',text:'Calcul automatique du score WSJF (Business Value + Time Criticality + Risk / Job Size)'},
@@ -661,7 +680,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Badge de priorisation MoSCoW (Must, Should, Could, Won t)'},
     {tag:'feat',text:'Tri du backlog par score calcule'},
   ]},
-  {version:'v0.7.0',date:'16 Juin 2026',dateISO:'2026-06-16',title:'Mode sombre, accessibilite et criteres BDD',
+  {version:'v0.7',date:'16 Juin 2026',dateISO:'2026-06-16',title:'Mode sombre, accessibilite et criteres BDD',
    changes:[
     {tag:'feat',text:'Mode sombre / clair avec toggle dans le header'},
     {tag:'feat',text:'Criteres d acceptation format BDD (Etant donne / Quand / Alors)'},
@@ -669,42 +688,42 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat',text:'Attributs ARIA sur les onglets et modales'},
     {tag:'ux',text:'Palette de couleurs refondue avec variables CSS pour les deux themes'},
   ]},
-  {version:'v0.6.0',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Gestion de la capacite sprint et drag-and-drop',
+  {version:'v0.6',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Gestion de la capacite sprint et drag-and-drop',
    changes:[
     {tag:'feat',text:'Capacite max par sprint (SP) avec barre de progression coloree'},
     {tag:'feat',text:'Drag-and-drop des US entre sprints et pool non assigne'},
     {tag:'feat',text:'Alerte visuelle quand la capacite est depassee'},
     {tag:'feat',text:'Colonne US non assignees separee du planning'},
   ]},
-  {version:'v0.5.0',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Modale User Story complete et notes',
+  {version:'v0.5',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Modale User Story complete et notes',
    changes:[
     {tag:'feat',text:'Modale US : champs User Story (En tant que / Je souhaite / Afin de)'},
     {tag:'feat',text:'Notes libres sur chaque US avec historique horodate'},
     {tag:'feat',text:'Champ Story Points editable avec validation numerique'},
     {tag:'feat',text:'Priorite de 1 a 5 editable dans la modale et dans le backlog'},
   ]},
-  {version:'v0.4.0',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Gestion multi-sprints et reordering',
+  {version:'v0.4',date:'15 Juin 2026',dateISO:'2026-06-15',title:'Gestion multi-sprints et reordering',
    changes:[
     {tag:'feat',text:'Ajout / suppression de sprints depuis le Release Planning'},
     {tag:'feat',text:'Reordonnancement des sprints par glisser-deposer'},
     {tag:'feat',text:'Nom de sprint editable (label libre en plus du numero)'},
     {tag:'feat',text:'Decompte des SP et du nombre d US par sprint'},
   ]},
-  {version:'v0.3.0',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Clients et code couleur par US',
+  {version:'v0.3',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Clients et code couleur par US',
    changes:[
     {tag:'feat',text:'8 clients / types predefinis (FAXFA, MANFIFE, AGANOR, SOCLE, PME, Bugs)'},
     {tag:'feat',text:'Badge colore par client sur chaque US dans le backlog et le planning'},
     {tag:'feat',text:'Filtre par client dans le Product Backlog'},
     {tag:'feat',text:'Prefixe de cle automatique selon le client (FAX-001, MAN-002...)'},
   ]},
-  {version:'v0.2.0',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Product Backlog avec CRUD complet',
+  {version:'v0.2',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Product Backlog avec CRUD complet',
    changes:[
     {tag:'feat',text:'Tableau Product Backlog avec tri par priorite, SP, statut'},
     {tag:'feat',text:'Ajout, edition et suppression d US via modale'},
     {tag:'feat',text:'Attribution d une US a un sprint depuis le backlog'},
     {tag:'feat',text:'Recherche textuelle dans le backlog'},
   ]},
-  {version:'v0.1.0',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Premier prototype - Release Planning',
+  {version:'v0.1',date:'14 Juin 2026',dateISO:'2026-06-14',title:'Premier prototype - Release Planning',
    changes:[
     {tag:'feat',text:'Structure HTML/CSS/JS monofichier sans framework'},
     {tag:'feat',text:'Onglet Release Planning avec 5 sprints initiaux et US exemples AutoClaimsTech'},
