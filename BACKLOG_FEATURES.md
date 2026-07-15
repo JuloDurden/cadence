@@ -1,112 +1,194 @@
-# Backlog des futures fonctionnalités - Cadence
+# Backlog des futures fonctionnalités — Cadence
 
-> Dernière mise à jour : 13 juillet 2026. v0.85.0 : Backlog colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning. v0.84.x : Auto-planning ProposalPanel, fix SprintColumn Epic, ItemModal 3 modes, Sprint Planning dédié.
-
----
-
-## v0.90
-
-Voici les modifications que l'on peut apporter aux posts-its :
-
-- **type de post-it** : feature, release,...
-- **couleur du post-it**
-- **titre du post-it**
-- **ajout d'une image**
-- **ajout d'un lien**
-- **ajout de note**
-- pouvoir rattacher les posts-its aux différents éléments quez l'on a créé jusqu'alors :
-    - items (story, Epic, Initiative)
-    - Sprint Goal
-    - et si tu vois un ou des autres éléments à y rattacher... je suis preneur.
-
-Si l'élément rattaché a une image, des notes ou un lien, ils seront visible en cliquant sur le post Le corps du post-it sera très simple : juste le titre du post-it, la couleur, un bouton pour modifier, un autre pour supprimer et des icônes représentant les détails du post-it (rattachement, image, note, lien).
-
-On pourra ensuite rajouter d'autres éléments :
-
-- une barre d'outils pour rajouter des formes (carré, rectangle, ellipse, flèche) que l'on peut évidemment modifier, colorer (fond, bords) et supprimer,
-- un système de stylo, outil texte et marqueur pour pouvoir annoter des trucs ou dessiner des trucs,
-- un système de calques (pour gérer les profondeurs et l'ordre d'affichage) que l'on peut aussi modifier, renommer, supprimer.
-
-## 🎨 Design & UX
-
-- **Mode présentation** — vue slide-ready pour Sprint Reviews, PI Planning ou comités. Masque la sidebar, agrandit le contenu, navigation au clavier.
-- **Onboarding nouvel utilisateur** — parcours guidé à la première ouverture (tooltip progressive, checklist "premiers pas").
+> Dernière mise à jour : 15 juillet 2026.
+> v0.89 : NNL tableau blanc infini (pan/zoom/minimap, cercles redimensionnables, repositionnement radial des post-its).
 
 ---
 
-## 📋 Backlog & Planification
+## v0.90 — NNL : enrichissement des post-its et outils de dessin
 
-- **Capacité nominative par sprint** — allocation individuelle (qui fait quoi sur ce sprint), pas seulement une capacité globale d'équipe.
-- **Épics et roadmap par thème** — regrouper les sprints ou les items par initiative / epic avec vue dédiée.
+### Post-its enrichis
+
+- **Couleur libre du post-it** — palette ou color picker, mémorisée par post-it
+- **Titre + corps** — structure titre (bold, 1 ligne) + corps (texte libre multi-lignes), séparation visuelle
+- **Ajout d'une image** — glisser-déposer ou sélecteur, aperçu miniature sur le post-it
+- **Ajout d'un lien** — URL + label, icône dans le footer du post-it
+- **Note interne** — champ texte "privé" (non visible en mode présentation), icône pense-bête
+- **Rattachement à un élément Cadence** — lier un post-it à une Story, Epic, Initiative ou Sprint Goal :
+  - L'item lié est affiché dans un tooltip ou un panneau latéral au clic
+  - Si l'item lié a une image, des notes ou un lien, ils sont visibles depuis le post-it
+  - Icônes dans le footer indiquant les détails disponibles (pièce jointe, note, lien, élément)
+
+Corps du post-it visible : titre, couleur, icônes des métadonnées. Accès aux détails via un panneau ou modal au clic — pas d'information noyée dans la carte.
+
+### Barre d'outils formes
+
+- Carré, rectangle, ellipse, flèche — créer, redimensionner, colorer (fond + bords), supprimer
+- Texte libre positionnable (comme Miro)
+
+### Outils d'annotation
+
+- Stylo (tracé libre), marqueur (opacité réduite), outil texte
+- Gomme
+
+### Système de calques
+
+- Créer, nommer, réordonner, verrouiller, masquer et supprimer des calques
+- Chaque élément (post-it, forme, annotation) appartient à un calque
+- Panneau calques à gauche ou via menu contextuel
 
 ---
 
-## 👥 Collaboration & Utilisateurs
+## Chantiers majeurs d'ici la v1
 
-- **Partage en lecture seule** — générer un lien (ou un export HTML autonome) consultable sans modifier les données.
-- **Notifications** — alertes visuelles sur les items bloqués, les dépendances non satisfaites, les items sans assigné.
-- **Rôles et permissions** — PO (lecture/écriture), Dev (écriture statut uniquement), Stakeholder (lecture), avec restrictions UI.
+### 🏗 Initiative > Epic > Items — hiérarchie complète
 
----
+Aujourd'hui : Epic → Items (Story, Bug, Tâche, Spike). À faire :
 
-## 📊 Métriques & Reporting
-
-- **Rapport de sprint** — export PDF/HTML automatique en fin de sprint (vélocité, items livrés, objectif atteint, retrospective actions).
-- **Trend de vélocité sur N sprints** — graphique dédié (au-delà du seul historique par sprint déjà présent).
-- **Forecast de livraison** — basé sur la vélocité moyenne, estimer la date de fin d'une epic ou d'un ensemble d'items.
+- **Niveau Initiative** au-dessus des Epics : vision stratégique sur plusieurs mois, portée multi-équipes ou multi-produits
+- Hiérarchie : Initiative → Epic → Items
+- Vue dédiée (tree ou tableau) pour visualiser la hiérarchie complète
+- Release Planning, Auto-planning et Roadmap capables d'afficher les 3 niveaux
+- Backlog filtrable par Initiative
 
 ---
 
-## ⚙️ Technique & Intégration
+### 👥 Gestion des utilisateurs — rôles, permissions, interactions
 
-- **Import depuis Jira / Excel** — ingestion d'un backlog existant via CSV ou JSON Jira.
-- **Intégration Slack** — envoi automatique du résumé du Daily ou de la clôture de sprint dans un canal.
+- **Rôles** : PO (lecture/écriture totale), Scrum Master, Dev (écriture statut + commentaires), Stakeholder (lecture seule), Admin
+- **Onboarding** : parcours guidé à la première connexion (tooltips progressifs, checklist "premiers pas", démo interactable)
+- **Permissions fines** :
+  - Daily : seul le Scrum Master peut archiver ; chaque Dev renseigne uniquement ses propres entrées
+  - Rétrospective : votes anonymisables, export réservé au SM
+  - Auto-planning / What-if : PO uniquement
+  - Backlog : PO full CRUD, Dev lecture + changement de statut
+- **Profil utilisateur** : avatar, préférences (thème, langue), notification digest
+- **Interactions nominatives** : commentaires, @mentions dans les notes d'item, attributions visibles avec avatar
 
 ---
+
+### 🖥 Lecture seule & Mode présentation
+
+*Lié à la gestion des utilisateurs.*
+
+- **Mode lecture seule** : URL partageable (token) sans auth — Stakeholder ou client voit les données sans pouvoir les modifier ; boutons d'action masqués
+- **Mode présentation** : vue "slide-ready" adaptée aux comités, PI Planning, Sprint Review :
+  - Sidebar masquée, header simplifié, contenu plein écran
+  - Navigation clavier (←/→) entre les sections
+  - Applicable à : Dashboard, Roadmap, NNL, Sprint Review
+
+---
+
+### 📋 Page Sprint Review
+
+Page à créer — contenu à préciser :
+
+- **Récap du sprint** : objectif, vélocité, items livrés vs planifiés, taux de completion
+- **Demo checklist** : liste des items à présenter, cases à cocher en direct
+- **Format slides** : une carte par item livré (description, client, SP), défilable en mode présentation
+- **Actions de rétrospective** : lien direct vers la section Rétro du même sprint
+- **Export PDF** : compte-rendu Sprint Review imprimable / partageable aux parties prenantes
+
+---
+
+### 📊 Dashboard — widgets opérationnels
+
+Page actuelle : KPI statiques. À faire :
+
+- **Trend de vélocité** : graphique N derniers sprints (courbe + moyenne mobile)
+- **Forecast de livraison** : basé sur la vélocité moyenne — date estimée de fin d'une Epic ou d'un ensemble d'items sélectionnés
+- **Burndown en temps réel** : pour le sprint actif
+- **Widgets configurables** : choisir quels blocs afficher, redimensionner (layout drag-and-drop)
+- **Vue par client** : charge assignée / réalisée par client sur les N derniers sprints
+
+---
+
+### 🔄 Historique & Undo/Redo
+
+- **Couverture complète** : vérifier que toutes les actions v0.80–v0.89 (NNL, Vision Board, Groupes clients, What-if, Sprint Planning) sont bien tracées dans l'historique
+- **Undo/Redo opérationnel** : Ctrl+Z / Ctrl+Y fonctionnels sur toutes les pages (actuellement partiel)
+- **Journal d'audit détaillé** : qui a fait quoi, quand — export CSV
+
+---
+
+### ⚙️ Page Réglages — étoffement et organisation
+
+- **Organisation en onglets** : Général, Équipe, Notifications, Intégrations, Sécurité, Import/Export, Avancé
+- **Jours ouvrés** : configurer les jours de travail (ex : équipe travaillant le samedi)
+- **Capacité nominative** : allocation SP par développeur et par sprint (vs capacité globale actuelle)
+- **Thèmes** : personnalisation couleur primaire, logo équipe
+- **Gestion des rôles et utilisateurs** (voir chantier dédié)
+
+---
+
+### 📥 Intégrations
+
+- **Import Jira** : ingestion d'un backlog via export CSV Jira ou API Jira (Stories, Epics, SP, priorités, statuts)
+- **Import Excel** : template Cadence en téléchargement, re-import avec mapping de colonnes configurable
+- **Intégration Slack** :
+  - Résumé automatique du Daily dans un canal configuré
+  - Notification de clôture de sprint (vélocité, items livrés)
+  - Alertes bloquants / dépendances non satisfaites
+- **MCP Claude** : MCP Cadence exposant les données Cadence (items, sprints, équipe) à Claude pour requêtes en langage naturel ("Quels items ne sont pas prêts pour le sprint 3 ?")
+
+---
+
+### 🤖 Compagnon IA
+
+- **Aide à la rédaction** : suggérer ou compléter la description d'un item, les critères BDD (Given/When/Then), la DoR/DoD à partir du titre
+- **Estimation automatique** : proposer un SP à partir de la complexité perçue (titre + description + dépendances)
+- **Résumé de sprint** : générer un compte-rendu Sprint Review ou Rétro en un clic
+- **Détection d'anomalies** : items sans SP, sans assigné, sans dépendances déclarées, deadlines à risque
+
+---
+
+### 🔒 Polish final — sécurité & performances
+
+- **Sécurité** : validation des entrées (XSS), Content Security Policy, sanitisation des imports JSON/CSV
+- **Optimisations React** : React.memo sur les listes longues (Backlog, Planning), virtualisation si > 500 items
+- **Tests** : couverture E2E > 90 %, tests unitaires sur les fonctions critiques (algorithme auto-planning, calcul WSJF, coords NNL)
+- **Accessibilité** : focus visible, aria-labels manquants, navigation clavier sur toutes les modales
+- **PWA** : manifest + service worker pour usage offline basique
+
 ---
 
 ## ✅ Réalisé (pour mémoire)
 
+### Vision & NNL
+- **Vision Board produit (Roman Pichler)** ✅ *v0.88* — page /vision dédiée, layout 4 colonnes, export PDF, nom produit éditable, toast global
+- **NNL — tableau blanc infini** ✅ *v0.89* — canvas style Miro : pan/zoom vers curseur, 2 cercles concentriques, post-its en coordonnées monde, minimap, grille de points, labels alignés, cercles redimensionnables (resize R1 pousse R2 + repositionnement radial des items)
+
 ### Auto-planning & What-if
-- **Mode What-if** ✅ *v0.77.0* — scénarios alternatifs de planification avec branches Git-graph, forks, comparaison côte à côte, items fictifs, capacités par sprint et facteur de vélocité
-- **What-if UX : wallet cards + highlights + badges** ✅ *v0.78.0* — layout iOS Wallet animé, État actuel avec filtres highlights combinables (AND), badges de mouvement S3↗/S1↘, extraction fonctions pures + 53 tests unitaires
-- **Auto-planning ProposalPanel** ✅ *v0.84.0* — groupement Epic dans la proposition (en-tête Epic, compteur N/M, multi-sprint), highlight chaîne de dépendances au hover (BFS prédécesseurs + successeurs), badge dep avec clé directe et "Niv.N" pour les transitives, icône Lucide calendar-1 en remplacement de l'emoji 📅
+- **Mode What-if** ✅ *v0.77* — scénarios alternatifs, branches Git-graph, forks, comparaison, items fictifs
+- **What-if UX : wallet cards + highlights + badges** ✅ *v0.78*
+- **Auto-planning ProposalPanel** ✅ *v0.84* — groupement Epic, highlight chaîne deps au hover, badges dep Niv.N
 
 ### Release Planning
-- **Release Planning v2** ✅ *v0.79.0* — header contextuel (stats SP + items), filtres highlights Client × Type (AND), colonnes sprint fixes 380px + scroll horizontal BFC, panneau Non-assigné sous la grille, Epic grouping avec DnD groupe/individuel bidirectionnel, icônes Lucide SVG inline
-- **Release Planning v3** ✅ *v0.80.0* — Gantt par membre (charge SP/capacité avec jours fériés, remplace Calendrier), Swimlanes par client (toggle Grille), indicateur de faisabilité sprint OK/Limite/Surcharge, deadlines flottantes sur les cards avec alerte header sprint, vue dépendances cross-sprint (overlay SVG Bézier activable)
-- **Fix items Epic dans SprintColumn** ✅ *v0.84.1* — les items de type Epic sans enfants dans le sprint étaient silencieusement ignorés (continue trop large) ; ils s'affichent désormais comme cards normales au même titre que Bug ou US
+- **Release Planning v2** ✅ *v0.79* — header contextuel, filtres, Epic grouping, DnD
+- **Release Planning v3** ✅ *v0.80* — Gantt, Swimlanes, faisabilité, deadlines, overlay deps Bézier
+- **Fix items Epic dans SprintColumn** ✅ *v0.84.1*
 
 ### Sprint Planning
-- **Sprint Planning dédié** ✅ *v0.81.0* — page /sprint-planning avec kanban par membre (colonnes par dev + Non-assigné), drag-drop pour réassigner, barre de charge SP/capacité par dev (indicateur vert/orange/rouge), SP co-assignés divisés proportionnellement
-- **Auto-attribution et co-assignation** ✅ *v0.82.0* — modal de configuration avec prévisualisation temps réel, co-assignation solo/duo/trio selon capacité, devs absents filtrés, bouton shredder "Effacer toutes les attributions", warning overflow SP
+- **Sprint Planning dédié** ✅ *v0.81* — kanban par membre, barre de charge SP/capacité
+- **Auto-attribution et co-assignation** ✅ *v0.82* — modal config, solo/duo/trio, warning overflow
 
 ### Design & UX
-- **ItemModal : 3 modes d'affichage** ✅ *v0.83.0* — sélecteur fenêtre centrée / volet latéral redimensionnable / pleine page, persistance du mode et de la largeur dans localStorage
-- **Corrections UI header contextuel** ✅ *v0.55.0* — sidebar collapse décale le contenu, recherche avant notifications, design boutons uniformisé (référence Backlog), Daily timer à droite + 20/30 min + flash fin, Kanban sprint élargi + Ordre/Réorganiser/+Colonne dans header, Planning Client/Affichage en dropdowns, Retro sprint élargi + label format, icônes monochromes (Dashboard, Auto-planning).
-- **Menu bar contextuel (style macOS)** ✅ *v0.54.0* — contrôles spécifiques à chaque page (filtres, sélecteurs, actions) migrés dans le header fixe via `#hdr-ctx`. Backlog, Dashboard, Kanban, Planning, Auto-planning, Daily, Rétrospective, Clients.
-- **Réorganisation sidebar** ✅ *v0.32.0* — footer uniforme, menu Clients collapsible, bouton Rapport par client
-- **Refonte des cartes items** ✅ *v0.40.0* — layout 2 lignes, bordure colorée par client
-- **Refonte de la page Réglages** ✅ *v0.26.0*
-- **Vue calendrier** ✅ *v0.21.0* — calendrier mensuel dans Release Planning
-- **Refonte de la page Changelog** ✅ *v0.40.0* — timeline verticale, heatmap, magnification
-- **Redesign global (système de design HIG)** ✅ *v0.40.0–0.42.0*
-- **Refonte complète du design** ✅ *v0.40.0–0.42.0* — système de design HIG, tokens couleurs, dark mode
+- **ItemModal : 3 modes** ✅ *v0.83* — fenêtre centrée / volet latéral / pleine page, persistance localStorage
+- **Clients : groupes, layout cards, groupement Roadmap** ✅ *v0.87*
+- **Roadmap : header unifié, toggle vues, groupement Epic** ✅ *v0.86*
+- **Changelog : versions standardisées, nav indentée, effet Dock** ✅ *v0.87.1*
+- **Corrections UI header contextuel** ✅ *v0.55*
+- **Menu bar contextuel (macOS)** ✅ *v0.54*
 
 ### Backlog & Planification
-- **Rapport client imprimable** ✅ *v0.30.0*
-- **Recherche globale Ctrl+K** ✅ *v0.29.0*
-- **Burndown Chart** ✅ *v0.12.0*
-- **Lead time & Cycle time** ✅ *v0.34.0*
-- **Cumulative Flow Diagram** ✅ *v0.34.0*
-- **DoR / DoD par item** ✅ *v0.20.0* — jauges et compteur X/Y
-- **Critères d'acceptation BDD (Gherkin)** ✅ *en place*
+- **DoR/DoD colonnes Backlog + filtre Prêt + bandeau Sprint Planning** ✅ *v0.85*
+- **Rapport client imprimable** ✅ *v0.30*
+- **Recherche globale Ctrl+K** ✅ *v0.29*
+- **Lead time, Cycle time, CFD** ✅ *v0.34*
 - **Scoring WSJF / RICE / MoSCoW** ✅ *en place*
-- **Sprint Goal** ✅ *v0.34.0*
-- **Clôture de sprint + snapshot vélocité** ✅ *v0.19.0*
-- **Auto-planning** ✅ *en place* — affectation selon capacité et dépendances
-- **Export Excel (backlog)** ✅ *v0.09.0*
-- **Export / Import JSON** ✅ *v0.46.0* — sauvegarde et restauration complète, import/export unifiés dans Réglages
-- **Export CSV natif (backlog)** ✅ *v0.46.0* — zéro dépendance, fallback auto si SheetJS indisponible
-- **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, export CSV+Excel avec colonne Tags, gestion globale des tags dans Réglages
-- ~~**Critères de départ / d'entrée de sprint**~~ ✅ *v0.85.0* — colonnes DoR/DoD dans le Backlog (encoche si 100%), filtre "Prêt", filtre Statut, bandeau Sprint Planning pour les items sans DoR complète.
+- **Critères BDD (Gherkin)** ✅ *en place*
+- **Export / Import JSON + CSV + Excel** ✅ *v0.46–v0.47*
+- **Tags / labels libres** ✅ *v0.47*
+- **Auto-planning** ✅ *en place*
+- **Sprint Goal, clôture sprint, snapshot vélocité** ✅ *v0.19–v0.34*
+- **Burndown Chart** ✅ *v0.12*
