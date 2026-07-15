@@ -112,7 +112,7 @@ test.describe('Auto-planning — ProposalPanel v0.84.0', () => {
     await generateScenario(page);
     const pme023 = page.locator('.page-content').getByText('PME-023', { exact: true }).first();
     if (await pme023.count() === 0) return;
-    await pme023.hover();
+    await pme023.hover({ force: true });
     await page.waitForTimeout(150);
     // BUG-006 n'a aucun lien dep avec PME-023 → opacity doit rester à 1
     const bugKey = page.locator('.page-content').getByText('BUG-006', { exact: true }).first();

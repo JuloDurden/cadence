@@ -15,7 +15,22 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.88',date:'14 Juillet 2026',dateISO:'2026-07-14',title:'Vision Board produit (Roman Pichler) — page dédiée',current:true,changes:[
+  {version:'v0.89',date:'15 Juillet 2026',dateISO:'2026-07-15',title:'Now / Next / Later — tableau blanc infini style Miro',current:true,changes:[
+    {tag:'feat',    text:'Tableau blanc infini : zoom molette vers le curseur (Miro/Figma), pan par drag sur le fond, pas de limite de canvas'},
+    {tag:'feat',    text:'Deux cercles concentriques pleins (bullseye) remplacent les arcs SVG — l\'ensemble cercles + post-its zoome et pane ensemble dans le même référentiel monde'},
+    {tag:'feat',    text:'Système de coordonnées monde : origine bas-gauche, X vers la droite, Y vers le haut (inversé vs écran) — transforms w2s/s2w centralisées'},
+    {tag:'feat',    text:'Post-its positionnés en coordonnées monde, ancrés à leur zone même pendant zoom/pan — plus de dérive entre zones'},
+    {tag:'feat',    text:'Drag post-it en coordonnées monde avec inversion Y — la zone (now/next/later) est recalculée par distance euclidienne sqrt(x²+y²) à l\'origine'},
+    {tag:'feat',    text:'Minimap (160×100) en bas à droite : cercles, points post-its colorés, rectangle de viewport — clic pour naviguer au point cliqué'},
+    {tag:'feat',    text:'Contrôles zoom (−/100%/+) en bas à droite avec reset à la vue initiale (zoom=1, origine bas-gauche)'},
+    {tag:'feat',    text:'Grille de points (dot grid) ancrée sur l\'origine monde : suit le pan et le zoom via backgroundPosition calculé depuis ox%gridSize'},
+    {tag:'feat',    text:'Labels Now/Next/Later alignés sur la même ligne horizontale (wy=50 fixe), wx dynamique avec r1/r2 — restent dans leur zone après resize'},
+    {tag:'feat',    text:'Cercles redimensionnables : drag sur le bord d\'un cercle (zone transparente 16px) — resize R1 pousse R2 du même delta, les post-its se repositionnent radialement (NOW : scale, NEXT : fraction dans la bande, LATER : décalage delta)'},
+    {tag:'feat',    text:'Resize post-it horizontal ET vertical (poignée coin bas-droit), plage 120–1000 px'},
+    {tag:'ux',      text:'Hover sur un cercle : surbrillance en var(--primary), curseur ew-resize — feedback visuel avant drag'},
+    {tag:'chore',   text:'Coordonnées démo converties en unités monde vérifiées (sqrt(x²+y²) vs R1/R2) ; action SET_NNL_ITEMS ajoutée au reducer pour les bulk updates du resize'},
+  ]},
+  {version:'v0.88',date:'14 Juillet 2026',dateISO:'2026-07-14',title:'Vision Board produit (Roman Pichler) — page dédiée',current:false,changes:[
     {tag:'feat',    text:'Nouvelle page /vision dédiée au Vision Board produit (Roman Pichler) : accessible depuis la sidebar section "Backlog & Vision", séparée de la Roadmap'},
     {tag:'feat',    text:'Layout Vision Board : section Vision pleine largeur + grille 4 colonnes (Groupe cible, Besoins, Produit, Objectifs business), responsive 2×2 sous 900 px'},
     {tag:'feat',    text:'Nom du produit éditable dans le header de la page Vision (icône | nom modifiable on-blur), hardcodé "Vision Board" en préfixe'},

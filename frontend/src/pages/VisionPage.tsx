@@ -1,15 +1,17 @@
-import React, { useRef, useCallback } from 'react'
+import React, { useRef, useCallback, useState } from 'react'
 import { useCadence } from '../context/StateContext'
 import { useToast } from '../context/ToastContext'
 import { Header } from '../components/layout/Header'
+import { NNLCanvas } from '../components/nnl/NNLCanvas'
 import type { VisionBoard } from '../types'
+
+type VisionView = 'vision' | 'nnl'
 
 // ── Icons ────────────────────────────────────────────────────────────────
 const ICO_VIEW_VISION =
   '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>' +
   '<circle cx="12" cy="12" r="3"/>'
 
-// Now/Next/Later icon (custom, from user)
 const ICO_VIEW_NNL =
   '<path d="M425.889,648.085c-42.312,-28.723 -93.369,-45.511 -148.315,-45.511l0,-75c75.678,0 145.607,24.813 202.088,66.739l-53.772,53.772Zm124.483,16.938c41.927,56.481 66.739,126.41 66.739,202.088l-75,0c0,-54.947 -16.789,-106.003 -45.511,-148.315l53.772,-53.772Z"/>' +
   '<path d="M575.402,498.571c-81.406,-65.888 -185.043,-105.373 -297.829,-105.373l0,-75c133.49,0 255.914,47.754 351.106,127.095l-53.278,53.278Zm123.988,17.433c79.342,95.193 127.095,217.617 127.095,351.106l-75,0c0,-112.786 -39.485,-216.422 -105.373,-297.829l53.278,-53.278Z"/>' +
@@ -20,6 +22,8 @@ const ICO_SHARE =
   '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>' +
   '<polyline points="16 6 12 2 8 6"/>' +
   '<line x1="12" y1="2" x2="12" y2="15"/>'
+
+const ICO_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 
 const ICO_VB_VISION = ICO_VIEW_VISION
 const ICO_VB_USERS =
@@ -70,16 +74,10 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 
 // ── VBSection ─────────────────────────────────────────────────────────────
 interface VBSectionProps {
-  icon: string
-  title: string
-  value: string
-  placeholder: string
-  top?: boolean
+  icon: string; title: string; value: string; placeholder: string; top?: boolean
   textareaRef?: (el: HTMLTextAreaElement | null) => void
-  onChange: (v: string) => void
-  onBlur: () => void
+  onChange: (v: string) => void; onBlur: () => void
 }
-
 function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange, onBlur }: VBSectionProps) {
   return (
     <div className={`vb-section${top ? ' vb-section-top' : ''}`}>
@@ -87,15 +85,8 @@ function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange
         <div className="vb-icon-circle"><VBIcon d={icon} /></div>
         <h3 className="vb-title">{title}</h3>
       </div>
-      <textarea
-        ref={textareaRef}
-        className="vb-textarea"
-        value={value}
-        placeholder={placeholder}
-        rows={top ? 3 : 6}
-        onChange={e => onChange(e.target.value)}
-        onBlur={onBlur}
-      />
+      <textarea ref={textareaRef} className="vb-textarea" value={value} placeholder={placeholder}
+        rows={top ? 3 : 6} onChange={e => onChange(e.target.value)} onBlur={onBlur} />
     </div>
   )
 }
@@ -104,8 +95,10 @@ function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange
 export function VisionPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { showToast } = useToast()
+  const [view, setView] = useState<VisionView>('vision')
+  const [modalOpen, setModalOpen] = useState(false)
 
-  // Refs for the 4 grid textareas (sync height)
+  // Vision Board — sync refs
   const gridRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map())
   const setGridRef = useCallback((key: string) => (el: HTMLTextAreaElement | null) => {
     if (el) gridRefs.current.set(key, el)
@@ -113,49 +106,38 @@ export function VisionPage() {
   }, [])
 
   const vb: VisionBoard = state.visionBoard ?? {
-    vision: '', targetGroup: '', needs: '', product: '', businessGoals: '',
+    productName: '', vision: '', targetGroup: '', needs: '', product: '', businessGoals: '',
   }
-
   const productName = vb.productName ?? ''
 
   function update(field: keyof VisionBoard, value: string) {
     dispatch({ type: 'UPDATE_VISION_BOARD', payload: { ...vb, [field]: value } })
     syncGridHeights()
   }
-
   function updateProductName(value: string) {
     dispatch({ type: 'UPDATE_VISION_BOARD', payload: { ...vb, productName: value } })
   }
-
   function save() {
     saveToServer({ ...state, visionBoard: vb })
     showToast('Vision Board enregistré')
   }
-
   function saveProductName() {
     saveToServer({ ...state, visionBoard: vb })
     showToast('Nom du produit enregistré')
   }
-
-  /** Make all 4 grid textareas the same height = max of their scrollHeights */
   function syncGridHeights() {
     requestAnimationFrame(() => {
       const els = Array.from(gridRefs.current.values())
-      // Reset heights first so scrollHeight is accurate
       els.forEach(el => { el.style.height = '' })
       const maxH = Math.max(...els.map(el => el.scrollHeight))
       els.forEach(el => { el.style.height = `${maxH}px` })
     })
   }
 
-  function handleExportPDF() {
-    window.print()
-  }
-
   return (
     <>
       <Header title="Vision Board">
-        {/* Editable product name */}
+        {/* Nom produit éditable */}
         <span style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 2px' }}>|</span>
         <input
           className="vb-product-name-input"
@@ -166,8 +148,7 @@ export function VisionPage() {
           style={{
             border: 'none', background: 'transparent',
             fontSize: 13, fontWeight: 500, color: 'var(--text)',
-            outline: 'none', width: 160,
-            padding: '2px 4px', borderRadius: 4,
+            outline: 'none', width: 160, padding: '2px 4px', borderRadius: 4,
           }}
         />
 
@@ -175,77 +156,83 @@ export function VisionPage() {
 
         {/* Toggle Vision / NNL */}
         <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-          <button style={SEG_BTN(true)} title="Vision Board">
+          <button style={SEG_BTN(view === 'vision')} onClick={() => setView('vision')} title="Vision Board">
             <ViewIco d={ICO_VIEW_VISION} />
           </button>
           <button
-            style={{ ...SEG_BTN(false), borderLeft: '1px solid var(--border)', opacity: 0.4, cursor: 'not-allowed' }}
-            disabled title="Now / Next / Later — v0.89"
+            style={{ ...SEG_BTN(view === 'nnl'), borderLeft: '1px solid var(--border)' }}
+            onClick={() => setView('nnl')}
+            title="Now / Next / Later"
+            data-testid="btn-toggle-nnl"
           >
             <ViewIco d={ICO_VIEW_NNL} viewBox="230 150 750 750" fill="currentColor" />
           </button>
         </div>
 
-        {/* Export PDF */}
-        <button
-          className="hdr-btn primary"
-          onClick={handleExportPDF}
-          style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-          title="Exporter en PDF"
-        >
-          <ViewIco d={ICO_SHARE} />
-          Exporter PDF
-        </button>
+        {/* Bouton contextuel NNL — ouvre la modal de création */}
+        {view === 'nnl' && (
+          <button
+            data-testid="btn-add-postit"
+            className="hdr-btn primary"
+            style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+            onClick={() => setModalOpen(true)}
+          >
+            <ViewIco d={ICO_PLUS} /> Post-it
+          </button>
+        )}
+
+        {view === 'vision' && (
+          <button className="hdr-btn primary" onClick={() => window.print()}
+            style={{ display: 'flex', alignItems: 'center', gap: 5 }} title="Exporter en PDF">
+            <ViewIco d={ICO_SHARE} /> Exporter PDF
+          </button>
+        )}
       </Header>
 
-      <div className="page-content">
-        <div className="vision-board">
-          <div className="vb-header">
-            <span className="vb-header-label">Vision Board produit</span>
-            <span className="vb-header-sub">Roman Pichler</span>
-          </div>
-
-          {/* Vision — pleine largeur */}
-          <VBSection
-            icon={ICO_VB_VISION} title="Vision" top
-            value={vb.vision}
-            placeholder="Quelle est la raison d'être du produit ? Quel changement positif doit-il apporter ?"
-            onChange={v => update('vision', v)} onBlur={save}
-          />
-
-          {/* Grille 4 colonnes */}
-          <div className="vb-grid">
-            <VBSection
-              icon={ICO_VB_USERS} title="Groupe cible"
-              value={vb.targetGroup}
-              placeholder="Quel segment de marché adresse-t-on ? Qui sont les clients et utilisateurs cibles ?"
-              textareaRef={setGridRef('targetGroup')}
-              onChange={v => update('targetGroup', v)} onBlur={save}
-            />
-            <VBSection
-              icon={ICO_VB_HEART} title="Besoins"
-              value={vb.needs}
-              placeholder="Quel problème le produit résout-il ? Si plusieurs besoins, priorisez-les et mettez le plus important en premier."
-              textareaRef={setGridRef('needs')}
-              onChange={v => update('needs', v)} onBlur={save}
-            />
-            <VBSection
-              icon={ICO_VB_PACKAGE} title="Produit"
-              value={vb.product}
-              placeholder="Qu'est-ce que le produit ? Quelles sont ses 3 à 5 fonctionnalités différenciantes ? Est-il réalisable ?"
-              textareaRef={setGridRef('product')}
-              onChange={v => update('product', v)} onBlur={save}
-            />
-            <VBSection
-              icon={ICO_VB_TRENDING} title="Objectifs business"
-              value={vb.businessGoals}
-              placeholder="Comment le produit bénéficiera-t-il à l'entreprise ? Priorisez les objectifs et mettez le plus important en premier."
-              textareaRef={setGridRef('businessGoals')}
-              onChange={v => update('businessGoals', v)} onBlur={save}
-            />
+      {/* ── Vue Vision Board ── */}
+      {view === 'vision' && (
+        <div className="page-content">
+          <div className="vision-board">
+            <div className="vb-header">
+              <span className="vb-header-label">Vision Board produit</span>
+              <span className="vb-header-sub">Roman Pichler</span>
+            </div>
+            <VBSection icon={ICO_VB_VISION} title="Vision" top
+              value={vb.vision}
+              placeholder="Quelle est la raison d'être du produit ? Quel changement positif doit-il apporter ?"
+              onChange={v => update('vision', v)} onBlur={save} />
+            <div className="vb-grid">
+              <VBSection icon={ICO_VB_USERS} title="Groupe cible"
+                value={vb.targetGroup}
+                placeholder="Quel segment de marché adresse-t-on ? Qui sont les clients et utilisateurs cibles ?"
+                textareaRef={setGridRef('targetGroup')}
+                onChange={v => update('targetGroup', v)} onBlur={save} />
+              <VBSection icon={ICO_VB_HEART} title="Besoins"
+                value={vb.needs}
+                placeholder="Quel problème le produit résout-il ? Si plusieurs besoins, priorisez-les et mettez le plus important en premier."
+                textareaRef={setGridRef('needs')}
+                onChange={v => update('needs', v)} onBlur={save} />
+              <VBSection icon={ICO_VB_PACKAGE} title="Produit"
+                value={vb.product}
+                placeholder="Qu'est-ce que le produit ? Quelles sont ses 3 à 5 fonctionnalités différenciantes ? Est-il réalisable ?"
+                textareaRef={setGridRef('product')}
+                onChange={v => update('product', v)} onBlur={save} />
+              <VBSection icon={ICO_VB_TRENDING} title="Objectifs business"
+                value={vb.businessGoals}
+                placeholder="Comment le produit bénéficiera-t-il à l'entreprise ? Priorisez les objectifs et mettez le plus important en premier."
+                textareaRef={setGridRef('businessGoals')}
+                onChange={v => update('businessGoals', v)} onBlur={save} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Vue Now / Next / Later ── */}
+      {view === 'nnl' && (
+        <div className="page-content nnl-page-content">
+          <NNLCanvas modalOpen={modalOpen} onModalClose={() => setModalOpen(false)} />
+        </div>
+      )}
     </>
   )
 }

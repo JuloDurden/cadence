@@ -49,6 +49,10 @@ type Action =
   | { type: 'UPDATE_CLIENT_GROUP'; payload: import('../types').ClientGroup }
   | { type: 'DELETE_CLIENT_GROUP'; payload: string }
   | { type: 'UPDATE_VISION_BOARD'; payload: import('../types').VisionBoard }
+  | { type: 'ADD_NNL_ITEM';    payload: import('../types').NNLItem }
+  | { type: 'UPDATE_NNL_ITEM'; payload: import('../types').NNLItem }
+  | { type: 'DELETE_NNL_ITEM'; payload: string }
+  | { type: 'SET_NNL_ITEMS';   payload: import('../types').NNLItem[] }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -84,6 +88,10 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'UPDATE_CLIENT_GROUP': return { ...state, clientGroups: (state.clientGroups ?? []).map(g => g.id === action.payload.id ? action.payload : g) }
     case 'DELETE_CLIENT_GROUP': return { ...state, clientGroups: (state.clientGroups ?? []).filter(g => g.id !== action.payload) }
     case 'UPDATE_VISION_BOARD': return { ...state, visionBoard: action.payload }
+    case 'ADD_NNL_ITEM':    return { ...state, nnlItems: [...(state.nnlItems ?? []), action.payload] }
+    case 'UPDATE_NNL_ITEM': return { ...state, nnlItems: (state.nnlItems ?? []).map(n => n.id === action.payload.id ? action.payload : n) }
+    case 'DELETE_NNL_ITEM': return { ...state, nnlItems: (state.nnlItems ?? []).filter(n => n.id !== action.payload) }
+    case 'SET_NNL_ITEMS':   return { ...state, nnlItems: action.payload }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

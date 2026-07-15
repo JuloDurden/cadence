@@ -37,6 +37,8 @@
 
   --sidebar-w: 220px;
   --header-h: 44px;
+
+  --nnl-arc: rgba(0, 0, 0, 0.18);
 }
 
 /* ─── Dark mode ─────────────────────────────────────────────────────────── */
@@ -68,6 +70,8 @@
   --shadow-md: 0 2px 10px rgba(0,0,0,.5);
   --shadow-lg: 0 6px 20px rgba(0,0,0,.6);
   --shadow: var(--shadow-sm);
+
+  --nnl-arc: rgba(255, 255, 255, 0.22);
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────────── */
@@ -734,6 +738,147 @@ body.sb-collapsed .app-header { left: 52px; }
   }
   .vb-textarea { resize: none !important; overflow: hidden !important; }
 }
+
+/* ── Now / Next / Later ─────────────────────────────────────────────────── */
+:root {
+  --nnl-arc:      rgba(0,0,0,.18);
+  --nnl-grid-dot: rgba(0,0,0,.10);
+}
+[data-theme="dark"] {
+  --nnl-arc:      rgba(255,255,255,.22);
+  --nnl-grid-dot: rgba(255,255,255,.08);
+}
+
+.nnl-page-content {
+  padding: 0 !important;
+  overflow: hidden !important;
+  height: calc(100vh - var(--header-h));
+}
+
+.nnl-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  user-select: none;
+}
+
+/* Minimap */
+.nnl-minimap {
+  position: absolute;
+  bottom: 60px;
+  right: 14px;
+  z-index: 50;
+  width: 160px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  cursor: crosshair;
+}
+.nnl-minimap-label {
+  display: block;
+  padding: 3px 8px 5px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+}
+
+/* Post-its */
+.nnl-postit {
+  position: absolute;
+  width: 160px;
+  min-height: 72px;
+  border-radius: 3px;
+  padding: 22px 10px 10px;
+  box-shadow: 2px 3px 10px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.08);
+  cursor: grab;
+  transform: translate(-50%, -50%);
+  transition: box-shadow .1s;
+  z-index: 10;
+}
+.nnl-postit:active { cursor: grabbing; box-shadow: 4px 6px 18px rgba(0,0,0,.28); z-index: 20; }
+
+.nnl-postit-feature {
+  background: #fbbf24;
+  color: #1a0f00;
+}
+.nnl-postit-release {
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 52px;
+}
+
+/* Bouton supprimer */
+.nnl-postit-delete {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: inherit;
+  opacity: 0;
+  transition: opacity .15s;
+  padding: 2px 4px;
+}
+.nnl-postit:hover .nnl-postit-delete { opacity: .55; }
+.nnl-postit-delete:hover { opacity: 1 !important; }
+
+/* Texte du post-it */
+.nnl-postit-text {
+  font-size: 11px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+.nnl-postit-feature .nnl-postit-text { color: #1a0f00; }
+
+/* Textarea inline (mode édition) */
+.nnl-postit-textarea {
+  width: 100%;
+  min-height: 60px;
+  border: none;
+  background: rgba(255,255,255,.3);
+  border-radius: 2px;
+  resize: none;
+  font-size: 11px;
+  line-height: 1.55;
+  font-family: inherit;
+  color: inherit;
+  padding: 4px;
+  outline: none;
+  cursor: text;
+}
+
+/* Poignée de redimensionnement */
+.nnl-resize-handle {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 10px;
+  height: 10px;
+  cursor: se-resize;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  opacity: 0;
+  transition: opacity .15s;
+  border-radius: 1px;
+}
+.nnl-postit:hover .nnl-resize-handle { opacity: .4; }
+.nnl-resize-handle:hover { opacity: .8 !important; }
 
 /* Toast animation */
 @keyframes toast-in {

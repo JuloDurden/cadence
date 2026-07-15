@@ -10,9 +10,8 @@ test.describe('Changelog', () => {
 
   test('affiche la version courante en tête de liste', async ({ page }) => {
     await goTo(page, '/changelog');
-    // v0.83.0 est la version courante
     await expect(page.locator('.cl-card.current')).toBeVisible();
-    await expect(page.locator('.cl-card.current')).toContainText('v0.87');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.89');
   });
 
   test('affiche le badge "En cours" sur la version courante', async ({ page }) => {
@@ -55,10 +54,10 @@ test.describe('Changelog', () => {
 
   test('la recherche filtre les versions', async ({ page }) => {
     await goTo(page, '/changelog');
-    // "Backlog virtuelle" est une expression spécifique à v0.74.0
+    // "Backlog virtuelle" est une expression spécifique à v0.74
     await page.locator('.form-input').fill('Backlog virtuelle');
-    await expect(page.locator('[data-version="v0.74.0"]')).toBeVisible();
-    // v0.76.0 (auto-planning) ne contient pas "Backlog virtuelle" → doit disparaître
+    await expect(page.locator('[data-version="v0.74"]')).toBeVisible();
+    // v0.89 (tableau blanc infini) ne contient pas "Backlog virtuelle" → doit disparaître
     await expect(page.locator('.cl-card.current')).toHaveCount(0);
   });
 

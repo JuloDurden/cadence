@@ -242,6 +242,20 @@ export interface DailyArchive {
   createdAt: string      // ISO timestamp
 }
 
+export type NNLZone = 'now' | 'next' | 'later'
+export type NNLItemType = 'feature' | 'release'
+
+export interface NNLItem {
+  id:    string
+  type:  NNLItemType
+  text:  string
+  x:     number   // coord monde X (unités px, origine bas-gauche, X vers la droite)
+  y:     number   // coord monde Y (unités px, Y vers le HAUT — inversé vs écran)
+  zone:  NNLZone  // déterminée par distance sqrt(x²+y²) vs R1/R2
+  w?:    number   // largeur en unités monde (défaut 160)
+  h?:    number   // hauteur en unités monde (défaut auto)
+}
+
 export interface VisionBoard {
   productName:   string
   vision:        string
@@ -262,6 +276,7 @@ export interface CadenceState {
   retroArchives: RetroArchive[]
   clientGroups: ClientGroup[]
   visionBoard: VisionBoard
+  nnlItems: NNLItem[]
 }
 
 export interface DailyEntry {

@@ -1,8 +1,31 @@
 # Backlog des futures fonctionnalités - Cadence
 
-> Dernière mise à jour : 14 juillet 2026. v0.88 : Vision Board produit (Roman Pichler, édition inline, 5 sections). v0.87 : Groupes de clients (layout DnD, CRUD), groupement Roadmap. v0.86 : Roadmap header unifié, toggle Sprints/Vision/NNL, groupement Epic.
+> Dernière mise à jour : 13 juillet 2026. v0.85.0 : Backlog colonnes DoR/DoD, filtre Prêt, filtre Statut, bandeau Sprint Planning. v0.84.x : Auto-planning ProposalPanel, fix SprintColumn Epic, ItemModal 3 modes, Sprint Planning dédié.
 
 ---
+
+## v0.90
+
+Voici les modifications que l'on peut apporter aux posts-its :
+
+- **type de post-it** : feature, release,...
+- **couleur du post-it**
+- **titre du post-it**
+- **ajout d'une image**
+- **ajout d'un lien**
+- **ajout de note**
+- pouvoir rattacher les posts-its aux différents éléments quez l'on a créé jusqu'alors :
+    - items (story, Epic, Initiative)
+    - Sprint Goal
+    - et si tu vois un ou des autres éléments à y rattacher... je suis preneur.
+
+Si l'élément rattaché a une image, des notes ou un lien, ils seront visible en cliquant sur le post Le corps du post-it sera très simple : juste le titre du post-it, la couleur, un bouton pour modifier, un autre pour supprimer et des icônes représentant les détails du post-it (rattachement, image, note, lien).
+
+On pourra ensuite rajouter d'autres éléments :
+
+- une barre d'outils pour rajouter des formes (carré, rectangle, ellipse, flèche) que l'on peut évidemment modifier, colorer (fond, bords) et supprimer,
+- un système de stylo, outil texte et marqueur pour pouvoir annoter des trucs ou dessiner des trucs,
+- un système de calques (pour gérer les profondeurs et l'ordre d'affichage) que l'on peut aussi modifier, renommer, supprimer.
 
 ## 🎨 Design & UX
 
@@ -14,8 +37,7 @@
 ## 📋 Backlog & Planification
 
 - **Capacité nominative par sprint** — allocation individuelle (qui fait quoi sur ce sprint), pas seulement une capacité globale d'équipe.
-- ~~**Épics et roadmap par thème**~~ ✅ *v0.86 (partiel)* — groupement Epic dans les cartes sprint Roadmap Go, header unifié avec toggle Sprints/Vision/NNL. Vision Board (v0.88) et Now/Next/Later (v0.89) restent à implémenter.
-- ~~**Critères de départ / d'entrée de sprint**~~ ✅ *v0.85.0* — colonnes DoR/DoD dans le Backlog (encoche si 100%), filtre "Prêt", filtre Statut, bandeau Sprint Planning pour les items sans DoR complète.
+- **Épics et roadmap par thème** — regrouper les sprints ou les items par initiative / epic avec vue dédiée.
 
 ---
 
@@ -44,13 +66,6 @@
 ---
 
 ## ✅ Réalisé (pour mémoire)
-
-### Roadmap
-- **Vision Board produit** ✅ *v0.88* — vue Vision Board (Roman Pichler) dans le toggle Sprints/Vision/NNL de la Roadmap. 5 sections éditables inline (Vision, Groupe cible, Besoins, Produit, Objectifs business), placeholders guide en français, sauvegarde auto, icônes Lucide, contenu AutoClaimsTech en démo.
-
-### Clients & Roadmap
-- **Groupes de clients — Page Clients** ✅ *v0.87* — layout 50/50 : dropzones dashed en couleur de groupe à gauche (cards clients visibles à l'intérieur), toutes les cards clients draggables à droite (badge de groupe si assigné). DnD : glisser vers un groupe assigne, glisser vers le panneau droit désassigne. Header : toggle Liste/Timeline (icônes Lucide), dropdown "+ Ajouter". CRUD de groupes via modal (nom, couleur 8 tons, membres par checkbox). 3 groupes prédéfinis dans le DEMO_STATE.
-- **Groupement Roadmap par groupe de clients** ✅ *v0.87* — toggle "par client / par groupe" (icônes users/layers) dans le header Roadmap, visible si des groupes sont définis. En mode groupe : épics ET items orphelins regroupés sous les sections de groupe (couleur, SP total) ; items hors groupe en groupement client classique. Tri alphabétique des clients dans les deux modes.
 
 ### Auto-planning & What-if
 - **Mode What-if** ✅ *v0.77.0* — scénarios alternatifs de planification avec branches Git-graph, forks, comparaison côte à côte, items fictifs, capacités par sprint et facteur de vélocité
@@ -94,3 +109,4 @@
 - **Export / Import JSON** ✅ *v0.46.0* — sauvegarde et restauration complète, import/export unifiés dans Réglages
 - **Export CSV natif (backlog)** ✅ *v0.46.0* — zéro dépendance, fallback auto si SheetJS indisponible
 - **Tags / labels libres** ✅ *v0.47.0* — tags sur items et membres, autocomplete, filtre backlog, membres suggérés, export CSV+Excel avec colonne Tags, gestion globale des tags dans Réglages
+- ~~**Critères de départ / d'entrée de sprint**~~ ✅ *v0.85.0* — colonnes DoR/DoD dans le Backlog (encoche si 100%), filtre "Prêt", filtre Statut, bandeau Sprint Planning pour les items sans DoR complète.
