@@ -30,6 +30,7 @@ const SVG = {
 interface HeaderProps {
   title: string
   children?: ReactNode
+  hideUndoRedo?: boolean
 }
 
 function useClickOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
@@ -129,7 +130,7 @@ function SearchModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function Header({ title, children }: HeaderProps) {
+export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
   const { logout } = useAuth()
   const { state, dispatch, saveToServer, undo, redo, canUndo, canRedo } = useCadence()
   const navigate = useNavigate()
@@ -206,17 +207,22 @@ export function Header({ title, children }: HeaderProps) {
           )}
         </div>
 
-        <div className="hdr-sep" />
+        {/* Séparateur masqué si undo/redo masqué (évite double séparateur) */}
+        {!hideUndoRedo && <div className="hdr-sep" />}
 
-        {/* Undo / Redo */}
-        <button className="hdr-btn hdr-btn-border" title={canUndo ? 'Annuler' : 'Rien à annuler'}
-          disabled={!canUndo} onClick={undo} aria-label="Annuler">
-          <Svg d={SVG.undo} />
-        </button>
-        <button className="hdr-btn hdr-btn-border" title={canRedo ? 'Rétablir' : 'Rien à rétablir'}
-          disabled={!canRedo} onClick={redo} aria-label="Rétablir">
-          <Svg d={SVG.redo} />
-        </button>
+        {/* Undo / Redo — masqués sur la page NNL (gérés dans la toolbar NNL) */}
+        {!hideUndoRedo && (
+          <>
+            <button className="hdr-btn hdr-btn-border" title={canUndo ? 'Annuler' : 'Rien à annuler'}
+              disabled={!canUndo} onClick={undo} aria-label="Annuler">
+              <Svg d={SVG.undo} />
+            </button>
+            <button className="hdr-btn hdr-btn-border" title={canRedo ? 'Rétablir' : 'Rien à rétablir'}
+              disabled={!canRedo} onClick={redo} aria-label="Rétablir">
+              <Svg d={SVG.redo} />
+            </button>
+          </>
+        )}
 
         <div className="hdr-sep" />
 

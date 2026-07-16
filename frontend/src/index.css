@@ -794,31 +794,19 @@ body.sb-collapsed .app-header { left: 52px; }
   position: absolute;
   width: 160px;
   min-height: 72px;
-  border-radius: 3px;
-  padding: 22px 10px 10px;
-  box-shadow: 2px 3px 10px rgba(0,0,0,.18), 0 1px 2px rgba(0,0,0,.08);
+  border-radius: 4px;
+  padding: 0;
+  box-shadow: 2px 3px 10px rgba(0,0,0,.22), 0 1px 2px rgba(0,0,0,.1);
   cursor: grab;
-  transform: translate(-50%, -50%);
+  /* transform is set inline (translate + scale) */
   transition: box-shadow .1s;
   z-index: 10;
 }
-.nnl-postit:active { cursor: grabbing; box-shadow: 4px 6px 18px rgba(0,0,0,.28); z-index: 20; }
+.nnl-postit:active { cursor: grabbing; box-shadow: 4px 6px 18px rgba(0,0,0,.32); z-index: 20; }
 
-.nnl-postit-feature {
-  background: #fbbf24;
-  color: #1a0f00;
-}
-.nnl-postit-release {
-  background: #3b82f6;
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-height: 52px;
-}
+/* Background and color are applied via inline styles; these classes just carry type identity */
+.nnl-postit-feature {}
+.nnl-postit-release {}
 
 /* Bouton supprimer */
 .nnl-postit-delete {
@@ -835,18 +823,38 @@ body.sb-collapsed .app-header { left: 52px; }
   transition: opacity .15s;
   padding: 2px 4px;
 }
-.nnl-postit:hover .nnl-postit-delete { opacity: .55; }
+.nnl-postit:hover .nnl-postit-delete { opacity: .6; }
 .nnl-postit-delete:hover { opacity: 1 !important; }
 
-/* Texte du post-it */
+/* Bouton modifier (indice visuel au survol) */
+.nnl-postit-edit {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(0,0,0,.08);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 3px;
+  color: inherit;
+  opacity: 0;
+  transition: opacity .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nnl-postit:hover .nnl-postit-edit { opacity: .55; }
+.nnl-postit-edit:hover { opacity: 1 !important; background: rgba(0,0,0,.16) !important; }
+
+/* Texte du post-it — hérite du textColor calculé inline */
 .nnl-postit-text {
   font-size: 11px;
   line-height: 1.55;
   word-break: break-word;
+  color: inherit;
 }
-.nnl-postit-feature .nnl-postit-text { color: #1a0f00; }
 
-/* Textarea inline (mode édition) */
+/* Textarea inline (rétrocompat) */
 .nnl-postit-textarea {
   width: 100%;
   min-height: 60px;
@@ -879,6 +887,53 @@ body.sb-collapsed .app-header { left: 52px; }
 }
 .nnl-postit:hover .nnl-resize-handle { opacity: .4; }
 .nnl-resize-handle:hover { opacity: .8 !important; }
+
+/* ── NNL Toolbar ─────────────────────────────────────────────────────────── */
+.nnl-toolbar button.btn-icon.active,
+.nnl-toolbar button[style*="primary"] {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+.nnl-toolbar button:hover:not([disabled]) {
+  background: var(--surface2) !important;
+}
+
+/* ── NNL Layers panel ────────────────────────────────────────────────────── */
+.nnl-layers-panel button.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  padding: 2px;
+  transition: background .1s, color .1s;
+}
+.nnl-layers-panel button.btn-icon:hover { background: var(--surface2); color: var(--text); }
+.nnl-layers-panel button.btn-icon.danger:hover { color: var(--danger); }
+
+/* ── NNL modal (palette drop-zone) ──────────────────────────────────────── */
+.nnl-dropzone { transition: border-color .15s, background .15s; }
+.nnl-dropzone:hover { border-color: var(--primary) !important; background: var(--primary-light); }
+
+/* Note chips */
+.note-att-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: background .1s;
+}
+.note-att-chip:hover { background: var(--surface3); color: var(--text); }
+
+/* Note item */
+.note-item { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.note-item:last-child { border-bottom: none; }
+.note-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.note-text { font-size: 12px; line-height: 1.5; color: var(--text); white-space: pre-wrap; }
 
 /* Toast animation */
 @keyframes toast-in {

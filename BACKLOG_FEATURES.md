@@ -1,41 +1,30 @@
 # Backlog des futures fonctionnalités — Cadence
 
-> Dernière mise à jour : 15 juillet 2026.
-> v0.89 : NNL tableau blanc infini (pan/zoom/minimap, cercles redimensionnables, repositionnement radial des post-its).
+> Dernière mise à jour : 16 juillet 2026.
+> v0.90 (livré) : NNL — Post-its enrichis (modal 3 onglets, couleur/image/lien/notes/rattachement), barre d'outils (rect/ellipse/flèche/texte/stylo/marqueur/gomme), panneau calques.
 
 ---
 
-## v0.90 — NNL : enrichissement des post-its et outils de dessin
+## v0.91 — NNL : amélioration des éléments dessinés
 
-### Post-its enrichis
+### Sélection et manipulation des éléments
 
-- **Couleur libre du post-it** — palette ou color picker, mémorisée par post-it
-- **Titre + corps** — structure titre (bold, 1 ligne) + corps (texte libre multi-lignes), séparation visuelle
-- **Ajout d'une image** — glisser-déposer ou sélecteur, aperçu miniature sur le post-it
-- **Ajout d'un lien** — URL + label, icône dans le footer du post-it
-- **Note interne** — champ texte "privé" (non visible en mode présentation), icône pense-bête
-- **Rattachement à un élément Cadence** — lier un post-it à une Story, Epic, Initiative ou Sprint Goal :
-  - L'item lié est affiché dans un tooltip ou un panneau latéral au clic
-  - Si l'item lié a une image, des notes ou un lien, ils sont visibles depuis le post-it
-  - Icônes dans le footer indiquant les détails disponibles (pièce jointe, note, lien, élément)
+- **Outil Sélection sur les formes** — clic pour sélectionner une forme (NNLShape) ou un bloc texte (NNLText), afficher des poignées de redimensionnement
+- **Déplacement des formes** — drag d'une forme sélectionnée, mise à jour en temps réel
+- **Resize des formes** — poignées sur les 8 coins, maintien des proportions avec Shift
+- **Multi-sélection** — Shift+clic ou rect de sélection par drag sur fond vide
+- **Supprimer avec Delete/Backspace** — supprimer les éléments sélectionnés
 
-Corps du post-it visible : titre, couleur, icônes des métadonnées. Accès aux détails via un panneau ou modal au clic — pas d'information noyée dans la carte.
+### Formatage des blocs texte
 
-### Barre d'outils formes
+- **Barre de formatage contextuelle** — apparaît au-dessus du texte sélectionné : Gras, Italique, Souligné, taille de police, couleur, famille de police
+- **Redimensionnement du bloc** — poignée bas-droit pour élargir/rétrécir la largeur
 
-- Carré, rectangle, ellipse, flèche — créer, redimensionner, colorer (fond + bords), supprimer
-- Texte libre positionnable (comme Miro)
+### Améliorations UX dessin
 
-### Outils d'annotation
-
-- Stylo (tracé libre), marqueur (opacité réduite), outil texte
-- Gomme
-
-### Système de calques
-
-- Créer, nommer, réordonner, verrouiller, masquer et supprimer des calques
-- Chaque élément (post-it, forme, annotation) appartient à un calque
-- Panneau calques à gauche ou via menu contextuel
+- **Undo/Redo sur le canvas NNL** — Ctrl+Z / Ctrl+Y ; stack isolé du undo global
+- **Copier/coller** — Ctrl+C / Ctrl+V pour dupliquer les éléments sélectionnés
+- **Grille magnétique** — option "snap to grid" pour aligner formes et post-its
 
 ---
 

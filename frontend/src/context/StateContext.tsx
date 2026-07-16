@@ -53,6 +53,19 @@ type Action =
   | { type: 'UPDATE_NNL_ITEM'; payload: import('../types').NNLItem }
   | { type: 'DELETE_NNL_ITEM'; payload: string }
   | { type: 'SET_NNL_ITEMS';   payload: import('../types').NNLItem[] }
+  // Shapes
+  | { type: 'ADD_NNL_SHAPE';    payload: import('../types').NNLShape }
+  | { type: 'UPDATE_NNL_SHAPE'; payload: import('../types').NNLShape }
+  | { type: 'DELETE_NNL_SHAPE'; payload: string }
+  // Texts
+  | { type: 'ADD_NNL_TEXT';    payload: import('../types').NNLText }
+  | { type: 'UPDATE_NNL_TEXT'; payload: import('../types').NNLText }
+  | { type: 'DELETE_NNL_TEXT'; payload: string }
+  // Strokes
+  | { type: 'ADD_NNL_STROKE';    payload: import('../types').NNLStroke }
+  | { type: 'DELETE_NNL_STROKE'; payload: string }
+  // Layers
+  | { type: 'SET_NNL_LAYERS'; payload: import('../types').NNLLayer[] }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -92,6 +105,15 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'UPDATE_NNL_ITEM': return { ...state, nnlItems: (state.nnlItems ?? []).map(n => n.id === action.payload.id ? action.payload : n) }
     case 'DELETE_NNL_ITEM': return { ...state, nnlItems: (state.nnlItems ?? []).filter(n => n.id !== action.payload) }
     case 'SET_NNL_ITEMS':   return { ...state, nnlItems: action.payload }
+    case 'ADD_NNL_SHAPE':    return { ...state, nnlShapes: [...(state.nnlShapes ?? []), action.payload] }
+    case 'UPDATE_NNL_SHAPE': return { ...state, nnlShapes: (state.nnlShapes ?? []).map(s => s.id === action.payload.id ? action.payload : s) }
+    case 'DELETE_NNL_SHAPE': return { ...state, nnlShapes: (state.nnlShapes ?? []).filter(s => s.id !== action.payload) }
+    case 'ADD_NNL_TEXT':    return { ...state, nnlTexts: [...(state.nnlTexts ?? []), action.payload] }
+    case 'UPDATE_NNL_TEXT': return { ...state, nnlTexts: (state.nnlTexts ?? []).map(t => t.id === action.payload.id ? action.payload : t) }
+    case 'DELETE_NNL_TEXT': return { ...state, nnlTexts: (state.nnlTexts ?? []).filter(t => t.id !== action.payload) }
+    case 'ADD_NNL_STROKE':    return { ...state, nnlStrokes: [...(state.nnlStrokes ?? []), action.payload] }
+    case 'DELETE_NNL_STROKE': return { ...state, nnlStrokes: (state.nnlStrokes ?? []).filter(s => s.id !== action.payload) }
+    case 'SET_NNL_LAYERS':  return { ...state, nnlLayers: action.payload }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

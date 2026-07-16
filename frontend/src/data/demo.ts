@@ -436,17 +436,21 @@ export const DEMO_STATE: CadenceState = {
     businessGoals:
       "Signer 10 clients Enterprise d'ici S1 2027. Réduire le coût de gestion par dossier de 40 %. Atteindre 2 M€ ARR en année 2. Devenir la référence IA sinistres en Europe francophone.",
   },
+  nnlLayers:  [{ id: 'layer-default', name: 'Calque 1', locked: false, visible: true, order: 0 }],
+  nnlShapes:  [],
+  nnlTexts:   [],
+  nnlStrokes: [],
   nnlItems: [
     // NOW — distance < 400 depuis l'origine (cercle Now)
-    { id: 'nnl1', type: 'feature', text: '> OCR pièces justificatives\n> Scoring fraude v1\n> Workflow sinistre configurable', x: 110, y: 280, zone: 'now'  },
-    { id: 'nnl2', type: 'release', text: 'Release 1.0',                                                                        x: 230, y: 130, zone: 'now'  },
+    { id: 'nnl1', type: 'feature', text: 'OCR & Scoring fraude',     body: 'OCR pièces justificatives\nScoring fraude v1\nWorkflow sinistre configurable', x: 110, y: 280, zone: 'now'  },
+    { id: 'nnl2', type: 'release', text: 'Release 1.0',                                                                                                    x: 230, y: 130, zone: 'now'  },
     // NEXT — 400 ≤ distance < 800
-    { id: 'nnl3', type: 'feature', text: '> Portail déclarant mobile-first\n> Notifications temps réel\n> Dashboard gestionnaire', x: 380, y: 290, zone: 'next' },
-    { id: 'nnl4', type: 'feature', text: '> API intégration assureur\n> Export dossier PDF\n> SSO entreprise',                     x: 260, y: 450, zone: 'next' },
-    { id: 'nnl5', type: 'release', text: 'Release 1.1',                                                                            x: 490, y: 160, zone: 'next' },
+    { id: 'nnl3', type: 'feature', text: 'Portail déclarant',        body: 'Portail déclarant mobile-first\nNotifications temps réel\nDashboard gestionnaire', x: 380, y: 290, zone: 'next' },
+    { id: 'nnl4', type: 'feature', text: 'Intégrations assureur',    body: 'API intégration assureur\nExport dossier PDF\nSSO entreprise',                     x: 260, y: 450, zone: 'next' },
+    { id: 'nnl5', type: 'release', text: 'Release 1.1',                                                                                                        x: 490, y: 160, zone: 'next' },
     // LATER — distance ≥ 800
-    { id: 'nnl6', type: 'feature', text: '> Détection fraude ML v2\n> Analyse prédictive sinistres\n> Benchmarking secteur',       x: 660, y: 530, zone: 'later' },
-    { id: 'nnl7', type: 'feature', text: '> Tableaux de bord BI\n> Rapport réglementaire auto\n> Multi-pays / multi-devises',      x: 750, y: 370, zone: 'later' },
-    { id: 'nnl8', type: 'release', text: 'Release 2.0',                                                                            x: 560, y: 630, zone: 'later' },
+    { id: 'nnl6', type: 'feature', text: 'IA prédictive v2',         body: 'Détection fraude ML v2\nAnalyse prédictive sinistres\nBenchmarking secteur',       x: 660, y: 530, zone: 'later' },
+    { id: 'nnl7', type: 'feature', text: 'BI & International',       body: 'Tableaux de bord BI\nRapport réglementaire auto\nMulti-pays / multi-devises',      x: 750, y: 370, zone: 'later' },
+    { id: 'nnl8', type: 'release', text: 'Release 2.0',                                                                                                        x: 560, y: 630, zone: 'later' },
   ],
 }

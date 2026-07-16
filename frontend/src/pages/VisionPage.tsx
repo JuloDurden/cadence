@@ -136,7 +136,7 @@ export function VisionPage() {
 
   return (
     <>
-      <Header title="Vision Board">
+      <Header title="Vision Board" hideUndoRedo={view === 'nnl'}>
         {/* Nom produit éditable */}
         <span style={{ color: 'var(--text-muted)', fontSize: 13, margin: '0 2px' }}>|</span>
         <input

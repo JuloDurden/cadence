@@ -242,18 +242,84 @@ export interface DailyArchive {
   createdAt: string      // ISO timestamp
 }
 
-export type NNLZone = 'now' | 'next' | 'later'
+export type NNLZone     = 'now' | 'next' | 'later'
 export type NNLItemType = 'feature' | 'release'
+export type NNLTool     = 'select' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'pen' | 'marker' | 'eraser'
+export type NNLShapeType = 'rect' | 'ellipse' | 'arrow'
 
 export interface NNLItem {
   id:    string
   type:  NNLItemType
-  text:  string
-  x:     number   // coord monde X (unités px, origine bas-gauche, X vers la droite)
-  y:     number   // coord monde Y (unités px, Y vers le HAUT — inversé vs écran)
-  zone:  NNLZone  // déterminée par distance sqrt(x²+y²) vs R1/R2
-  w?:    number   // largeur en unités monde (défaut 160)
-  h?:    number   // hauteur en unités monde (défaut auto)
+  text:  string           // titre (1 ligne)
+  body?: string           // corps / description
+  color?: string          // couleur hex libre (ex: '#fbbf24')
+  x:     number           // coord monde X
+  y:     number           // coord monde Y (inversé vs écran)
+  zone:  NNLZone
+  w?:    number
+  h?:    number
+  image?: string          // base64 data URL
+  link?:  { url: string; label: string }
+  notes?: Note[]
+  linkedItemId?: string   // id d'un item Cadence lié
+  layerId?: string
+}
+
+/** Forme géométrique sur le canvas NNL */
+export interface NNLShape {
+  id:       string
+  shapeType: NNLShapeType
+  x:  number; y:  number   // coin haut-gauche, coords monde
+  x2: number; y2: number   // coin bas-droite, coords monde (arrow: point d'arrivée)
+  fill?:        string      // couleur de remplissage ('none' = transparent)
+  fillOpacity?:   number    // 0-1 (défaut 1)
+  stroke?:      string      // couleur de contour ('none' = pas de contour)
+  strokeOpacity?: number    // 0-1 (défaut 1)
+  strokeWidth?: number
+  rx?:          number      // rayon des coins (rect uniquement)
+  pts?: Array<{ x: number; y: number }>  // points de contrôle bezier (flèche uniquement)
+  rotation?: number         // degrés (centre de la bounding box)
+  layerId?: string
+}
+
+/** Bloc de texte libre positionnable */
+export interface NNLText {
+  id: string
+  x:  number; y: number    // coin haut-gauche, coords monde
+  w:  number               // largeur monde
+  content: string
+  fontSize?:  number
+  fontFamily?: string
+  color?:     string
+  colorOpacity?: number    // 0-1 (défaut 1)
+  bold?:      boolean
+  italic?:    boolean
+  underline?: boolean
+  rotation?: number        // degrés
+  layerId?: string
+}
+
+/** Tracé libre (stylo / marqueur) */
+export interface NNLStroke {
+  id:      string
+  pts:     Array<{ x: number; y: number }>   // coords monde
+  color?:  string
+  width?:  number
+  opacity?: number   // 1 = stylo, 0.5 = marqueur
+  rotation?: number  // degrés (rotation du tracé autour de son centroïde)
+  layerId?: string
+}
+
+/** Calque du canvas NNL */
+export interface NNLLayer {
+  id:       string
+  name:     string
+  locked?:  boolean
+  visible?: boolean
+  order:    number      // 0 = le plus en arrière
+  isGroup?: boolean     // calque de type dossier
+  parentId?: string     // groupe parent (isGroup=true)
+  collapsed?: boolean   // groupe replié
 }
 
 export interface VisionBoard {
@@ -276,7 +342,11 @@ export interface CadenceState {
   retroArchives: RetroArchive[]
   clientGroups: ClientGroup[]
   visionBoard: VisionBoard
-  nnlItems: NNLItem[]
+  nnlItems:   NNLItem[]
+  nnlShapes:  NNLShape[]
+  nnlTexts:   NNLText[]
+  nnlStrokes: NNLStroke[]
+  nnlLayers:  NNLLayer[]
 }
 
 export interface DailyEntry {

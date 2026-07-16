@@ -15,7 +15,23 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.89',date:'15 Juillet 2026',dateISO:'2026-07-15',title:'Now / Next / Later — tableau blanc infini style Miro',current:true,changes:[
+  {version:'v0.90',date:'16 Juillet 2026',dateISO:'2026-07-16',title:'NNL — Post-its enrichis, barre d\'outils et calques',current:true,changes:[
+    {tag:'feat',    text:'Modal CRUD des Post-its (NNLItemModal) : 3 modes d\'affichage (fenêtre flottante, volet latéral redimensionnable, plein écran) — même pattern qu\'ItemModal'},
+    {tag:'feat',    text:'Post-it enrichi : titre + corps séparés, couleur hex libre (color picker + palette), image (drag-drop ou sélection, base64), lien URL + label'},
+    {tag:'feat',    text:'Onglet Notes : système complet de notes avec pièces jointes (image, PDF, lien), identique aux notes des items Backlog'},
+    {tag:'feat',    text:'Onglet Rattachement : recherche d\'items Backlog existants avec aperçu clé/description, sélection/désélection ; bouton "Créer un item dans le Backlog" (hook)'},
+    {tag:'feat',    text:'Redesign carte Post-it : bandeau couleur en haut (borderTop), titre (gras), preview corps (3 lignes), preview image, icônes footer (image / lien / nb notes / item lié)'},
+    {tag:'feat',    text:'Barre d\'outils verticale flottante (NNLToolbar) : 8 outils en 3 groupes (Sélection | Formes | Dessin), couleur active + palette 10 couleurs + picker libre, épaisseur 3 niveaux'},
+    {tag:'feat',    text:'Formes géométriques : Rectangle, Ellipse, Flèche — dessin par drag, rendu SVG en coordonnées monde, persisté dans nnlShapes[]'},
+    {tag:'feat',    text:'Blocs texte positionnables : clic avec l\'outil Texte → place un NNLText en coordonnées monde, édition inline textarea, commit on blur/Escape, delete si vide'},
+    {tag:'feat',    text:'Tracés libres Stylo (opacité 1) et Marqueur (opacité 0.45) : capture des points monde pendant le drag → path SVG lissé, persisté dans nnlStrokes[]'},
+    {tag:'feat',    text:'Gomme : efface les tracés dont un point est à moins de 12/zoom unités monde du curseur — suppression en temps réel pendant le drag'},
+    {tag:'feat',    text:'Panneau Calques (NNLLayersPanel) : créer/renommer (double-clic)/réordonner (haut/bas)/verrouiller/masquer/supprimer ; calque actif mis en évidence'},
+    {tag:'feat',    text:'Raccourcis clavier : V=Sélection, R=Rect, E=Ellipse, A=Flèche, T=Texte, P=Stylo, M=Marqueur, G=Gomme, Escape=annule dessin en cours'},
+    {tag:'ux',      text:'Curseur contextuel par outil : default (sélection), text (texte), cell (gomme), crosshair (formes/dessin), grabbing (pan)'},
+    {tag:'chore',   text:'Minimap met à jour la couleur des points selon item.color (custom) ; 0 erreur tsc --noEmit'},
+  ]},
+  {version:'v0.89',date:'15 Juillet 2026',dateISO:'2026-07-15',title:'Now / Next / Later — tableau blanc infini style Miro',current:false,changes:[
     {tag:'feat',    text:'Tableau blanc infini : zoom molette vers le curseur (Miro/Figma), pan par drag sur le fond, pas de limite de canvas'},
     {tag:'feat',    text:'Deux cercles concentriques pleins (bullseye) remplacent les arcs SVG — l\'ensemble cercles + post-its zoome et pane ensemble dans le même référentiel monde'},
     {tag:'feat',    text:'Système de coordonnées monde : origine bas-gauche, X vers la droite, Y vers le haut (inversé vs écran) — transforms w2s/s2w centralisées'},
