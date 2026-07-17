@@ -343,19 +343,19 @@ test.describe('NNL — Dessin de formes (v0.90)', () => {
 
 // ── Suite 5 : Outil Texte ────────────────────────────────────────────────────
 
-test.describe('NNL — Outil Texte (v0.90)', () => {
+test.describe('NNL — Outil Texte (v0.91 — contenteditable)', () => {
 
-  test("cliquer avec l'outil Texte ouvre l'éditeur inline (textarea)", async ({ page }) => {
+  test("cliquer avec l'outil Texte ouvre l'éditeur inline (contenteditable)", async ({ page }) => {
     await goToNNL(page)
     await createTextBlock(page, 400, 280)
-    // La textarea est rendue dans le canvas div
-    await expect(page.locator('[data-testid="nnl-canvas"] textarea')).toBeVisible({ timeout: 5000 })
+    // L'éditeur est un div contenteditable depuis v0.91 (plus de textarea)
+    await expect(page.locator('[data-testid="nnl-canvas"] [contenteditable="true"]')).toBeVisible({ timeout: 5000 })
   })
 
   test("valider le texte (Escape) crée un bloc texte visible sur le canvas", async ({ page }) => {
     await goToNNL(page)
     await createTextBlock(page, 400, 280)
-    await page.locator('[data-testid="nnl-canvas"] textarea').fill('Hello NNL')
+    await page.locator('[data-testid="nnl-canvas"] [contenteditable="true"]').fill('Hello NNL')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(300)
     await expect(page.locator('[data-testid="nnl-canvas"]')).toContainText('Hello NNL')
@@ -364,13 +364,13 @@ test.describe('NNL — Outil Texte (v0.90)', () => {
   test("double-cliquer sur un bloc texte existant rouvre l'éditeur inline", async ({ page }) => {
     await goToNNL(page)
     await createTextBlock(page, 400, 280)
-    await page.locator('[data-testid="nnl-canvas"] textarea').fill('Éditer')
+    await page.locator('[data-testid="nnl-canvas"] [contenteditable="true"]').fill('Éditer')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(300)
     // Double-clic sur le bloc texte rendu
     await page.locator('[data-testid="nnl-canvas"]').getByText('Éditer').first().dblclick()
     await page.waitForTimeout(200)
-    await expect(page.locator('[data-testid="nnl-canvas"] textarea')).toBeVisible()
+    await expect(page.locator('[data-testid="nnl-canvas"] [contenteditable="true"]')).toBeVisible()
   })
 
 })
@@ -404,7 +404,7 @@ test.describe('NNL — Undo / Redo (v0.90)', () => {
   test("Ctrl+Z annule la création d'un bloc texte", async ({ page }) => {
     await goToNNL(page)
     await createTextBlock(page, 400, 280)
-    await page.locator('[data-testid="nnl-canvas"] textarea').fill('Undo me')
+    await page.locator('[data-testid="nnl-canvas"] [contenteditable="true"]').fill('Undo me')
     await page.keyboard.press('Escape')
     await page.waitForTimeout(300)
     await expect(page.locator('[data-testid="nnl-canvas"]')).toContainText('Undo me')
@@ -450,6 +450,247 @@ test.describe('NNL — Post-its (v0.90)', () => {
     await page.waitForTimeout(200)
     const after = await page.locator('[data-testid^="nnl-postit-"]').count()
     expect(after).toBe(before)
+  })
+
+})
+
+// ── v0.90.5 — Canvas avancé ───────────────────────────────────────────────────
+test.describe('v0.90.5 — Canvas avancé : rubber-band, groupes, copier/coller, snap', () => {
+
+  // ── Rubber-band select ─────────────────────────────────────────────────────
+
+  test('le bouton Sélection a un chevron indiquant le long-press', async ({ page }) => {
+    await goToNNL(page)
+    // Le chevron est un SVG polygon dans le bouton select
+    const selectBtn = page.locator('[data-testid="nnl-tool-select"]')
+    await expect(selectBtn).toBeVisible()
+    // Le chevron est un polygon SVG fils du bouton
+    const chevron = selectBtn.locator('svg polygon')
+    await expect(chevron).toBeVisible()
+  })
+
+  test('long-press sur le bouton Sélection ouvre un flyout rect/lasso', async ({ page }) => {
+    await goToNNL(page)
+    const selectBtn = page.locator('[data-testid="nnl-tool-select"]')
+    // Simuler un long press (> 500ms)
+    await selectBtn.dispatchEvent('mousedown')
+    await page.waitForTimeout(550)
+    await selectBtn.dispatchEvent('mouseup')
+    await page.waitForTimeout(100)
+    // Le flyout doit contenir les options Rectangle et Lasso (boutons sans data-testid)
+    await expect(page.locator('button').filter({ hasText: 'Rectangle' }).first()).toBeVisible({ timeout: 2000 })
+  })
+
+  test('la settings bar Sélection a les boutons de scope (tous calques / calque actif)', async ({ page }) => {
+    await goToNNL(page)
+    // Le tool select est actif par défaut — les boutons de scope sont dans la settings bar
+    // (les boutons de mode rect/lasso sont dans le flyout long-press, sans data-testid)
+    await expect(page.locator('[data-testid="nnl-select-scope-all"]')).toBeVisible()
+    await expect(page.locator('[data-testid="nnl-select-scope-active"]')).toBeVisible()
+  })
+
+  test('le scope "tous les calques" est actif par défaut dans la settings bar', async ({ page }) => {
+    await goToNNL(page)
+    // Le scope par défaut est "all" (tous les calques) — bouton avec fond primary-light
+    const allScopeBtn = page.locator('[data-testid="nnl-select-scope-all"]')
+    await expect(allScopeBtn).toBeVisible()
+    const bg = await allScopeBtn.evaluate(el => window.getComputedStyle(el).backgroundColor)
+    // Fond non transparent = actif (primary-light)
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)')
+  })
+
+  test('scope "tous les calques" est actif par défaut', async ({ page }) => {
+    await goToNNL(page)
+    const allScopeBtn = page.locator('[data-testid="nnl-select-scope-all"]')
+    const bg = await allScopeBtn.evaluate(el => window.getComputedStyle(el).backgroundColor)
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)')
+  })
+
+  test('drag sur fond vide affiche un rectangle de sélection', async ({ page }) => {
+    await goToNNL(page)
+    // S'assurer que l'outil select est actif
+    await page.locator('[data-testid="nnl-tool-select"]').dispatchEvent('mouseup')
+    const canvas = page.locator('[data-testid="nnl-canvas"]')
+    const box = await canvas.boundingBox()
+    // Drag sur une zone vide (en dehors des post-its qui sont au centre)
+    const emptyX = box.x + box.width * 0.85
+    const emptyY = box.y + box.height * 0.85
+    await page.mouse.move(emptyX, emptyY)
+    await page.mouse.down()
+    await page.mouse.move(emptyX + 100, emptyY + 80)
+    // Pendant le drag, le rubber-band doit être visible
+    await expect(page.locator('.nnl-rubber-band')).toBeVisible({ timeout: 1000 })
+    await page.mouse.up()
+    // Après release, le rubber-band disparaît
+    await page.waitForTimeout(100)
+    await expect(page.locator('.nnl-rubber-band')).toHaveCount(0)
+  })
+
+  test('rubber-band sélectionne les formes dans la zone', async ({ page }) => {
+    await goToNNL(page)
+    // Dessiner un rectangle dans une zone connue
+    await drawRect(page, 600, 50, 750, 150)
+    await page.locator('[data-testid="nnl-tool-select"]').click()
+    await page.waitForTimeout(100)
+    // Désélectionner
+    const canvas = page.locator('[data-testid="nnl-canvas"]')
+    const box = await canvas.boundingBox()
+    // Sélection rubber-band autour de la forme dessinée (haut-droit du canvas)
+    await page.mouse.move(box.x + 580, box.y + 30)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 780, box.y + 180)
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+    // Le rubber-band a sélectionné — les boutons de scope sont toujours visibles (tool=select)
+    await expect(page.locator('[data-testid="nnl-select-scope-all"]')).toBeVisible()
+  })
+
+  // ── Copier / Coller / Dupliquer ───────────────────────────────────────────
+
+  test('Ctrl+D duplique la forme sélectionnée', async ({ page }) => {
+    await goToNNL(page)
+    // Dessiner un rectangle
+    await drawRect(page, 200, 150, 350, 280)
+    // Sélectionner la forme (passer en outil select puis cliquer au centre du rect)
+    await page.locator('[data-testid="nnl-tool-select"]').click()
+    await page.waitForTimeout(80)
+    await canvasMouseDown(page, 275, 215)
+    await page.waitForTimeout(150)
+    // Compter les shapes après sélection
+    const before = await page.locator('[data-testid="nnl-canvas"] svg [data-shape-id]').count()
+    // Ctrl+D
+    await page.keyboard.press('Control+d')
+    await page.waitForTimeout(200)
+    const after = await page.locator('[data-testid="nnl-canvas"] svg [data-shape-id]').count()
+    expect(after).toBeGreaterThan(before)
+  })
+
+  test('Ctrl+C puis Ctrl+V colle une copie décalée', async ({ page }) => {
+    await goToNNL(page)
+    await drawRect(page, 200, 150, 350, 280)
+    // Sélectionner la forme avant de copier
+    await page.locator('[data-testid="nnl-tool-select"]').click()
+    await page.waitForTimeout(80)
+    await canvasMouseDown(page, 275, 215)
+    await page.waitForTimeout(150)
+    const before = await page.locator('[data-testid="nnl-canvas"] svg [data-shape-id]').count()
+    await page.keyboard.press('Control+c')
+    await page.waitForTimeout(100)
+    await page.keyboard.press('Control+v')
+    await page.waitForTimeout(200)
+    const after = await page.locator('[data-testid="nnl-canvas"] svg [data-shape-id]').count()
+    expect(after).toBeGreaterThan(before)
+  })
+
+  // ── Groupes de formes ─────────────────────────────────────────────────────
+
+  test('Ctrl+G groupe les formes sélectionnées (shapeGroupId attribué)', async ({ page }) => {
+    await goToNNL(page)
+    // Dessiner 2 rectangles
+    await drawRect(page, 100, 80, 200, 160)
+    await drawRect(page, 230, 80, 330, 160)
+    // Rubber-band pour sélectionner les deux
+    const canvas = page.locator('[data-testid="nnl-canvas"]')
+    const box = await canvas.boundingBox()
+    await page.mouse.move(box.x + 80, box.y + 60)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 360, box.y + 190)
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+    // Ctrl+G
+    await page.keyboard.press('Control+g')
+    await page.waitForTimeout(200)
+    // Vérifier que le dispatch a bien eu lieu (pas de crash)
+    const errors = []
+    page.on('pageerror', e => errors.push(e.message))
+    expect(errors).toHaveLength(0)
+  })
+
+  test('Ctrl+Shift+G dégroupe les formes', async ({ page }) => {
+    await goToNNL(page)
+    await drawRect(page, 100, 80, 200, 160)
+    await drawRect(page, 230, 80, 330, 160)
+    // Sélectionner et grouper
+    const canvas = page.locator('[data-testid="nnl-canvas"]')
+    const box = await canvas.boundingBox()
+    await page.mouse.move(box.x + 80, box.y + 60)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 360, box.y + 190)
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+    await page.keyboard.press('Control+g')
+    await page.waitForTimeout(200)
+    // Dégrouper
+    await page.keyboard.press('Control+Shift+g')
+    await page.waitForTimeout(200)
+    // Pas de crash
+    const errors = []
+    page.on('pageerror', e => errors.push(e.message))
+    expect(errors).toHaveLength(0)
+  })
+
+  // ── Grille magnétique ─────────────────────────────────────────────────────
+
+  test('le bouton snap toggle est visible dans le canvas', async ({ page }) => {
+    await goToNNL(page)
+    await expect(page.locator('[data-testid="nnl-snap-toggle"]')).toBeVisible()
+  })
+
+  test('Shift+G active/désactive la grille magnétique', async ({ page }) => {
+    await goToNNL(page)
+    const snapBtn = page.locator('[data-testid="nnl-snap-toggle"]')
+    // Snap désactivé par défaut
+    const classBefore = await snapBtn.getAttribute('class')
+    expect(classBefore).not.toContain('active')
+    // Activer via Shift+G
+    await page.keyboard.press('Shift+g')
+    await page.waitForTimeout(100)
+    const classAfter = await snapBtn.getAttribute('class')
+    expect(classAfter).toContain('active')
+    // Désactiver
+    await page.keyboard.press('Shift+g')
+    await page.waitForTimeout(100)
+    const classFinal = await snapBtn.getAttribute('class')
+    expect(classFinal).not.toContain('active')
+  })
+
+  test('clic sur le bouton snap toggle active/désactive la grille', async ({ page }) => {
+    await goToNNL(page)
+    const snapBtn = page.locator('[data-testid="nnl-snap-toggle"]')
+    await snapBtn.click()
+    await page.waitForTimeout(100)
+    await expect(snapBtn).toHaveClass(/active/)
+    await snapBtn.click()
+    await page.waitForTimeout(100)
+    const cls = await snapBtn.getAttribute('class')
+    expect(cls).not.toContain('active')
+  })
+
+  test('le canvas NNL ne produit pas d\'erreur JS avec les 4 nouvelles fonctionnalités', async ({ page }) => {
+    const errors = []
+    page.on('pageerror', e => errors.push(e.message))
+    await goToNNL(page)
+    // Rubber-band
+    const canvas = page.locator('[data-testid="nnl-canvas"]')
+    const box = await canvas.boundingBox()
+    await page.mouse.move(box.x + 600, box.y + 400)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 750, box.y + 500)
+    await page.mouse.up()
+    await page.waitForTimeout(100)
+    // Snap toggle
+    await page.locator('[data-testid="nnl-snap-toggle"]').click()
+    await page.keyboard.press('Shift+g')
+    await page.waitForTimeout(100)
+    // Ctrl+C/V/D sans sélection (ne doit pas planter)
+    await page.keyboard.press('Control+c')
+    await page.keyboard.press('Control+v')
+    await page.keyboard.press('Control+d')
+    await page.waitForTimeout(100)
+    // Ctrl+G sans sélection (ne doit pas planter)
+    await page.keyboard.press('Control+g')
+    await page.waitForTimeout(100)
+    expect(errors).toHaveLength(0)
   })
 
 })

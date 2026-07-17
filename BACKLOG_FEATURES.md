@@ -1,30 +1,14 @@
 # Backlog des futures fonctionnalités — Cadence
 
-> Dernière mise à jour : 16 juillet 2026.
-> v0.90 (livré) : NNL — Post-its enrichis (modal 3 onglets, couleur/image/lien/notes/rattachement), barre d'outils (rect/ellipse/flèche/texte/stylo/marqueur/gomme), panneau calques.
+> Dernière mise à jour : 17 juillet 2026.
+> v0.90.5 (livré) : NNL — rubber-band select (rect/lasso, scope calque, long-press flyout, chevron), copier/coller/dupliquer (Ctrl+C/V/D), groupes de formes (Ctrl+G / Ctrl+Shift+G, shapeGroupId), grille magnétique (Shift+G, toggle bouton near ZoomControls).
+> v0.90 (livré) : NNL — barre d'outils complète (rect/ellipse/flèche/texte/stylo/marqueur/gomme), panneau calques (groupes, DnD, masquage, verrouillage), sélection/déplacement/resize/rotation des formes et blocs texte, TextPropertiesPanel, undo/redo NNL isolé.
 
 ---
 
-## v0.91 — NNL : amélioration des éléments dessinés
+## v0.91 — Premier chantier majeur
 
-### Sélection et manipulation des éléments
-
-- **Outil Sélection sur les formes** — clic pour sélectionner une forme (NNLShape) ou un bloc texte (NNLText), afficher des poignées de redimensionnement
-- **Déplacement des formes** — drag d'une forme sélectionnée, mise à jour en temps réel
-- **Resize des formes** — poignées sur les 8 coins, maintien des proportions avec Shift
-- **Multi-sélection** — Shift+clic ou rect de sélection par drag sur fond vide
-- **Supprimer avec Delete/Backspace** — supprimer les éléments sélectionnés
-
-### Formatage des blocs texte
-
-- **Barre de formatage contextuelle** — apparaît au-dessus du texte sélectionné : Gras, Italique, Souligné, taille de police, couleur, famille de police
-- **Redimensionnement du bloc** — poignée bas-droit pour élargir/rétrécir la largeur
-
-### Améliorations UX dessin
-
-- **Undo/Redo sur le canvas NNL** — Ctrl+Z / Ctrl+Y ; stack isolé du undo global
-- **Copier/coller** — Ctrl+C / Ctrl+V pour dupliquer les éléments sélectionnés
-- **Grille magnétique** — option "snap to grid" pour aligner formes et post-its
+> Les 4 features NNL de v0.91 ont été avancées en v0.90.5. La v0.91 ouvre le premier chantier majeur d'ici la v1.
 
 ---
 
@@ -94,8 +78,8 @@ Page actuelle : KPI statiques. À faire :
 
 ### 🔄 Historique & Undo/Redo
 
-- **Couverture complète** : vérifier que toutes les actions v0.80–v0.89 (NNL, Vision Board, Groupes clients, What-if, Sprint Planning) sont bien tracées dans l'historique
-- **Undo/Redo opérationnel** : Ctrl+Z / Ctrl+Y fonctionnels sur toutes les pages (actuellement partiel)
+- **Couverture complète** : vérifier que toutes les actions v0.80–v0.89 (Vision Board, Groupes clients, What-if, Sprint Planning) sont bien tracées dans l'historique
+- **Undo/Redo opérationnel** : Ctrl+Z / Ctrl+Y fonctionnels sur toutes les pages (actuellement partiel — NNL a son propre stack isolé depuis v0.90)
 - **Journal d'audit détaillé** : qui a fait quoi, quand — export CSV
 
 ---
@@ -144,8 +128,11 @@ Page actuelle : KPI statiques. À faire :
 ## ✅ Réalisé (pour mémoire)
 
 ### Vision & NNL
+- **NNL — canvas avancé** ✅ *v0.90.5* — rubber-band select (rect/lasso, scope calque, long-press flyout + chevron sur bouton), copier/coller/dupliquer (Ctrl+C/V/D, clipboard interne, offset +20), groupes de formes (Ctrl+G / Ctrl+Shift+G, shapeGroupId, clic groupe → sélection auto), grille magnétique (Shift+G, bouton toggle near ZoomControls, snap 20 unités monde)
+- **NNL — canvas de dessin vectoriel** ✅ *v0.90* — barre d'outils 8 outils, panneau calques (DnD, groupes, masquage, verrouillage), sélection/déplacement/resize/rotation formes et textes, TextPropertiesPanel (G/I/S, police, couleur), ShapePropertiesPanel (fill/stroke/opacité), undo/redo NNL isolé, persistance serveur
+- **NNL — post-its enrichis** ✅ *v0.90* — modal 3 onglets (Général, Notes, Rattachement), couleur/image/lien/notes/rattachement item Cadence, 2 types (feature/release)
 - **Vision Board produit (Roman Pichler)** ✅ *v0.88* — page /vision dédiée, layout 4 colonnes, export PDF, nom produit éditable, toast global
-- **NNL — tableau blanc infini** ✅ *v0.89* — canvas style Miro : pan/zoom vers curseur, 2 cercles concentriques, post-its en coordonnées monde, minimap, grille de points, labels alignés, cercles redimensionnables (resize R1 pousse R2 + repositionnement radial des items)
+- **NNL — tableau blanc infini** ✅ *v0.89* — canvas style Miro : pan/zoom vers curseur, 2 cercles concentriques, post-its en coordonnées monde, minimap, grille de points, labels alignés, cercles redimensionnables
 
 ### Auto-planning & What-if
 - **Mode What-if** ✅ *v0.77* — scénarios alternatifs, branches Git-graph, forks, comparaison, items fictifs
@@ -166,8 +153,6 @@ Page actuelle : KPI statiques. À faire :
 - **Clients : groupes, layout cards, groupement Roadmap** ✅ *v0.87*
 - **Roadmap : header unifié, toggle vues, groupement Epic** ✅ *v0.86*
 - **Changelog : versions standardisées, nav indentée, effet Dock** ✅ *v0.87.1*
-- **Corrections UI header contextuel** ✅ *v0.55*
-- **Menu bar contextuel (macOS)** ✅ *v0.54*
 
 ### Backlog & Planification
 - **DoR/DoD colonnes Backlog + filtre Prêt + bandeau Sprint Planning** ✅ *v0.85*

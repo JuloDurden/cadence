@@ -245,7 +245,7 @@ export interface DailyArchive {
 export type NNLZone     = 'now' | 'next' | 'later'
 export type NNLItemType = 'feature' | 'release'
 export type NNLTool     = 'select' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'pen' | 'marker' | 'eraser'
-export type NNLShapeType = 'rect' | 'ellipse' | 'arrow'
+export type NNLShapeType = 'rect' | 'ellipse' | 'arrow' | 'polygon'
 
 export interface NNLItem {
   id:    string
@@ -275,11 +275,14 @@ export interface NNLShape {
   fillOpacity?:   number    // 0-1 (défaut 1)
   stroke?:      string      // couleur de contour ('none' = pas de contour)
   strokeOpacity?: number    // 0-1 (défaut 1)
+  opacity?:       number    // 0-1 opacité globale de la forme (défaut 1)
   strokeWidth?: number
   rx?:          number      // rayon des coins (rect uniquement)
   pts?: Array<{ x: number; y: number }>  // points de contrôle bezier (flèche uniquement)
+  polyPts?: Array<{ x: number; y: number }>  // polygone arbitraire (boolean ops)
   rotation?: number         // degrés (centre de la bounding box)
   layerId?: string
+  shapeGroupId?: string     // groupe de formes (v0.90.5)
 }
 
 /** Bloc de texte libre positionnable */
@@ -295,8 +298,10 @@ export interface NNLText {
   bold?:      boolean
   italic?:    boolean
   underline?: boolean
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
   rotation?: number        // degrés
   layerId?: string
+  shapeGroupId?: string    // groupe de formes (v0.90.5)
 }
 
 /** Tracé libre (stylo / marqueur) */
@@ -308,18 +313,21 @@ export interface NNLStroke {
   opacity?: number   // 1 = stylo, 0.5 = marqueur
   rotation?: number  // degrés (rotation du tracé autour de son centroïde)
   layerId?: string
+  shapeGroupId?: string  // groupe de formes (v0.90.5)
 }
 
 /** Calque du canvas NNL */
 export interface NNLLayer {
-  id:       string
-  name:     string
-  locked?:  boolean
-  visible?: boolean
-  order:    number      // 0 = le plus en arrière
-  isGroup?: boolean     // calque de type dossier
-  parentId?: string     // groupe parent (isGroup=true)
-  collapsed?: boolean   // groupe replié
+  id:           string
+  name:         string
+  locked?:      boolean
+  visible?:     boolean
+  order:        number      // 0 = le plus en arrière
+  isGroup?:     boolean     // calque de type dossier
+  parentId?:    string      // groupe parent (isGroup=true)
+  collapsed?:   boolean     // groupe replié
+  autoCreated?: boolean     // créé automatiquement lors du dessin d'une forme (v0.91)
+  shapeType?:   string      // type de forme associé (pour le regroupement par type)
 }
 
 export interface VisionBoard {

@@ -63,6 +63,7 @@ type Action =
   | { type: 'DELETE_NNL_TEXT'; payload: string }
   // Strokes
   | { type: 'ADD_NNL_STROKE';    payload: import('../types').NNLStroke }
+  | { type: 'UPDATE_NNL_STROKE'; payload: import('../types').NNLStroke }
   | { type: 'DELETE_NNL_STROKE'; payload: string }
   // Layers
   | { type: 'SET_NNL_LAYERS'; payload: import('../types').NNLLayer[] }
@@ -112,6 +113,7 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'UPDATE_NNL_TEXT': return { ...state, nnlTexts: (state.nnlTexts ?? []).map(t => t.id === action.payload.id ? action.payload : t) }
     case 'DELETE_NNL_TEXT': return { ...state, nnlTexts: (state.nnlTexts ?? []).filter(t => t.id !== action.payload) }
     case 'ADD_NNL_STROKE':    return { ...state, nnlStrokes: [...(state.nnlStrokes ?? []), action.payload] }
+    case 'UPDATE_NNL_STROKE': return { ...state, nnlStrokes: (state.nnlStrokes ?? []).map(s => s.id === action.payload.id ? action.payload : s) }
     case 'DELETE_NNL_STROKE': return { ...state, nnlStrokes: (state.nnlStrokes ?? []).filter(s => s.id !== action.payload) }
     case 'SET_NNL_LAYERS':  return { ...state, nnlLayers: action.payload }
     case 'UPSERT_RETRO_SESSION': {

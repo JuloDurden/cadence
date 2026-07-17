@@ -1508,3 +1508,29 @@ tr:hover .ca-toggle { opacity: 1; }
   gap: 6px;
   margin-top: 8px;
 }
+
+/* ── NNL v0.90.5 — Grille magnétique toggle ─────────────────────────────── */
+.nnl-snap-toggle {
+  position: absolute;
+  bottom: 14px;
+  right: 152px; /* à gauche des ZoomControls (≈130px large + 8px gap) */
+  z-index: 60;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.10);
+  transition: background .12s, color .12s, border-color .12s;
+}
+.nnl-snap-toggle:hover { background: var(--surface2); color: var(--text); }
+.nnl-snap-toggle.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}

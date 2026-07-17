@@ -126,6 +126,9 @@ export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave }: N
     saveCallback({ ...state, nnlLayers: remaining, nnlShapes: newShapes, nnlTexts: newTexts, nnlStrokes: newStrokes })
   }
 
+  // ── Regrouper par type de forme (v0.91) ──────────────────────────────────
+  // Crée un groupe-dossier par shapeType pour tous les calques autoCreated
+
   // ── Dissoudre un groupe ───────────────────────────────────────────────────
   function ungroup(groupId: string) {
     // Bug 6 : impossible de dissoudre un groupe verrouillé

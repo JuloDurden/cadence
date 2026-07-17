@@ -15,7 +15,23 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.90',date:'16 Juillet 2026',dateISO:'2026-07-16',title:'NNL — Post-its enrichis, barre d\'outils et calques',current:true,changes:[
+  {version:'v0.90.5',date:'17 Juillet 2026',dateISO:'2026-07-17',title:'NNL — Texte enrichi, opérations booléennes et polissage calques',current:true,changes:[
+    {tag:'feat',    text:'Éditeur de texte enrichi (contenteditable) : mini-toolbar flottante avec sélecteur de police (8 familles Google Fonts), Gras / Italique / Souligné par sélection, couleur + opacité via ColorOpacityPopover'},
+    {tag:'feat',    text:'8 polices Google Fonts : Inter, Lato, Montserrat, Raleway, Oswald, Playfair Display, Merriweather, Roboto Mono — chargées via <link> dans index.html'},
+    {tag:'feat',    text:'Opérations booléennes sur formes (2 formes sélectionnées) : Union, Soustraction, Intersection, XOR, Diviser — résultats stockés en polygone arbitraire (polyPts), draggables comme les autres formes'},
+    {tag:'feat',    text:'Redimensionnement et rotation des tracés Stylo / Marqueur : bounding-box dashed avec poignées de coin (resize) et handle de rotation (Y inversé pour cohérence avec le référentiel monde)'},
+    {tag:'ux',      text:'ColorOpacityPopover élargi à 170 px (était 158 px) — les 36 swatches tiennent dans la grille repeat(6, 22px) + padding sans débordement'},
+    {tag:'ux',      text:'Opacité globale des formes (Rect / Ellipse / Flèche / Polygone) : slider toujours visible dans ShapePropertiesPanel, appliqué sur le <g> SVG de chaque forme'},
+    {tag:'ux',      text:'Color picker du texte enrichi : remplace l\'<input type="color"> par le même ColorOpacityPopover que les autres outils — couleur et opacité applicables à la sélection courante'},
+    {tag:'ux',      text:'Ordre de rendu calques : visibleShapes / visibleTexts / visibleStrokes triés par order croissant avant le rendu SVG/DOM — le calque supérieur (order élevé) masque correctement les calques inférieurs'},
+    {tag:'fix',     text:'Boutons G / I / S : état actif highlighté via queryCommandState (listener selectionchange) — feedback visuel cohérent avec la sélection courante'},
+    {tag:'fix',     text:'Application de foreColor à une sélection partielle : e.preventDefault() sur ColorOpacityPopover préserve le focus du contenteditable pendant l\'interaction avec le picker'},
+    {tag:'fix',     text:'Application de G / I / S à la sélection : saveSelection() appelé avant restoreAndExec() dans le onMouseDown du bouton — la sélection est capturée avant tout changement de focus'},
+    {tag:'fix',     text:'XOR et Diviser : multiPolyToNNLShapes crée une NNLShape par polygone résultat — les fragments sont tous draggables'},
+    {tag:'fix',     text:'Drag de polygones booléens : polyPts traduit du même delta que x/y — plus de décalage entre la forme visible et sa position monde'},
+    {tag:'chore',   text:'0 erreur tsc --noEmit ; polygon-clipping ajouté aux dépendances (types bundlés)'},
+  ]},
+  {version:'v0.90',date:'16 Juillet 2026',dateISO:'2026-07-16',title:'NNL — Post-its enrichis, barre d\'outils et calques',current:false,changes:[
     {tag:'feat',    text:'Modal CRUD des Post-its (NNLItemModal) : 3 modes d\'affichage (fenêtre flottante, volet latéral redimensionnable, plein écran) — même pattern qu\'ItemModal'},
     {tag:'feat',    text:'Post-it enrichi : titre + corps séparés, couleur hex libre (color picker + palette), image (drag-drop ou sélection, base64), lien URL + label'},
     {tag:'feat',    text:'Onglet Notes : système complet de notes avec pièces jointes (image, PDF, lien), identique aux notes des items Backlog'},

@@ -5,6 +5,7 @@ import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStro
 import { NNLItemModal } from './NNLItemModal'
 import { NNLToolbar } from './NNLToolbar'
 import { NNLLayersPanel } from './NNLLayersPanel'
+import polygonClipping from 'polygon-clipping'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 const R1_DEFAULT = 400
@@ -177,15 +178,19 @@ function ZoneLabels({ ox, oy, zoom, W, H, r1, r2 }: { ox: number; oy: number; zo
 // en select mode), et les formes n'ont plus de onClick (la sélection est gérée
 // entièrement par le hit-test dans onCanvasMouseDown). Les poignées bezier gardent
 // pointerEvents:'auto' pour rester interactives.
-function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom, W, H, selectedShapeIds, selectedPtIdx, onPtMouseDown, onAddPt, onRotateStart }: {
+function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom, W, H, selectedShapeIds, selectedStrokeIds, selectedPtIdx, onPtMouseDown, onAddPt, onRotateStart, onResizeStart, onStrokeResizeStart, onStrokeRotateStart }: {
   shapes: NNLShape[]; strokes: NNLStroke[]
   previewShape?: NNLShape | null; previewStroke?: NNLStroke | null
   ox: number; oy: number; zoom: number; W: number; H: number
   selectedShapeIds?: string[]
+  selectedStrokeIds?: string[]
   selectedPtIdx?: number | null
   onPtMouseDown?: (shapeId: string, ptIdx: number, e: React.MouseEvent) => void
   onAddPt?: (shapeId: string, insertIdx: number, wx: number, wy: number) => void
   onRotateStart?: (shapeId: string, wCx: number, wCy: number, e: React.MouseEvent) => void
+  onResizeStart?: (shapeId: string, handle: 'nw'|'ne'|'sw'|'se'|'start'|'end', e: React.MouseEvent) => void
+  onStrokeResizeStart?: (handle: 'nw'|'ne'|'sw'|'se', wBBox: {minX:number;minY:number;maxX:number;maxY:number}, e: React.MouseEvent) => void
+  onStrokeRotateStart?: (wCx: number, wCy: number, e: React.MouseEvent) => void
 }) {
   // Un seul element sélectionné = le dernier de la liste (pour les handles bezier + rotation)
   const primarySelectedId = selectedShapeIds && selectedShapeIds.length > 0
@@ -225,10 +230,29 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
 
     const transform = rot !== 0 ? `rotate(${rot}, ${sCx}, ${sCy})` : undefined
 
+    // Poignées de redimensionnement (coins) pour rect/ellipse — primaire sélectionnée uniquement
+    const cornerHandles = (isSelected && primarySelectedId === s.id && (s.shapeType === 'rect' || s.shapeType === 'ellipse')) ? (
+      <>
+        {([
+          ['nw', rx,    ry   ] as const,
+          ['ne', rx+rw, ry   ] as const,
+          ['sw', rx,    ry+rh] as const,
+          ['se', rx+rw, ry+rh] as const,
+        ]).map(([h, cx, cy]) => (
+          <rect key={`handle-${h}`}
+            x={cx-5} y={cy-5} width={10} height={10} rx={2}
+            fill="white" stroke="var(--primary)" strokeWidth={1.5}
+            style={{ cursor: h === 'nw' || h === 'se' ? 'nwse-resize' : 'nesw-resize', pointerEvents: 'auto' }}
+            onMouseDown={e => { e.stopPropagation(); onResizeStart?.(s.id, h, e) }}
+            onClick={e => e.stopPropagation()} />
+        ))}
+      </>
+    ) : null
+
     if (s.shapeType === 'rect') {
       const rx_ = (s.rx ?? 0) * Math.sqrt(zoom)
       return (
-        <g key={key} transform={transform}>
+        <g key={key} data-shape-id={s.id} transform={transform} opacity={s.opacity ?? 1}>
           <rect x={rx} y={ry} width={rw} height={rh}
             fill={fill === 'none' ? 'none' : fill} fillOpacity={fill === 'none' ? 0 : fillOp}
             stroke={stroke === 'none' ? 'none' : stroke} strokeWidth={stroke === 'none' ? 0 : sw}
@@ -240,12 +264,13 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
               strokeDasharray="5 3" rx={rx_+2} style={{ pointerEvents: 'none' }} />
           )}
           {rotHandle}
+          {cornerHandles}
         </g>
       )
     }
     if (s.shapeType === 'ellipse') {
       return (
-        <g key={key} transform={transform}>
+        <g key={key} data-shape-id={s.id} transform={transform} opacity={s.opacity ?? 1}>
           <ellipse cx={sCx} cy={sCy} rx={rw/2} ry={rh/2}
             fill={fill === 'none' ? 'none' : fill} fillOpacity={fill === 'none' ? 0 : fillOp}
             stroke={stroke === 'none' ? 'none' : stroke} strokeWidth={stroke === 'none' ? 0 : sw}
@@ -256,6 +281,7 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
               strokeDasharray="5 3" style={{ pointerEvents: 'none' }} />
           )}
           {rotHandle}
+          {cornerHandles}
         </g>
       )
     }
@@ -281,7 +307,7 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
       const arTop = Math.min(...allYs)
       const arrowTransform = rot !== 0 ? `rotate(${rot}, ${arCx}, ${arCy})` : undefined
       return (
-        <g key={key} transform={arrowTransform}>
+        <g key={key} data-shape-id={s.id} transform={arrowTransform} opacity={s.opacity ?? 1}>
           <path d={pathD} fill="none" stroke={arrowStroke} strokeWidth={sw}
             strokeLinecap="round" strokeLinejoin="round" strokeOpacity={strokeOp} />
           <polyline points={`${ax1},${ay1} ${last.x},${last.y} ${ax2},${ay2}`}
@@ -293,6 +319,18 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
           {/* Poignées bezier */}
           {isSelected && primarySelectedId === s.id && (
             <>
+              {/* Endpoint handles — resize (start/end) */}
+              <circle cx={allPts[0].x} cy={allPts[0].y} r={7}
+                fill="white" stroke="var(--primary)" strokeWidth={2}
+                style={{ cursor: 'crosshair', pointerEvents: 'auto' }}
+                onMouseDown={e => { e.stopPropagation(); onResizeStart?.(s.id, 'start', e) }}
+                onClick={e => e.stopPropagation()} />
+              <circle cx={last.x} cy={last.y} r={7}
+                fill="var(--primary)" stroke="var(--primary)" strokeWidth={2}
+                style={{ cursor: 'crosshair', pointerEvents: 'auto' }}
+                onMouseDown={e => { e.stopPropagation(); onResizeStart?.(s.id, 'end', e) }}
+                onClick={e => e.stopPropagation()} />
+              {/* Bezier mid-point handles */}
               {(s.pts ?? []).map((pt, i) => {
                 const sp = w2s(pt.x, pt.y, ox, oy, zoom)
                 const active = selectedPtIdx === i
@@ -333,6 +371,23 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
         </g>
       )
     }
+    // ── Polygone (résultat opération booléenne) ──────────────────────────────
+    if (s.shapeType === 'polygon' && s.polyPts && s.polyPts.length > 2) {
+      const spts = s.polyPts.map(p => w2s(p.x, p.y, ox, oy, zoom))
+      const d = `M ${spts.map(p => `${p.x},${p.y}`).join(' L ')} Z`
+      return (
+        <g key={key} data-shape-id={s.id} transform={transform} opacity={s.opacity ?? 1}>
+          {isSelected && <path d={d} fill="none" stroke="var(--primary)"
+            strokeWidth={sw + 4} strokeOpacity={0.25} style={{ pointerEvents: 'none' }} />}
+          <path d={d}
+            fill={fill === 'none' ? 'none' : fill} fillOpacity={fill === 'none' ? 0 : fillOp}
+            stroke={stroke === 'none' ? 'none' : stroke} strokeOpacity={stroke === 'none' ? 0 : strokeOp}
+            strokeWidth={stroke === 'none' ? 0 : sw} strokeLinejoin="round" />
+          {rotHandle}
+        </g>
+      )
+    }
+
     return null
   }
 
@@ -341,13 +396,64 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
     const pts = s.pts.map(p => w2s(p.x, p.y, ox, oy, zoom))
     let d = `M ${pts[0].x} ${pts[0].y}`
     for (let i = 1; i < pts.length; i++) d += ` L ${pts[i].x} ${pts[i].y}`
+    const isSelected = (selectedStrokeIds ?? []).includes(s.id)
     return (
-      <path key={key} d={d}
-        fill="none"
-        stroke={s.color ?? '#1e293b'}
-        strokeWidth={(s.width ?? 2) * Math.sqrt(zoom)}
-        strokeLinecap="round" strokeLinejoin="round"
-        opacity={s.opacity ?? 1} />
+      <g key={key}>
+        {isSelected && (
+          <path d={d} fill="none"
+            stroke="var(--primary)" strokeOpacity={0.35}
+            strokeWidth={((s.width ?? 2) * Math.sqrt(zoom)) + 8}
+            strokeLinecap="round" strokeLinejoin="round" />
+        )}
+        <path d={d}
+          fill="none"
+          stroke={s.color ?? '#1e293b'}
+          strokeWidth={(s.width ?? 2) * Math.sqrt(zoom)}
+          strokeLinecap="round" strokeLinejoin="round"
+          opacity={s.opacity ?? 1} />
+      </g>
+    )
+  }
+
+  // Bounding-box + poignées pour les tracés sélectionnés
+  function renderStrokeBBox() {
+    const selIds = selectedStrokeIds ?? []
+    if (selIds.length === 0) return null
+    const selStrokes = strokes.filter(s => selIds.includes(s.id))
+    if (selStrokes.length === 0) return null
+    const allPts = selStrokes.flatMap(s => s.pts)
+    if (allPts.length === 0) return null
+    const minX = Math.min(...allPts.map(p => p.x)), maxX = Math.max(...allPts.map(p => p.x))
+    const minY = Math.min(...allPts.map(p => p.y)), maxY = Math.max(...allPts.map(p => p.y))
+    const wBBox = { minX, minY, maxX, maxY }
+    const TL = w2s(minX, maxY, ox, oy, zoom), BR = w2s(maxX, minY, ox, oy, zoom)
+    const rx = TL.x, ry = TL.y, rw = BR.x - TL.x, rh = BR.y - TL.y
+    const cx = (TL.x + BR.x) / 2, cy = (TL.y + BR.y) / 2
+    // Coin de rotation (au-dessus du centre, 24px)
+    const rotSy = ry - 24
+    const corners: Array<['nw'|'ne'|'sw'|'se', number, number]> = [
+      ['nw', rx, ry], ['ne', rx+rw, ry], ['sw', rx, ry+rh], ['se', rx+rw, ry+rh],
+    ]
+    return (
+      <g pointerEvents="auto">
+        {/* Contour bounding box */}
+        <rect x={rx} y={ry} width={rw} height={rh}
+          fill="none" stroke="var(--primary)" strokeWidth={1} strokeDasharray="4 2" />
+        {/* Tige de rotation */}
+        <line x1={cx} y1={ry} x2={cx} y2={rotSy} stroke="var(--primary)" strokeWidth={1} />
+        {/* Poignée de rotation */}
+        <circle cx={cx} cy={rotSy} r={5} fill="white" stroke="var(--primary)" strokeWidth={1.5}
+          style={{ cursor: 'crosshair' }}
+          onMouseDown={e => { e.stopPropagation(); onStrokeRotateStart?.(
+            (minX + maxX) / 2, (minY + maxY) / 2, e) }} />
+        {/* Poignées de resize */}
+        {corners.map(([h, hx, hy]) => (
+          <rect key={h} x={hx-5} y={hy-5} width={10} height={10} rx={2}
+            fill="white" stroke="var(--primary)" strokeWidth={1.5}
+            style={{ cursor: h === 'nw' || h === 'se' ? 'nwse-resize' : 'nesw-resize' }}
+            onMouseDown={e => { e.stopPropagation(); onStrokeResizeStart?.(h, wBBox, e) }} />
+        ))}
+      </g>
     )
   }
 
@@ -361,6 +467,7 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
       {previewStroke && renderStroke(previewStroke, 'preview-stroke')}
       {shapes.map(s => renderShape(s, s.id))}
       {previewShape && renderShape(previewShape, 'preview-shape')}
+      {renderStrokeBBox()}
     </svg>
   )
 }
@@ -399,6 +506,7 @@ function TextBlock({ text, ox, oy, zoom, onDoubleClick, onMouseDown, onResizeSta
           fontWeight: text.bold ? 700 : undefined,
           fontStyle: text.italic ? 'italic' : undefined,
           textDecoration: text.underline ? 'underline' : undefined,
+          textAlign: text.textAlign ?? 'left',
           userSelect: 'none', pointerEvents: 'auto',
           cursor: onMouseDown ? 'move' : 'default',
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
@@ -407,9 +515,8 @@ function TextBlock({ text, ox, oy, zoom, onDoubleClick, onMouseDown, onResizeSta
           outlineOffset: isSelected ? '2px' : undefined,
           borderRadius: 2, boxSizing: 'border-box',
         }}
-      >
-        {text.content}
-      </div>
+        dangerouslySetInnerHTML={{ __html: text.content }}
+      />
       {/* Handle de resize (largeur) */}
       {isSelected && onResizeStart && (
         <div
@@ -444,37 +551,219 @@ function TextBlock({ text, ox, oy, zoom, onDoubleClick, onMouseDown, onResizeSta
   )
 }
 
-// ── InlineTextEditor ─────────────────────────────────────────────────────────
-function InlineTextEditor({ text, ox, oy, zoom, onChange, onCommit }: {
+// ── InlineTextEditor (contenteditable + mini-toolbar) ───────────────────────
+function InlineTextEditor({ text, ox, oy, zoom, onCommit }: {
   text: NNLText; ox: number; oy: number; zoom: number
-  onChange: (content: string) => void
-  onCommit: () => void
+  onCommit: (html: string) => void
 }) {
-  const taRef = useRef<HTMLTextAreaElement>(null)
-  const p = w2s(text.x, text.y, ox, oy, zoom)
-  useEffect(() => { taRef.current?.focus(); taRef.current?.select() }, [])
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const edRef         = useRef<HTMLDivElement>(null)
+  const savedRange    = useRef<Range | null>(null)
+  const committedRef  = useRef(false)
+  // Évite le commit quand l'utilisateur clique sur la toolbar (flag courte durée)
+  const inToolbarRef  = useRef(false)
+  const p             = w2s(text.x, text.y, ox, oy, zoom)
+  const [color, setColor]           = useState(text.color ?? '#1e293b')
+  const [colorOpacity, setColorOpacity] = useState(1)
+  const [colorOpen, setColorOpen]   = useState(false)
+  const [activeFmts, setActiveFmts] = useState({ bold: false, italic: false, underline: false })
+
+  useEffect(() => {
+    const el = edRef.current; if (!el) return
+    el.innerHTML = text.content
+    el.focus()
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(range)
+  }, []) // eslint-disable-line
+
+  // Met à jour l'état G/I/S selon la sélection courante
+  function updateActiveFmts() {
+    setActiveFmts({
+      bold:      document.queryCommandState('bold'),
+      italic:    document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
+    })
+  }
+  useEffect(() => {
+    function onSelChange() {
+      const active = document.activeElement
+      if (active !== edRef.current && !edRef.current?.contains(active)) return
+      updateActiveFmts()
+    }
+    document.addEventListener('selectionchange', onSelChange)
+    return () => document.removeEventListener('selectionchange', onSelChange)
+  }, []) // eslint-disable-line
+
+  function commit() {
+    if (committedRef.current) return
+    committedRef.current = true
+    onCommit(edRef.current?.innerHTML ?? text.content)
+  }
+
+  // Sauvegarde la sélection courante
+  function saveSelection() {
+    const sel = window.getSelection()
+    if (sel && sel.rangeCount > 0) savedRange.current = sel.getRangeAt(0).cloneRange()
+  }
+
+  // Restaure la sélection dans l'éditeur avant d'appliquer un style
+  function restoreAndExec(cmd: string, value?: string) {
+    const el = edRef.current; if (!el) return
+    el.focus()
+    const sel = window.getSelection()
+    if (savedRange.current && sel) {
+      sel.removeAllRanges()
+      sel.addRange(savedRange.current)
+    }
+    document.execCommand('styleWithCSS', false, 'true')
+    document.execCommand(cmd, false, value)
+    savedRange.current = null
+  }
+
+  // Marque une interaction toolbar pour bloquer le commit au blur
+  function markToolbar() {
+    inToolbarRef.current = true
+    setTimeout(() => { inToolbarRef.current = false }, 200)
+  }
+
+  // Applique foreColor sans effacer savedRange (pour pouvoir ajuster l'opacité ensuite)
+  function applyForeColor(c: string, op: number) {
+    const el = edRef.current; if (!el) return
+    el.focus()
+    const sel = window.getSelection()
+    if (savedRange.current && sel) {
+      sel.removeAllRanges()
+      sel.addRange(savedRange.current.cloneRange())
+    }
+    document.execCommand('styleWithCSS', false, 'true')
+    document.execCommand('foreColor', false, hexToRgba(c, op))
+  }
+
+  const TB_BTN: React.CSSProperties = {
+    border: 'none', borderRadius: 4, cursor: 'pointer', padding: '2px 5px',
+    background: 'transparent', color: 'var(--text)', fontSize: 11,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  }
+
   return (
-    <textarea
-      ref={taRef}
-      value={text.content}
-      onChange={e => onChange(e.target.value)}
-      onBlur={onCommit}
-      onKeyDown={e => { if (e.key === 'Escape') onCommit() }}
-      style={{
-        position: 'absolute', left: p.x, top: p.y,
-        width: text.w * zoom,
-        minHeight: (text.fontSize ?? 14) * zoom * 1.8,
-        fontSize: (text.fontSize ?? 14) * zoom,
-        fontFamily: text.fontFamily ?? 'inherit',
-        color: text.color ?? 'var(--text)',
-        background: 'var(--surface)',
-        border: '1.5px solid var(--primary)',
-        borderRadius: 4, padding: 2, resize: 'none', outline: 'none',
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-        lineHeight: 1.4, zIndex: 90,
-      }}
-      onMouseDown={e => e.stopPropagation()}
-    />
+    <div ref={containerRef} style={{ position: 'absolute', left: p.x, top: p.y, zIndex: 90 }}
+      onMouseDown={e => e.stopPropagation()}>
+
+      {/* ── Mini-toolbar ─────────────────────────────────────────────────── */}
+      <div
+        onMouseDown={() => { saveSelection(); markToolbar() }}
+        style={{
+          position: 'absolute', top: -38, left: 0,
+          display: 'flex', alignItems: 'center', gap: 2,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: '3px 6px', boxShadow: '0 2px 8px rgba(0,0,0,.14)',
+          whiteSpace: 'nowrap',
+        }}>
+        {/* Police — selection-aware via savedRange */}
+        <select
+          onChange={e => restoreAndExec('fontName', e.target.value)}
+          defaultValue=""
+          style={{ fontSize: 10, border: '1px solid var(--border)', borderRadius: 4,
+            padding: '1px 3px', background: 'var(--surface-2)', color: 'var(--text)',
+            cursor: 'pointer', outline: 'none', maxWidth: 120 }}>
+          <option value="" disabled>Police…</option>
+          {PROP_FONTS.filter(f => f.value !== 'inherit').map(f => (
+            <option key={f.value} value={f.value}>{f.label}</option>
+          ))}
+        </select>
+
+        <div style={{ width:1, height:16, background:'var(--border)', margin:'0 2px' }} />
+
+        {/* G / I / S — preventDefault évite la perte de focus/sélection */}
+        {(['bold', 'italic', 'underline'] as const).map(fmt => {
+          const active = activeFmts[fmt]
+          const labels = { bold: 'G', italic: 'I', underline: 'S' }
+          const titles = { bold: 'Gras (Ctrl+B)', italic: 'Italique (Ctrl+I)', underline: 'Souligné (Ctrl+U)' }
+          const cmds   = { bold: 'bold', italic: 'italic', underline: 'underline' }
+          return (
+            <button key={fmt} title={titles[fmt]}
+              style={{ ...TB_BTN,
+                background: active ? 'var(--primary-light)' : 'transparent',
+                color:      active ? 'var(--primary)'       : 'var(--text)',
+                border:     active ? '1px solid var(--primary-light)' : '1px solid transparent',
+              }}
+              onMouseDown={e => {
+                e.preventDefault()
+                saveSelection()        // capture la sélection avant tout
+                restoreAndExec(cmds[fmt])
+                setTimeout(updateActiveFmts, 0)
+              }}>
+              {fmt === 'bold'      && <strong>G</strong>}
+              {fmt === 'italic'    && <em>I</em>}
+              {fmt === 'underline' && <u>S</u>}
+            </button>
+          )
+        })}
+
+        <div style={{ width:1, height:16, background:'var(--border)', margin:'0 2px' }} />
+
+        {/* Couleur de la sélection — ColorOpacityPopover */}
+        <div style={{ position: 'relative' }}>
+          <div
+            title="Couleur du texte sélectionné"
+            onMouseDown={e => {
+              e.preventDefault()
+              saveSelection()
+              markToolbar()
+              setColorOpen(p => !p)
+            }}>
+            <PSwatch color={color} opacity={colorOpacity} size={20} selected={colorOpen} />
+          </div>
+          {colorOpen && (
+            <ColorOpacityPopover
+              current={color} opacity={colorOpacity}
+              onPick={c => { setColor(c); applyForeColor(c, colorOpacity); setColorOpen(false) }}
+              onOpacity={op => { setColorOpacity(op); applyForeColor(color, op) }}
+              onSave={() => {}}
+              onClose={() => setColorOpen(false)}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ── Contenteditable ───────────────────────────────────────────────── */}
+      <div
+        ref={edRef}
+        contentEditable
+        suppressContentEditableWarning
+        onBlur={() => {
+          if (!inToolbarRef.current) commit()
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Escape') { e.preventDefault(); commit() }
+        }}
+        onPaste={e => {
+          e.preventDefault()
+          const plain = e.clipboardData.getData('text/plain')
+          const safe = plain
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\n/g, '<br>')
+          document.execCommand('insertHTML', false, safe)
+        }}
+        style={{
+          width: text.w * zoom,
+          minHeight: (text.fontSize ?? 14) * zoom * 1.8,
+          fontSize: (text.fontSize ?? 14) * zoom,
+          fontFamily: text.fontFamily ?? 'inherit',
+          color: text.color ?? 'var(--text)',
+          fontWeight: text.bold ? 700 : undefined,
+          fontStyle: text.italic ? 'italic' : undefined,
+          textDecoration: text.underline ? 'underline' : undefined,
+          textAlign: text.textAlign ?? 'left',
+          background: 'var(--surface)',
+          border: '1.5px solid var(--primary)',
+          borderRadius: 4, padding: 4, outline: 'none',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          lineHeight: 1.4, boxSizing: 'border-box',
+        }}
+      />
+    </div>
   )
 }
 
@@ -685,14 +974,100 @@ function ZoomControls({ zoom, onZoom, onReset }: { zoom: number; onZoom: (z: num
 const PROP_PALETTE = ['#1e293b','#94a3b8','#ef4444','#f97316','#fbbf24','#22c55e','#3b82f6','#8b5cf6','#ec4899','#40e0d0','#ffffff','none']
 const PROP_SW = [1, 2, 4, 8, 16]
 const PROP_FONTS = [
-  { label: 'Sans-serif', value: 'inherit' },
-  { label: 'Serif',      value: 'Georgia, serif' },
-  { label: 'Mono',       value: '"Courier New", monospace' },
-  { label: 'Cursive',    value: 'cursive' },
-  { label: 'Impact',     value: 'Impact, fantasy' },
+  { label: 'Système',           value: 'inherit' },
+  { label: 'Inter',             value: '"Inter", sans-serif' },
+  { label: 'Lato',              value: '"Lato", sans-serif' },
+  { label: 'Montserrat',        value: '"Montserrat", sans-serif' },
+  { label: 'Raleway',           value: '"Raleway", sans-serif' },
+  { label: 'Oswald',            value: '"Oswald", sans-serif' },
+  { label: 'Playfair Display',  value: '"Playfair Display", serif' },
+  { label: 'Merriweather',      value: '"Merriweather", serif' },
+  { label: 'Roboto Mono',       value: '"Roboto Mono", monospace' },
 ]
 // Checkered background (transparency indicator)
 const CHECKER_BG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='4' height='4' fill='%23ccc'/%3E%3Crect x='4' y='4' width='4' height='4' fill='%23ccc'/%3E%3Crect x='0' y='4' width='4' height='4' fill='%23eee'/%3E%3Crect x='4' y='0' width='4' height='4' fill='%23eee'/%3E%3C/svg%3E")`
+
+// ── Boolean ops icons ─────────────────────────────────────────────────────────
+const ICO_BOOL_UNITE     = '<path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3a1 1 0 0 0 1 1h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2v-3a1 1 0 0 0-1-1z"/>'
+const ICO_BOOL_SUBTRACT  = '<path d="M10 22a2 2 0 0 1-2-2"/><path d="M16 22h-2"/><path d="M16 4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-5a2 2 0 0 1 2-2h5a1 1 0 0 0 1-1z"/><path d="M20 8a2 2 0 0 1 2 2"/><path d="M22 14v2"/><path d="M22 20a2 2 0 0 1-2 2"/>'
+const ICO_BOOL_INTERSECT = '<path d="M10 22a2 2 0 0 1-2-2"/><path d="M14 2a2 2 0 0 1 2 2"/><path d="M16 22h-2"/><path d="M2 10V8"/><path d="M2 4a2 2 0 0 1 2-2"/><path d="M20 8a2 2 0 0 1 2 2"/><path d="M22 14v2"/><path d="M22 20a2 2 0 0 1-2 2"/><path d="M4 16a2 2 0 0 1-2-2"/><path d="M8 10a2 2 0 0 1 2-2h5a1 1 0 0 1 1 1v5a2 2 0 0 1-2 2H9a1 1 0 0 1-1-1z"/><path d="M8 2h2"/>'
+const ICO_BOOL_DIVIDE    = '<path d="M16 12v2a2 2 0 0 1-2 2H9a1 1 0 0 0-1 1v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h0"/><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3a1 1 0 0 1-1 1h-5a2 2 0 0 0-2 2v2"/>'
+// XOR : pas d'icône Lucide → on dessine deux carrés qui se chevauchent
+const ICO_BOOL_XOR       = '<rect x="3" y="3" width="10" height="10" rx="1"/><rect x="11" y="11" width="10" height="10" rx="1"/>'
+
+// ── Boolean ops geometry ──────────────────────────────────────────────────────
+type Pt2 = [number, number]
+type Ring = Pt2[]
+type Poly = Ring[]
+
+function shapeToPolygon(s: NNLShape): Poly {
+  // Polygone existant
+  if (s.shapeType === 'polygon' && s.polyPts && s.polyPts.length > 2) {
+    const ring: Ring = s.polyPts.map(p => [p.x, p.y] as Pt2)
+    if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1])
+      ring.push(ring[0])
+    return [ring]
+  }
+  const minX = Math.min(s.x, s.x2), maxX = Math.max(s.x, s.x2)
+  const minY = Math.min(s.y, s.y2), maxY = Math.max(s.y, s.y2)
+  if (s.shapeType === 'ellipse') {
+    // Approximation ellipse → polygone 64 pts
+    const cx = (minX+maxX)/2, cy = (minY+maxY)/2
+    const rx = (maxX-minX)/2, ry = (maxY-minY)/2
+    const ring: Ring = []
+    const N = 64
+    for (let i = 0; i <= N; i++) {
+      const t = (2 * Math.PI * i) / N
+      ring.push([cx + rx * Math.cos(t), cy + ry * Math.sin(t)])
+    }
+    return [ring]
+  }
+  // Rect
+  const ring: Ring = [
+    [minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]
+  ]
+  return [ring]
+}
+
+function multiPolyToNNLShape(result: polygonClipping.MultiPolygon, proto: NNLShape): NNLShape | null {
+  if (!result || result.length === 0) return null
+  const ring = result[0][0]
+  if (!ring || ring.length < 3) return null
+  const pts = ring.map(([x, y]) => ({ x, y }))
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y)
+  return {
+    ...proto,
+    id: `shape-${Date.now()}-${Math.random().toString(36).slice(2,6)}-bool`,
+    shapeType: 'polygon' as const,
+    x:  Math.min(...xs), y:  Math.max(...ys),
+    x2: Math.max(...xs), y2: Math.min(...ys),
+    polyPts: pts,
+    pts: undefined,
+    rotation: 0,
+  }
+}
+
+// Crée une NNLShape par polygone dans le résultat (XOR / divide → plusieurs pièces)
+function multiPolyToNNLShapes(result: polygonClipping.MultiPolygon, proto: NNLShape): NNLShape[] {
+  if (!result || result.length === 0) return []
+  return result.flatMap((poly, i) => {
+    const ring = poly[0]
+    if (!ring || ring.length < 3) return []
+    const pts = ring.map(([x, y]) => ({ x, y }))
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y)
+    const shape: NNLShape = {
+      ...proto,
+      id: `shape-${Date.now()}-${i}-${Math.random().toString(36).slice(2,6)}-bool`,
+      shapeType: 'polygon' as const,
+      x:  Math.min(...xs), y:  Math.max(...ys),
+      x2: Math.max(...xs), y2: Math.min(...ys),
+      polyPts: pts,
+      pts: undefined,
+      rotation: 0,
+    }
+    return [shape]
+  })
+}
 
 function hexToRgba(hex: string, op: number): string {
   if (!hex || !hex.startsWith('#') || hex.length < 7) return hex
@@ -724,11 +1099,11 @@ function ColorOpacityPopover({ current, opacity, onPick, onOpacity, onSave, onCl
   onSave: () => void; onClose: () => void
 }) {
   return (
-    <div onMouseDown={e => e.stopPropagation()} style={{
+    <div onMouseDown={e => { e.stopPropagation(); e.preventDefault() }} style={{
       position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 220,
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 10, padding: 8, boxShadow: '0 4px 16px rgba(0,0,0,.22)',
-      width: 158,
+      width: 170,
     }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 22px)', gap: 4 }}>
         {PROP_PALETTE.map(c => (
@@ -745,6 +1120,7 @@ function ColorOpacityPopover({ current, opacity, onPick, onOpacity, onSave, onCl
           <input type="range" min={0} max={100} value={Math.round(opacity * 100)}
             onChange={e => onOpacity(parseInt(e.target.value) / 100)}
             onMouseUp={onSave}
+            onMouseDown={e => e.stopPropagation()}
             style={{ width: '100%', height: 14, cursor: 'pointer' }}
           />
         </div>
@@ -754,6 +1130,106 @@ function ColorOpacityPopover({ current, opacity, onPick, onOpacity, onSave, onCl
 }
 
 const PANEL_SEP = <div style={{ width: 1, height: 24, background: 'var(--border)', flexShrink: 0 }} />
+
+// ── StrokePropertiesPanel ─────────────────────────────────────────────────────
+function StrokePropertiesPanel({ strokes, onUpdate, onSave, onDelete }: {
+  strokes: NNLStroke[]
+  onUpdate: (id: string, updates: Partial<NNLStroke>) => void
+  onSave: () => void
+  onDelete: () => void
+}) {
+  const first = strokes[0]
+  const color = first?.color ?? '#1e293b'
+  const width = first?.width ?? 2
+  const PALETTE = ['#1e293b','#94a3b8','#ef4444','#f97316','#fbbf24','#22c55e','#3b82f6','#8b5cf6','#ec4899','#40e0d0','#ffffff']
+  const SIZES = [1, 2, 4, 8, 16]
+  return (
+    <div onMouseDown={e => e.stopPropagation()}
+      style={{
+        position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 80, display: 'flex', alignItems: 'center', gap: 6,
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 10, padding: '5px 10px',
+        boxShadow: '0 2px 12px rgba(0,0,0,.12)',
+      }}>
+      {/* Couleur */}
+      <div style={{ display: 'flex', gap: 3 }}>
+        {PALETTE.map(c => (
+          <div key={c} onClick={() => { strokes.forEach(s => onUpdate(s.id, { color: c })); onSave() }}
+            style={{
+              width: 16, height: 16, borderRadius: 4, background: c, cursor: 'pointer',
+              border: color === c ? '2px solid var(--primary)' : '1px solid var(--border)',
+              boxSizing: 'border-box',
+            }} />
+        ))}
+        <div style={{ position: 'relative', width: 16, height: 16 }}>
+          <div style={{ width: 16, height: 16, borderRadius: 4, background: color, border: '1px solid var(--border)' }} />
+          <input type="color" value={color === 'none' ? '#000000' : color}
+            onChange={e => { strokes.forEach(s => onUpdate(s.id, { color: e.target.value })); onSave() }}
+            style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
+        </div>
+      </div>
+      {PANEL_SEP}
+      {/* Épaisseur */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        {SIZES.map(w => (
+          <button key={w} title={`Épaisseur ${w}px`}
+            onClick={() => { strokes.forEach(s => onUpdate(s.id, { width: w })); onSave() }}
+            style={{
+              width: 28, height: 24, border: 'none', borderRadius: 5, cursor: 'pointer',
+              background: width === w ? 'var(--primary-light)' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+            }}>
+            <div style={{ width: 18, height: Math.min(w, 6), borderRadius: w / 2,
+              background: width === w ? 'var(--primary)' : 'var(--text-muted)' }} />
+          </button>
+        ))}
+      </div>
+      {PANEL_SEP}
+      {/* Supprimer */}
+      <button title="Supprimer (Suppr)" onClick={onDelete}
+        style={{ width: 24, height: 24, border: 'none', borderRadius: 4, cursor: 'pointer',
+          background: 'transparent', color: 'var(--text-muted)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>×</button>
+    </div>
+  )
+}
+
+// ── BooleanOpsToolbar ─────────────────────────────────────────────────────────
+function BooleanOpsToolbar({ onOp }: { onOp: (op: 'unite'|'subtract'|'intersect'|'xor'|'divide') => void }) {
+  const ops: Array<{ id: 'unite'|'subtract'|'intersect'|'xor'|'divide'; label: string; d: string }> = [
+    { id: 'unite',     label: 'Ajouter (union)',       d: ICO_BOOL_UNITE     },
+    { id: 'subtract',  label: 'Soustraire',            d: ICO_BOOL_SUBTRACT  },
+    { id: 'intersect', label: 'Intersection',          d: ICO_BOOL_INTERSECT },
+    { id: 'xor',       label: 'OU exclusif (XOR)',     d: ICO_BOOL_XOR       },
+    { id: 'divide',    label: 'Diviser',               d: ICO_BOOL_DIVIDE    },
+  ]
+  return (
+    <div onMouseDown={e => e.stopPropagation()}
+      style={{
+        position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 75, display: 'flex', alignItems: 'center', gap: 4,
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 10, padding: '5px 8px',
+        boxShadow: '0 2px 12px rgba(0,0,0,.12)',
+      }}>
+      <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 4 }}>Opérations :</span>
+      {ops.map(op => (
+        <button key={op.id} title={op.label} onClick={() => onOp(op.id)}
+          style={{
+            width: 28, height: 28, border: '1px solid var(--border)', borderRadius: 6,
+            background: 'var(--surface-2)', cursor: 'pointer', padding: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--text)',
+          }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            dangerouslySetInnerHTML={{ __html: op.d }} />
+        </button>
+      ))}
+    </div>
+  )
+}
 
 // ── ShapePropertiesPanel ──────────────────────────────────────────────────────
 function ShapePropertiesPanel({ shape, onUpdate, onSave, onDelete }: {
@@ -876,6 +1352,19 @@ function ShapePropertiesPanel({ shape, onUpdate, onSave, onDelete }: {
 
       {PANEL_SEP}
 
+      {/* ── Opacité globale ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          {Math.round((shape.opacity ?? 1) * 100)}%
+        </span>
+        <input type="range" min={0} max={100} value={Math.round((shape.opacity ?? 1) * 100)}
+          onChange={e => onUpdate({ opacity: parseInt(e.target.value) / 100 })}
+          onMouseUp={onSave} onMouseDown={e => e.stopPropagation()}
+          style={{ width: 60, height: 14, cursor: 'pointer' }} />
+      </div>
+
+      {PANEL_SEP}
+
       <button title="Supprimer (Suppr)" onClick={onDelete}
         style={{ width: 24, height: 24, border: 'none', borderRadius: 4, cursor: 'pointer',
           background: 'transparent', color: 'var(--text-muted)',
@@ -971,6 +1460,33 @@ function TextPropertiesPanel({ text, onUpdate, onSave, onDelete }: {
 
       {PANEL_SEP}
 
+      {/* ── Alignement texte ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        {([
+          { v: 'left'    as const, title: 'Aligner à gauche',  d: '<line x1="21" y1="6" x2="3" y2="6"/><line x1="15" y1="12" x2="3" y2="12"/><line x1="17" y1="18" x2="3" y2="18"/>' },
+          { v: 'center'  as const, title: 'Centrer',           d: '<line x1="21" y1="6" x2="3" y2="6"/><line x1="17" y1="12" x2="7" y2="12"/><line x1="19" y1="18" x2="5" y2="18"/>' },
+          { v: 'right'   as const, title: 'Aligner à droite',  d: '<line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="12" x2="9" y2="12"/><line x1="21" y1="18" x2="7" y2="18"/>' },
+          { v: 'justify' as const, title: 'Justifier',         d: '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>' },
+        ]).map(({ v, title, d }) => {
+          const active = (text.textAlign ?? 'left') === v
+          return (
+            <button key={v} title={title}
+              onClick={() => { onUpdate({ textAlign: v }); onSave() }}
+              style={{
+                width: 22, height: 22, borderRadius: 4, cursor: 'pointer',
+                border: active ? '1.5px solid var(--primary)' : '1.5px solid transparent',
+                background: active ? 'var(--primary-light)' : 'transparent',
+                color: active ? 'var(--primary)' : 'var(--text-muted)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+              }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" dangerouslySetInnerHTML={{ __html: d }} />
+            </button>
+          )
+        })}
+      </div>
+
+      {PANEL_SEP}
+
       {/* ── Rotation ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
@@ -1035,6 +1551,14 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([])
   const [selectedTextId,   setSelectedTextId]   = useState<string | null>(null)
   const [selectedPtIdx,    setSelectedPtIdx]    = useState<number | null>(null)
+  const [selectedStrokeIds, setSelectedStrokeIds] = useState<string[]>([])
+
+  // ── Select tool sub-state (v0.90.5) ───────────────────────────────────────
+  const [selectMode,  setSelectMode]  = useState<'pointer' | 'rect' | 'lasso'>('pointer')
+  const [selectScope, setSelectScope] = useState<'all' | 'active'>('all')
+  const [snapEnabled, setSnapEnabled] = useState(false)
+  const [rubberRect,  setRubberRect]  = useState<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [lassoPts,    setLassoPts]    = useState<Array<{ x: number; y: number }> | null>(null)
 
   // ── Drawing preview state ─────────────────────────────────────────────────
   const [previewShape,  setPreviewShape]  = useState<NNLShape | null>(null)
@@ -1065,26 +1589,21 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   const widthRef        = useRef(drawWidth);    widthRef.current        = drawWidth
   const rectRadiusRef   = useRef(rectRadius);   rectRadiusRef.current   = rectRadius
   const activeLayerRef  = useRef(activeLayerId);activeLayerRef.current  = activeLayerId
+  const selectModeRef   = useRef(selectMode);  selectModeRef.current   = selectMode
+  const selectScopeRef  = useRef(selectScope); selectScopeRef.current  = selectScope
+  const snapEnabledRef  = useRef(snapEnabled); snapEnabledRef.current  = snapEnabled
   const shiftRef        = useRef(false)
 
-  // ── Auto-calques par outil (style Photoshop) ──────────────────────────────
-  const toolLayerMapRef = useRef<Partial<Record<NNLTool, string>>>({})
-  const pendingLayerRef = useRef<NNLLayer | null>(null)
+  // ── Rubber-band / lasso select ref (v0.90.5) ─────────────────────────────
+  const rubberRef = useRef<{
+    sx0: number; sy0: number; sx1: number; sy1: number
+    pts?: Array<{ x: number; y: number }>  // lasso screen coords
+  } | null>(null)
 
-  // Bug 3 fix : reconstruire toolLayerMapRef depuis les calques existants au montage
-  // (après reload, le ref est vide et la suppression auto ne se déclenche jamais)
-  useEffect(() => {
-    const TOOL_NAME_MAP: Record<string, NNLTool> = {
-      'Rectangle': 'rect', 'Ellipse': 'ellipse', 'Flèche': 'arrow',
-      'Texte': 'text', 'Stylo': 'pen', 'Marqueur': 'marker',
-    }
-    ;(stateRef.current.nnlLayers ?? []).forEach(l => {
-      const tool = TOOL_NAME_MAP[l.name]
-      if (tool && !toolLayerMapRef.current[tool]) {
-        toolLayerMapRef.current[tool] = l.id
-      }
-    })
-  }, []) // une seule fois au montage
+  // ── Clipboard interne (v0.90.5) ───────────────────────────────────────────
+  const clipboardRef = useRef<{ shapes: NNLShape[]; texts: NNLText[] } | null>(null)
+
+  // toolLayerMapRef supprimé (v0.91) : chaque forme a maintenant son propre calque
 
   // ── Drag nœud bezier ──────────────────────────────────────────────────────
   const dragPtRef = useRef<{ shapeId: string; ptIdx: number } | null>(null)
@@ -1092,7 +1611,14 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // ── Drag formes (outil Sélection) ─────────────────────────────────────────
   const shapeDragRef = useRef<{
     ids: string[]
-    starts: Array<{ x: number; y: number; x2: number; y2: number; pts?: Array<{x:number;y:number}> }>
+    starts: Array<{ x: number; y: number; x2: number; y2: number; pts?: Array<{x:number;y:number}>; polyPts?: Array<{x:number;y:number}> }>
+    sx0: number; sy0: number; hasMoved: boolean
+  } | null>(null)
+
+  // ── Drag tracé libre (outil Sélection) ───────────────────────────────────
+  const strokeDragRef = useRef<{
+    ids: string[]
+    startPts: Array<Array<{x: number; y: number}>>
     sx0: number; sy0: number; hasMoved: boolean
   } | null>(null)
 
@@ -1110,6 +1636,28 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // ── Resize bloc texte ─────────────────────────────────────────────────────
   const textResizeRef = useRef<{
     id: string; startW: number; sx0: number
+  } | null>(null)
+
+  // ── Resize forme (rect/ellipse corners, arrow endpoints) ──────────────────
+  const shapeResizeRef = useRef<{
+    shapeId: string
+    handle: 'nw'|'ne'|'sw'|'se'|'start'|'end'
+    fixedWx: number; fixedWy: number  // coin opposé (non utilisé pour start/end)
+  } | null>(null)
+
+  // ── Resize tracé libre ────────────────────────────────────────────────────
+  const strokeResizeRef = useRef<{
+    handle: 'nw'|'ne'|'sw'|'se'
+    wBBox: { minX: number; minY: number; maxX: number; maxY: number }
+    origPts: Array<Array<{x: number; y: number}>>   // copies des pts initiaux
+    ids: string[]
+    sx0: number; sy0: number
+  } | null>(null)
+
+  // ── Rotation tracé libre ──────────────────────────────────────────────────
+  const strokeRotateDragRef = useRef<{
+    wCx: number; wCy: number; startAngle: number
+    origPts: Array<Array<{x: number; y: number}>>; ids: string[]
   } | null>(null)
 
   // ── Rotation texte ────────────────────────────────────────────────────────
@@ -1141,34 +1689,45 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     return true
   }
 
-  const visibleShapes  = shapes.filter(s => isVisible(s.layerId))
-  const visibleTexts   = texts.filter(t => isVisible(t.layerId))
-  const visibleStrokes = strokes.filter(s => isVisible(s.layerId))
+  // Ordre de rendu : order croissant → le calque le plus haut (order max) est rendu en dernier = au-dessus
+  const layerOrderMap = new Map((state.nnlLayers ?? []).map(l => [l.id, l.order]))
+  const byLayerOrder = (layerId?: string) => layerOrderMap.get(layerId ?? '') ?? 0
 
-  // ── Crée (ou réutilise) un calque auto pour l'outil courant ───────────────
-  function getOrCreateToolLayer(tool: NNLTool): string {
+  const visibleShapes  = shapes.filter(s => isVisible(s.layerId))
+    .sort((a, b) => byLayerOrder(a.layerId) - byLayerOrder(b.layerId))
+  const visibleTexts   = texts.filter(t => isVisible(t.layerId))
+    .sort((a, b) => byLayerOrder(a.layerId) - byLayerOrder(b.layerId))
+  const visibleStrokes = strokes.filter(s => isVisible(s.layerId))
+    .sort((a, b) => byLayerOrder(a.layerId) - byLayerOrder(b.layerId))
+
+  // ── Grille magnétique (v0.90.5) ───────────────────────────────────────────
+  const SNAP_GRID = 20
+  function snapW(v: number): number {
+    return snapEnabledRef.current ? Math.round(v / SNAP_GRID) * SNAP_GRID : v
+  }
+
+  // ── Crée un nouveau calque auto pour chaque forme dessinée (v0.91) ─────────
+  // Nommage auto-incrémenté : "Rectangle", "Rectangle 1", "Rectangle 2"…
+  // Retourne {layerId, newLayer} — l'appelant est responsable du dispatch et du save.
+  function createNewShapeLayer(tool: NNLTool): { layerId: string; newLayer: NNLLayer | null } {
     const TOOL_NAMES: Partial<Record<NNLTool, string>> = {
       rect: 'Rectangle', ellipse: 'Ellipse', arrow: 'Flèche',
       text: 'Texte', pen: 'Stylo', marker: 'Marqueur',
     }
-    const name = TOOL_NAMES[tool]
-    if (!name) return activeLayerRef.current
+    const baseName = TOOL_NAMES[tool]
+    if (!baseName) return { layerId: activeLayerRef.current, newLayer: null }
 
     const layers = stateRef.current.nnlLayers ?? []
-    const existing = toolLayerMapRef.current[tool]
-    if (existing && layers.some(l => l.id === existing)) {
-      pendingLayerRef.current = null
-      return existing
-    }
-    const id = uid()
+    const nameRe = new RegExp(`^${baseName}( \\d+)?$`)
+    const count = layers.filter(l => nameRe.test(l.name)).length
+    const name = count === 0 ? baseName : `${baseName} ${count}`
+    const layerId = uid()
     const maxOrder = Math.max(0, ...layers.map(l => l.order))
-    const newLayer: NNLLayer = { id, name, locked: false, visible: true, order: maxOrder + 1 }
-    toolLayerMapRef.current[tool] = id
-    pendingLayerRef.current = newLayer
-    dispatch({ type: 'SET_NNL_LAYERS', payload: [...layers, newLayer] })
-    // Activer automatiquement le nouveau calque auto
-    setActiveLayerId(id)
-    return id
+    const newLayer: NNLLayer = {
+      id: layerId, name, locked: false, visible: true, order: maxOrder + 1,
+      autoCreated: true, shapeType: tool,
+    }
+    return { layerId, newLayer }
   }
 
   // ── ResizeObserver ────────────────────────────────────────────────────────
@@ -1185,9 +1744,16 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // ── Keyboard shortcuts (outils) ───────────────────────────────────────────
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') return
       // Ne pas intercepter les raccourcis Ctrl/Cmd (Undo/Redo gérés ailleurs)
       if (e.ctrlKey || e.metaKey) return
+      // Shift+G : toggle grille magnétique (v0.90.5)
+      if (e.shiftKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        setSnapEnabled(prev => !prev)
+        return
+      }
       const t = KEY_TO_TOOL[e.key.toLowerCase()]
       if (t) { setTool(t); setSelectedShapeId(null); setSelectedShapeIds([]); setSelectedTextId(null) }
       if (e.key === 'Escape') { setPreviewShape(null); setPreviewStroke(null); setEditingText(null); setSelectedShapeId(null); setSelectedShapeIds([]); setSelectedTextId(null) }
@@ -1254,7 +1820,8 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') return
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleNNLUndoRef.current() }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleNNLRedoRef.current() }
     }
@@ -1262,15 +1829,109 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // ── Delete key : nœud bezier, forme(s) ou texte sélectionné ─────────────
-  const selectedShapeIdRef  = useRef(selectedShapeId);  selectedShapeIdRef.current  = selectedShapeId
-  const selectedShapeIdsRef = useRef(selectedShapeIds); selectedShapeIdsRef.current = selectedShapeIds
-  const selectedTextIdRef   = useRef(selectedTextId);   selectedTextIdRef.current   = selectedTextId
-  const selectedPtIdxRef    = useRef(selectedPtIdx);    selectedPtIdxRef.current    = selectedPtIdx
+  // ── Copier / Coller / Dupliquer / Grouper (v0.90.5) ─────────────────────
+  const selectedShapeIdRef   = useRef(selectedShapeId);   selectedShapeIdRef.current   = selectedShapeId
+  const selectedShapeIdsRef  = useRef(selectedShapeIds);  selectedShapeIdsRef.current  = selectedShapeIds
+  const selectedTextIdRef    = useRef(selectedTextId);    selectedTextIdRef.current    = selectedTextId
+  const selectedPtIdxRef     = useRef(selectedPtIdx);     selectedPtIdxRef.current     = selectedPtIdx
+  const selectedStrokeIdsRef = useRef(selectedStrokeIds); selectedStrokeIdsRef.current = selectedStrokeIds
+
+  function handlePaste(cb: { shapes: NNLShape[]; texts: NNLText[] }, offset: number) {
+    const st = stateRef.current
+    const newShapes = cb.shapes.map(s => ({
+      ...s, id: uid(),
+      x: s.x + offset, y: s.y + offset,
+      x2: s.x2 + offset, y2: s.y2 + offset,
+      ...(s.pts ? { pts: s.pts.map(p => ({ x: p.x + offset, y: p.y + offset })) } : {}),
+    }))
+    const newTexts = cb.texts.map(t => ({
+      ...t, id: uid(), x: t.x + offset, y: t.y + offset,
+    }))
+    newShapes.forEach(s => dispatch({ type: 'ADD_NNL_SHAPE', payload: s }))
+    newTexts.forEach(t => dispatch({ type: 'ADD_NNL_TEXT', payload: t }))
+    if (newShapes.length > 0) {
+      setSelectedShapeIds(newShapes.map(s => s.id))
+      setSelectedShapeId(newShapes[0].id)
+      setSelectedTextId(null)
+    } else if (newTexts.length > 0) {
+      setSelectedTextId(newTexts[0].id)
+      setSelectedShapeIds([])
+      setSelectedShapeId(null)
+    }
+    saveNNLRef.current({
+      ...st,
+      nnlShapes: [...(st.nnlShapes ?? []), ...newShapes],
+      nnlTexts:  [...(st.nnlTexts  ?? []), ...newTexts],
+    })
+  }
+
+  function handleGroup() {
+    const shapeIds = selectedShapeIdsRef.current
+    if (shapeIds.length < 2) return
+    const groupId = uid()
+    const st = stateRef.current
+    const newShapes = (st.nnlShapes ?? []).map(s =>
+      shapeIds.includes(s.id) ? { ...s, shapeGroupId: groupId } : s
+    )
+    dispatch({ type: 'SET_STATE', payload: { ...st, nnlShapes: newShapes } })
+    saveNNLRef.current({ ...st, nnlShapes: newShapes })
+  }
+
+  function handleUngroup() {
+    const shapeIds = selectedShapeIdsRef.current
+    if (shapeIds.length === 0) return
+    const st = stateRef.current
+    const groupIds = new Set(
+      (st.nnlShapes ?? []).filter(s => shapeIds.includes(s.id)).map(s => s.shapeGroupId).filter(Boolean)
+    )
+    if (groupIds.size === 0) return
+    const newShapes = (st.nnlShapes ?? []).map(s =>
+      s.shapeGroupId && groupIds.has(s.shapeGroupId) ? { ...s, shapeGroupId: undefined } : s
+    )
+    dispatch({ type: 'SET_STATE', payload: { ...st, nnlShapes: newShapes } })
+    saveNNLRef.current({ ...st, nnlShapes: newShapes })
+  }
+
+  const handlePasteRef  = useRef(handlePaste);  handlePasteRef.current  = handlePaste
+  const handleGroupRef  = useRef(handleGroup);  handleGroupRef.current  = handleGroup
+  const handleUngroupRef = useRef(handleUngroup); handleUngroupRef.current = handleUngroup
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') return
+      if (!e.ctrlKey && !e.metaKey) return
+      const shapeIds = selectedShapeIdsRef.current
+      const textId   = selectedTextIdRef.current
+      if (e.key === 'c') {
+        e.preventDefault()
+        const shapes = (stateRef.current.nnlShapes ?? []).filter(s => shapeIds.includes(s.id))
+        const texts  = textId ? (stateRef.current.nnlTexts  ?? []).filter(t => t.id === textId) : []
+        if (shapes.length > 0 || texts.length > 0) clipboardRef.current = { shapes, texts }
+      }
+      if (e.key === 'v') {
+        e.preventDefault()
+        if (clipboardRef.current) handlePasteRef.current(clipboardRef.current, 20)
+      }
+      if (e.key === 'd') {
+        e.preventDefault()
+        const shapes = (stateRef.current.nnlShapes ?? []).filter(s => shapeIds.includes(s.id))
+        const texts  = textId ? (stateRef.current.nnlTexts  ?? []).filter(t => t.id === textId) : []
+        if (shapes.length > 0 || texts.length > 0) handlePasteRef.current({ shapes, texts }, 20)
+      }
+      if (e.key === 'g' && !e.shiftKey) { e.preventDefault(); handleGroupRef.current() }
+      if (e.key === 'g' &&  e.shiftKey) { e.preventDefault(); handleUngroupRef.current() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dispatch])
+
+  // ── Delete key : nœud bezier, forme(s), texte ou tracé sélectionné ────────
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') return
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
 
       const shapeId  = selectedShapeIdRef.current
@@ -1291,11 +1952,56 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         }
       }
 
-      // Supprimer le texte sélectionné
-      if (textId && shapeIds.length === 0) {
-        dispatch({ type: 'DELETE_NNL_TEXT', payload: textId })
+      // Supprimer le(s) tracé(s) libre(s) sélectionné(s) + calques vides
+      const strokeIds = selectedStrokeIdsRef.current ?? []
+      if (strokeIds.length > 0 && shapeIds.length === 0) {
         const st = stateRef.current
-        saveNNLRef.current({ ...st, nnlTexts: (st.nnlTexts ?? []).filter(t => t.id !== textId) })
+        let newStrokes = st.nnlStrokes ?? []
+        let newLayers  = st.nnlLayers  ?? []
+        for (const sid of strokeIds) {
+          const del = newStrokes.find(s => s.id === sid)
+          const layerId = del?.layerId
+          dispatch({ type: 'DELETE_NNL_STROKE', payload: sid })
+          newStrokes = newStrokes.filter(s => s.id !== sid)
+          if (layerId) {
+            const layer = newLayers.find(l => l.id === layerId)
+            const hasContent = [...(st.nnlShapes ?? []), ...(st.nnlTexts ?? []), ...newStrokes].some(x => x.layerId === layerId)
+            if (layer?.autoCreated && !hasContent) {
+              newLayers = newLayers.filter(l => l.id !== layerId)
+              dispatch({ type: 'SET_NNL_LAYERS', payload: newLayers })
+              if (activeLayerRef.current === layerId) {
+                const fallback = newLayers.find(l => !l.isGroup)
+                if (fallback) setActiveLayerId(fallback.id)
+              }
+            }
+          }
+        }
+        saveNNLRef.current({ ...st, nnlStrokes: newStrokes, nnlLayers: newLayers })
+        setSelectedStrokeIds([])
+        return
+      }
+
+      // Supprimer le texte sélectionné + calque vide
+      if (textId && shapeIds.length === 0) {
+        const st = stateRef.current
+        const del = (st.nnlTexts ?? []).find(t => t.id === textId)
+        const layerId = del?.layerId
+        dispatch({ type: 'DELETE_NNL_TEXT', payload: textId })
+        let newLayers = st.nnlLayers ?? []
+        if (layerId) {
+          const layer = newLayers.find(l => l.id === layerId)
+          const newTexts = (st.nnlTexts ?? []).filter(t => t.id !== textId)
+          const hasContent = [...(st.nnlShapes ?? []), ...newTexts, ...(st.nnlStrokes ?? [])].some(x => x.layerId === layerId)
+          if (layer?.autoCreated && !hasContent) {
+            newLayers = newLayers.filter(l => l.id !== layerId)
+            dispatch({ type: 'SET_NNL_LAYERS', payload: newLayers })
+            if (activeLayerRef.current === layerId) {
+              const fallback = newLayers.find(l => !l.isGroup)
+              if (fallback) setActiveLayerId(fallback.id)
+            }
+          }
+        }
+        saveNNLRef.current({ ...st, nnlTexts: (st.nnlTexts ?? []).filter(t => t.id !== textId), nnlLayers: newLayers })
         setSelectedTextId(null)
         return
       }
@@ -1312,13 +2018,13 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         dispatch({ type: 'DELETE_NNL_SHAPE', payload: id })
         newShapes = newShapes.filter(s => s.id !== id)
         if (layerId) {
-          const isAutoLayer = Object.values(toolLayerMapRef.current).includes(layerId)
+          // v0.91 : supprimer le calque auto-créé s'il est vide
+          const layer = newLayers.find(l => l.id === layerId)
+          const isAutoLayer = layer?.autoCreated === true
           const hasContent = [...newShapes, ...(st.nnlTexts ?? []), ...(st.nnlStrokes ?? [])].some(x => x.layerId === layerId)
           if (isAutoLayer && !hasContent) {
             newLayers = newLayers.filter(l => l.id !== layerId)
             dispatch({ type: 'SET_NNL_LAYERS', payload: newLayers })
-            const toolEntry = Object.entries(toolLayerMapRef.current).find(([, id_]) => id_ === layerId)
-            if (toolEntry) delete toolLayerMapRef.current[toolEntry[0] as NNLTool]
             if (activeLayerRef.current === layerId) {
               const fallback = newLayers.find(l => !l.isGroup)
               if (fallback) setActiveLayerId(fallback.id)
@@ -1368,11 +2074,10 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   const strokeRef = useRef<{ id: string; pts: Array<{x:number;y:number}> } | null>(null)
   const eraserRef = useRef(false)
 
-  // Helper pour saveNNL incluant un calque auto en attente
-  function saveWithPendingLayer(st: typeof state, extras: object) {
-    const pending = pendingLayerRef.current
-    const layers = pending ? [...(st.nnlLayers ?? []), pending] : (st.nnlLayers ?? [])
-    pendingLayerRef.current = null
+  // Sauvegarde incluant optionnellement un nouveau calque auto-créé (v0.91)
+  function saveNNLWithNewLayer(newLayer: NNLLayer | null, extras: object) {
+    const st = stateRef.current
+    const layers = newLayer ? [...(st.nnlLayers ?? []), newLayer] : (st.nnlLayers ?? [])
     saveNNLRef.current({ ...st, ...extras, nnlLayers: layers })
   }
 
@@ -1416,15 +2121,89 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
             if (!start) return
             const s = shapes.find(sh => sh.id === id)
             if (!s) return
+            // Snap uniquement sur l'origine — préserve les dimensions
+            const snX = snapW(start.x + dwx), snY = snapW(start.y + dwy)
+            const aDwx = snX - start.x, aDwy = snY - start.y
             const updated: NNLShape = {
               ...s,
-              x: start.x + dwx, y: start.y + dwy,
-              x2: start.x2 + dwx, y2: start.y2 + dwy,
-              ...(start.pts ? { pts: start.pts.map(pt => ({ x: pt.x + dwx, y: pt.y + dwy })) } : {}),
+              x: snX, y: snY,
+              x2: start.x2 + aDwx, y2: start.y2 + aDwy,
+              ...(start.pts     ? { pts:     start.pts.map(pt     => ({ x: pt.x     + aDwx, y: pt.y     + aDwy })) } : {}),
+              ...(start.polyPts ? { polyPts: start.polyPts.map(pt => ({ x: pt.x + aDwx, y: pt.y + aDwy })) } : {}),
             }
             dispatch({ type: 'UPDATE_NNL_SHAPE', payload: updated })
           })
         }
+        return
+      }
+
+      // Drag tracé libre (outil Sélection)
+      if (strokeDragRef.current) {
+        const dr = strokeDragRef.current
+        const z = zoomRef.current
+        const dwx = (e.clientX - dr.sx0) / z
+        const dwy = -(e.clientY - dr.sy0) / z
+        if (!dr.hasMoved && (Math.abs(e.clientX - dr.sx0) > 2 || Math.abs(e.clientY - dr.sy0) > 2)) {
+          dr.hasMoved = true
+        }
+        if (dr.hasMoved) {
+          const allStrokes = stateRef.current.nnlStrokes ?? []
+          dr.ids.forEach((id, idx) => {
+            const stroke = allStrokes.find(s => s.id === id)
+            if (!stroke) return
+            const origPts = dr.startPts[idx]
+            const newPts = origPts.map(p => ({ x: p.x + dwx, y: p.y + dwy }))
+            dispatch({ type: 'UPDATE_NNL_STROKE', payload: { ...stroke, pts: newPts } })
+          })
+        }
+        return
+      }
+
+      // Resize tracé libre
+      if (strokeResizeRef.current) {
+        const dr = strokeResizeRef.current
+        const el = canvasRef.current; if (!el) return
+        const rect = el.getBoundingClientRect()
+        const curr = s2w(e.clientX - rect.left, e.clientY - rect.top, oxRef.current, oyRef.current, zoomRef.current)
+        const { handle, wBBox, origPts, ids } = dr
+        const fixedX = (handle === 'nw' || handle === 'sw') ? wBBox.maxX : wBBox.minX
+        const fixedY = (handle === 'nw' || handle === 'ne') ? wBBox.minY : wBBox.maxY
+        const nMinX = Math.min(curr.x, fixedX), nMaxX = Math.max(curr.x, fixedX)
+        const nMinY = Math.min(curr.y, fixedY), nMaxY = Math.max(curr.y, fixedY)
+        const ow = wBBox.maxX - wBBox.minX, oh = wBBox.maxY - wBBox.minY
+        if (ow === 0 || oh === 0) return
+        const nw2 = nMaxX - nMinX, nh2 = nMaxY - nMinY
+        const allStrokes = stateRef.current.nnlStrokes ?? []
+        ids.forEach((id, idx) => {
+          const stroke = allStrokes.find(s => s.id === id)
+          if (!stroke) return
+          const newPts = origPts[idx].map(p => ({
+            x: nMinX + ((p.x - wBBox.minX) / ow) * nw2,
+            y: nMinY + ((p.y - wBBox.minY) / oh) * nh2,
+          }))
+          dispatch({ type: 'UPDATE_NNL_STROKE', payload: { ...stroke, pts: newPts } })
+        })
+        return
+      }
+
+      // Rotation tracé libre
+      if (strokeRotateDragRef.current) {
+        const dr = strokeRotateDragRef.current
+        const sp = w2s(dr.wCx, dr.wCy, oxRef.current, oyRef.current, zoomRef.current)
+        const currentAngle = Math.atan2(e.clientY - sp.y, e.clientX - sp.x)
+        const delta = currentAngle - dr.startAngle
+        // Screen CW = world -delta (Y inverted)
+        const cos = Math.cos(-delta), sin = Math.sin(-delta)
+        const allStrokes = stateRef.current.nnlStrokes ?? []
+        dr.ids.forEach((id, idx) => {
+          const stroke = allStrokes.find(s => s.id === id)
+          if (!stroke) return
+          const newPts = dr.origPts[idx].map(p => {
+            const dx = p.x - dr.wCx, dy = p.y - dr.wCy
+            return { x: dr.wCx + dx*cos - dy*sin, y: dr.wCy + dx*sin + dy*cos }
+          })
+          dispatch({ type: 'UPDATE_NNL_STROKE', payload: { ...stroke, pts: newPts } })
+        })
         return
       }
 
@@ -1440,7 +2219,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         if (dr.hasMoved) {
           const texts = stateRef.current.nnlTexts ?? []
           const t = texts.find(tx => tx.id === dr.id)
-          if (t) dispatch({ type: 'UPDATE_NNL_TEXT', payload: { ...t, x: dr.wx0 + dwx, y: dr.wy0 + dwy } })
+          if (t) dispatch({ type: 'UPDATE_NNL_TEXT', payload: { ...t, x: snapW(dr.wx0 + dwx), y: snapW(dr.wy0 + dwy) } })  // texte : snap direct (pas de x2)
         }
         return
       }
@@ -1475,6 +2254,31 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         const texts = stateRef.current.nnlTexts ?? []
         const t = texts.find(tx => tx.id === dr.id)
         if (t) dispatch({ type: 'UPDATE_NNL_TEXT', payload: { ...t, w: newW } })
+        return
+      }
+
+      // Resize forme (v0.91)
+      if (shapeResizeRef.current) {
+        const { shapeId, handle, fixedWx, fixedWy } = shapeResizeRef.current
+        const el = canvasRef.current; if (!el) return
+        const rect = el.getBoundingClientRect()
+        const newW = s2w(e.clientX - rect.left, e.clientY - rect.top, oxRef.current, oyRef.current, zoomRef.current)
+        const shapes = stateRef.current.nnlShapes ?? []
+        const shape = shapes.find(s => s.id === shapeId)
+        if (!shape) return
+        if (handle === 'start') {
+          dispatch({ type: 'UPDATE_NNL_SHAPE', payload: { ...shape, x: snapW(newW.x), y: snapW(newW.y) } })
+        } else if (handle === 'end') {
+          dispatch({ type: 'UPDATE_NNL_SHAPE', payload: { ...shape, x2: snapW(newW.x), y2: snapW(newW.y) } })
+        } else {
+          // Corner resize : le coin glissé suit la souris, le coin fixe ne bouge pas
+          const nx = snapW(newW.x), ny = snapW(newW.y)
+          dispatch({ type: 'UPDATE_NNL_SHAPE', payload: {
+            ...shape,
+            x:  Math.min(nx, fixedWx), x2: Math.max(nx, fixedWx),
+            y:  Math.max(ny, fixedWy), y2: Math.min(ny, fixedWy),
+          }})
+        }
         return
       }
 
@@ -1527,6 +2331,29 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         ;(st.nnlTexts ?? []).filter(t =>
           Math.hypot(p.x - t.x, p.y - t.y) < t.w / 2 + RADIUS
         ).forEach(t => dispatch({ type: 'DELETE_NNL_TEXT', payload: t.id }))
+        return
+      }
+      // Rubber-band / lasso update (v0.90.5)
+      if (rubberRef.current) {
+        rubberRef.current.sx1 = e.clientX
+        rubberRef.current.sy1 = e.clientY
+        const el = canvasRef.current; if (!el) return
+        const relRect = el.getBoundingClientRect()
+        const x0 = rubberRef.current.sx0 - relRect.left
+        const y0 = rubberRef.current.sy0 - relRect.top
+        const x1 = e.clientX - relRect.left
+        const y1 = e.clientY - relRect.top
+        if (selectModeRef.current === 'lasso') {
+          // Lasso : accumuler les points écran
+          if (!rubberRef.current.pts) rubberRef.current.pts = [{ x: x0, y: y0 }]
+          rubberRef.current.pts.push({ x: x1, y: y1 })
+          setLassoPts([...rubberRef.current.pts])
+        } else {
+          // Rect : bounding-box classique
+          if (Math.hypot(x1 - x0, y1 - y0) > 4) {
+            setRubberRect({ x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) })
+          }
+        }
       }
     }
     function onUp(e: MouseEvent) {
@@ -1543,11 +2370,30 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         if (hasMoved) saveNNLRef.current(stateRef.current)
         return
       }
+      // Fin drag tracé libre
+      if (strokeDragRef.current) {
+        const hasMoved = strokeDragRef.current.hasMoved
+        strokeDragRef.current = null
+        if (hasMoved) saveNNLRef.current(stateRef.current)
+        return
+      }
       // Fin drag texte
       if (textDragRef.current) {
         const hasMoved = textDragRef.current.hasMoved
         textDragRef.current = null
         if (hasMoved) saveNNLRef.current(stateRef.current)
+        return
+      }
+      // Fin resize tracé libre
+      if (strokeResizeRef.current) {
+        strokeResizeRef.current = null
+        saveNNLRef.current(stateRef.current)
+        return
+      }
+      // Fin rotation tracé libre
+      if (strokeRotateDragRef.current) {
+        strokeRotateDragRef.current = null
+        saveNNLRef.current(stateRef.current)
         return
       }
       // Fin rotation forme
@@ -1562,6 +2408,12 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         saveNNLRef.current(stateRef.current)
         return
       }
+      // Fin resize forme (v0.91)
+      if (shapeResizeRef.current) {
+        shapeResizeRef.current = null
+        saveNNLRef.current(stateRef.current)
+        return
+      }
       // Fin resize texte
       if (textResizeRef.current) {
         textResizeRef.current = null
@@ -1569,20 +2421,107 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         return
       }
       if (panRef.current) { panRef.current = null; setIsPanning(false); return }
+      // Finaliser rubber-band / lasso (v0.90.5)
+      if (rubberRef.current) {
+        const el = canvasRef.current
+        if (!el) { rubberRef.current = null; setRubberRect(null); setLassoPts(null); return }
+        const relRect = el.getBoundingClientRect()
+        const x0 = rubberRef.current.sx0 - relRect.left
+        const y0 = rubberRef.current.sy0 - relRect.top
+        const x1 = e.clientX - relRect.left
+        const y1 = e.clientY - relRect.top
+        const isLasso = selectModeRef.current === 'lasso'
+        const lassoPtsSnap = isLasso ? (rubberRef.current.pts ?? []) : null
+        rubberRef.current = null; setRubberRect(null); setLassoPts(null)
+
+        if (Math.hypot(x1 - x0, y1 - y0) > 4) {
+          const scope = selectScopeRef.current, activeLayer = activeLayerRef.current
+          const st = stateRef.current
+          let hitShapes: typeof st.nnlShapes
+          let hitTexts: typeof st.nnlTexts
+
+          if (isLasso && lassoPtsSnap && lassoPtsSnap.length >= 3) {
+            // Lasso : point-in-polygon sur les centres (coords canvas-relative)
+            // w2s() retourne déjà des coords canvas-relatives — NE PAS soustraire relRect
+            function pointInPolygon(px: number, py: number, poly: Array<{ x: number; y: number }>): boolean {
+              let inside = false
+              for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y, xj = poly[j].x, yj = poly[j].y
+                const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)
+                if (intersect) inside = !inside
+              }
+              return inside
+            }
+            hitShapes = (st.nnlShapes ?? []).filter(s => {
+              if (scope === 'active' && s.layerId !== activeLayer) return false
+              const sc = w2s((s.x + s.x2) / 2, (s.y + s.y2) / 2, oxRef.current, oyRef.current, zoomRef.current)
+              return pointInPolygon(sc.x, sc.y, lassoPtsSnap)
+            })
+            hitTexts = (st.nnlTexts ?? []).filter(t => {
+              if (scope === 'active' && t.layerId !== activeLayer) return false
+              const sc = w2s(t.x, t.y, oxRef.current, oyRef.current, zoomRef.current)
+              return pointInPolygon(sc.x, sc.y, lassoPtsSnap)
+            })
+            const hitStrokes = (st.nnlStrokes ?? []).filter(stroke => {
+              if (scope === 'active' && stroke.layerId !== activeLayer) return false
+              if (stroke.pts.length === 0) return false
+              const mid = stroke.pts[Math.floor(stroke.pts.length / 2)]
+              const sc = w2s(mid.x, mid.y, oxRef.current, oyRef.current, zoomRef.current)
+              return pointInPolygon(sc.x, sc.y, lassoPtsSnap)
+            })
+            setSelectedStrokeIds(hitStrokes.map(s => s.id))
+          } else {
+            // Rect : bounding-box classique
+            const p1 = s2w(Math.min(x0, x1), Math.min(y0, y1), oxRef.current, oyRef.current, zoomRef.current)
+            const p2 = s2w(Math.max(x0, x1), Math.max(y0, y1), oxRef.current, oyRef.current, zoomRef.current)
+            const wxMin = Math.min(p1.x, p2.x), wxMax = Math.max(p1.x, p2.x)
+            const wyMin = Math.min(p1.y, p2.y), wyMax = Math.max(p1.y, p2.y)
+            hitShapes = (st.nnlShapes ?? []).filter(s => {
+              if (scope === 'active' && s.layerId !== activeLayer) return false
+              const mx = (s.x + s.x2) / 2, my = (s.y + s.y2) / 2
+              return mx >= wxMin && mx <= wxMax && my >= wyMin && my <= wyMax
+            })
+            hitTexts = (st.nnlTexts ?? []).filter(t => {
+              if (scope === 'active' && t.layerId !== activeLayer) return false
+              return t.x >= wxMin && t.x <= wxMax && t.y >= wyMin && t.y <= wyMax
+            })
+            const hitStrokes = (st.nnlStrokes ?? []).filter(stroke => {
+              if (scope === 'active' && stroke.layerId !== activeLayer) return false
+              if (stroke.pts.length === 0) return false
+              const mid = stroke.pts[Math.floor(stroke.pts.length / 2)]
+              return mid.x >= wxMin && mid.x <= wxMax && mid.y >= wyMin && mid.y <= wyMax
+            })
+            setSelectedStrokeIds(hitStrokes.map(s => s.id))
+          }
+
+          if (hitShapes.length > 0 || hitTexts.length > 0) {
+            setSelectedShapeIds(hitShapes.map(s => s.id))
+            setSelectedShapeId(hitShapes[0]?.id ?? null)
+            setSelectedTextId(hitTexts[0]?.id ?? null)
+          }
+        }
+        return
+      }
       if (drawRef.current) {
         const el = canvasRef.current; if (!el) return
         const rect = el.getBoundingClientRect()
         const sx = e.clientX - rect.left, sy = e.clientY - rect.top
-        const p1 = s2w(drawRef.current.sx0, drawRef.current.sy0, oxRef.current, oyRef.current, zoomRef.current)
-        let p2   = s2w(sx, sy, oxRef.current, oyRef.current, zoomRef.current)
+        // Capturer et effacer IMMÉDIATEMENT pour éviter le tracé fantôme
+        const startSx = drawRef.current.sx0, startSy = drawRef.current.sy0
+        const drawId  = drawRef.current.id
+        drawRef.current = null; setPreviewShape(null)
+        let p1 = s2w(startSx, startSy, oxRef.current, oyRef.current, zoomRef.current)
+        let p2  = s2w(sx, sy, oxRef.current, oyRef.current, zoomRef.current)
         if (toolRef.current === 'rect' || toolRef.current === 'ellipse') {
           p2 = applyShiftConstrain(p1, p2)
         }
-        if (Math.hypot(sx - drawRef.current.sx0, sy - drawRef.current.sy0) > 4) {
+        p1 = { x: snapW(p1.x), y: snapW(p1.y) }
+        p2 = { x: snapW(p2.x), y: snapW(p2.y) }
+        if (Math.hypot(sx - startSx, sy - startSy) > 4) {
           const shapeType = toolRef.current as 'rect' | 'ellipse' | 'arrow'
-          const layerId = getOrCreateToolLayer(toolRef.current)
+          const { layerId, newLayer } = createNewShapeLayer(toolRef.current)
           const shape: NNLShape = {
-            id: drawRef.current.id, shapeType,
+            id: drawId, shapeType,
             x: p1.x, y: p1.y, x2: p2.x, y2: p2.y,
             stroke: strokeColorRef.current,
             fill:   fillColorRef.current,
@@ -1590,28 +2529,33 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
             layerId,
             ...(shapeType === 'rect' && rectRadiusRef.current > 0 ? { rx: rectRadiusRef.current } : {}),
           }
-          dispatch({ type: 'ADD_NNL_SHAPE', payload: shape })
           const st = stateRef.current
-          saveWithPendingLayer(st, { nnlShapes: [...(st.nnlShapes ?? []), shape] })
+          if (newLayer) { dispatch({ type: 'SET_NNL_LAYERS', payload: [...(st.nnlLayers ?? []), newLayer] }); setActiveLayerId(layerId) }
+          dispatch({ type: 'ADD_NNL_SHAPE', payload: shape })
+          saveNNLWithNewLayer(newLayer, { nnlShapes: [...(st.nnlShapes ?? []), shape] })
         }
-        drawRef.current = null; setPreviewShape(null); return
+        return
       }
       if (strokeRef.current) {
         const pts = strokeRef.current.pts
+        const strokeId = strokeRef.current.id
+        // Effacer IMMÉDIATEMENT
+        strokeRef.current = null; setPreviewStroke(null)
         if (pts.length >= 2) {
-          const layerId = getOrCreateToolLayer(toolRef.current)
+          const { layerId, newLayer } = createNewShapeLayer(toolRef.current)
           const stroke: NNLStroke = {
-            id: strokeRef.current.id, pts,
+            id: strokeId, pts,
             color: strokeColorRef.current,
             width: widthRef.current,
             opacity: toolRef.current === 'marker' ? 0.45 : 1,
             layerId,
           }
-          dispatch({ type: 'ADD_NNL_STROKE', payload: stroke })
           const st = stateRef.current
-          saveWithPendingLayer(st, { nnlStrokes: [...(st.nnlStrokes ?? []), stroke] })
+          if (newLayer) { dispatch({ type: 'SET_NNL_LAYERS', payload: [...(st.nnlLayers ?? []), newLayer] }); setActiveLayerId(layerId) }
+          dispatch({ type: 'ADD_NNL_STROKE', payload: stroke })
+          saveNNLWithNewLayer(newLayer, { nnlStrokes: [...(st.nnlStrokes ?? []), stroke] })
         }
-        strokeRef.current = null; setPreviewStroke(null); return
+        return
       }
       if (eraserRef.current) {
         eraserRef.current = false
@@ -1676,12 +2620,31 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     if (t === 'select') {
       if ((e.target as HTMLElement).closest('.nnl-postit')) return
 
-      // Bug 1+2 fix: hit-test géré ici exclusivement (ShapeLayer SVG est pointerEvents:none)
+      // Mode rect / lasso : démarre directement le rubber-band sans hit-test
+      if (selectModeRef.current === 'rect' || selectModeRef.current === 'lasso') {
+        setSelectedShapeId(null); setSelectedShapeIds([])
+        setSelectedTextId(null); setSelectedStrokeIds([])
+        rubberRef.current = { sx0: e.clientX, sy0: e.clientY, sx1: e.clientX, sy1: e.clientY }
+        return
+      }
+
+      // Mode pointer : hit-test géré ici exclusivement (ShapeLayer SVG est pointerEvents:none)
       const cp = s2w(sx, sy, ox, oy, zoom)
       const THRESH = 6 / zoom
 
+      // Filtre de portée (calque actif uniquement si scope === 'active')
+      const scopeShapes  = selectScopeRef.current === 'active'
+        ? visibleShapes.filter(s => s.layerId === activeLayerRef.current)
+        : visibleShapes
+      const scopeTexts   = selectScopeRef.current === 'active'
+        ? visibleTexts.filter(t => t.layerId === activeLayerRef.current)
+        : visibleTexts
+      const scopeStrokes = selectScopeRef.current === 'active'
+        ? visibleStrokes.filter(s => s.layerId === activeLayerRef.current)
+        : visibleStrokes
+
       // Hit-test formes
-      const hit = visibleShapes.find(s => {
+      const hit = scopeShapes.find(s => {
         if (s.shapeType === 'arrow') {
           // Pour les flèches, test de proximité sur le chemin
           const allPts = [{ x: s.x, y: s.y }, ...(s.pts ?? []), { x: s.x2, y: s.y2 }]
@@ -1704,7 +2667,12 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       if (hit) {
         const isShift = e.shiftKey
         let newIds: string[]
-        if (isShift) {
+
+        // v0.90.5 : clic sur une forme groupée → sélectionner tout le groupe
+        if (hit.shapeGroupId && !isShift) {
+          const groupShapes = visibleShapes.filter(s => s.shapeGroupId === hit.shapeGroupId)
+          newIds = groupShapes.map(s => s.id)
+        } else if (isShift) {
           // Shift+clic : toggle dans la sélection multiple
           if (selectedShapeIds.includes(hit.id)) {
             newIds = selectedShapeIds.filter(id => id !== hit.id)
@@ -1718,21 +2686,21 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         setSelectedShapeId(hit.id)
         setSelectedShapeIds(newIds)
         setSelectedTextId(null)
+        setSelectedStrokeIds([])
         setSelectedPtIdx(null)
 
         // Démarrer un drag potentiel sur toutes les formes sélectionnées
-        const shapes = stateRef.current.nnlShapes ?? []
-        const ids = newIds
-        const starts = ids.map(id => {
-          const s = shapes.find(sh => sh.id === id)
-          return s ? { x: s.x, y: s.y, x2: s.x2, y2: s.y2, pts: s.pts ? [...s.pts] : undefined } : null
-        }).filter(Boolean) as typeof shapeDragRef.current['starts']
-        shapeDragRef.current = { ids, starts, sx0: e.clientX, sy0: e.clientY, hasMoved: false }
+        const allShapes = stateRef.current.nnlShapes ?? []
+        const starts = newIds.map(id => {
+          const s = allShapes.find(sh => sh.id === id)
+          return s ? { x: s.x, y: s.y, x2: s.x2, y2: s.y2, pts: s.pts ? [...s.pts] : undefined, polyPts: s.polyPts ? [...s.polyPts] : undefined } : null
+        }).filter(Boolean) as NonNullable<typeof shapeDragRef.current>['starts']
+        shapeDragRef.current = { ids: newIds, starts, sx0: e.clientX, sy0: e.clientY, hasMoved: false }
         return
       }
 
       // Hit-test textes (visible TextBlocks)
-      const hitText = visibleTexts.find(t => {
+      const hitText = scopeTexts.find(t => {
         const TTHRESH = 6 / zoom
         return cp.x >= t.x - TTHRESH && cp.x <= t.x + t.w + TTHRESH &&
                cp.y >= t.y - TTHRESH && cp.y <= t.y + (t.fontSize ?? 14) * 2 + TTHRESH
@@ -1741,31 +2709,74 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         setSelectedTextId(hitText.id)
         setSelectedShapeId(null)
         setSelectedShapeIds([])
+        setSelectedStrokeIds([])
         setSelectedPtIdx(null)
         textDragRef.current = { id: hitText.id, wx0: hitText.x, wy0: hitText.y, sx0: e.clientX, sy0: e.clientY, hasMoved: false }
         return
       }
 
-      // Fond : désélectionner + pan
+      // Hit-test tracés libres (stylo / marqueur)
+      const hitStroke = scopeStrokes.find(stroke => {
+        for (let i = 0; i < stroke.pts.length - 1; i++) {
+          const a = stroke.pts[i], b = stroke.pts[i+1]
+          const dx = b.x - a.x, dy = b.y - a.y
+          const len2 = dx*dx + dy*dy
+          if (len2 === 0) continue
+          const t2 = Math.max(0, Math.min(1, ((cp.x - a.x)*dx + (cp.y - a.y)*dy) / len2))
+          const px = a.x + t2*dx, py = a.y + t2*dy
+          if (Math.hypot(cp.x - px, cp.y - py) < THRESH * 2) return true
+        }
+        return false
+      })
+      if (hitStroke) {
+        const isShift = e.shiftKey
+        let newIds: string[]
+        if (isShift) {
+          newIds = selectedStrokeIdsRef.current.includes(hitStroke.id)
+            ? selectedStrokeIdsRef.current.filter(id => id !== hitStroke.id)
+            : [...selectedStrokeIdsRef.current, hitStroke.id]
+        } else {
+          newIds = selectedStrokeIdsRef.current.includes(hitStroke.id)
+            ? selectedStrokeIdsRef.current
+            : [hitStroke.id]
+        }
+        setSelectedStrokeIds(newIds)
+        setSelectedShapeId(null)
+        setSelectedShapeIds([])
+        setSelectedTextId(null)
+        setSelectedPtIdx(null)
+        // Démarrer un drag potentiel sur tous les tracés sélectionnés
+        const allStrokes = stateRef.current.nnlStrokes ?? []
+        const startPts = newIds.map(id => {
+          const st = allStrokes.find(s => s.id === id)
+          return st ? st.pts.map(p => ({ ...p })) : []
+        })
+        strokeDragRef.current = { ids: newIds, startPts, sx0: e.clientX, sy0: e.clientY, hasMoved: false }
+        return
+      }
+
+      // Fond : désélectionner + démarrer rubber-band (v0.90.5)
       setSelectedShapeId(null)
       setSelectedShapeIds([])
       setSelectedTextId(null)
+      setSelectedStrokeIds([])
       setSelectedPtIdx(null)
-      panRef.current = { ox0: ox, oy0: oy, sx0: e.clientX, sy0: e.clientY }
-      setIsPanning(true)
+      rubberRef.current = { sx0: e.clientX, sy0: e.clientY, sx1: e.clientX, sy1: e.clientY }
       return
     }
 
     if (t === 'text') {
       const p = s2w(sx, sy, ox, oy, zoom)
-      const layerId = getOrCreateToolLayer('text')
+      const { layerId, newLayer } = createNewShapeLayer('text')
       const newText: NNLText = {
-        id: uid(), x: p.x, y: p.y, w: 200,
+        id: uid(), x: snapW(p.x), y: snapW(p.y), w: 200,
         content: 'Texte', fontSize: 14, color: strokeColor,
         layerId,
       }
+      const st = stateRef.current
+      if (newLayer) { dispatch({ type: 'SET_NNL_LAYERS', payload: [...(st.nnlLayers ?? []), newLayer] }); setActiveLayerId(layerId) }
       dispatch({ type: 'ADD_NNL_TEXT', payload: newText })
-      saveWithPendingLayer(state, { nnlTexts: [...(state.nnlTexts ?? []), newText] })
+      saveNNLWithNewLayer(newLayer, { nnlTexts: [...(st.nnlTexts ?? []), newText] })
       setEditingText(newText)
       setTool('select')
       return
@@ -1857,6 +2868,109 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     setSelectedTextId(null)
   }
 
+  // ── Boolean operations ────────────────────────────────────────────────────
+  function handleBooleanOp(op: 'unite'|'subtract'|'intersect'|'xor'|'divide') {
+    const ids = selectedShapeIds
+    if (ids.length < 2) return
+    const allShapes = stateRef.current.nnlShapes ?? []
+    const shapes = ids.map(id => allShapes.find(s => s.id === id)).filter(Boolean) as NNLShape[]
+    if (shapes.length < 2) return
+
+    const polys = shapes.map(shapeToPolygon)
+    const proto = { ...shapes[0] }
+
+    let newShapes: NNLShape[] = []
+    try {
+      if (op === 'unite') {
+        const r = polygonClipping.union(polys[0], ...polys.slice(1))
+        const s = multiPolyToNNLShape(r, proto); if (s) newShapes = [s]
+
+      } else if (op === 'subtract') {
+        const r = polygonClipping.difference(polys[0], ...polys.slice(1))
+        const s = multiPolyToNNLShape(r, proto); if (s) newShapes = [s]
+
+      } else if (op === 'intersect') {
+        const r = polygonClipping.intersection(polys[0], ...polys.slice(1))
+        const s = multiPolyToNNLShape(r, proto); if (s) newShapes = [s]
+
+      } else if (op === 'xor') {
+        // XOR → peut produire plusieurs polygones disjoints, on les crée tous
+        const r = polygonClipping.xor(polys[0], ...polys.slice(1))
+        newShapes = multiPolyToNNLShapes(r, proto)
+
+      } else if (op === 'divide') {
+        // Divide (style Affinity) : pour 2 formes → A-B + A∩B + B-A
+        // Pour N formes → XOR + intersection comme approximation
+        if (polys.length === 2) {
+          const diff1 = polygonClipping.difference(polys[0], polys[1])
+          const inter = polygonClipping.intersection(polys[0], polys[1])
+          const diff2 = polygonClipping.difference(polys[1], polys[0])
+          // Couleurs distinctes pour les pièces
+          const protoB = { ...shapes[1] }
+          const s1 = multiPolyToNNLShapes(diff1, proto)
+          const s2 = multiPolyToNNLShapes(inter, proto)  // pièce centrale = couleur de A
+          const s3 = multiPolyToNNLShapes(diff2, protoB)
+          newShapes = [...s1, ...s2, ...s3]
+        } else {
+          const r = polygonClipping.xor(polys[0], ...polys.slice(1))
+          newShapes = multiPolyToNNLShapes(r, proto)
+        }
+      }
+    } catch { newShapes = [] }
+
+    if (newShapes.length === 0) return  // ex. intersection vide
+
+    // Supprimer les formes sources et ajouter les résultats
+    ids.forEach(id => dispatch({ type: 'DELETE_NNL_SHAPE', payload: id }))
+    newShapes.forEach(s => dispatch({ type: 'ADD_NNL_SHAPE', payload: s }))
+    const st = stateRef.current
+    const filtered = (st.nnlShapes ?? []).filter(s => !ids.includes(s.id))
+    saveNNL({ ...st, nnlShapes: [...filtered, ...newShapes] })
+    setSelectedShapeId(newShapes[0].id)
+    setSelectedShapeIds(newShapes.map(s => s.id))
+  }
+
+  // ── Stroke properties callbacks ───────────────────────────────────────────
+  const selectedStrokes = (state.nnlStrokes ?? []).filter(s => selectedStrokeIds.includes(s.id))
+
+  function handleStrokeUpdate(id: string, updates: Partial<NNLStroke>) {
+    const stroke = (stateRef.current.nnlStrokes ?? []).find(s => s.id === id)
+    if (!stroke) return
+    dispatch({ type: 'UPDATE_NNL_STROKE', payload: { ...stroke, ...updates } })
+  }
+
+  function handleStrokeSave() {
+    saveNNL(stateRef.current)
+  }
+
+  function handleStrokeDelete() {
+    const ids = selectedStrokeIdsRef.current ?? []
+    if (ids.length === 0) return
+    const st = stateRef.current
+    let newStrokes = st.nnlStrokes ?? []
+    let newLayers  = st.nnlLayers  ?? []
+    for (const sid of ids) {
+      const del = newStrokes.find(s => s.id === sid)
+      const layerId = del?.layerId
+      dispatch({ type: 'DELETE_NNL_STROKE', payload: sid })
+      newStrokes = newStrokes.filter(s => s.id !== sid)
+      if (layerId) {
+        const layer = newLayers.find(l => l.id === layerId)
+        const hasContent = [...(st.nnlShapes ?? []), ...(st.nnlTexts ?? []), ...newStrokes].some(x => x.layerId === layerId)
+        if (layer?.autoCreated && !hasContent) {
+          newLayers = newLayers.filter(l => l.id !== layerId)
+          dispatch({ type: 'SET_NNL_LAYERS', payload: newLayers })
+          if (activeLayerRef.current === layerId) {
+            const fallback = newLayers.find(l => !l.isGroup)
+            if (fallback) setActiveLayerId(fallback.id)
+          }
+        }
+      }
+    }
+    saveNNL({ ...st, nnlStrokes: newStrokes, nnlLayers: newLayers })
+    setSelectedStrokeIds([])
+  }
+
   // ── Rotation forme ────────────────────────────────────────────────────────
   function handleRotateStart(shapeId: string, wCx: number, wCy: number, e: React.MouseEvent) {
     e.stopPropagation()
@@ -1882,6 +2996,60 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       textId, wCx, wCy,
       startAngle: Math.atan2(e.clientY - sp.y, e.clientX - sp.x),
       startRotation: t.rotation ?? 0,
+    }
+  }
+
+  // ── Resize forme (coins rect/ellipse, endpoints arrow) ───────────────────
+  function handleShapeResizeStart(shapeId: string, handle: 'nw'|'ne'|'sw'|'se'|'start'|'end', e: React.MouseEvent) {
+    e.stopPropagation()
+    const shape = (stateRef.current.nnlShapes ?? []).find(s => s.id === shapeId)
+    if (!shape) return
+    saveNNLRef.current(stateRef.current)
+    // Pour start/end (arrow) : pas de coin fixe nécessaire
+    if (handle === 'start' || handle === 'end') {
+      shapeResizeRef.current = { shapeId, handle, fixedWx: 0, fixedWy: 0 }
+      return
+    }
+    // Coins rect/ellipse : stocker le coin opposé (world coords)
+    const minX = Math.min(shape.x, shape.x2), maxX = Math.max(shape.x, shape.x2)
+    const minY = Math.min(shape.y, shape.y2), maxY = Math.max(shape.y, shape.y2)
+    // nw (screen top-left) = world (minX, maxY) → fixed = (maxX, minY)
+    // ne (screen top-right) = world (maxX, maxY) → fixed = (minX, minY)
+    // sw (screen bot-left)  = world (minX, minY) → fixed = (maxX, maxY)
+    // se (screen bot-right) = world (maxX, minY) → fixed = (minX, maxY)
+    const fx = handle === 'nw' || handle === 'sw' ? maxX : minX
+    const fy = handle === 'nw' || handle === 'ne' ? minY : maxY
+    shapeResizeRef.current = { shapeId, handle, fixedWx: fx, fixedWy: fy }
+  }
+
+  // ── Resize tracé libre ────────────────────────────────────────────────────
+  function handleStrokeResizeStart(handle: 'nw'|'ne'|'sw'|'se', wBBox: { minX: number; minY: number; maxX: number; maxY: number }, e: React.MouseEvent) {
+    e.stopPropagation()
+    const ids = selectedStrokeIdsRef.current ?? []
+    if (ids.length === 0) return
+    const allStrokes = stateRef.current.nnlStrokes ?? []
+    const origPts = ids.map(id => {
+      const s = allStrokes.find(st => st.id === id)
+      return s ? s.pts.map(p => ({ ...p })) : []
+    })
+    strokeResizeRef.current = { handle, wBBox, origPts, ids, sx0: e.clientX, sy0: e.clientY }
+  }
+
+  // ── Rotation tracé libre ──────────────────────────────────────────────────
+  function handleStrokeRotateStart(wCx: number, wCy: number, e: React.MouseEvent) {
+    e.stopPropagation()
+    const ids = selectedStrokeIdsRef.current ?? []
+    if (ids.length === 0) return
+    const allStrokes = stateRef.current.nnlStrokes ?? []
+    const origPts = ids.map(id => {
+      const s = allStrokes.find(st => st.id === id)
+      return s ? s.pts.map(p => ({ ...p })) : []
+    })
+    const sp = w2s(wCx, wCy, oxRef.current, oyRef.current, zoomRef.current)
+    strokeRotateDragRef.current = {
+      wCx, wCy,
+      startAngle: Math.atan2(e.clientY - sp.y, e.clientX - sp.x),
+      origPts, ids,
     }
   }
 
@@ -1972,20 +3140,21 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     const t = (state.nnlTexts ?? []).find(x => x.id === id)
     if (t) setEditingText(t)
   }
-  function handleTextChange(content: string) {
+  // onCommit reçoit le HTML final directement depuis le DOM → pas de stale closure
+  function handleTextCommit(finalHtml: string) {
     if (!editingText) return
-    setEditingText({ ...editingText, content })
-  }
-  function handleTextCommit() {
-    if (!editingText) return
-    if (!editingText.content.trim()) {
+    const tmp = document.createElement('div')
+    tmp.innerHTML = finalHtml
+    const plainText = tmp.textContent ?? tmp.innerText ?? ''
+    if (!plainText.trim()) {
       dispatch({ type: 'DELETE_NNL_TEXT', payload: editingText.id })
       const st = stateRef.current
       saveNNL({ ...st, nnlTexts: (st.nnlTexts ?? []).filter(t => t.id !== editingText.id) })
     } else {
-      dispatch({ type: 'UPDATE_NNL_TEXT', payload: editingText })
+      const updated = { ...editingText, content: finalHtml }
+      dispatch({ type: 'UPDATE_NNL_TEXT', payload: updated })
       const st = stateRef.current
-      saveNNL({ ...st, nnlTexts: (st.nnlTexts ?? []).map(t => t.id === editingText.id ? editingText : t) })
+      saveNNL({ ...st, nnlTexts: (st.nnlTexts ?? []).map(t => t.id === editingText.id ? updated : t) })
     }
     setEditingText(null)
   }
@@ -2024,6 +3193,21 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
         <ZoneLabels ox={ox} oy={oy} zoom={zoom} W={W} H={H} r1={r1} r2={r2} />
 
+        {/* Opérations booléennes (multi-sélection de formes) */}
+        {selectedShapeIds.length >= 2 && (
+          <BooleanOpsToolbar onOp={handleBooleanOp} />
+        )}
+
+        {/* Panneau propriétés des tracés libres sélectionnés */}
+        {selectedStrokes.length > 0 && (
+          <StrokePropertiesPanel
+            strokes={selectedStrokes}
+            onUpdate={handleStrokeUpdate}
+            onSave={handleStrokeSave}
+            onDelete={handleStrokeDelete}
+          />
+        )}
+
         {/* Panneau propriétés de la forme sélectionnée */}
         {selectedShape && (
           <ShapePropertiesPanel
@@ -2051,10 +3235,14 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
             previewShape={previewShape} previewStroke={previewStroke}
             ox={ox} oy={oy} zoom={zoom} W={W} H={H}
             selectedShapeIds={selectedShapeIds}
+            selectedStrokeIds={selectedStrokeIds}
             selectedPtIdx={selectedPtIdx}
             onPtMouseDown={handlePtMouseDown}
             onAddPt={handleAddBezierPt}
             onRotateStart={handleRotateStart}
+            onResizeStart={handleShapeResizeStart}
+            onStrokeResizeStart={handleStrokeResizeStart}
+            onStrokeRotateStart={handleStrokeRotateStart}
           />
         )}
 
@@ -2080,8 +3268,8 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
         {/* Inline text editor */}
         {editingText && (
-          <InlineTextEditor text={editingText} ox={ox} oy={oy} zoom={zoom}
-            onChange={handleTextChange} onCommit={handleTextCommit} />
+          <InlineTextEditor key={editingText.id} text={editingText} ox={ox} oy={oy} zoom={zoom}
+            onCommit={handleTextCommit} />
         )}
 
         {/* Post-its */}
@@ -2093,6 +3281,35 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
             onEdit={handleOpenEdit}
             onResizeEnd={handleResizeEnd} />
         ))}
+
+        {/* Rubber-band overlay — rect mode (v0.90.5) */}
+        {rubberRect && (
+          <div className="nnl-rubber-band" style={{
+            position: 'absolute', pointerEvents: 'none',
+            left: rubberRect.x, top: rubberRect.y,
+            width: rubberRect.w, height: rubberRect.h,
+            border: '1.5px dashed var(--accent, #6366f1)',
+            background: 'rgba(99,102,241,0.06)',
+            borderRadius: 2,
+          }} />
+        )}
+
+        {/* Lasso overlay — freehand path (v0.90.5) */}
+        {lassoPts && lassoPts.length >= 2 && (() => {
+          const d = lassoPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + ' Z'
+          return (
+            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'visible' }}>
+              <path d={d}
+                fill="rgba(99,102,241,0.06)"
+                stroke="var(--accent, #6366f1)"
+                strokeWidth={1.5}
+                strokeDasharray="5 3"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            </svg>
+          )
+        })()}
 
         {/* Toolbar */}
         <NNLToolbar
@@ -2108,6 +3325,10 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
           canRedo={nnlCanRedo}
           onUndo={handleNNLUndo}
           onRedo={handleNNLRedo}
+          selectMode={selectMode}
+          selectScope={selectScope}
+          onSelectModeChange={setSelectMode}
+          onSelectScopeChange={setSelectScope}
         />
 
         {/* Layers panel */}
@@ -2120,6 +3341,21 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         )}
         <ZoomControls zoom={zoom} onZoom={zoomToCenter}
           onReset={() => { setZoom(1); setOx(0); setOy(canvasSize.h) }} />
+
+        {/* Grille magnétique toggle (v0.90.5) */}
+        <button
+          data-testid="nnl-snap-toggle"
+          title={snapEnabled ? 'Grille magnétique active — Shift+G pour désactiver' : 'Grille magnétique — Shift+G'}
+          onClick={() => setSnapEnabled(v => !v)}
+          className={`nnl-snap-toggle${snapEnabled ? ' active' : ''}`}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m12 15 4 4"/>
+            <path d="M2.352 10.648a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l6.029-6.029a1 1 0 1 1 3 3l-6.029 6.029a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l6.365-6.367A1 1 0 0 0 8.716 4.282z"/>
+            <path d="m5 8 4 4"/>
+          </svg>
+        </button>
       </div>
 
       <NNLItemModal
