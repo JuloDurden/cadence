@@ -67,6 +67,10 @@ type Action =
   | { type: 'DELETE_NNL_STROKE'; payload: string }
   // Layers
   | { type: 'SET_NNL_LAYERS'; payload: import('../types').NNLLayer[] }
+  // Sprint Review
+  | { type: 'UPSERT_SR_SESSION'; payload: import('../types').SprintReviewSession }
+  | { type: 'ADD_SR_ARCHIVE';    payload: import('../types').SprintReviewArchive }
+  | { type: 'DELETE_SR_ARCHIVE'; payload: string }
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
@@ -120,6 +124,12 @@ function reducer(state: CadenceState, action: Action): CadenceState {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }
     }
+    case 'UPSERT_SR_SESSION': {
+      const sessions = (state.sprintReviewSessions ?? []).filter(s => s.id !== action.payload.id)
+      return { ...state, sprintReviewSessions: [...sessions, action.payload] }
+    }
+    case 'ADD_SR_ARCHIVE': return { ...state, sprintReviewArchives: [...(state.sprintReviewArchives ?? []), action.payload] }
+    case 'DELETE_SR_ARCHIVE': return { ...state, sprintReviewArchives: (state.sprintReviewArchives ?? []).filter(a => a.id !== action.payload) }
     case 'UPSERT_DAILY_ENTRY': {
       const entries = state.dailyEntries.filter(e => !(e.memberId === action.payload.memberId && e.date === action.payload.date))
       return { ...state, dailyEntries: [...entries, action.payload] }

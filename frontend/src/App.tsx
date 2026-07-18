@@ -15,6 +15,7 @@ import { RoadmapPage } from './pages/RoadmapPage'
 import { VisionPage } from './pages/VisionPage'
 import { ChangelogPage } from './pages/ChangelogPage'
 import { SprintPlanningPage } from './pages/SprintPlanningPage'
+import { SprintReviewPage } from './pages/SprintReviewPage'
 import { Sidebar } from './components/layout/Sidebar'
 import { StateProvider } from './context/StateContext'
 import { TimerProvider } from './context/TimerContext'
@@ -38,6 +39,7 @@ function AppLayout() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/daily" element={<DailyPage />} />
               <Route path="/retro" element={<RetroPage />} />
+              <Route path="/sprint-review" element={<SprintReviewPage />} />
               <Route path="/historique" element={<HistoriquePage />} />
               <Route path="/clients" element={<ClientsPage />} />
               <Route path="/team" element={<TeamPage />} />

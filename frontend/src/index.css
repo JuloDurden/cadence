@@ -584,6 +584,12 @@ body.sb-collapsed .app-header { left: 52px; }
   font-size: 14px; font-family: inherit;
   background: transparent; color: var(--text);
 }
+/* Champ de recherche "unibody" : le focus visuel est géré par le conteneur parent */
+.unibody-search-input:focus {
+  outline: none;
+  box-shadow: none;
+  border-color: transparent;
+}
 .search-close-btn {
   background: var(--surface2); border: none;
   border-radius: 5px; padding: 3px 6px;

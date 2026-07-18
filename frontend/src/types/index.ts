@@ -355,6 +355,8 @@ export interface CadenceState {
   nnlTexts:   NNLText[]
   nnlStrokes: NNLStroke[]
   nnlLayers:  NNLLayer[]
+  sprintReviewSessions: SprintReviewSession[]
+  sprintReviewArchives: SprintReviewArchive[]
 }
 
 export interface DailyEntry {
@@ -399,4 +401,77 @@ export interface HistoryEntry {
 
 export interface AuthUser {
   id: string; email: string; name: string; role: UserRole
+}
+
+// ── Sprint Review ─────────────────────────────────────────────────────────────
+
+export type SRBadge = 'accepted' | 'refused' | 'pending'
+export type SRUnfinishedDecision = 'report' | 'cancel' | 'resize'
+export type SRDecisionType = 'new-item' | 'reprioritize'
+
+/** Enregistrement PO local par item livré (non stocké sur Item) */
+export interface SRItemRecord {
+  itemId: string
+  badge: SRBadge
+  toDemo: boolean   // badge "À démontrer"
+  note: string      // note PO libre
+}
+
+/** Item non terminé du sprint */
+export interface SRUnfinishedRecord {
+  itemId: string
+  reason: string
+  decision: SRUnfinishedDecision
+}
+
+/** Décision backlog issue de la revue */
+export interface SRDecision {
+  id: string
+  type: SRDecisionType
+  desc: string       // description libre ou item existant ciblé
+  sp?: number        // pour new-item
+  itemId?: string    // pour reprioritize : référence l'item existant
+  applied?: boolean  // true si l'item a déjà été créé / modifié dans le Backlog
+}
+
+/** Participant externe (ni équipe ni contact client) ajouté manuellement */
+export interface SROtherParticipant {
+  id: string
+  text: string  // "Nom" ou "Nom (Rôle)"
+}
+
+/** Note globale de la Sprint Review (peut être liée à un item) */
+export interface SRNote {
+  id: string
+  text: string
+  linkedItemId?: string  // lien optionnel à un item du backlog
+  createdAt: string
+}
+
+export interface SprintReviewSession {
+  id: string
+  sprintId: string
+  date: string                      // YYYY-MM-DD
+  participantIds: string[]          // IDs depuis state.team (membres équipe)
+  participantContactIds: string[]   // IDs contacts clients (Contact.id)
+  participantsOther: SROtherParticipant[]  // participants externes (libre)
+  notes: SRNote[]                   // notes globales (multiples)
+  itemRecords: SRItemRecord[]
+  unfinishedRecords: SRUnfinishedRecord[]
+  decisions: SRDecision[]
+}
+
+export interface SprintReviewArchive {
+  id: string
+  sprintId?: string
+  sprintLabel?: string
+  date: string
+  participantIds: string[]
+  participantContactIds: string[]
+  participantsOther: SROtherParticipant[]
+  notes: SRNote[]
+  itemRecords: SRItemRecord[]
+  unfinishedRecords: SRUnfinishedRecord[]
+  decisions: SRDecision[]
+  createdAt: string
 }

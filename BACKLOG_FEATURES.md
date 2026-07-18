@@ -1,6 +1,6 @@
 # Backlog des futures fonctionnalités — Cadence
 
-> Dernière mise à jour : 17 juillet 2026.
+> Dernière mise à jour : 18 juillet 2026.
 > v0.90.5 (livré) : NNL — rubber-band select (rect/lasso, scope calque, long-press flyout, chevron), copier/coller/dupliquer (Ctrl+C/V/D), groupes de formes (Ctrl+G / Ctrl+Shift+G, shapeGroupId), grille magnétique (Shift+G, toggle bouton near ZoomControls).
 > v0.90 (livré) : NNL — barre d'outils complète (rect/ellipse/flèche/texte/stylo/marqueur/gomme), panneau calques (groupes, DnD, masquage, verrouillage), sélection/déplacement/resize/rotation des formes et blocs texte, TextPropertiesPanel, undo/redo NNL isolé.
 
@@ -54,13 +54,90 @@ Aujourd'hui : Epic → Items (Story, Bug, Tâche, Spike). À faire :
 
 ### 📋 Page Sprint Review
 
-Page à créer — contenu à préciser :
+Route dédiée `/sprint-review` — entrée dans la sidebar. Conçue comme une **réunion de collaboration** (pas uniquement démo), time-boxée à 1h par semaine de sprint. La sortie principale est la révision du Backlog produit.
 
-- **Récap du sprint** : objectif, vélocité, items livrés vs planifiés, taux de completion
-- **Demo checklist** : liste des items à présenter, cases à cocher en direct
-- **Format slides** : une carte par item livré (description, client, SP), défilable en mode présentation
-- **Actions de rétrospective** : lien direct vers la section Rétro du même sprint
-- **Export PDF** : compte-rendu Sprint Review imprimable / partageable aux parties prenantes
+#### Structure (6 sections)
+
+**Header**
+- Sélecteur de sprint (liste déroulante)
+- Objectif du sprint (sprint goal)
+- Time-box recommandé (calculé : 1h × nb semaines du sprint)
+- Participants (liste libre) + date de revue
+- Dates de début / fin du sprint
+
+**Section 1 — Incrément livré**
+- Liste des items `isDone` du sprint
+- Badge "À démontrer" par item (toggle on/off — à décider : simple toggle ou checkbox multi-sélection + mode présentation séquencé)
+- Badge PO **local à la Sprint Review** : `Accepté` / `Refusé` / `En attente` — 3 états, clic pour cycler. *Non stocké sur l'Item — DoR/DoD restent sur la page Backlog.*
+- Note PO inline par item (champ texte)
+- Groupement par Epic prévu lors de l'intégration Initiative > Epic > Item
+
+**Section 2 — Non terminé**
+- Items du sprint non livrés, avec raison (champ texte)
+- Décision par item : `Reporter au sprint suivant` / `Annuler` / `Redimensionner`
+
+**Section 3 — Vélocité**
+- SP livrés vs SP planifiés + taux de complétion
+- Mini bar chart des N derniers sprints (sprint courant mis en évidence)
+
+**Section 4 — Décisions backlog**
+- Items à créer ou modifier issus de la revue
+- Type `Nouvel item` → **création directe dans le Backlog** (même composant modal que l'ajout d'item)
+- Type `Reprioriser / Rescoper` → **modification directe de l'item existant** (ouvre l'item en édition)
+
+**Section 5 — Notes globales**
+- Textarea libre : retours stakeholders, points d'attention, décisions prises en séance
+
+**Section 6 — Archive**
+- Même pattern que la Rétrospective (cards repliables, liste des Sprint Reviews passées)
+
+#### Mockup (structure visuelle)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Sprint 14 — 30 juin au 11 juillet 2026    [Time-box 2h]│
+│  Objectif : Livrer NNL texte enrichi + ops booléennes   │
+│  Julien, Sarah, Marc, Lena +2  ·  11 juillet 2026       │
+└─────────────────────────────────────────────────────────┘
+
+┌─ Incrément livré (6 items) ──────── [ Filtrer "À démontrer" ] ─┐
+│ ✓ Éditeur de texte enrichi      8SP  [À démontrer] [Accepté  ] │
+│   Note PO : RAS, conforme DoD                                   │
+│ ✓ Opérations booléennes         5SP             [Accepté  ]    │
+│ ✓ Resize tracés Stylo/Marqueur  3SP             [Refusé   ]    │
+│   Note PO : Handle rotation à revoir                           │
+│ ✓ Opacité globale formes        2SP             [En attente]   │
+│   2 items supplémentaires…                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─ Non terminé (2 items) ────────────────────────────────────────┐
+│ ✗ Export PDF NNL          5SP  Bloqué lib  [Reporter ▾]        │
+│ ✗ Minimap de navigation   3SP  Non commencé [Annuler  ▾]       │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─ Vélocité ─────────────────────────────────────────────────────┐
+│  Planifiés : 26 SP   Livrés : 18 SP   Complétion : 69 %        │
+│  ▁▃▂▄  (4 derniers sprints, sprint courant en bleu)            │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─ Décisions backlog (2) ────────────────────────────────────────┐
+│ [Nouvel item]   Handle rotation unifié formes + tracés   3 SP  │
+│ [Reprioriser]   Export PDF — remonter priorité           5 SP  │
+│ + Ajouter une décision                                         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─ Notes globales ───────────────────────────────────────────────┐
+│ Retours stakeholders, points d'attention, décisions…           │
+│ [                                                            ]  │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─ Archives — 13 sprint reviews passées ─── [Voir toutes ›] ────┐
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Points à trancher lors de l'implémentation
+- Badge "À démontrer" : toggle simple par item, ou mode présentation séquencé ?
+- Filtrage de la section 1 par Epic (anticipation hiérarchie Initiative > Epic > Item)
 
 ---
 
