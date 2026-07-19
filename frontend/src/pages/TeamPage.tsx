@@ -4,6 +4,7 @@ import { Header } from '../components/layout/Header'
 import { BASE_TAGS } from '../data/baseTags'
 import { frenchHolidays, countWorkdays } from '../data/holidays'
 import { fmtDate } from '../utils/fmt'
+import { isItemDone } from '../utils/status'
 import type { TeamMember, Absence, AbsenceType, Sprint } from '../types'
 
 function Svg({ d, size = 14 }: { d: string; size?: number }) {
@@ -585,8 +586,8 @@ export function TeamPage() {
           {state.team.map(m => {
             const color = memberColor(m.id)
             const assignedItems   = state.items.filter(i => i.assignees.includes(m.id))
-            const inProgress      = assignedItems.filter(i => !['done','delivered'].includes(i.status))
-            const done            = assignedItems.filter(i => ['done','delivered'].includes(i.status))
+            const inProgress      = assignedItems.filter(i => !isItemDone(i, state.kanbanCols))
+            const done            = assignedItems.filter(i => isItemDone(i, state.kanbanCols))
             const currentAbsence  = absences.find(a => a.start <= today && a.end >= today && a.memberId === m.id)
 
             return (

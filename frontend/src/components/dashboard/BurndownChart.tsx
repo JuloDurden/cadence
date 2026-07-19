@@ -1,12 +1,13 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import type { Sprint, Item } from '../../types'
+import type { Sprint, Item, KanbanCol } from '../../types'
+import { isItemDone } from '../../utils/status'
 
-interface Props { sprint: Sprint; items: Item[] }
+interface Props { sprint: Sprint; items: Item[]; kanbanCols: KanbanCol[] }
 
-export function BurndownChart({ sprint, items }: Props) {
+export function BurndownChart({ sprint, items, kanbanCols }: Props) {
   const sprintItems = items.filter(i => i.sprintId === sprint.id)
   const totalSP = sprintItems.reduce((s, i) => s + i.sp, 0)
-  const doneSP = sprintItems.filter(i => ['done', 'delivered'].includes(i.status)).reduce((s, i) => s + i.sp, 0)
+  const doneSP = sprintItems.filter(i => isItemDone(i, kanbanCols)).reduce((s, i) => s + i.sp, 0)
 
   const start = new Date(sprint.startDate)
   const end = new Date(sprint.endDate)

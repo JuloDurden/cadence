@@ -8,8 +8,6 @@ import { cascadeSprintDates } from '../utils/dates'
 import { computeSprintEndDate } from '../utils/sprintCapacity'
 import type { KanbanCol, Settings } from '../types'
 
-function uid() { return Math.random().toString(36).slice(2, 9) }
-
 export function SettingsPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { userName } = useAuth()
@@ -18,7 +16,6 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
-  const [newColLabel, setNewColLabel] = useState('')
   const [sprint1Start, setSprint1Start] = useState(state.sprints[0]?.startDate ?? '')
 
   function save() {
@@ -64,12 +61,6 @@ export function SettingsPage() {
     }
     reader.readAsText(file)
     e.target.value = ''
-  }
-
-  function addCol() {
-    if (!newColLabel.trim()) return
-    setCols(c => [...c, { id: uid(), label: newColLabel.trim(), color: '#6366f1', isDone: false }])
-    setNewColLabel('')
   }
 
   return (
@@ -131,28 +122,23 @@ export function SettingsPage() {
 
         {/* Kanban columns */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Colonnes Kanban</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Colonnes Kanban</h3>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
+            Couleur et statut "Terminé" des colonnes existantes. L'ajout, la suppression et le réordonnancement des colonnes se font depuis la page Kanban.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {cols.map((col, i) => (
               <div key={col.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="color" value={col.color} style={{ width: 28, height: 28, borderRadius: 4, cursor: 'pointer', border: 'none' }}
                   onChange={e => setCols(c => c.map((x, j) => j === i ? { ...x, color: e.target.value } : x))} />
-                <input className="form-input" style={{ flex: 1 }} value={col.label}
-                  onChange={e => setCols(c => c.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
+                <span style={{ flex: 1, fontSize: 13 }}>{col.label}</span>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, whiteSpace: 'nowrap', cursor: 'pointer' }}>
                   <input type="checkbox" checked={col.isDone}
                     onChange={e => setCols(c => c.map((x, j) => j === i ? { ...x, isDone: e.target.checked } : x))} />
                   Termine
                 </label>
-                <button className="btn-icon danger" onClick={() => setCols(c => c.filter((_, j) => j !== i))} disabled={cols.length <= 1}>X</button>
               </div>
             ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="form-input" style={{ flex: 1 }} value={newColLabel} placeholder="Nouvelle colonne..."
-              onChange={e => setNewColLabel(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addCol()} />
-            <button className="hdr-ctx-btn" onClick={addCol}>+ Ajouter</button>
           </div>
         </section>
 

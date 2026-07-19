@@ -1,13 +1,13 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
-import type { Sprint, Item } from '../../types'
+import type { Sprint, Item, KanbanCol } from '../../types'
+import { isItemDone } from '../../utils/status'
 
-interface Props { sprints: Sprint[]; items: Item[] }
+interface Props { sprints: Sprint[]; items: Item[]; kanbanCols: KanbanCol[] }
 
-export function VelocityChart({ sprints, items }: Props) {
+export function VelocityChart({ sprints, items, kanbanCols }: Props) {
   const data = sprints.map(sp => {
     const spItems = items.filter(i => i.sprintId === sp.id)
-    const doneIds = new Set(['done', 'delivered'])
-    const done = spItems.filter(i => doneIds.has(i.status)).reduce((s, i) => s + i.sp, 0)
+    const done = spItems.filter(i => isItemDone(i, kanbanCols)).reduce((s, i) => s + i.sp, 0)
     const planned = spItems.reduce((s, i) => s + i.sp, 0)
     const velocity = sp.closed ? (sp.velocitySnapshot ?? done) : done
     return { name: `S${sp.number}`, velocity, planned, closed: sp.closed }

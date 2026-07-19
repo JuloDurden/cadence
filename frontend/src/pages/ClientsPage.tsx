@@ -4,6 +4,7 @@ import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { ClientModal } from '../components/clients/ClientModal'
 import { fmtDateShort } from '../utils/dates'
+import { isItemDone } from '../utils/status'
 import type { Client, ClientGroup } from '../types'
 
 // ── Icônes Lucide (SVG inline) ───────────────────────────────────────────
@@ -338,12 +339,12 @@ export function ClientsPage() {
   // ── Stats ────────────────────────────────────────────────────────────
   const clientStats = useMemo((): ClientStat[] => state.clients.map(client => {
     const items = state.items.filter(i => i.clientId === client.id)
-    const done = items.filter(i => ['done','delivered'].includes(i.status))
+    const done = items.filter(i => isItemDone(i, state.kanbanCols))
     const totalSP = items.reduce((s, i) => s + i.sp, 0)
     const doneSP = done.reduce((s, i) => s + i.sp, 0)
     return { client, total: items.length, done: done.length, totalSP, doneSP,
       pct: items.length ? Math.round((done.length / items.length) * 100) : 0 }
-  }), [state.clients, state.items])
+  }), [state.clients, state.items, state.kanbanCols])
 
   const menuItemStyle: CSSProperties = {
     display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left',
@@ -556,7 +557,7 @@ function TimelineView({ state }: { state: ReturnType<typeof useCadence>['state']
               </td>
               {sprintsWithItems.map(sp => {
                 const items = state.items.filter(i => i.sprintId === sp.id && i.clientId === client.id)
-                const done = items.filter(i => ['done','delivered'].includes(i.status)).length
+                const done = items.filter(i => isItemDone(i, state.kanbanCols)).length
                 if (!items.length) return (
                   <td key={sp.id} style={{ borderLeft: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
                     padding: '8px 12px', textAlign: 'center' }}>
