@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCadence } from '../context/StateContext'
-import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { BASE_TAGS } from '../data/baseTags'
 import { cascadeSprintDates } from '../utils/dates'
@@ -10,8 +9,6 @@ import type { KanbanCol, Settings } from '../types'
 
 export function SettingsPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName } = useAuth()
-  const isAdmin = userName === 'Admin'
   const navigate = useNavigate()
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
@@ -146,7 +143,7 @@ export function SettingsPage() {
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Tags</h3>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
-            Les tags de base ne peuvent pas etre supprimes{isAdmin ? ' (admin uniquement)' : ''}. Les tags personnalises peuvent etre supprimes par tous les utilisateurs.
+            Les tags de base ne peuvent pas etre supprimes. Les tags personnalises peuvent etre supprimes par tous les utilisateurs.
           </p>
 
           <div style={{ marginBottom: 16 }}>
@@ -156,18 +153,6 @@ export function SettingsPage() {
                 <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500, background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
                   <span style={{ fontSize: 10, opacity: .6 }}>🔒</span>
                   {tag}
-                  {isAdmin && (
-                    <span
-                      title="Supprimer (admin)"
-                      style={{ cursor: 'pointer', opacity: .5, marginLeft: 2, fontSize: 13, lineHeight: 1 }}
-                      onClick={() => {
-                        if (!confirm(`Supprimer le tag de base "${tag}" ?`)) return
-                        // BASE_TAGS is a constant — admin override via a "removedBaseTags" list would be needed
-                        // For now, show a message explaining this is a code-level change
-                        alert('Pour supprimer un tag de base, modifiez le fichier baseTags.ts')
-                      }}
-                    >×</span>
-                  )}
                 </span>
               ))}
             </div>

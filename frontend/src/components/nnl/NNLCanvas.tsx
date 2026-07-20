@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { useCadence } from '../../context/StateContext'
 import { useToast } from '../../context/ToastContext'
-import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, CadenceState } from '../../types'
+import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, CadenceState, Item } from '../../types'
 import { NNLItemModal } from './NNLItemModal'
+import { ItemModal } from '../backlog/ItemModal'
 import { NNLToolbar } from './NNLToolbar'
 import { NNLLayersPanel } from './NNLLayersPanel'
 import polygonClipping from 'polygon-clipping'
@@ -1570,6 +1571,11 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // ── Item modal state ──────────────────────────────────────────────────────
   const [editItem, setEditItem] = useState<NNLItem | null>(null)
 
+  // ── Création d'un item Backlog lié depuis un post-it (Chantier M) ──────────
+  // Non-null = la ItemModal Backlog est ouverte ; contient le callback à appeler
+  // avec l'id du nouvel item pour le lier au post-it NNL en cours d'édition.
+  const [linkingCallback, setLinkingCallback] = useState<((itemId: string) => void) | null>(null)
+
   // ── NNL Undo/Redo ─────────────────────────────────────────────────────────
   const [nnlCanUndo, setNNLCanUndo] = useState(false)
   const [nnlCanRedo, setNNLCanRedo] = useState(false)
@@ -3135,6 +3141,23 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     handleModalClose()
   }
 
+  // Ouvre la ItemModal Backlog ; onLinked sera appelé avec l'id du nouvel item
+  // pour le lier au post-it NNL (passé par NNLItemModal via onCreateLinkedItem).
+  function handleCreateLinkedItem(onLinked: (itemId: string) => void) {
+    setLinkingCallback(() => onLinked)
+  }
+
+  function handleLinkedItemSave(item: Item, keyCounters?: Record<string, number>) {
+    dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
+    saveToServer({
+      ...state,
+      items: [...state.items, item],
+      ...(keyCounters ? { itemKeyCounters: keyCounters } : {}),
+    })
+    linkingCallback?.(item.id)
+    setLinkingCallback(null)
+  }
+
   // ── Text block handlers ───────────────────────────────────────────────────
   function handleTextDblClick(id: string) {
     const t = (state.nnlTexts ?? []).find(x => x.id === id)
@@ -3365,7 +3388,17 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         onSave={handleModalSave}
         onDelete={editItem ? handleDelete : undefined}
         onClose={handleModalClose}
+        onCreateLinkedItem={handleCreateLinkedItem}
       />
+
+      {linkingCallback && (
+        <ItemModal
+          item={null}
+          state={state}
+          onSave={handleLinkedItemSave}
+          onClose={() => setLinkingCallback(null)}
+        />
+      )}
     </>
   )
 }
