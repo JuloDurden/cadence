@@ -24,7 +24,6 @@ const ICO = {
   reset:     '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   copy:      '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   archive:   '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
-  shredder:  '<path d="M4 13V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 22v-5"/><path d="M14 19v-2"/><path d="M18 20v-3"/><path d="M2 13h20"/><path d="M6 20v-3"/>',
   chevDown:  '<path d="m6 9 6 6 6-6"/>',
   chevRight: '<path d="m9 18 6-6-6-6"/>',
   alert:     '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
@@ -109,9 +108,14 @@ export function DailyPage() {
       .catch(() => alert('Impossible de copier'))
   }
 
+  // Archiver et vider les saisies du jour en une seule action atomique — auparavant deux
+  // boutons séparés et non liés ("Archiver" / "Effacer"), qui pouvaient être utilisés
+  // indépendamment l'un de l'autre : oublier "Effacer" laissait les saisies s'accumuler
+  // en double avec l'archive, oublier "Archiver" perdait les saisies sans trace.
   function archiveDaily() {
     const todayEntries = state.dailyEntries.filter(e => e.date === date)
     if (todayEntries.length === 0) { alert("Aucune saisie à archiver aujourd'hui."); return }
+    if (!window.confirm('Archiver ce daily et vider les saisies du jour ?')) return
     const archive: DailyArchive = {
       id: crypto.randomUUID(),
       date,
@@ -121,14 +125,13 @@ export function DailyPage() {
       createdAt: new Date().toISOString(),
     }
     dispatch({ type: 'ADD_DAILY_ARCHIVE', payload: archive })
-    saveToServer({ ...state, dailyArchives: [...(state.dailyArchives ?? []), archive] })
-    alert('Daily archivé.')
-  }
-
-  function clearEntries() {
-    if (!window.confirm('Effacer toutes les saisies du jour ?')) return
     dispatch({ type: 'CLEAR_DAILY_ENTRIES_DATE', payload: date })
-    saveToServer({ ...state, dailyEntries: state.dailyEntries.filter(e => e.date !== date) })
+    saveToServer({
+      ...state,
+      dailyArchives: [...(state.dailyArchives ?? []), archive],
+      dailyEntries: state.dailyEntries.filter(e => e.date !== date),
+    })
+    alert('Daily archivé.')
   }
 
   function deleteArchive(id: string) {
@@ -233,11 +236,8 @@ export function DailyPage() {
         <button className="hdr-btn" onClick={copyResume} title="Copier le résumé du jour">
           <Svg d={ICO.copy} size={14} />
         </button>
-        <button className="hdr-btn" onClick={archiveDaily} title="Archiver ce daily">
+        <button className="hdr-btn" onClick={archiveDaily} title="Archiver ce daily (et vider les saisies du jour)">
           <Svg d={ICO.archive} size={14} />
-        </button>
-        <button className="hdr-btn" onClick={clearEntries} title="Effacer toutes les saisies">
-          <Svg d={ICO.shredder} size={14} />
         </button>
 
         <div className="hdr-sep" />

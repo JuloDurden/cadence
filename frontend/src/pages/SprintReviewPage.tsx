@@ -7,6 +7,7 @@ import type {
   SRBadge, SRUnfinishedDecision,
   Item, Sprint, TeamMember, Client, Contact,
 } from '../types'
+import { archiveAndReset } from '../utils/session'
 
 // ── SVG icon paths ─────────────────────────────────────────────────────────────
 const ICO = {
@@ -250,7 +251,10 @@ export function SprintReviewPage() {
       createdAt: new Date().toISOString(),
     }
     dispatch({ type: 'ADD_SR_ARCHIVE', payload: arc })
-    save({ ...session, id: uid(), participantIds: [], participantContactIds: [], participantsOther: [], notes: [], itemRecords: [], unfinishedRecords: [], decisions: [] })
+    save(archiveAndReset(session, {
+      participantIds: [], participantContactIds: [], participantsOther: [],
+      notes: [], itemRecords: [], unfinishedRecords: [], decisions: [],
+    }))
   }
 
   function handleDeleteArchive(id: string) {
