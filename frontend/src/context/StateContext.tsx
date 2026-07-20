@@ -16,7 +16,7 @@ const UNDOABLE = new Set([
 
 type Action =
   | { type: 'SET_STATE'; payload: CadenceState }
-  | { type: 'ADD_ITEM'; payload: Item }
+  | { type: 'ADD_ITEM'; payload: Item; keyCounters?: Record<string, number> }
   | { type: 'UPDATE_ITEM'; payload: Item }
   | { type: 'DELETE_ITEM'; payload: string }
   | { type: 'ADD_SPRINT'; payload: Sprint }
@@ -75,7 +75,11 @@ type Action =
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
     case 'SET_STATE': return action.payload
-    case 'ADD_ITEM': return { ...state, items: [...state.items, action.payload] }
+    case 'ADD_ITEM': return {
+      ...state,
+      items: [...state.items, action.payload],
+      ...(action.keyCounters ? { itemKeyCounters: action.keyCounters } : {}),
+    }
     case 'UPDATE_ITEM': return { ...state, items: state.items.map(i => i.id === action.payload.id ? action.payload : i) }
     case 'DELETE_ITEM': return { ...state, items: state.items.filter(i => i.id !== action.payload) }
     case 'ADD_SPRINT': return { ...state, sprints: [...state.sprints, action.payload] }

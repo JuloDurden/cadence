@@ -357,6 +357,8 @@ export interface CadenceState {
   nnlLayers:  NNLLayer[]
   sprintReviewSessions: SprintReviewSession[]
   sprintReviewArchives: SprintReviewArchive[]
+  /** Dernier numéro attribué par préfixe de clé d'item — ne redescend jamais, même après suppression. */
+  itemKeyCounters?: Record<string, number>
 }
 
 export interface DailyEntry {

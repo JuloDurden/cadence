@@ -121,7 +121,7 @@ function usTabLabel(type: ItemType) {
 interface Props {
   item: Item | null
   state: CadenceState
-  onSave: (item: Item) => void
+  onSave: (item: Item, keyCounters?: Record<string, number>) => void
   onClose: () => void
 }
 
@@ -372,12 +372,29 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     const now = new Date().toISOString()
     const client = state.clients.find(c => c.id === clientId) ?? state.clients[0]
     const prefix = client?.prefix ?? 'ITEM'
-    const nextNum = state.items.length + 1
+    // Numéro suivant = compteur persistant par préfixe (state.itemKeyCounters), jamais réutilisé
+    // même si l'item qui le portait est supprimé — même principe que Jira/GitHub/Linear.
+    // Repli sur un scan des items existants si le compteur n'existe pas encore (données plus
+    // anciennes que l'introduction de ce champ, ou import JSON d'un ancien export) : on prend
+    // le plus élevé des deux pour ne jamais redescendre en dessous du numéro déjà visible.
+    let keyCounters: Record<string, number> | undefined
+    let finalKey = item?.key
+    if (!finalKey) {
+      const usedNums = state.items
+        .filter(i => i.key?.startsWith(`${prefix}-`))
+        .map(i => parseInt(i.key.slice(prefix.length + 1), 10))
+        .filter(n => !isNaN(n))
+      const liveMax = usedNums.length > 0 ? Math.max(...usedNums) : 0
+      const persisted = state.itemKeyCounters?.[prefix] ?? 0
+      const nextNum = Math.max(liveMax, persisted) + 1
+      finalKey = `${prefix}-${String(nextNum).padStart(3, '0')}`
+      keyCounters = { ...(state.itemKeyCounters ?? {}), [prefix]: nextNum }
+    }
     const wsjf: WSJFScore | undefined = framework === 'wsjf' ? { businessValue: wBV, timeCriticality: wTC, riskReduction: wRR } : item?.wsjf
     const rice: RICEScore | undefined = framework === 'rice' ? { reach: rReach, impact: rImpact, confidence: rConf, effort: rEffort } : item?.rice
     const finalItem: Item = {
       id:       item?.id ?? uid(),
-      key:      item?.key ?? `${prefix}-${String(nextNum).padStart(3, '0')}`,
+      key:      finalKey,
       desc, sp: +sp, status,
       clientId: clientId || (state.clients[0]?.id ?? ''),
       sprintId: sprintId || null,
@@ -397,7 +414,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
       scoringFramework: framework, wsjf, rice, notes,
       createdAt: item?.createdAt ?? now,
     }
-    onSave(finalItem)
+    onSave(finalItem, keyCounters)
     onClose()
   }
 

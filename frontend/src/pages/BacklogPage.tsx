@@ -231,7 +231,7 @@ export function BacklogPage() {
   }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady])
 
   /* ── save / delete ── */
-  function handleSave(item: Item) {
+  function handleSave(item: Item, keyCounters?: Record<string, number>) {
     const isNew = !state.items.find(i => i.id === item.id)
 
     // Cascade: epic done → tous les enfants passent à 'done'
@@ -244,7 +244,11 @@ export function BacklogPage() {
     }
 
     // Dispatch: item principal + enfants mis à jour
-    dispatch({ type: isNew ? 'ADD_ITEM' : 'UPDATE_ITEM', payload: item })
+    if (isNew) {
+      dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
+    } else {
+      dispatch({ type: 'UPDATE_ITEM', payload: item })
+    }
     if (epicDoneCascade) {
       base.filter(i => i.epicId === item.id).forEach(child => {
         dispatch({ type: 'UPDATE_ITEM', payload: child })
@@ -260,7 +264,7 @@ export function BacklogPage() {
       sprintId: item.sprintId ?? undefined,
       author: userName,
     }})
-    saveToServer({ ...state, items: base })
+    saveToServer({ ...state, items: base, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) })
   }
   function handleDelete(id: string) {
     if (!confirm('Supprimer cet item ?')) return

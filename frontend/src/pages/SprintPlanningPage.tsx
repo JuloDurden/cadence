@@ -364,14 +364,19 @@ export function SprintPlanningPage() {
     setShowAutoModal(false)
   }
 
-  function handleSave(item: Item) {
+  function handleSave(item: Item, keyCounters?: Record<string, number>) {
     const isNew = !state.items.find(i => i.id === item.id)
-    dispatch({ type: isNew ? 'ADD_ITEM' : 'UPDATE_ITEM', payload: item })
+    if (isNew) {
+      dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
+    } else {
+      dispatch({ type: 'UPDATE_ITEM', payload: item })
+    }
     saveToServer({
       ...state,
       items: isNew
         ? [...state.items, item]
         : state.items.map(i => i.id === item.id ? item : i),
+      ...(keyCounters ? { itemKeyCounters: keyCounters } : {}),
     })
     setModalItem(undefined)
   }

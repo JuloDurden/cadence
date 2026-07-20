@@ -258,10 +258,14 @@ export function KanbanPage() {
   }
 
   // ── Item actions ─────────────────────────────────────────────────────
-  function handleSave(item: Item) {
+  function handleSave(item: Item, keyCounters?: Record<string, number>) {
     const exists = !!state.items.find(i => i.id === item.id)
-    dispatch(exists ? { type: 'UPDATE_ITEM', payload: item } : { type: 'ADD_ITEM', payload: item })
-    saveToServer({ ...state, items: exists ? state.items.map(i => i.id === item.id ? item : i) : [...state.items, item] })
+    dispatch(exists ? { type: 'UPDATE_ITEM', payload: item } : { type: 'ADD_ITEM', payload: item, keyCounters })
+    saveToServer({
+      ...state,
+      items: exists ? state.items.map(i => i.id === item.id ? item : i) : [...state.items, item],
+      ...(keyCounters ? { itemKeyCounters: keyCounters } : {}),
+    })
     setModalItem(undefined)
   }
 
