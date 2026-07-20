@@ -198,7 +198,7 @@ export function BacklogPage() {
   const groups = useMemo<Group[]>(() => {
     if (groupBy === 'sprint') {
       const result: Group[] = []
-      const sprints = [...state.sprints].sort((a, b) => a.number - b.number)
+      const sprints = state.sprints // trié à la source (StateContext), pas besoin de re-trier ici
       for (const sp of sprints) {
         const items = filtered.filter(i => i.sprintId === sp.id)
         if (items.length || (!filterSprint && !filterClient && !filterPriority && !filterTag && !filterStatus && !filterReady))

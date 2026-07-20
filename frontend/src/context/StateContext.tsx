@@ -72,9 +72,17 @@ type Action =
   | { type: 'ADD_SR_ARCHIVE';    payload: import('../types').SprintReviewArchive }
   | { type: 'DELETE_SR_ARCHIVE'; payload: string }
 
+/**
+ * Ordre garanti à la source : state.sprints est toujours trié par `number`, jamais supposé
+ * par les pages qui le consomment. Un seul point de tri, appliqué à chaque mutation du tableau.
+ */
+function sortSprints(sprints: Sprint[]): Sprint[] {
+  return [...sprints].sort((a, b) => a.number - b.number)
+}
+
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
-    case 'SET_STATE': return action.payload
+    case 'SET_STATE': return { ...action.payload, sprints: sortSprints(action.payload.sprints) }
     case 'ADD_ITEM': return {
       ...state,
       items: [...state.items, action.payload],
@@ -82,8 +90,8 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     }
     case 'UPDATE_ITEM': return { ...state, items: state.items.map(i => i.id === action.payload.id ? action.payload : i) }
     case 'DELETE_ITEM': return { ...state, items: state.items.filter(i => i.id !== action.payload) }
-    case 'ADD_SPRINT': return { ...state, sprints: [...state.sprints, action.payload] }
-    case 'UPDATE_SPRINT': return { ...state, sprints: state.sprints.map(s => s.id === action.payload.id ? action.payload : s) }
+    case 'ADD_SPRINT': return { ...state, sprints: sortSprints([...state.sprints, action.payload]) }
+    case 'UPDATE_SPRINT': return { ...state, sprints: sortSprints(state.sprints.map(s => s.id === action.payload.id ? action.payload : s)) }
     case 'DELETE_SPRINT': return { ...state, sprints: state.sprints.filter(s => s.id !== action.payload) }
     case 'ADD_CLIENT': return { ...state, clients: [...state.clients, action.payload] }
     case 'UPDATE_CLIENT': return { ...state, clients: state.clients.map(c => c.id === action.payload.id ? action.payload : c) }

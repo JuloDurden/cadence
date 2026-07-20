@@ -95,9 +95,9 @@ export function SprintColumn({
   const barColor = over ? 'var(--danger)' : pct >= 90 ? '#d97706' : 'var(--primary)'
 
   // ── Indicateur de faisabilité ─────────────────────────────────────────────
+  // state.sprints est trié à la source (StateContext) — pas besoin de re-trier ici
   const closedWithVelo = state.sprints
     .filter(s => s.closed && (s.velocitySnapshot ?? 0) > 0)
-    .sort((a, b) => a.number - b.number)
     .slice(-3)
   const avgVelo = closedWithVelo.length > 0
     ? Math.round(closedWithVelo.reduce((s, sp) => s + (sp.velocitySnapshot ?? 0), 0) / closedWithVelo.length)
