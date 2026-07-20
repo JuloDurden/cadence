@@ -7,7 +7,7 @@ import { DepsOverlay } from '../components/planning/DepsOverlay'
 import { PlanningCard } from '../components/planning/PlanningCard'
 import { PlanningEpicGroup } from '../components/planning/PlanningEpicGroup'
 import { ItemModal } from '../components/backlog/ItemModal'
-import { computeSprintEndDate } from '../utils/sprintCapacity'
+import { computeSprintEndDate, teamCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
 import type { Item, Sprint } from '../types'
@@ -155,12 +155,15 @@ export function PlanningPage() {
       return d.toISOString().slice(0, 10)
     })()
     const endDate = computeSprintEndDate(startDate, workingDays)
+    // Capacité de départ = équipe × jours ouvrés du sprint (fériés/absences déduits ensuite
+    // à l'affichage par effectiveCapacity()), plutôt que la capacité par défaut fixe des
+    // Réglages — repli sur celle-ci uniquement si l'équipe est vide (Chantier L).
     const newSprint: Sprint = {
       id: 's' + uid(),
       number: (last?.number ?? 0) + 1,
       label: `Sprint ${(last?.number ?? 0) + 1}`,
       startDate, endDate,
-      capacity: state.settings.defaultCapacity,
+      capacity: teamCapacity(state.team, startDate, endDate) || state.settings.defaultCapacity,
       closed: false,
     }
     dispatch({ type: 'ADD_SPRINT', payload: newSprint })

@@ -1,7 +1,7 @@
 /**
  * Utilitaires sprint : dates, capacité, jours fériés français.
  */
-import type { TeamMember, Sprint, CadenceState } from '../types'
+import type { TeamMember, Sprint, CadenceState, Absence } from '../types'
 
 // ── Calcul de la date de fin d'un sprint ─────────────────────────────────
 /**
@@ -85,25 +85,7 @@ export function holidaysInRange(startDate: string, endDate: string): HolidayEntr
   return all.filter(h => h.workday && h.date >= startDate && h.date <= endDate)
 }
 
-/**
- * Capacité effective du sprint = capacité nominale − SP perdus sur jours fériés.
- * Chaque jour férié ouvré retire la somme des spPerDay de tous les membres de l'équipe.
- *
- * @param sprint  Sprint avec startDate, endDate, capacity
- * @param team    Membres avec spPerDay
- */
-export function effectiveCapacity(
-  sprint: { capacity: number; startDate: string; endDate: string },
-  team:   { spPerDay: number }[]
-): number {
-  if (!sprint.startDate || !sprint.endDate) return sprint.capacity
-  const holidays    = holidaysInRange(sprint.startDate, sprint.endDate)
-  const teamSpPerDay = team.reduce((sum, m) => sum + (m.spPerDay || 1), 0)
-  const spLost      = holidays.length * teamSpPerDay
-  return Math.max(0, sprint.capacity - spLost)
-}
-
-// ── Capacité individuelle d'un membre sur un sprint ──────────────────────
+// ── Jours ouvrés entre deux dates (bornes incluses) ──────────────────────
 
 function workingDaysCount(start: string, end: string): number {
   const s = new Date(start + 'T00:00:00'), e = new Date(end + 'T00:00:00')
@@ -111,6 +93,66 @@ function workingDaysCount(start: string, end: string): number {
   while (d <= e) { const wd = d.getDay(); if (wd !== 0 && wd !== 6) n++; d.setDate(d.getDate() + 1) }
   return n
 }
+
+/**
+ * SP perdus sur un sprint pour un membre donné à cause de ses absences,
+ * bornées à la période du sprint. Factorisé pour être utilisé à la fois par
+ * `effectiveCapacity()` (agrégat équipe) et `computeMemberCapacity()` (par membre).
+ */
+function memberAbsenceSpLoss(memberId: string, sprint: { startDate: string; endDate: string }, spPerDay: number, absences: Absence[]): number {
+  const days = absences
+    .filter(a => a.memberId === memberId)
+    .reduce((tot, a) => {
+      const os = a.start > sprint.startDate ? a.start : sprint.startDate
+      const oe = a.end   < sprint.endDate   ? a.end   : sprint.endDate
+      return os > oe ? tot : tot + workingDaysCount(os, oe)
+    }, 0)
+  return days * (spPerDay || 1)
+}
+
+/**
+ * Capacité "brute" de l'équipe sur la durée d'un sprint = somme des spPerDay de
+ * l'équipe × nombre de jours ouvrés, sans déduire fériés ni absences. Sert de valeur
+ * de départ réaliste à la création d'un sprint (remplace l'ancienne capacité par
+ * défaut fixe des Réglages dès que les dates du sprint sont connues).
+ */
+export function teamCapacity(
+  team: { spPerDay: number }[],
+  startDate: string,
+  endDate: string
+): number {
+  if (!startDate || !endDate) return 0
+  const wd = workingDaysCount(startDate, endDate)
+  const teamSpPerDay = team.reduce((sum, m) => sum + (m.spPerDay || 1), 0)
+  return Math.round(teamSpPerDay * wd)
+}
+
+/**
+ * Capacité effective du sprint = capacité nominale (éditable à la main, `sprint.capacity`)
+ * − SP perdus sur jours fériés − SP perdus sur absences de l'équipe.
+ * Chaque jour férié ouvré retire la somme des spPerDay de tous les membres de l'équipe ;
+ * chaque jour d'absence ne retire que le spPerDay du membre concerné (même logique que
+ * `computeMemberCapacity()`, agrégée ici sur toute l'équipe).
+ *
+ * @param sprint    Sprint avec startDate, endDate, capacity
+ * @param team      Membres avec id + spPerDay
+ * @param absences  Absences de l'équipe (optionnel — omises, seuls les fériés sont déduits,
+ *                   comme avant le Chantier L, pour ne pas casser un appel existant)
+ */
+export function effectiveCapacity(
+  sprint: { capacity: number; startDate: string; endDate: string },
+  team:   { id: string; spPerDay: number }[],
+  absences: Absence[] = []
+): number {
+  if (!sprint.startDate || !sprint.endDate) return sprint.capacity
+  const holidays        = holidaysInRange(sprint.startDate, sprint.endDate)
+  const teamSpPerDay     = team.reduce((sum, m) => sum + (m.spPerDay || 1), 0)
+  const spLostHolidays  = holidays.length * teamSpPerDay
+  const spLostAbsences  = team.reduce((sum, m) => sum + memberAbsenceSpLoss(m.id, sprint, m.spPerDay, absences), 0)
+  return Math.max(0, sprint.capacity - spLostHolidays - spLostAbsences)
+}
+
+// ── Capacité individuelle d'un membre sur un sprint ──────────────────────
 
 /**
  * Capacité SP d'un membre sur le sprint donné,

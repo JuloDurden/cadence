@@ -197,7 +197,7 @@ export function AutoPlanningPage() {
       const isCurrent       = idx === 0
       const label           = isCurrent && sp.label ? `Sprint ${sp.number} – ${sp.label}` : `Sprint ${sp.number}`
       const capOv           = sc.capacityOverrides.find(o => o.sprintId === sp.id)
-      const baseCap         = capOv ? capOv.capacity : (effectiveCapacity(sp, state.team) || state.settings.defaultCapacity)
+      const baseCap         = capOv ? capOv.capacity : (effectiveCapacity(sp, state.team, state.absences) || state.settings.defaultCapacity)
       const cap             = Math.round(baseCap * sc.velocityFactor)
       return { sprintId: sp.id, label, cap, used: usedByDone, usedItems: doneItemsInSlot, assigned: [], isNew: false, number: sp.number, startDate: sp.startDate, endDate: sp.endDate }
     })
@@ -284,7 +284,7 @@ export function AutoPlanningPage() {
         const doneItems = state.items.filter(i => i.sprintId === sp.id &&  doneSt.includes(i.status))
         const isCurrent = idx === 0
         const label     = isCurrent && sp.label ? `Sprint ${sp.number} – ${sp.label}` : `Sprint ${sp.number}`
-        const cap       = effectiveCapacity(sp, state.team) || state.settings.defaultCapacity
+        const cap       = effectiveCapacity(sp, state.team, state.absences) || state.settings.defaultCapacity
         const used      = doneItems.reduce((s, i) => s + i.sp, 0)
         return { sprintId: sp.id, label, cap, used, usedItems: doneItems, assigned: spItems, isNew: false, number: sp.number, startDate: sp.startDate, endDate: sp.endDate }
       })
@@ -703,7 +703,7 @@ export function AutoPlanningPage() {
                             <div style={{ padding: '12px 14px' }}>
                               {state.sprints.filter((sp: Sprint) => !sp.closed).map((sp: Sprint) => {
                                 const ov   = sc.capacityOverrides.find(o => o.sprintId === sp.id)
-                                const base = effectiveCapacity(sp, state.team) || state.settings.defaultCapacity
+                                const base = effectiveCapacity(sp, state.team, state.absences) || state.settings.defaultCapacity
                                 return (
                                   <div key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                                     <span style={{ fontSize: 11, width: 52, flexShrink: 0 }}>S{sp.number}</span>

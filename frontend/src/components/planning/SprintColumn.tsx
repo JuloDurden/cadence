@@ -63,7 +63,7 @@ export function SprintColumn({
   const [draftCap,   setDraftCap]   = useState(String(sprint.capacity))
 
   const usedSP = items.reduce((s, i) => s + i.sp, 0)
-  const effCap = effectiveCapacity(sprint, state.team)
+  const effCap = effectiveCapacity(sprint, state.team, state.absences)
   const holidays = sprint.startDate && sprint.endDate ? holidaysInRange(sprint.startDate, sprint.endDate) : []
   const pct  = effCap > 0 ? Math.min(100, (usedSP / effCap) * 100) : 0
   const over = usedSP > effCap

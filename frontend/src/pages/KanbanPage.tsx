@@ -313,7 +313,7 @@ export function KanbanPage() {
         )}
         <div className="hdr-sep" />
         <span className="hdr-ctx-stat">
-          {doneSP} SP / {currentSprint ? effectiveCapacity(currentSprint, state.team) : 0} SP
+          {doneSP} SP / {currentSprint ? effectiveCapacity(currentSprint, state.team, state.absences) : 0} SP
         </span>
 
         <div style={{ flex: 1 }} />

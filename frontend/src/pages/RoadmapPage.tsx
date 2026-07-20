@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 // Vision Board moved to VisionPage (/vision)
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
-import { computeSprintEndDate, effectiveCapacity } from '../utils/sprintCapacity'
+import { computeSprintEndDate, effectiveCapacity, teamCapacity } from '../utils/sprintCapacity'
 import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
 import type { RoadmapGoal } from '../types'
@@ -209,8 +209,11 @@ export function RoadmapPage() {
     const id = 's' + uid()
     dispatch({
       type: 'ADD_SPRINT', payload: {
+        // Créé sans dates ici (voir doc Release Planning, problème de cycle de vie dupliqué) :
+        // teamCapacity() renvoie donc 0 et on retombe sur la capacité par défaut des Réglages,
+        // comme avant le Chantier L, jusqu'à ce que des dates soient renseignées.
         id, number: num, label: `Sprint ${num}`,
-        startDate: '', endDate: '', capacity: state.settings.defaultCapacity,
+        startDate: '', endDate: '', capacity: teamCapacity(state.team, '', '') || state.settings.defaultCapacity,
         closed: false,
       }
     })
@@ -259,7 +262,7 @@ export function RoadmapPage() {
         {cards.map(({ sprint, goal }) => {
           const items = state.items.filter(i => i.sprintId === sprint.id)
           const totalSP = items.reduce((acc, i) => acc + i.sp, 0)
-          const effCap   = effectiveCapacity(sprint, state.team)
+          const effCap   = effectiveCapacity(sprint, state.team, state.absences)
           const capLabel = sprint.capacity > 0 ? ` / ${effCap} SP` : ''
           const dateLabel = sprintDateLabel(sprint.startDate, sprint.endDate)
 
