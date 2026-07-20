@@ -8,6 +8,7 @@ import type {
   Item, Sprint, TeamMember, Client, Contact,
 } from '../types'
 import { archiveAndReset } from '../utils/session'
+import { getCurrentSprint } from '../utils/sprints'
 
 // ── SVG icon paths ─────────────────────────────────────────────────────────────
 const ICO = {
@@ -109,12 +110,19 @@ function sprintDeliveredSP(sprint: Sprint, items: Item[], doneCols: string[]): n
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 export function SprintReviewPage() {
-  const { state, dispatch, saveToServer } = useCadence()
+  const { state, dispatch, saveToServer, stateLoaded } = useCadence()
 
-  const [selectedSprintId, setSelectedSprintId] = useState<string>(() => {
-    const active = state.sprints.find(s => !s.closed) ?? state.sprints[state.sprints.length - 1]
-    return active?.id ?? ''
-  })
+  const [selectedSprintId, setSelectedSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
+  // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
+  // de démo si le chargement serveur n'est pas encore arrivé. On le corrige une seule fois
+  // dès que l'état est définitivement chargé (voir Chantier A, corrections.md).
+  const resyncedRef = useRef(false)
+  useEffect(() => {
+    if (stateLoaded && !resyncedRef.current) {
+      resyncedRef.current = true
+      setSelectedSprintId(getCurrentSprint(state)?.id ?? '')
+    }
+  }, [stateLoaded, state])
 
   const [showDelivered, setShowDelivered]   = useState(true)
   const [showUnfinished, setShowUnfinished] = useState(true)

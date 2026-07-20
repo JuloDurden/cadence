@@ -4,6 +4,7 @@ import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { computeSprintEndDate, effectiveCapacity } from '../utils/sprintCapacity'
 import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
+import { getCurrentSprint } from '../utils/sprints'
 import type { RoadmapGoal } from '../types'
 
 const COLORS = [
@@ -102,9 +103,7 @@ export function RoadmapPage() {
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
   const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '', startDate: '', endDate: '' })
 
-  // Sprint actif = marqué active:true, sinon le premier non clôturé
-  const activeSprintId = (state.sprints.find(s => s.active)
-    ?? state.sprints.find(s => !s.closed))?.id ?? null
+  const activeSprintId = getCurrentSprint(state)?.id ?? null
 
   function handleActivate(sprintId: string) {
     const updatedSprints = state.sprints.map(s => ({

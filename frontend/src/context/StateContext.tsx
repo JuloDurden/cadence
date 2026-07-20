@@ -159,6 +159,11 @@ interface StateContextValue {
   redo: () => void
   canUndo: boolean
   canRedo: boolean
+  /** true une fois que l'état initial (serveur si un token existe, sinon démo) est définitivement chargé.
+   *  Sert aux pages qui figent un choix par défaut (ex. sprint sélectionné) dans un useState au montage :
+   *  sans ce flag, ce choix se ferait sur les données de démo affichées le temps du chargement serveur,
+   *  sans jamais se corriger ensuite (voir Chantier A, corrections.md). */
+  stateLoaded: boolean
 }
 
 const StateContext = createContext<StateContextValue | null>(null)
@@ -167,6 +172,7 @@ export function StateProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, DEMO_STATE)
   const [past, setPast] = useState<CadenceState[]>([])
   const [future, setFuture] = useState<CadenceState[]>([])
+  const [stateLoaded, setStateLoaded] = useState(false)
 
   // Apply theme on state change
   useEffect(() => {
@@ -182,11 +188,14 @@ export function StateProvider({ children }: { children: ReactNode }) {
       const { data } = await api.getState()
       if (data) dispatch({ type: 'SET_STATE', payload: data as CadenceState })
     } catch { /* use demo data */ }
+    finally { setStateLoaded(true) }
   }, [])
 
-  // Charger depuis le serveur au démarrage si un token existe
+  // Charger depuis le serveur au démarrage si un token existe ; sinon, les données de
+  // démo sont déjà définitives — on peut considérer l'état chargé immédiatement.
   useEffect(() => {
     if (localStorage.getItem('cadence_token')) loadFromServer()
+    else setStateLoaded(true)
   }, [loadFromServer])
 
   // Dispatch avec snapshot undo/redo
@@ -217,7 +226,7 @@ export function StateProvider({ children }: { children: ReactNode }) {
   return (
     <StateContext.Provider value={{
       state, dispatch: wrappedDispatch, saveToServer, loadFromServer,
-      undo, redo, canUndo: past.length > 0, canRedo: future.length > 0
+      undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, stateLoaded
     }}>
       {children}
     </StateContext.Provider>

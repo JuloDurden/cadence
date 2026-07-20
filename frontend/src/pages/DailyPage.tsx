@@ -4,6 +4,7 @@ import { useTimer } from '../context/TimerContext'
 import { Header } from '../components/layout/Header'
 import { MemberCard } from '../components/daily/MemberCard'
 import type { DailyEntry, DailyArchive, TeamMember } from '../types'
+import { getCurrentSprint } from '../utils/sprints'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
@@ -60,7 +61,7 @@ export function DailyPage() {
   const [archivesOpen, setArchivesOpen] = useState(true)
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null)
 
-  const currentSprint = useMemo(() => state.sprints.find(s => !s.closed), [state.sprints])
+  const currentSprint = useMemo(() => getCurrentSprint(state), [state])
   const archives = useMemo(
     () => [...(state.dailyArchives ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
     [state.dailyArchives]

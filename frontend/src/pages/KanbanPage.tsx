@@ -4,6 +4,7 @@ import { Header } from '../components/layout/Header'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
 import { ItemModal } from '../components/backlog/ItemModal'
 import { effectiveCapacity } from '../utils/sprintCapacity'
+import { getCurrentSprint } from '../utils/sprints'
 import type { Item, KanbanCol } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
@@ -76,11 +77,19 @@ function sprintTheme(label: string): string {
 
 // ── Component ─────────────────────────────────────────────────────────────
 export function KanbanPage() {
-  const { state, dispatch, saveToServer } = useCadence()
+  const { state, dispatch, saveToServer, stateLoaded } = useCadence()
 
-  const [sprintId, setSprintId] = useState<string>(() =>
-    state.sprints.find(s => !s.closed)?.id ?? state.sprints[0]?.id ?? ''
-  )
+  const [sprintId, setSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
+  // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
+  // de démo si le chargement serveur n'est pas encore arrivé. On le corrige une seule fois
+  // dès que l'état est définitivement chargé (voir Chantier A, corrections.md).
+  const resyncedRef = useRef(false)
+  useEffect(() => {
+    if (stateLoaded && !resyncedRef.current) {
+      resyncedRef.current = true
+      setSprintId(getCurrentSprint(state)?.id ?? '')
+    }
+  }, [stateLoaded, state])
   const [sortBy, setSortBy] = useState('priority')
   const [reorgMode, setReorgMode] = useState(false)
   const [showAddCol, setShowAddCol] = useState(false)
@@ -147,7 +156,7 @@ export function KanbanPage() {
 
   // ── Auto-advance deferred items from previous sprints → todo in current sprint ──
   useEffect(() => {
-    const current = state.sprints.find(s => !s.closed)
+    const current = getCurrentSprint(state)
     if (!current) return
     const toAdvance = state.items.filter(
       i => i.status === 'deferred' && i.sprintId && i.sprintId !== current.id

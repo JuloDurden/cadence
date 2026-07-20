@@ -8,6 +8,7 @@ import { PlanningCard } from '../components/planning/PlanningCard'
 import { PlanningEpicGroup } from '../components/planning/PlanningEpicGroup'
 import { ItemModal } from '../components/backlog/ItemModal'
 import { computeSprintEndDate } from '../utils/sprintCapacity'
+import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
 import type { Item, Sprint } from '../types'
 
@@ -122,9 +123,7 @@ export function PlanningPage() {
     saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
   }
 
-  // Sprint actif = celui marqué active:true, sinon le premier non clôturé
-  const activeSprintId = (state.sprints.find(s => s.active)
-    ?? state.sprints.find(s => !s.closed))?.id ?? null
+  const activeSprintId = getCurrentSprint(state)?.id ?? null
 
   function handleSave(item: Item, keyCounters?: Record<string, number>) {
     const isNew = !state.items.find(i => i.id === item.id)

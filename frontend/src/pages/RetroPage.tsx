@@ -5,6 +5,7 @@ import { RetroColumnCard } from '../components/retro/RetroColumnCard'
 import { RetroActions } from '../components/retro/RetroActions'
 import type { RetroSession, RetroItem, RetroAction, RetroFormat, RetroArchive } from '../types'
 import { archiveAndReset } from '../utils/session'
+import { getCurrentSprint } from '../utils/sprints'
 
 // SVG icon paths — never inline in JSX, always via Ico component
 const ICO = {
@@ -161,10 +162,7 @@ export function RetroPage() {
   const [showArchives, setShowArchives] = useState(true)
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null)
 
-  const sprint = useMemo(
-    () => state.sprints.find(s => !s.closed) ?? state.sprints[state.sprints.length - 1],
-    [state.sprints]
-  )
+  const sprint = useMemo(() => getCurrentSprint(state), [state])
 
   const session = useMemo((): RetroSession => {
     const existing = state.retroSessions.find(s => s.sprintId === sprint?.id && s.format === format)

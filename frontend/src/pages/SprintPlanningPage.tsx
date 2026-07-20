@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { GanttView } from '../components/planning/GanttView'
 import { ItemModal } from '../components/backlog/ItemModal'
 import type { Item, TeamMember, Sprint, CadenceState } from '../types'
 import { computeMemberCapacity, isMemberFullyAbsent, isMemberPartiallyAbsent } from '../utils/sprintCapacity'
+import { getCurrentSprint } from '../utils/sprints'
 
 const ICO_SHREDDER = '<path d="M4 13V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 22v-5"/><path d="M14 19v-2"/><path d="M18 20v-3"/><path d="M2 13h20"/><path d="M6 20v-3"/>'
 const ICO_WAND    = '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/>'
@@ -292,17 +293,23 @@ function AutoAssignModal({
 
 // ── Page principale ───────────────────────────────────────────────────────
 export function SprintPlanningPage() {
-  const { state, dispatch, saveToServer } = useCadence()
+  const { state, dispatch, saveToServer, stateLoaded } = useCadence()
   const [modalItem,     setModalItem]     = useState<Item | null | undefined>(undefined)
   const [showAutoModal, setShowAutoModal] = useState(false)
   const [maxCoAssign,   setMaxCoAssign]   = useState(2)
 
-  const defaultSprintId = (
-    state.sprints.find(s => s.active) ??
-    state.sprints.find(s => !s.closed) ??
-    state.sprints[0]
-  )?.id ?? ''
+  const defaultSprintId = getCurrentSprint(state)?.id ?? ''
   const [selectedSprintId, setSelectedSprintId] = useState(defaultSprintId)
+  // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
+  // de démo si le chargement serveur n'est pas encore arrivé. On le corrige une seule fois
+  // dès que l'état est définitivement chargé (voir Chantier A, corrections.md).
+  const resyncedRef = useRef(false)
+  useEffect(() => {
+    if (stateLoaded && !resyncedRef.current) {
+      resyncedRef.current = true
+      setSelectedSprintId(getCurrentSprint(state)?.id ?? '')
+    }
+  }, [stateLoaded, state])
 
   const sprint      = state.sprints.find(s => s.id === selectedSprintId)
   const sprintItems = sprint ? state.items.filter(i => i.sprintId === selectedSprintId) : []

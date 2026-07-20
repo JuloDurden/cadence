@@ -6,11 +6,12 @@ import { VelocityChart } from '../components/dashboard/VelocityChart'
 import { BurndownChart } from '../components/dashboard/BurndownChart'
 import { ClientRAG } from '../components/dashboard/ClientRAG'
 import { isItemDone } from '../utils/status'
+import { getCurrentSprint } from '../utils/sprints'
 
 export function DashboardPage() {
   const { state } = useCadence()
 
-  const currentSprint = useMemo(() => state.sprints.find(s => !s.closed), [state.sprints])
+  const currentSprint = useMemo(() => getCurrentSprint(state), [state])
   const closedSprints = useMemo(() => state.sprints.filter(s => s.closed), [state.sprints])
 
   const doneItems = useMemo(() => state.items.filter(i => isItemDone(i, state.kanbanCols)), [state.items, state.kanbanCols])
