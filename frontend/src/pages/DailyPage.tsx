@@ -5,6 +5,7 @@ import { Header } from '../components/layout/Header'
 import { MemberCard } from '../components/daily/MemberCard'
 import type { DailyEntry, DailyArchive, TeamMember } from '../types'
 import { getCurrentSprint } from '../utils/sprints'
+import { useAuth } from '../hooks/useAuth'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
@@ -55,6 +56,7 @@ function today() { return new Date().toISOString().slice(0, 10) }
 
 export function DailyPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { userName } = useAuth()
   const { duration, seconds, running, done, setDuration, toggle, reset } = useTimer()
   const date = useMemo(() => today(), [])
   const [todayOpen, setTodayOpen] = useState(true)
@@ -127,6 +129,17 @@ export function DailyPage() {
     }
     dispatch({ type: 'ADD_DAILY_ARCHIVE', payload: archive })
     dispatch({ type: 'CLEAR_DAILY_ENTRIES_DATE', payload: date })
+    // Chantier B (tranche Daily) : une entrée résumé par archivage, type dédié
+    // (Daily n'a pas de session à id comme Retro/Sprint Review, donc pas de sprintId
+    // toujours pertinent — on le renseigne quand même s'il existe).
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'daily_archive',
+      timestamp: new Date().toISOString(),
+      sprintId: currentSprint?.id,
+      detail: `Daily archivé (${date}) : ${todayEntries.length} saisie(s)`,
+      author: userName,
+    }})
     saveToServer({
       ...state,
       dailyArchives: [...(state.dailyArchives ?? []), archive],

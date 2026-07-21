@@ -19,6 +19,9 @@ const TYPE_CFG: Record<HistoryEventType, { bg: string; color: string; label: str
   scenario_apply:  { bg: '#ede9fe', color: '#5b21b6', label: 'SCÉNARIO' },
   item_assignee:   { bg: '#cffafe', color: '#155e75', label: 'ATTRIBUTION' },
   item_sprint_change: { bg: '#e0e7ff', color: '#3730a3', label: 'CHANGT SPRINT' },
+  daily_archive:         { bg: '#f3f4f6', color: '#374151', label: 'ARCHIVAGE' },
+  sprint_review_archive: { bg: '#f3f4f6', color: '#374151', label: 'ARCHIVAGE' },
+  retro_archive:         { bg: '#f3f4f6', color: '#374151', label: 'ARCHIVAGE' },
 }
 
 function fmtTs(ts: string) {
@@ -167,6 +170,9 @@ export function HistoriquePage() {
                 <option value="scenario_apply">Scénarios appliqués</option>
                 <option value="item_assignee">Attributions</option>
                 <option value="item_sprint_change">Changements de sprint</option>
+                <option value="daily_archive">Archivages Daily</option>
+                <option value="sprint_review_archive">Archivages Sprint Review</option>
+                <option value="retro_archive">Archivages Rétrospective</option>
                 <option value="undo">Annulations</option>
               </select>
             </div>
