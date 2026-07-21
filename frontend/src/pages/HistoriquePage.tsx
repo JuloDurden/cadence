@@ -16,6 +16,7 @@ const TYPE_CFG: Record<HistoryEventType, { bg: string; color: string; label: str
   item_unlink:     { bg: '#fce7f3', color: '#9d174d', label: 'DISSOCIATION' },
   sprint_close:    { bg: '#fef3c7', color: '#92400e', label: 'CLÔTURE' },
   sprint_reopen:   { bg: '#fef3c7', color: '#92400e', label: 'RÉOUVERTURE' },
+  scenario_apply:  { bg: '#ede9fe', color: '#5b21b6', label: 'SCÉNARIO' },
 }
 
 function fmtTs(ts: string) {
@@ -161,6 +162,7 @@ export function HistoriquePage() {
                 <option value="sprint_reopen">Réouvertures sprint</option>
                 <option value="item_link">Rattachements</option>
                 <option value="item_unlink">Dissociations</option>
+                <option value="scenario_apply">Scénarios appliqués</option>
                 <option value="undo">Annulations</option>
               </select>
             </div>

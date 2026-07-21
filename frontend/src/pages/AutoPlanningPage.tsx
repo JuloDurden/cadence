@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useCadence } from '../context/StateContext'
+import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { ScenarioMiniGraph } from '../components/auto-planning/ScenarioMiniGraph'
 import { effectiveCapacity } from '../utils/sprintCapacity'
@@ -122,6 +123,7 @@ function estimateEndDate(slotIdx: number, existing: ScenarioSlot[], weeks: numbe
 // ── Component ─────────────────────────────────────────────────────────────
 export function AutoPlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { userName } = useAuth()
 
   if (_scenarios.length === 0) {
     const current = makeCurrentScenario()
@@ -409,10 +411,14 @@ export function AutoPlanningPage() {
       return { ...i, sprintId: null }
     })
     const newSprints: Sprint[] = [...state.sprints]
+    let newSprintsCount = 0
+    let reassignedCount = 0
+    let createdCount = 0
     for (const slot of sc.slots) {
       if (slot.isNew) {
         const maxNum = newSprints.reduce((m, s) => Math.max(m, s.number), 0)
         newSprints.push({ id: slot.sprintId, number: maxNum + 1, label: '', startDate: localIso(new Date()), endDate: localIso(new Date()), capacity: slot.cap, closed: false })
+        newSprintsCount++
       }
       slot.assigned.forEach(item => {
         if (item.id.startsWith('virt-')) {
@@ -429,13 +435,27 @@ export function AutoPlanningPage() {
             assignees: [], tags: [], deps: virt.deps ?? [], createdAt: new Date().toISOString(),
           }
           newItems = [...newItems, newItem]
+          createdCount++
         } else {
           newItems = newItems.map(i => i.id === (item as Item).id ? { ...i, sprintId: slot.sprintId, status: 'todo' } : i)
+          reassignedCount++
         }
       })
     }
     const newState = { ...state, sprints: newSprints, items: newItems }
     dispatch({ type: 'SET_STATE', payload: newState })
+    // Chantier B (tranche Auto-planning) : une seule entrée résumé plutôt qu'une
+    // par item déplacé, pour ne pas inonder le journal d'une action qui peut
+    // toucher des dizaines d'items en un clic.
+    const parts = [`${newSprintsCount} sprint(s) créé(s)`, `${reassignedCount} item(s) réaffecté(s)`]
+    if (createdCount > 0) parts.push(`${createdCount} item(s) créé(s)`)
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'scenario_apply',
+      timestamp: new Date().toISOString(),
+      detail: `Scénario "${sc.name}" appliqué : ${parts.join(', ')}`,
+      author: userName,
+    }})
     saveToServer(newState)
   }
 

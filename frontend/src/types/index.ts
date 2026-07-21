@@ -402,6 +402,8 @@ export type HistoryEventType =
   | 'item_link' | 'item_unlink'
   // Clôture / réouverture d'un sprint (Chantier B, tranche Roadmap/Release Planning) — l'activation utilise 'sprint_activate' déjà existant
   | 'sprint_close' | 'sprint_reopen'
+  // Application d'un scénario what-if Auto-planning sur l'état réel (Chantier B, tranche Auto-planning)
+  | 'scenario_apply'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string
