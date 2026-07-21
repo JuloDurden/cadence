@@ -5,6 +5,7 @@ import { KanbanColumn } from '../components/kanban/KanbanColumn'
 import { ItemModal } from '../components/backlog/ItemModal'
 import { effectiveCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
+import { useAuth } from '../hooks/useAuth'
 import type { Item, KanbanCol } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ function sprintTheme(label: string): string {
 // ── Component ─────────────────────────────────────────────────────────────
 export function KanbanPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
+  const { userName } = useAuth()
 
   const [sprintId, setSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
   // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
@@ -166,6 +168,21 @@ export function KanbanPage() {
       const updated = { ...i, status: 'todo', sprintId: current.id }
       dispatch({ type: 'UPDATE_ITEM', payload: updated })
     })
+    // Chantier B (tranche Kanban) : action silencieuse (aucun clic utilisateur), donc
+    // particulièrement utile à tracer — une entrée résumé, auteur "Système" plutôt
+    // qu'un faux auteur humain puisque personne n'a déclenché cette action à la main.
+    const fromLabel = state.kanbanCols.find(c => c.id === 'deferred')?.label ?? 'Ajourné'
+    const toLabel   = state.kanbanCols.find(c => c.id === 'todo')?.label ?? 'À faire'
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'item_status',
+      timestamp: new Date().toISOString(),
+      sprintId: current.id,
+      from: fromLabel,
+      to: toLabel,
+      detail: `Auto-avancement : ${toAdvance.length} item(s) ajourné(s) réactivé(s) automatiquement`,
+      author: 'Système',
+    }})
     saveToServer({
       ...state,
       items: state.items.map(i => toAdvance.find(d => d.id === i.id)
@@ -222,6 +239,22 @@ export function KanbanPage() {
           sprintId: isBacklogCol ? null : (sprintId || item.sprintId),
         }
         dispatch({ type: 'UPDATE_ITEM', payload: updated })
+        // Chantier B (tranche Kanban) : réutilise le type `item_status` déjà prévu dans le
+        // modèle (jamais produit jusqu'ici) — les champs from/to sont aussi déjà supportés
+        // par l'affichage de la page Historique, juste jamais renseignés.
+        const fromLabel = state.kanbanCols.find(c => c.id === item.status)?.label ?? item.status
+        const toLabel   = state.kanbanCols.find(c => c.id === targetId)?.label ?? targetId
+        dispatch({ type: 'ADD_HISTORY', payload: {
+          id: crypto.randomUUID(),
+          type: 'item_status',
+          timestamp: new Date().toISOString(),
+          itemKey: item.key,
+          itemDesc: item.desc,
+          sprintId: updated.sprintId ?? undefined,
+          from: fromLabel,
+          to: toLabel,
+          author: userName,
+        }})
         saveToServer({ ...state, items: state.items.map(i => i.id === updated.id ? updated : i) })
       }
       dragItemId.current = null
@@ -283,6 +316,19 @@ export function KanbanPage() {
     if (!item) return
     const updated = { ...item, status: 'backlog', sprintId: null }
     dispatch({ type: 'UPDATE_ITEM', payload: updated })
+    const fromLabel = state.kanbanCols.find(c => c.id === item.status)?.label ?? item.status
+    const toLabel   = state.kanbanCols.find(c => c.id === 'backlog')?.label ?? 'backlog'
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'item_status',
+      timestamp: new Date().toISOString(),
+      itemKey: item.key,
+      itemDesc: item.desc,
+      from: fromLabel,
+      to: toLabel,
+      detail: 'Retiré du sprint',
+      author: userName,
+    }})
     saveToServer({ ...state, items: state.items.map(i => i.id === itemId ? updated : i) })
   }
 

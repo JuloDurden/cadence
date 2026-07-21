@@ -406,6 +406,8 @@ export type HistoryEventType =
   | 'scenario_apply'
   // Changement des assignés d'un item (Sprint Planning) / changement de sprint d'un item par glisser-déposer (Release Planning) — Chantier B, tranche Sprint Planning
   | 'item_assignee' | 'item_sprint_change'
+  // Archivage d'une session (Daily / Sprint Review / Rétrospective) — Chantier B, tranches Daily/Sprint Review/Retrospective
+  | 'daily_archive' | 'sprint_review_archive' | 'retro_archive'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string
