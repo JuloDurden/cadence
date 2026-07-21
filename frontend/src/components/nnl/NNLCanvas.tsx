@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { useCadence } from '../../context/StateContext'
 import { useToast } from '../../context/ToastContext'
+import { useAuth } from '../../hooks/useAuth'
 import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, CadenceState, Item } from '../../types'
 import { NNLItemModal } from './NNLItemModal'
 import { ItemModal } from '../backlog/ItemModal'
@@ -1527,6 +1528,7 @@ type NNLSnapshot = {
 export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onModalClose: () => void }) {
   const { state, dispatch, saveToServer } = useCadence()
   const { showToast } = useToast()
+  const { userName } = useAuth()
 
   // ── Canvas state ─────────────────────────────────────────────────────────
   const canvasRef  = useRef<HTMLDivElement>(null)
@@ -1575,6 +1577,9 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // Non-null = la ItemModal Backlog est ouverte ; contient le callback à appeler
   // avec l'id du nouvel item pour le lier au post-it NNL en cours d'édition.
   const [linkingCallback, setLinkingCallback] = useState<((itemId: string) => void) | null>(null)
+  // Id du dernier item créé via "Créer un item dans le Backlog", pour éviter de
+  // journaliser en plus un rattachement redondant lors du save du post-it qui suit.
+  const justCreatedLinkedItemIdRef = useRef<string | null>(null)
 
   // ── NNL Undo/Redo ─────────────────────────────────────────────────────────
   const [nnlCanUndo, setNNLCanUndo] = useState(false)
@@ -3123,10 +3128,41 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     if (item) setEditItem(item)
   }
 
-  function handleModalClose() { setEditItem(null); onModalClose() }
+  function handleModalClose() {
+    setEditItem(null)
+    onModalClose()
+    justCreatedLinkedItemIdRef.current = null
+  }
+
+  // Journalise dans l'Historique un rattachement/dissociation de post-it à un item réel du
+  // Backlog (Chantier B, tranche Vision/NNL) via les types dédiés `item_link`/`item_unlink`.
+  function logLinkHistory(action: 'link' | 'unlink', linkedItemId: string | undefined) {
+    if (!linkedItemId) return
+    const real = state.items.find(i => i.id === linkedItemId)
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: action === 'link' ? 'item_link' : 'item_unlink',
+      timestamp: new Date().toISOString(),
+      itemKey: real?.key,
+      itemDesc: real?.desc,
+      detail: action === 'link' ? 'Post-it Vision rattaché à cet item' : 'Post-it Vision dissocié de cet item',
+      author: userName,
+    }})
+  }
 
   function handleModalSave(saved: NNLItem) {
     const isCreate = !editItem && modalOpen
+    const wasLinkedId = editItem?.linkedItemId
+    const isLinkedId  = saved.linkedItemId
+    // Si l'item lié vient d'être créé à l'instant via "Créer un item dans le
+    // Backlog", la création vaut déjà rattachement implicite : on évite de
+    // doubler avec une entrée "rattaché" redondante juste après "créé".
+    const isFreshlyCreatedLink = !!isLinkedId && isLinkedId === justCreatedLinkedItemIdRef.current
+    if (wasLinkedId !== isLinkedId) {
+      if (isLinkedId && !isFreshlyCreatedLink) logLinkHistory('link', isLinkedId)
+      if (wasLinkedId) logLinkHistory('unlink', wasLinkedId)
+    }
+    justCreatedLinkedItemIdRef.current = null
     if (isCreate) {
       const pos = newPosForZone(saved.zone, r1Ref.current, r2Ref.current)
       const newItem: NNLItem = { ...saved, id: saved.id || uid(), x: pos.x, y: pos.y }
@@ -3149,11 +3185,21 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   function handleLinkedItemSave(item: Item, keyCounters?: Record<string, number>) {
     dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'item_create',
+      timestamp: new Date().toISOString(),
+      itemKey: item.key,
+      itemDesc: item.desc,
+      detail: 'Créé depuis un post-it Vision',
+      author: userName,
+    }})
     saveToServer({
       ...state,
       items: [...state.items, item],
       ...(keyCounters ? { itemKeyCounters: keyCounters } : {}),
     })
+    justCreatedLinkedItemIdRef.current = item.id
     linkingCallback?.(item.id)
     setLinkingCallback(null)
   }

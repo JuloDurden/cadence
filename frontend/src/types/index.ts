@@ -398,6 +398,8 @@ export interface RetroSession {
 export type HistoryEventType =
   | 'item_create' | 'item_edit' | 'item_delete' | 'item_status'
   | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
+  // Rattachement / dissociation d'un post-it Vision/NNL à un item réel du Backlog (Chantier B, tranche Vision/NNL)
+  | 'item_link' | 'item_unlink'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string

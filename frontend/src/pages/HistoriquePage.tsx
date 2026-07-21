@@ -12,6 +12,8 @@ const TYPE_CFG: Record<HistoryEventType, { bg: string; color: string; label: str
   sprint_activate: { bg: '#fef3c7', color: '#92400e', label: 'SPRINT' },
   undo:            { bg: '#f3f4f6', color: '#374151', label: 'UNDO' },
   other:           { bg: '#f3f4f6', color: '#374151', label: 'AUTRE' },
+  item_link:       { bg: '#e0f2fe', color: '#075985', label: 'RATTACHEMENT' },
+  item_unlink:     { bg: '#fce7f3', color: '#9d174d', label: 'DISSOCIATION' },
 }
 
 function fmtTs(ts: string) {
@@ -153,6 +155,8 @@ export function HistoriquePage() {
                 <option value="item_delete">Suppressions</option>
                 <option value="item_status">Changements statut</option>
                 <option value="sprint_activate">Activations sprint</option>
+                <option value="item_link">Rattachements</option>
+                <option value="item_unlink">Dissociations</option>
                 <option value="undo">Annulations</option>
               </select>
             </div>

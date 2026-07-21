@@ -23,6 +23,7 @@ Aujourd'hui : Epic → Items (Story, Bug, Tâche, Spike). À faire :
 - Vue dédiée (tree ou tableau) pour visualiser la hiérarchie complète
 - Release Planning, Auto-planning et Roadmap capables d'afficher les 3 niveaux
 - Backlog filtrable par Initiative
+- **Piste NNL (idée utilisateur, 2026-07-20)** : sur le canevas Now/Next/Later (Vision), permettre de regrouper visuellement plusieurs post-its/items dans un cadre représentant un Epic, et plusieurs Epics dans un cadre représentant une Initiative — ce regroupement visuel se synchroniserait avec la vraie hiérarchie Initiative → Epic → Items du Backlog. Suppose au minimum : un mécanisme de groupement/cadre sur le canevas NNL (au-delà des calques actuels), et une synchronisation bidirectionnelle avec le Backlog. À concevoir une fois cette hiérarchie posée côté Backlog.
 
 ---
 
