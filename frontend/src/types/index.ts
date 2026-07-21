@@ -404,6 +404,8 @@ export type HistoryEventType =
   | 'sprint_close' | 'sprint_reopen'
   // Application d'un scénario what-if Auto-planning sur l'état réel (Chantier B, tranche Auto-planning)
   | 'scenario_apply'
+  // Changement des assignés d'un item (Sprint Planning) / changement de sprint d'un item par glisser-déposer (Release Planning) — Chantier B, tranche Sprint Planning
+  | 'item_assignee' | 'item_sprint_change'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string

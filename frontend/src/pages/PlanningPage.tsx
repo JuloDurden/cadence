@@ -79,6 +79,22 @@ export function PlanningPage() {
       toMove.find(m => m.id === i.id) ? { ...i, sprintId: newSprintId } : i
     )
     toMove.forEach(item => dispatch({ type: 'UPDATE_ITEM', payload: { ...item, sprintId: newSprintId } }))
+    // Chantier B (tranche Sprint Planning) : une seule entrée d'Historique par dépôt, résumée
+    // si plusieurs items sont déplacés à la fois (multi-sélection).
+    const targetSprint = state.sprints.find(s => s.id === newSprintId)
+    const targetLabel = targetSprint ? (targetSprint.label || `Sprint ${targetSprint.number}`) : 'Non assigné'
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'item_sprint_change',
+      timestamp: new Date().toISOString(),
+      sprintId: newSprintId ?? undefined,
+      itemKey: toMove.length === 1 ? toMove[0].key : undefined,
+      itemDesc: toMove.length === 1 ? toMove[0].desc : undefined,
+      detail: toMove.length === 1
+        ? `Déplacé vers ${targetLabel}`
+        : `${toMove.length} item(s) déplacés vers ${targetLabel}`,
+      author: userName,
+    }})
     saveToServer({ ...state, items: updatedItems })
     dragIds.current = []
   }

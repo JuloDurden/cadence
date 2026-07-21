@@ -17,6 +17,8 @@ const TYPE_CFG: Record<HistoryEventType, { bg: string; color: string; label: str
   sprint_close:    { bg: '#fef3c7', color: '#92400e', label: 'CLÔTURE' },
   sprint_reopen:   { bg: '#fef3c7', color: '#92400e', label: 'RÉOUVERTURE' },
   scenario_apply:  { bg: '#ede9fe', color: '#5b21b6', label: 'SCÉNARIO' },
+  item_assignee:   { bg: '#cffafe', color: '#155e75', label: 'ATTRIBUTION' },
+  item_sprint_change: { bg: '#e0e7ff', color: '#3730a3', label: 'CHANGT SPRINT' },
 }
 
 function fmtTs(ts: string) {
@@ -163,6 +165,8 @@ export function HistoriquePage() {
                 <option value="item_link">Rattachements</option>
                 <option value="item_unlink">Dissociations</option>
                 <option value="scenario_apply">Scénarios appliqués</option>
+                <option value="item_assignee">Attributions</option>
+                <option value="item_sprint_change">Changements de sprint</option>
                 <option value="undo">Annulations</option>
               </select>
             </div>

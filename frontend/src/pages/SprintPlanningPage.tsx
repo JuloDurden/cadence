@@ -6,6 +6,7 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import type { Item, TeamMember, Sprint, CadenceState } from '../types'
 import { computeMemberCapacity, isMemberFullyAbsent, isMemberPartiallyAbsent } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
+import { useAuth } from '../hooks/useAuth'
 
 const ICO_SHREDDER = '<path d="M4 13V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 22v-5"/><path d="M14 19v-2"/><path d="M18 20v-3"/><path d="M2 13h20"/><path d="M6 20v-3"/>'
 const ICO_WAND    = '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/>'
@@ -294,6 +295,7 @@ function AutoAssignModal({
 // ── Page principale ───────────────────────────────────────────────────────
 export function SprintPlanningPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
+  const { userName } = useAuth()
   const [modalItem,     setModalItem]     = useState<Item | null | undefined>(undefined)
   const [showAutoModal, setShowAutoModal] = useState(false)
   const [maxCoAssign,   setMaxCoAssign]   = useState(2)
@@ -341,8 +343,25 @@ export function SprintPlanningPage() {
     return computeAutoAssign(sprint, state.items, state.team, state, maxCoAssign)
   }, [sprint, state, maxCoAssign, showAutoModal])
 
+  // Chantier B (tranche Sprint Planning) : la modification des assignés d'un item (drag sur
+  // le Gantt, seul appelant de cette fonction) génère une entrée d'Historique dédiée
+  // (`item_assignee`), distincte de `item_edit` (édition complète via la modale Backlog).
   function handleUpdateItem(item: Item) {
+    const prev = state.items.find(i => i.id === item.id)
     dispatch({ type: 'UPDATE_ITEM', payload: item })
+    if (prev && JSON.stringify(prev.assignees) !== JSON.stringify(item.assignees)) {
+      const names = item.assignees.map(id => state.team.find(m => m.id === id)?.name).filter(Boolean).join(', ')
+      dispatch({ type: 'ADD_HISTORY', payload: {
+        id: crypto.randomUUID(),
+        type: 'item_assignee',
+        timestamp: new Date().toISOString(),
+        itemKey: item.key,
+        itemDesc: item.desc,
+        sprintId: item.sprintId ?? undefined,
+        detail: names ? `Attribué à ${names}` : 'Attribution retirée',
+        author: userName,
+      }})
+    }
     saveToServer({ ...state, items: state.items.map(i => i.id === item.id ? item : i) })
   }
 
@@ -354,6 +373,16 @@ export function SprintPlanningPage() {
       i.sprintId === selectedSprintId ? { ...i, assignees: [] } : i
     )
     assigned.forEach(item => dispatch({ type: 'UPDATE_ITEM', payload: { ...item, assignees: [] } }))
+    // Chantier B (tranche Sprint Planning) : une seule entrée résumé, pas une par item,
+    // même principe que le scénario Auto-planning (action bulk en un clic).
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'item_assignee',
+      timestamp: new Date().toISOString(),
+      sprintId: selectedSprintId || undefined,
+      detail: `Attributions effacées : ${assigned.length} item(s)`,
+      author: userName,
+    }})
     saveToServer({ ...state, items: updatedItems })
   }
 
@@ -367,6 +396,15 @@ export function SprintPlanningPage() {
       const item = state.items.find(i => i.id === r.itemId)
       if (item) dispatch({ type: 'UPDATE_ITEM', payload: { ...item, assignees: r.assignees.map(m => m.id) } })
     })
+    // Chantier B (tranche Sprint Planning) : une seule entrée résumé pour toute l'auto-attribution.
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'item_assignee',
+      timestamp: new Date().toISOString(),
+      sprintId: sprint.id,
+      detail: `Auto-attribution : ${autoPreview.length} item(s) assigné(s)`,
+      author: userName,
+    }})
     saveToServer({ ...state, items: updatedItems })
     setShowAutoModal(false)
   }
