@@ -136,10 +136,9 @@ export function HistoriquePage() {
               {authorIds.length > 0 && (
                 <select className="form-input form-select" style={{ fontSize: 11 }} value={authorFilter} onChange={e => setAuthorFilter(e.target.value)}>
                   <option value="all">Tous les auteurs</option>
-                  {authorIds.map(id => {
-                    const m = state.team.find(t => t.id === id)
-                    return m ? <option key={id} value={id}>{m.name}</option> : null
-                  })}
+                  {authorIds.map(name => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
                 </select>
               )}
               <select className="form-input form-select" style={{ fontSize: 11 }} value={sprintFilter} onChange={e => setSprintFilter(e.target.value)}>
@@ -165,7 +164,8 @@ export function HistoriquePage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {filtered.map(h => {
                 const cfg = TYPE_CFG[h.type] ?? TYPE_CFG.other
-                const author = state.team.find(m => m.id === h.author)
+                // `h.author` est déjà le nom affiché de la personne connectée au moment de l'action
+                // (voir useAuth()/Chantier J) — ce n'est jamais un id de `state.team`, donc pas de lookup ici.
                 const sprint = state.sprints.find(s => s.id === h.sprintId)
                 return (
                   <div key={h.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 10px', borderRadius: 8, borderBottom: '1px solid var(--surface2)' }}>
@@ -177,7 +177,7 @@ export function HistoriquePage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
                       <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtTs(h.timestamp)}</span>
-                      {author && <span style={{ fontSize: 9, color: 'var(--primary)', fontWeight: 600 }}>{author.name}</span>}
+                      {h.author && <span style={{ fontSize: 9, color: 'var(--primary)', fontWeight: 600 }}>{h.author}</span>}
                       {sprint && <span style={{ fontSize: 9, color: 'var(--text-muted)' }}>{sprint.label || `Sprint ${sprint.number}`}</span>}
                     </div>
                   </div>

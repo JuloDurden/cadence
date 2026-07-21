@@ -1,3 +1,5 @@
+import type { AuthUser } from '../types'
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 function getToken(): string | null {
@@ -19,8 +21,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  // Le backend renvoie déjà { token, user: { id, email, name, role } } (voir backend/src/routes/auth.ts) —
+  // le typage ne déclarait auparavant que `token`, perdant id/role au passage (Chantier J).
   login: (email: string, password: string) =>
-    request<{ token: string }>('/api/auth/login', {
+    request<{ token: string; user: AuthUser }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),

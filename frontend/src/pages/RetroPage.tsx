@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useCadence } from '../context/StateContext'
+import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { RetroColumnCard } from '../components/retro/RetroColumnCard'
 import { RetroActions } from '../components/retro/RetroActions'
@@ -60,7 +61,6 @@ const FORMAT_LABELS: Record<RetroFormat, string> = {
 }
 
 function uid() { return crypto.randomUUID() }
-const CURRENT_USER = 'm1'
 
 function emptyColumns(format: RetroFormat): Record<string, RetroItem[]> {
   return Object.fromEntries(FORMATS[format].map(c => [c.key, []]))
@@ -157,6 +157,9 @@ const ARCHIVE_BTN: React.CSSProperties = {
 
 export function RetroPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  // Identité du compte réellement connecté (backend `User`, distinct d'un `TeamMember` de RH/Équipe) —
+  // remplace l'ancien CURRENT_USER = 'm1' codé en dur (Chantier J, docs/corrections.md).
+  const { userId, userName } = useAuth()
   const [format, setFormat] = useState<RetroFormat>('start-stop-continue')
   const [showToday, setShowToday] = useState(true)
   const [showArchives, setShowArchives] = useState(true)
@@ -179,18 +182,18 @@ export function RetroPage() {
   }
 
   function handleAdd(colKey: string, text: string) {
-    const item: RetroItem = { id: uid(), text, votes: [], dislikes: [], authorId: CURRENT_USER }
+    const item: RetroItem = { id: uid(), text, votes: [], dislikes: [], authorId: userId, authorName: userName }
     save({ ...session, columns: { ...session.columns, [colKey]: [...(session.columns[colKey] ?? []), item] } })
   }
 
   function handleVote(colKey: string, itemId: string) {
     const items = session.columns[colKey].map(i => {
       if (i.id !== itemId) return i
-      const liked = i.votes.includes(CURRENT_USER)
+      const liked = i.votes.includes(userId)
       return {
         ...i,
-        votes: liked ? i.votes.filter(v => v !== CURRENT_USER) : [...i.votes, CURRENT_USER],
-        dislikes: liked ? (i.dislikes ?? []) : (i.dislikes ?? []).filter(v => v !== CURRENT_USER),
+        votes: liked ? i.votes.filter(v => v !== userId) : [...i.votes, userId],
+        dislikes: liked ? (i.dislikes ?? []) : (i.dislikes ?? []).filter(v => v !== userId),
       }
     })
     save({ ...session, columns: { ...session.columns, [colKey]: items } })
@@ -199,11 +202,11 @@ export function RetroPage() {
   function handleDislike(colKey: string, itemId: string) {
     const items = session.columns[colKey].map(i => {
       if (i.id !== itemId) return i
-      const disliked = (i.dislikes ?? []).includes(CURRENT_USER)
+      const disliked = (i.dislikes ?? []).includes(userId)
       return {
         ...i,
-        dislikes: disliked ? (i.dislikes ?? []).filter(v => v !== CURRENT_USER) : [...(i.dislikes ?? []), CURRENT_USER],
-        votes: disliked ? i.votes : i.votes.filter(v => v !== CURRENT_USER),
+        dislikes: disliked ? (i.dislikes ?? []).filter(v => v !== userId) : [...(i.dislikes ?? []), userId],
+        votes: disliked ? i.votes : i.votes.filter(v => v !== userId),
       }
     })
     save({ ...session, columns: { ...session.columns, [colKey]: items } })
@@ -280,7 +283,7 @@ export function RetroPage() {
               {cols.map(col => (
                 <RetroColumnCard
                   key={col.key} colKey={col.key} label={col.label} color={col.color} icon={col.icon}
-                  items={session.columns[col.key] ?? []} team={state.team} currentUserId={CURRENT_USER}
+                  items={session.columns[col.key] ?? []} team={state.team} currentUserId={userId}
                   onAdd={text => handleAdd(col.key, text)}
                   onVote={itemId => handleVote(col.key, itemId)}
                   onDislike={itemId => handleDislike(col.key, itemId)}

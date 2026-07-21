@@ -368,7 +368,11 @@ export interface DailyEntry {
 export type RetroFormat = 'start-stop-continue' | 'mad-sad-glad' | '4ls'
 
 export interface RetroItem {
-  id: string; text: string; votes: string[]; dislikes: string[]; authorId?: string
+  id: string; text: string; votes: string[]; dislikes: string[]
+  authorId?: string
+  /** Nom affiché de l'auteur, capturé à la création — aucune liste de tous les comptes
+   *  n'est disponible côté frontend pour résoudre `authorId` après coup (voir Chantier J). */
+  authorName?: string
 }
 
 export interface RetroArchive {

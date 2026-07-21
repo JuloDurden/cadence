@@ -53,12 +53,14 @@ export function RetroColumnCard({ label, color, icon, items, team, currentUserId
         {sorted.map(item => {
           const liked = item.votes.includes(currentUserId)
           const disliked = (item.dislikes ?? []).includes(currentUserId)
-          const author = team.find(m => m.id === item.authorId)
+          // `authorName` est capturé à la création (compte réellement connecté, voir Chantier J) —
+          // repli sur l'ancien lookup `state.team` pour des post-its créés avant ce correctif.
+          const authorLabel = item.authorName ?? team.find(m => m.id === item.authorId)?.name
           return (
             <div key={item.id} style={{ background: 'var(--surface2)', borderRadius: 6, padding: '8px 10px', border: '1px solid var(--border)' }}>
               <p style={{ fontSize: 12, lineHeight: 1.4, marginBottom: 6 }}>{item.text}</p>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{author?.name.split(' ')[0] ?? '?'}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{authorLabel?.split(' ')[0] ?? '?'}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
                     title="J'aime"
