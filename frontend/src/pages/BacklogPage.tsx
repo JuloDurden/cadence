@@ -5,6 +5,7 @@ import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
 import { EXTRA_STAGES } from './KanbanPage'
 import { fmtDate } from '../utils/dates'
+import { findEpicChildren, detachEpicChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
 import type { Item, ItemType, BugSeverity } from '../types'
 
 /* ─── Error Boundary ─────────────────────────────────────────────── */
@@ -267,9 +268,18 @@ export function BacklogPage() {
     saveToServer({ ...state, items: base, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) })
   }
   function handleDelete(id: string) {
-    if (!confirm('Supprimer cet item ?')) return
     const item = state.items.find(i => i.id === id)
+    const isEpic = item?.type === 'epic'
+    const children = isEpic ? findEpicChildren(state.items, id) : []
+    const dependents = findDependents(state.items, id)
+    const parts: string[] = []
+    if (children.length > 0)   parts.push(`${children.length} item(s) enfant(s) seront détaché(s) de cet epic (conservés)`)
+    if (dependents.length > 0) parts.push(`retiré des dépendances de ${dependents.length} item(s)`)
+    const msg = parts.length > 0 ? `Supprimer cet item ? ${parts.join(', ')}.` : 'Supprimer cet item ?'
+    if (!confirm(msg)) return
     dispatch({ type: 'DELETE_ITEM', payload: id })
+    children.forEach(c => dispatch({ type: 'UPDATE_ITEM', payload: { ...c, epicId: null } }))
+    dependents.forEach(d => dispatch({ type: 'UPDATE_ITEM', payload: { ...d, deps: (d.deps ?? []).filter(x => x !== id) } }))
     dispatch({ type: 'ADD_HISTORY', payload: {
       id: crypto.randomUUID(),
       type: 'item_delete',
@@ -278,7 +288,10 @@ export function BacklogPage() {
       itemDesc: item?.desc,
       author: userName,
     }})
-    saveToServer({ ...state, items: state.items.filter(i => i.id !== id) })
+    let remaining = state.items.filter(i => i.id !== id)
+    if (children.length > 0)   remaining = detachEpicChildren(remaining, id)
+    if (dependents.length > 0) remaining = detachDependents(remaining, id)
+    saveToServer({ ...state, items: remaining })
   }
   function toggleExpand(id: string) {
     setExpandedIds(prev => {

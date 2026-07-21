@@ -5,6 +5,7 @@ import { Header } from '../components/layout/Header'
 import { ClientModal } from '../components/clients/ClientModal'
 import { fmtDateShort } from '../utils/dates'
 import { isItemDone } from '../utils/status'
+import { findClientItems, detachClientReferences, removeClientFromGroups } from '../utils/cascadeDelete'
 import type { Client, ClientGroup } from '../types'
 
 // ── Icônes Lucide (SVG inline) ───────────────────────────────────────────
@@ -275,9 +276,24 @@ export function ClientsPage() {
     setModal(undefined)
   }
   function handleDelete(id: string) {
-    if (!confirm('Supprimer ce client ?')) return
+    const affectedItems = findClientItems(state.items, id)
+    const inGroups = groups.filter(g => g.clientIds.includes(id))
+    const parts: string[] = []
+    if (affectedItems.length > 0) parts.push(`${affectedItems.length} item(s) passeront en "sans client"`)
+    if (inGroups.length > 0) parts.push(`retiré de ${inGroups.length} groupe(s) de clients`)
+    const msg = parts.length > 0
+      ? `Supprimer ce client ? ${parts.join(', ')}.`
+      : 'Supprimer ce client ?'
+    if (!confirm(msg)) return
     dispatch({ type: 'DELETE_CLIENT', payload: id })
-    saveToServer({ ...state, clients: state.clients.filter(c => c.id !== id) })
+    affectedItems.forEach(i => dispatch({ type: 'UPDATE_ITEM', payload: { ...i, clientId: '' } }))
+    inGroups.forEach(g => dispatch({ type: 'UPDATE_CLIENT_GROUP', payload: { ...g, clientIds: g.clientIds.filter(cid => cid !== id) } }))
+    saveToServer({
+      ...state,
+      clients: state.clients.filter(c => c.id !== id),
+      items: detachClientReferences(state.items, id),
+      clientGroups: removeClientFromGroups(groups, id),
+    })
   }
 
   // ── Groupe CRUD ──────────────────────────────────────────────────────

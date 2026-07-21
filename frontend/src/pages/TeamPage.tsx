@@ -5,6 +5,7 @@ import { BASE_TAGS } from '../data/baseTags'
 import { frenchHolidays, countWorkdays } from '../data/holidays'
 import { fmtDate } from '../utils/fmt'
 import { isItemDone } from '../utils/status'
+import { findMemberAssignedItems, detachMemberReferences } from '../utils/cascadeDelete'
 import type { TeamMember, Absence, AbsenceType, Sprint } from '../types'
 
 function Svg({ d, size = 14 }: { d: string; size?: number }) {
@@ -549,9 +550,31 @@ export function TeamPage() {
   }
 
   function handleDeleteMember(id: string) {
-    if (!confirm('Supprimer ce membre ?')) return
+    const assignedItems = findMemberAssignedItems(state.items, id)
+    const memberAbsences = state.absences.filter(a => a.memberId === id)
+    const parts: string[] = []
+    if (assignedItems.length > 0) parts.push(`retiré de ${assignedItems.length} item(s) assigné(s)`)
+    if (memberAbsences.length > 0) parts.push(`${memberAbsences.length} absence(s) supprimée(s)`)
+    const msg = parts.length > 0
+      ? `Supprimer ce membre ? ${parts.join(', ')}.`
+      : 'Supprimer ce membre ?'
+    if (!confirm(msg)) return
+    const cleaned = detachMemberReferences(id, state.items, state.absences, state.retroSessions)
+    const affectedSessions = state.retroSessions.filter(s => s.actions.some(a => a.ownerId === id))
     dispatch({ type: 'DELETE_MEMBER', payload: id })
-    saveToServer({ ...state, team: state.team.filter(t => t.id !== id) })
+    assignedItems.forEach(i => dispatch({ type: 'UPDATE_ITEM', payload: { ...i, assignees: i.assignees.filter(a => a !== id) } }))
+    memberAbsences.forEach(a => dispatch({ type: 'DELETE_ABSENCE', payload: a.id }))
+    affectedSessions.forEach(s => dispatch({
+      type: 'UPSERT_RETRO_SESSION',
+      payload: { ...s, actions: s.actions.map(a => a.ownerId === id ? { ...a, ownerId: '' } : a) },
+    }))
+    saveToServer({
+      ...state,
+      team: state.team.filter(t => t.id !== id),
+      items: cleaned.items,
+      absences: cleaned.absences,
+      retroSessions: cleaned.retroSessions,
+    })
   }
 
   function handleSaveAbsence(a: Absence) {
