@@ -10,6 +10,8 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { computeSprintEndDate, teamCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry } from '../utils/sprintLifecycle'
+import { useAuth } from '../hooks/useAuth'
 import type { Item, Sprint } from '../types'
 
 type View = 'grid' | 'swimlanes'
@@ -52,6 +54,7 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 
 export function PlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { userName } = useAuth()
   const [view, setView] = useState<View>('grid')
   const [highlightClient, setHighlightClient] = useState('')
   const [highlightType,   setHighlightType]   = useState('')
@@ -90,29 +93,31 @@ export function PlanningPage() {
   }
 
   function handleActivate(sprintId: string) {
-    const updatedSprints = state.sprints.map(s => ({
-      ...s,
-      active: s.id === sprintId,
-      closed: s.id === sprintId ? false : s.closed,
-    }))
+    const updatedSprints = activateSprint(state.sprints, sprintId)
     updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
+    const sp = updatedSprints.find(s => s.id === sprintId)
+    if (sp) dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('activate', sp, userName) })
     saveToServer({ ...state, sprints: updatedSprints })
   }
 
   function handleClose(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
-    const updated = { ...sp, closed: true, active: false }
+    const updatedSprints = closeSprint(state.sprints, sprintId)
+    const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })
-    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+    dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('close', updated, userName) })
+    saveToServer({ ...state, sprints: updatedSprints })
   }
 
   function handleReopen(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
-    const updated = { ...sp, closed: false }
+    const updatedSprints = reopenSprint(state.sprints, sprintId)
+    const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })
-    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+    dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('reopen', updated, userName) })
+    saveToServer({ ...state, sprints: updatedSprints })
   }
 
   function handleUpdateCapacity(sprintId: string, capacity: number) {

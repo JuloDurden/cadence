@@ -400,6 +400,8 @@ export type HistoryEventType =
   | 'sprint_add' | 'sprint_activate' | 'undo' | 'other'
   // Rattachement / dissociation d'un post-it Vision/NNL à un item réel du Backlog (Chantier B, tranche Vision/NNL)
   | 'item_link' | 'item_unlink'
+  // Clôture / réouverture d'un sprint (Chantier B, tranche Roadmap/Release Planning) — l'activation utilise 'sprint_activate' déjà existant
+  | 'sprint_close' | 'sprint_reopen'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string

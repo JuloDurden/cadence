@@ -5,6 +5,8 @@ import { Header } from '../components/layout/Header'
 import { computeSprintEndDate, effectiveCapacity, teamCapacity } from '../utils/sprintCapacity'
 import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry } from '../utils/sprintLifecycle'
+import { useAuth } from '../hooks/useAuth'
 import type { RoadmapGoal } from '../types'
 
 const COLORS = [
@@ -99,6 +101,7 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 
 export function RoadmapPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { userName } = useAuth()
   const [groupBy, setGroupBy] = useState<'client' | 'group'>('client')
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
   const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '', startDate: '', endDate: '' })
@@ -106,23 +109,27 @@ export function RoadmapPage() {
   const activeSprintId = getCurrentSprint(state)?.id ?? null
 
   function handleActivate(sprintId: string) {
-    const updatedSprints = state.sprints.map(s => ({
-      ...s, active: s.id === sprintId, closed: s.id === sprintId ? false : s.closed,
-    }))
+    const updatedSprints = activateSprint(state.sprints, sprintId)
     updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
+    const sp = updatedSprints.find(s => s.id === sprintId)
+    if (sp) dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('activate', sp, userName) })
     saveToServer({ ...state, sprints: updatedSprints })
   }
   function handleClose(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
-    const updated = { ...sp, closed: true, active: false }
+    const updatedSprints = closeSprint(state.sprints, sprintId)
+    const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })
-    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+    dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('close', updated, userName) })
+    saveToServer({ ...state, sprints: updatedSprints })
   }
   function handleReopen(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
-    const updated = { ...sp, closed: false }
+    const updatedSprints = reopenSprint(state.sprints, sprintId)
+    const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })
-    saveToServer({ ...state, sprints: state.sprints.map(s => s.id === sprintId ? updated : s) })
+    dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('reopen', updated, userName) })
+    saveToServer({ ...state, sprints: updatedSprints })
   }
 
   const roadmapMap = new Map((state.roadmap || []).map(g => [g.sprintId, g]))
