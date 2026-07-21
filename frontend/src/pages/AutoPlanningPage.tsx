@@ -51,6 +51,38 @@ const SCENARIO_COLORS = ['#378ADD','#7F77DD','#1D9E75','#D85A30','#D4537E','#BA7
 let _scenarios: Scenario[] = []
 let _activeScenarioId: string = ''
 
+// ── Persistance localStorage (Chantier I) ──────────────────────────────────
+// Les scénarios what-if ne vivaient que dans la variable de module ci-dessus,
+// perdus silencieusement au moindre rechargement de page. "État actuel" (type
+// 'current') n'est volontairement jamais persisté : c'est un miroir live des
+// données réelles, toujours régénéré au montage via buildCurrentState() — seuls
+// les scénarios "auto" (et leurs forks) représentent un vrai travail d'exploration
+// à préserver. Choix délibéré : localStorage (brouillon personnel au navigateur),
+// pas `state` partagé — voir docs/corrections.md pour la discussion complète.
+const STORAGE_KEY_SCENARIOS = 'cadence_autoplanning_scenarios'
+const STORAGE_KEY_ACTIVE    = 'cadence_autoplanning_active_id'
+
+function loadPersistedScenarios(): Scenario[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SCENARIOS)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((s: Scenario) => s?.type !== 'current') : []
+  } catch {
+    return []
+  }
+}
+
+function persistScenarios(scenarios: Scenario[], activeId: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY_SCENARIOS, JSON.stringify(scenarios.filter(s => s.type !== 'current')))
+    localStorage.setItem(STORAGE_KEY_ACTIVE, activeId)
+  } catch {
+    // Quota dépassé ou navigation privée stricte : perte silencieuse acceptée,
+    // comportement identique à avant ce correctif dans ce cas limite.
+  }
+}
+
 function uid() { return Math.random().toString(36).slice(2, 9) }
 
 function makeCurrentScenario(): Scenario {
@@ -93,8 +125,10 @@ export function AutoPlanningPage() {
 
   if (_scenarios.length === 0) {
     const current = makeCurrentScenario()
-    _scenarios = [current]
-    _activeScenarioId = 'current'
+    const persisted = loadPersistedScenarios()
+    _scenarios = [current, ...persisted]
+    const savedActiveId = localStorage.getItem(STORAGE_KEY_ACTIVE)
+    _activeScenarioId = savedActiveId && _scenarios.some(s => s.id === savedActiveId) ? savedActiveId : 'current'
   }
   // Ensure État actuel is active if it's the only card (e.g. on re-mount after reset)
   if (_scenarios.length === 1 && _scenarios[0].type === 'current') {
@@ -102,7 +136,10 @@ export function AutoPlanningPage() {
   }
 
   const [, forceUpdate] = useState(0)
-  const bump = () => forceUpdate(n => n + 1)
+  const bump = () => {
+    persistScenarios(_scenarios, _activeScenarioId)
+    forceUpdate(n => n + 1)
+  }
 
   const [activeId,     setActiveId]     = useState(_activeScenarioId)
   const [compareId,    setCompareId]    = useState<string | null>(null)
@@ -460,6 +497,7 @@ export function AutoPlanningPage() {
   function selectScenario(id: string) {
     setActiveId(id)
     _activeScenarioId = id
+    persistScenarios(_scenarios, _activeScenarioId)
     const sc = getScenario(id)
     if (sc.type === 'current' && !sc.generated) buildCurrentState(sc)
   }
