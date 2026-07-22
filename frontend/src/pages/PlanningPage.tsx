@@ -12,7 +12,8 @@ import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
-import type { Item, Sprint } from '../types'
+import { withHistoryEntry } from '../utils/history'
+import type { Item, Sprint, HistoryEntry } from '../types'
 
 type View = 'grid' | 'swimlanes'
 
@@ -83,7 +84,7 @@ export function PlanningPage() {
     // si plusieurs items sont déplacés à la fois (multi-sélection).
     const targetSprint = state.sprints.find(s => s.id === newSprintId)
     const targetLabel = targetSprint ? (targetSprint.label || `Sprint ${targetSprint.number}`) : 'Non assigné'
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'item_sprint_change',
       timestamp: new Date().toISOString(),
@@ -94,8 +95,9 @@ export function PlanningPage() {
         ? `Déplacé vers ${targetLabel}`
         : `${toMove.length} item(s) déplacés vers ${targetLabel}`,
       author: userName,
-    }})
-    saveToServer({ ...state, items: updatedItems })
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({ ...state, items: updatedItems }, historyEntry))
     dragIds.current = []
   }
 
@@ -112,8 +114,10 @@ export function PlanningPage() {
     const updatedSprints = activateSprint(state.sprints, sprintId)
     updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
     const sp = updatedSprints.find(s => s.id === sprintId)
-    if (sp) dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('activate', sp, userName) })
-    saveToServer({ ...state, sprints: updatedSprints })
+    const historyEntry = sp ? sprintLifecycleHistoryEntry('activate', sp, userName) : null
+    if (historyEntry) dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    const payload = { ...state, sprints: updatedSprints }
+    saveToServer(historyEntry ? withHistoryEntry(payload, historyEntry) : payload)
   }
 
   function handleClose(sprintId: string) {
@@ -122,8 +126,9 @@ export function PlanningPage() {
     const updatedSprints = closeSprint(state.sprints, sprintId)
     const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })
-    dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('close', updated, userName) })
-    saveToServer({ ...state, sprints: updatedSprints })
+    const historyEntry = sprintLifecycleHistoryEntry('close', updated, userName)
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({ ...state, sprints: updatedSprints }, historyEntry))
   }
 
   function handleReopen(sprintId: string) {
@@ -132,8 +137,9 @@ export function PlanningPage() {
     const updatedSprints = reopenSprint(state.sprints, sprintId)
     const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })
-    dispatch({ type: 'ADD_HISTORY', payload: sprintLifecycleHistoryEntry('reopen', updated, userName) })
-    saveToServer({ ...state, sprints: updatedSprints })
+    const historyEntry = sprintLifecycleHistoryEntry('reopen', updated, userName)
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({ ...state, sprints: updatedSprints }, historyEntry))
   }
 
   function handleUpdateCapacity(sprintId: string, capacity: number) {

@@ -3,9 +3,10 @@ import { useCadence } from '../context/StateContext'
 import { useTimer } from '../context/TimerContext'
 import { Header } from '../components/layout/Header'
 import { MemberCard } from '../components/daily/MemberCard'
-import type { DailyEntry, DailyArchive, TeamMember } from '../types'
+import type { DailyEntry, DailyArchive, TeamMember, HistoryEntry } from '../types'
 import { getCurrentSprint } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
+import { withHistoryEntry } from '../utils/history'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
@@ -132,19 +133,23 @@ export function DailyPage() {
     // Chantier B (tranche Daily) : une entrée résumé par archivage, type dédié
     // (Daily n'a pas de session à id comme Retro/Sprint Review, donc pas de sprintId
     // toujours pertinent — on le renseigne quand même s'il existe).
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'daily_archive',
       timestamp: new Date().toISOString(),
       sprintId: currentSprint?.id,
       detail: `Daily archivé (${date}) : ${todayEntries.length} saisie(s)`,
       author: userName,
-    }})
-    saveToServer({
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    // withHistoryEntry (utils/history.ts) : corrige un bug de persistance découvert lors
+    // de la tranche Retrospective — sans ça, cette entrée ne serait pas garantie d'être
+    // envoyée au serveur avant qu'une autre action ne le fasse (voir docs/corrections.md).
+    saveToServer(withHistoryEntry({
       ...state,
       dailyArchives: [...(state.dailyArchives ?? []), archive],
       dailyEntries: state.dailyEntries.filter(e => e.date !== date),
-    })
+    }, historyEntry))
     alert('Daily archivé.')
   }
 
@@ -154,15 +159,16 @@ export function DailyPage() {
     dispatch({ type: 'DELETE_DAILY_ARCHIVE', payload: id })
     // Réutilise le type `daily_archive` (même concept que l'archivage, juste l'inverse)
     // plutôt qu'un nouveau type dédié pour une simple suppression.
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'daily_archive',
       timestamp: new Date().toISOString(),
       sprintId: archive?.sprintId,
       detail: archive ? `Archive supprimée (${archive.date})` : 'Archive supprimée',
       author: userName,
-    }})
-    saveToServer({ ...state, dailyArchives: (state.dailyArchives ?? []).filter(a => a.id !== id) })
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({ ...state, dailyArchives: (state.dailyArchives ?? []).filter(a => a.id !== id) }, historyEntry))
   }
 
   function copyArchiveResume(archive: DailyArchive) {

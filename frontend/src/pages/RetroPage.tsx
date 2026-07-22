@@ -4,9 +4,10 @@ import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { RetroColumnCard } from '../components/retro/RetroColumnCard'
 import { RetroActions } from '../components/retro/RetroActions'
-import type { RetroSession, RetroItem, RetroAction, RetroFormat, RetroArchive } from '../types'
+import type { RetroSession, RetroItem, RetroAction, RetroFormat, RetroArchive, HistoryEntry } from '../types'
 import { archiveAndReset } from '../utils/session'
 import { getCurrentSprint } from '../utils/sprints'
+import { withHistoryEntry } from '../utils/history'
 
 // SVG icon paths — never inline in JSX, always via Ico component
 const ICO = {
@@ -226,6 +227,11 @@ export function RetroPage() {
     save({ ...session, actions: session.actions.filter(a => a.id !== id) })
   }
 
+  // Chantier B (tranche Retrospective) : n'utilise plus le helper générique `save()` ici,
+  // car celui-ci ne recalcule jamais `retroArchives` dans son payload — l'archive tout
+  // juste créée n'aurait donc pas forcément été persistée au serveur tant qu'aucune autre
+  // action n'aurait déclenché un save ultérieur avec un état à jour (bug de persistance
+  // distinct de la traçabilité, signalé par l'utilisateur et corrigé à cette occasion).
   function handleArchive() {
     const arc: RetroArchive = {
       id: uid(), date: new Date().toISOString().slice(0, 10),
@@ -234,10 +240,43 @@ export function RetroPage() {
       createdAt: new Date().toISOString(),
     }
     dispatch({ type: 'ADD_RETRO_ARCHIVE', payload: arc })
-    save(archiveAndReset(session, { columns: emptyColumns(format), actions: [] }))
+    const resetSession = archiveAndReset(session, { columns: emptyColumns(format), actions: [] })
+    dispatch({ type: 'UPSERT_RETRO_SESSION', payload: resetSession })
+    const itemCount = Object.values(session.columns).reduce((s, col) => s + (col?.length ?? 0), 0)
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'retro_archive',
+      timestamp: new Date().toISOString(),
+      sprintId: sprint?.id,
+      detail: `Rétrospective archivée : ${itemCount} item(s), ${session.actions.length} action(s)`,
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
+      ...state,
+      retroArchives: [...(state.retroArchives ?? []), arc],
+      retroSessions: [...state.retroSessions.filter(s => s.id !== resetSession.id), resetSession],
+    }, historyEntry))
   }
 
-  function handleDeleteArchive(id: string) { dispatch({ type: 'DELETE_RETRO_ARCHIVE', payload: id }) }
+  function handleDeleteArchive(id: string) {
+    const archive = state.retroArchives?.find(a => a.id === id)
+    dispatch({ type: 'DELETE_RETRO_ARCHIVE', payload: id })
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'retro_archive',
+      timestamp: new Date().toISOString(),
+      sprintId: archive?.sprintId,
+      detail: archive ? `Archive supprimée (${archive.date})` : 'Archive supprimée',
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    // Bug de persistance corrigé au passage (2026-07-21) : cette fonction ne faisait
+    // jusqu'ici qu'un dispatch local, jamais de saveToServer — la suppression n'était
+    // donc jamais réellement persistée côté serveur. `withHistoryEntry` corrige aussi le
+    // 2e bug (l'entrée d'Historique elle-même pas garantie persistée, voir utils/history.ts).
+    saveToServer(withHistoryEntry({ ...state, retroArchives: (state.retroArchives ?? []).filter(a => a.id !== id) }, historyEntry))
+  }
 
   const cols = FORMATS[format]
   const totalItems = cols.reduce((s, c) => s + (session.columns[c.key]?.length ?? 0), 0)

@@ -2,7 +2,8 @@ import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { useCadence } from '../../context/StateContext'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../hooks/useAuth'
-import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, CadenceState, Item } from '../../types'
+import { withHistoryEntry } from '../../utils/history'
+import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, CadenceState, Item, HistoryEntry } from '../../types'
 import { NNLItemModal } from './NNLItemModal'
 import { ItemModal } from '../backlog/ItemModal'
 import { NNLToolbar } from './NNLToolbar'
@@ -3136,10 +3137,14 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   // Journalise dans l'Historique un rattachement/dissociation de post-it à un item réel du
   // Backlog (Chantier B, tranche Vision/NNL) via les types dédiés `item_link`/`item_unlink`.
-  function logLinkHistory(action: 'link' | 'unlink', linkedItemId: string | undefined) {
-    if (!linkedItemId) return
+  // Retourne l'entrée (au lieu de se contenter de la dispatcher) pour que l'appelant puisse
+  // l'inclure explicitement dans le payload de `saveNNL` via `withHistoryEntry` — sans ça,
+  // l'entrée ne serait pas garantie d'être persistée avant qu'une autre action ne le fasse
+  // (bug de persistance systémique découvert et corrigé le 2026-07-21, voir corrections.md).
+  function logLinkHistory(action: 'link' | 'unlink', linkedItemId: string | undefined): HistoryEntry | null {
+    if (!linkedItemId) return null
     const real = state.items.find(i => i.id === linkedItemId)
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const entry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: action === 'link' ? 'item_link' : 'item_unlink',
       timestamp: new Date().toISOString(),
@@ -3147,7 +3152,9 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       itemDesc: real?.desc,
       detail: action === 'link' ? 'Post-it Vision rattaché à cet item' : 'Post-it Vision dissocié de cet item',
       author: userName,
-    }})
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: entry })
+    return entry
   }
 
   function handleModalSave(saved: NNLItem) {
@@ -3158,20 +3165,28 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     // Backlog", la création vaut déjà rattachement implicite : on évite de
     // doubler avec une entrée "rattaché" redondante juste après "créé".
     const isFreshlyCreatedLink = !!isLinkedId && isLinkedId === justCreatedLinkedItemIdRef.current
+    const historyEntries: HistoryEntry[] = []
     if (wasLinkedId !== isLinkedId) {
-      if (isLinkedId && !isFreshlyCreatedLink) logLinkHistory('link', isLinkedId)
-      if (wasLinkedId) logLinkHistory('unlink', wasLinkedId)
+      if (isLinkedId && !isFreshlyCreatedLink) {
+        const e = logLinkHistory('link', isLinkedId)
+        if (e) historyEntries.push(e)
+      }
+      if (wasLinkedId) {
+        const e = logLinkHistory('unlink', wasLinkedId)
+        if (e) historyEntries.push(e)
+      }
     }
     justCreatedLinkedItemIdRef.current = null
+    const withHistory = (payload: CadenceState) => historyEntries.reduce((p, e) => withHistoryEntry(p, e), payload)
     if (isCreate) {
       const pos = newPosForZone(saved.zone, r1Ref.current, r2Ref.current)
       const newItem: NNLItem = { ...saved, id: saved.id || uid(), x: pos.x, y: pos.y }
       dispatch({ type: 'ADD_NNL_ITEM', payload: newItem })
-      saveNNL({ ...stateRef.current, nnlItems: [...(stateRef.current.nnlItems ?? []), newItem] })
+      saveNNL(withHistory({ ...stateRef.current, nnlItems: [...(stateRef.current.nnlItems ?? []), newItem] }))
       showToast('Post-it créé')
     } else {
       dispatch({ type: 'UPDATE_NNL_ITEM', payload: saved })
-      saveNNL({ ...stateRef.current, nnlItems: (stateRef.current.nnlItems ?? []).map(n => n.id === saved.id ? saved : n) })
+      saveNNL(withHistory({ ...stateRef.current, nnlItems: (stateRef.current.nnlItems ?? []).map(n => n.id === saved.id ? saved : n) }))
       showToast('Enregistré')
     }
     handleModalClose()
@@ -3185,7 +3200,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   function handleLinkedItemSave(item: Item, keyCounters?: Record<string, number>) {
     dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'item_create',
       timestamp: new Date().toISOString(),
@@ -3193,12 +3208,13 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       itemDesc: item.desc,
       detail: 'Créé depuis un post-it Vision',
       author: userName,
-    }})
-    saveToServer({
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
       ...state,
       items: [...state.items, item],
       ...(keyCounters ? { itemKeyCounters: keyCounters } : {}),
-    })
+    }, historyEntry))
     justCreatedLinkedItemIdRef.current = item.id
     linkingCallback?.(item.id)
     setLinkingCallback(null)

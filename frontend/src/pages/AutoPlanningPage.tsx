@@ -6,7 +6,8 @@ import { ScenarioMiniGraph } from '../components/auto-planning/ScenarioMiniGraph
 import { effectiveCapacity } from '../utils/sprintCapacity'
 import { fmtDate, fmtDateShort, localIso } from '../utils/dates'
 import { topoSort, computeMoveBadge, isItemHighlighted, nextScenarioIdx, isSlotNonEmpty } from '../utils/autoPlanning'
-import type { Item, Sprint, Scenario, ScenarioSlot, ScenarioViolation, VirtualItem, ScenarioItemOverride } from '../types'
+import { withHistoryEntry } from '../utils/history'
+import type { Item, Sprint, Scenario, ScenarioSlot, ScenarioViolation, VirtualItem, ScenarioItemOverride, HistoryEntry } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
 const ICO = {
@@ -449,14 +450,15 @@ export function AutoPlanningPage() {
     // toucher des dizaines d'items en un clic.
     const parts = [`${newSprintsCount} sprint(s) créé(s)`, `${reassignedCount} item(s) réaffecté(s)`]
     if (createdCount > 0) parts.push(`${createdCount} item(s) créé(s)`)
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'scenario_apply',
       timestamp: new Date().toISOString(),
       detail: `Scénario "${sc.name}" appliqué : ${parts.join(', ')}`,
       author: userName,
-    }})
-    saveToServer(newState)
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry(newState, historyEntry))
   }
 
   // ── Override helpers ───────────────────────────────────────────────────

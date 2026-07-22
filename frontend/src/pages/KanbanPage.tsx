@@ -6,7 +6,8 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { effectiveCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
-import type { Item, KanbanCol } from '../types'
+import { withHistoryEntry } from '../utils/history'
+import type { Item, KanbanCol, HistoryEntry } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
 const ICO = {
@@ -173,7 +174,7 @@ export function KanbanPage() {
     // qu'un faux auteur humain puisque personne n'a déclenché cette action à la main.
     const fromLabel = state.kanbanCols.find(c => c.id === 'deferred')?.label ?? 'Ajourné'
     const toLabel   = state.kanbanCols.find(c => c.id === 'todo')?.label ?? 'À faire'
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'item_status',
       timestamp: new Date().toISOString(),
@@ -182,14 +183,15 @@ export function KanbanPage() {
       to: toLabel,
       detail: `Auto-avancement : ${toAdvance.length} item(s) ajourné(s) réactivé(s) automatiquement`,
       author: 'Système',
-    }})
-    saveToServer({
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
       ...state,
       items: state.items.map(i => toAdvance.find(d => d.id === i.id)
         ? { ...i, status: 'todo', sprintId: current.id }
         : i
       ),
-    })
+    }, historyEntry))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -244,7 +246,7 @@ export function KanbanPage() {
         // par l'affichage de la page Historique, juste jamais renseignés.
         const fromLabel = state.kanbanCols.find(c => c.id === item.status)?.label ?? item.status
         const toLabel   = state.kanbanCols.find(c => c.id === targetId)?.label ?? targetId
-        dispatch({ type: 'ADD_HISTORY', payload: {
+        const historyEntry: HistoryEntry = {
           id: crypto.randomUUID(),
           type: 'item_status',
           timestamp: new Date().toISOString(),
@@ -254,8 +256,9 @@ export function KanbanPage() {
           from: fromLabel,
           to: toLabel,
           author: userName,
-        }})
-        saveToServer({ ...state, items: state.items.map(i => i.id === updated.id ? updated : i) })
+        }
+        dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+        saveToServer(withHistoryEntry({ ...state, items: state.items.map(i => i.id === updated.id ? updated : i) }, historyEntry))
       }
       dragItemId.current = null
     }
@@ -318,7 +321,7 @@ export function KanbanPage() {
     dispatch({ type: 'UPDATE_ITEM', payload: updated })
     const fromLabel = state.kanbanCols.find(c => c.id === item.status)?.label ?? item.status
     const toLabel   = state.kanbanCols.find(c => c.id === 'backlog')?.label ?? 'backlog'
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'item_status',
       timestamp: new Date().toISOString(),
@@ -328,8 +331,9 @@ export function KanbanPage() {
       to: toLabel,
       detail: 'Retiré du sprint',
       author: userName,
-    }})
-    saveToServer({ ...state, items: state.items.map(i => i.id === itemId ? updated : i) })
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({ ...state, items: state.items.map(i => i.id === itemId ? updated : i) }, historyEntry))
   }
 
   const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label ?? 'Priorité'
