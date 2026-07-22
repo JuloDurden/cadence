@@ -5,10 +5,12 @@ import type {
   SprintReviewSession, SprintReviewArchive,
   SRItemRecord, SRUnfinishedRecord, SRDecision, SRNote, SROtherParticipant,
   SRBadge, SRUnfinishedDecision,
-  Item, Sprint, TeamMember, Client, Contact,
+  Item, Sprint, TeamMember, Client, Contact, HistoryEntry,
 } from '../types'
 import { archiveAndReset } from '../utils/session'
 import { getCurrentSprint } from '../utils/sprints'
+import { useAuth } from '../hooks/useAuth'
+import { withHistoryEntry } from '../utils/history'
 
 // ── SVG icon paths ─────────────────────────────────────────────────────────────
 const ICO = {
@@ -111,6 +113,7 @@ function sprintDeliveredSP(sprint: Sprint, items: Item[], doneCols: string[]): n
 // ── Main page ──────────────────────────────────────────────────────────────────
 export function SprintReviewPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
+  const { userName } = useAuth()
 
   const [selectedSprintId, setSelectedSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
   // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
@@ -245,6 +248,11 @@ export function SprintReviewPage() {
     save({ ...session, notes: (session.notes ?? []).filter(n => n.id !== id) })
   }
 
+  // Chantier B (tranche Sprint Review, dernière du chantier) : comme pour la Rétrospective,
+  // n'utilise plus le helper générique `save()` ici — il ne recalcule jamais
+  // `sprintReviewArchives` dans son payload, donc l'archive tout juste créée n'aurait pas
+  // été garantie persistée avant qu'une autre action ne déclenche un save à jour (même bug
+  // de persistance que celui trouvé et corrigé sur la Rétrospective, voir corrections.md).
   function handleArchive() {
     const arc: SprintReviewArchive = {
       id: uid(), date: new Date().toISOString().slice(0, 10),
@@ -259,14 +267,42 @@ export function SprintReviewPage() {
       createdAt: new Date().toISOString(),
     }
     dispatch({ type: 'ADD_SR_ARCHIVE', payload: arc })
-    save(archiveAndReset(session, {
+    const resetSession = archiveAndReset(session, {
       participantIds: [], participantContactIds: [], participantsOther: [],
       notes: [], itemRecords: [], unfinishedRecords: [], decisions: [],
-    }))
+    })
+    dispatch({ type: 'UPSERT_SR_SESSION', payload: resetSession })
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'sprint_review_archive',
+      timestamp: new Date().toISOString(),
+      sprintId: sprint?.id,
+      detail: `Sprint Review archivée : ${session.itemRecords.length + session.unfinishedRecords.length} item(s) revus, ${session.decisions.length} décision(s)`,
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
+      ...state,
+      sprintReviewArchives: [...(state.sprintReviewArchives ?? []), arc],
+      sprintReviewSessions: [...(state.sprintReviewSessions ?? []).filter(s => s.id !== resetSession.id), resetSession],
+    }, historyEntry))
   }
 
   function handleDeleteArchive(id: string) {
+    const archive = state.sprintReviewArchives?.find(a => a.id === id)
     dispatch({ type: 'DELETE_SR_ARCHIVE', payload: id })
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'sprint_review_archive',
+      timestamp: new Date().toISOString(),
+      sprintId: archive?.sprintId,
+      detail: archive ? `Archive supprimée (${archive.date})` : 'Archive supprimée',
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    // Bug de persistance corrigé au passage (2026-07-21) : cette fonction ne faisait
+    // jusqu'ici qu'un dispatch local, jamais de saveToServer.
+    saveToServer(withHistoryEntry({ ...state, sprintReviewArchives: (state.sprintReviewArchives ?? []).filter(a => a.id !== id) }, historyEntry))
   }
 
   const srArchives = [...(state.sprintReviewArchives ?? [])].sort((a, b) => b.date.localeCompare(a.date))
