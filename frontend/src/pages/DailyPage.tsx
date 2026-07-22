@@ -150,7 +150,18 @@ export function DailyPage() {
 
   function deleteArchive(id: string) {
     if (!window.confirm('Supprimer cette archive ?')) return
+    const archive = state.dailyArchives?.find(a => a.id === id)
     dispatch({ type: 'DELETE_DAILY_ARCHIVE', payload: id })
+    // Réutilise le type `daily_archive` (même concept que l'archivage, juste l'inverse)
+    // plutôt qu'un nouveau type dédié pour une simple suppression.
+    dispatch({ type: 'ADD_HISTORY', payload: {
+      id: crypto.randomUUID(),
+      type: 'daily_archive',
+      timestamp: new Date().toISOString(),
+      sprintId: archive?.sprintId,
+      detail: archive ? `Archive supprimée (${archive.date})` : 'Archive supprimée',
+      author: userName,
+    }})
     saveToServer({ ...state, dailyArchives: (state.dailyArchives ?? []).filter(a => a.id !== id) })
   }
 
