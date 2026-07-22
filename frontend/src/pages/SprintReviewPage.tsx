@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import type {
@@ -142,10 +142,22 @@ export function SprintReviewPage() {
     [state.sprints, selectedSprintId]
   )
 
+  // Correctif 2026-07-22, cause finale de l'alternance "une fois sur deux" (voir docs/corrections.md) :
+  // cet id était généré aléatoirement (`uid()`) à chaque calcul de la session par défaut, quand
+  // aucune session n'existe encore pour ce sprint. En mode développement, StrictMode exécute le
+  // rendu (et donc ce `useMemo`) deux fois au montage — deux appels à `uid()` produisaient donc
+  // potentiellement DEUX ids différents pour la MÊME session par défaut, et si les deux finissaient
+  // par être sauvegardés (via les sauvegardes immédiates ajoutées dans les correctifs précédents),
+  // on se retrouvait avec DEUX objets session pour le même sprint dans `sprintReviewSessions`. Le
+  // `.find()` ci-dessous ne renvoie que le premier match : selon l'ordre du tableau au moment du
+  // rendu, il pouvait "élire" tantôt l'un, tantôt l'autre — exactement l'alternance observée,
+  // indépendante du timing (ce n'était pas une course, mais un choix entre deux objets bien réels).
+  // Un id déterministe, dérivé du sprint lui-même, élimine la possibilité même d'avoir deux ids
+  // différents pour la session par défaut d'un même sprint.
   const session = useMemo((): SprintReviewSession => {
     const existing = (state.sprintReviewSessions ?? []).find(s => s.sprintId === selectedSprintId)
     return existing ?? {
-      id: uid(), sprintId: selectedSprintId,
+      id: `sr-session-${selectedSprintId}`, sprintId: selectedSprintId,
       date: new Date().toISOString().slice(0, 10),
       participantIds: [], participantContactIds: [], participantsOther: [],
       notes: [], itemRecords: [], unfinishedRecords: [], decisions: [],
@@ -199,6 +211,40 @@ export function SprintReviewPage() {
     saveToServer({ ...state, sprintReviewSessions: [...(state.sprintReviewSessions ?? []).filter(s => s.id !== updated.id), updated] })
   }
 
+  // Persistance de Note PO / Raison / Notes globales / Décisions (voir updateItemRecord et
+  // addDecision ci-dessous) : on ne peut pas construire la payload de saveToServer juste après le
+  // dispatch sans retomber dans le piège du state figé (principe 2, docs/interactions idéales.md).
+  // On la persiste donc depuis un effet qui réagit à `session` une fois le rendu à jour — TOUJOURS
+  // à jour, jamais figé, puisqu'un effet s'exécute après que React a fini de recalculer `session`.
+  //
+  // Correctif 2026-07-22 (bug le plus profond de cette série, voir docs/corrections.md) : cet
+  // effet utilisait un `setTimeout` de 600ms avant d'appeler `saveToServer`, avec un `clearTimeout`
+  // en nettoyage. Problème : si l'utilisateur recharge la page (ou navigue ailleurs) avant que ce
+  // délai ne s'écoule, le nettoyage annule la sauvegarde en attente — elle ne part **jamais** vers
+  // le serveur. Symptôme observé : ajouter une décision puis recharger "en boucle sans attendre"
+  // ne montrait jamais rien (la sauvegarde n'avait jamais eu le temps de partir) ; attendre plus
+  // d'une seconde avant de recharger la faisait apparaître (le délai avait eu le temps de s'écouler
+  // et la requête d'aboutir). Ce n'était pas de l'aléatoire : c'était une course entre ce délai
+  // artificiel et le moment choisi par l'utilisateur pour recharger — parfaitement reproductible
+  // une fois qu'on contrôle le timing, ce qui explique pourquoi ça paraissait aléatoire côté
+  // utilisateur (qui ne mesurait pas précisément l'écart). Suppression du délai : la sauvegarde
+  // part immédiatement quand `session` change. Le "trop de requêtes pendant la frappe" que ce
+  // délai visait à éviter est de toute façon déjà réglé en amont, au niveau du champ de saisie
+  // lui-même (`useDebouncedInput` ne fait remonter la valeur qu'à la sortie du champ, jamais à
+  // chaque caractère) — cet effet-ci n'a donc plus besoin de re-débouncer une seconde fois.
+  // `useLayoutEffect` plutôt que `useEffect` : ce dernier est différé après la peinture du
+  // navigateur (un effet "passif"), ce qui laisse une fenêtre — certes bien plus courte qu'avec
+  // l'ancien délai de 600ms, mais non nulle — pendant laquelle un rechargement immédiat pourrait
+  // survenir avant que React n'ait eu l'occasion d'exécuter l'effet. `useLayoutEffect` s'exécute de
+  // façon synchrone juste après le commit, avant que le navigateur ne rende la main à l'utilisateur.
+  useLayoutEffect(() => {
+    saveToServer({
+      ...state,
+      sprintReviewSessions: [...(state.sprintReviewSessions ?? []).filter(s => s.id !== session.id), session],
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
+
   function getRecord(itemId: string): SRItemRecord {
     return session.itemRecords.find(r => r.itemId === itemId)
       ?? { itemId, badge: 'pending', toDemo: false, note: '' }
@@ -208,17 +254,32 @@ export function SprintReviewPage() {
       ?? { itemId, reason: '', decision: 'report' }
   }
 
+  // Note PO / Raison du non-achèvement : édités frappe par frappe. La fusion se fait dans le
+  // reducer (voir StateContext.tsx, UPDATE_SR_ITEM_RECORD/UPDATE_SR_UNFINISHED_RECORD) à partir
+  // de son propre état à jour, jamais ici à partir de `session` — un instantané qui peut être
+  // périmé si deux frappes s'enchaînent avant qu'un rendu n'ait eu le temps de s'intercaler
+  // (bug de perte de contenu constaté et corrigé le 2026-07-22, voir docs/corrections.md).
+  // La persistance serveur est assurée par l'effet debouncé ci-dessous, pas ici.
   function updateItemRecord(patch: Partial<SRItemRecord> & { itemId: string }) {
-    const updated = { ...getRecord(patch.itemId), ...patch }
-    save({ ...session, itemRecords: [...session.itemRecords.filter(r => r.itemId !== patch.itemId), updated] })
+    const { itemId, ...rest } = patch
+    dispatch({ type: 'UPDATE_SR_ITEM_RECORD', payload: { sessionDefaults: session, itemId, patch: rest } })
   }
   function updateUnfinished(patch: Partial<SRUnfinishedRecord> & { itemId: string }) {
-    const updated = { ...getUnfinished(patch.itemId), ...patch }
-    save({ ...session, unfinishedRecords: [...session.unfinishedRecords.filter(r => r.itemId !== patch.itemId), updated] })
+    const { itemId, ...rest } = patch
+    dispatch({ type: 'UPDATE_SR_UNFINISHED_RECORD', payload: { sessionDefaults: session, itemId, patch: rest } })
   }
 
-  function addDecision(d: SRDecision) { save({ ...session, decisions: [...session.decisions, d] }) }
-  function removeDecision(id: string) { save({ ...session, decisions: session.decisions.filter(d => d.id !== id) }) }
+  // Décisions backlog / Notes globales : même piège que Note PO/Raison ci-dessus. `save()`
+  // reconstruisait le tableau ici même à partir d'un instantané `session`, dispatché tel quel —
+  // vulnérable si deux actions (ajout, suppression) s'enchaînent avant qu'un rendu ne s'intercale
+  // (constaté 2026-07-22 : une décision ajoutée effaçait la précédente de l'affichage). La fusion
+  // se fait maintenant dans le reducer, comme pour Note PO/Raison/Notes.
+  function addDecision(d: SRDecision) {
+    dispatch({ type: 'ADD_SR_DECISION', payload: { sessionDefaults: session, decision: d } })
+  }
+  function removeDecision(id: string) {
+    dispatch({ type: 'DELETE_SR_DECISION', payload: { sessionDefaults: session, decisionId: id } })
+  }
 
   function applyNewItem(decision: SRDecision) {
     const item: Item = {
@@ -232,20 +293,21 @@ export function SprintReviewPage() {
       createdAt: new Date().toISOString(),
     }
     dispatch({ type: 'ADD_ITEM', payload: item })
-    const decisions = session.decisions.map(d => d.id === decision.id ? { ...d, applied: true } : d)
-    save({ ...session, decisions })
+    dispatch({ type: 'APPLY_SR_DECISION', payload: { sessionDefaults: session, decisionId: decision.id } })
     saveToServer({ ...state, items: [...state.items, item] })
   }
 
   function addNote() {
     const note: SRNote = { id: uid(), text: '', createdAt: new Date().toISOString() }
-    save({ ...session, notes: [...(session.notes ?? []), note] })
+    dispatch({ type: 'ADD_SR_NOTE', payload: { sessionDefaults: session, note } })
   }
+  // Même piège que Note PO / Raison ci-dessus : le texte d'une note globale est édité frappe
+  // par frappe, donc la fusion se fait dans le reducer (UPDATE_SR_NOTE), pas ici.
   function updateNote(id: string, patch: Partial<SRNote>) {
-    save({ ...session, notes: (session.notes ?? []).map(n => n.id === id ? { ...n, ...patch } : n) })
+    dispatch({ type: 'UPDATE_SR_NOTE', payload: { sessionDefaults: session, noteId: id, patch } })
   }
   function deleteNote(id: string) {
-    save({ ...session, notes: (session.notes ?? []).filter(n => n.id !== id) })
+    dispatch({ type: 'DELETE_SR_NOTE', payload: { sessionDefaults: session, noteId: id } })
   }
 
   // Chantier B (tranche Sprint Review, dernière du chantier) : comme pour la Rétrospective,
@@ -1007,6 +1069,58 @@ function ItemMetaBadges({ item, allItems }: { item: Item; allItems: Item[] }) {
   )
 }
 
+/**
+ * Garde la frappe fluide dans un état local et ne répercute la valeur vers le parent (donc vers
+ * un `dispatch` global qui redessine toute l'arborescence sous StateProvider) qu'après une pause
+ * de frappe. Correctif 2026-07-22 : sans ce debounce, chaque caractère tapé sur Note PO/Raison/
+ * Notes globales déclenchait un dispatch global — assez coûteux sur cette page (graphique de
+ * vélocité, ~1500 lignes) pour que le navigateur mette plusieurs frappes en file avant que React
+ * ne les traite, produisant du texte incohérent. Signal qui a confirmé la cause : les champs de
+ * recherche de la page (Header, Participants, "Lier à un item" dans les notes), qui utilisent déjà
+ * un état purement local sans dispatch pendant la frappe, n'étaient eux jamais affectés.
+ */
+function useDebouncedInput(value: string, onCommit: (v: string) => void, delay = 1200) {
+  const [local, setLocal] = useState(value)
+  const lastCommitted = useRef(value)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const localRef = useRef(value)
+
+  useEffect(() => {
+    if (value !== lastCommitted.current) {
+      setLocal(value)
+      localRef.current = value
+      lastCommitted.current = value
+    }
+  }, [value])
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
+
+  function commit(v: string) {
+    if (timer.current) clearTimeout(timer.current)
+    lastCommitted.current = v
+    onCommit(v)
+  }
+
+  function onChange(v: string) {
+    setLocal(v)
+    localRef.current = v
+    if (timer.current) clearTimeout(timer.current)
+    // Filet de sécurité si l'utilisateur ne quitte jamais le champ (ex. tape puis change d'onglet) :
+    // la sortie de focus (onBlur, ci-dessous) reste le déclencheur normal, "comme n'importe quel
+    // champ de texte" — le debounce ici n'est qu'un secours à échéance plus longue.
+    timer.current = setTimeout(() => commit(v), delay)
+  }
+
+  // Commit immédiat à la sortie du champ, plutôt que d'attendre un délai arbitraire pendant que
+  // l'utilisateur tape encore — corrige le comportement signalé le 2026-07-22 ("pourquoi le rendu
+  // n'est pas fait à la sortie du focus comme n'importe quel champ de texte").
+  function onBlur() {
+    commit(localRef.current)
+  }
+
+  return [local, onChange, onBlur] as const
+}
+
 function DeliveredItemRow({ item, allItems, record, onToggleBadge, onToggleDemo, onNoteChange }: {
   item: Item
   allItems: Item[]
@@ -1015,6 +1129,7 @@ function DeliveredItemRow({ item, allItems, record, onToggleBadge, onToggleDemo,
   onToggleDemo: () => void
   onNoteChange: (note: string) => void
 }) {
+  const [note, setNote, onNoteBlur] = useDebouncedInput(record.note, onNoteChange)
   return (
     <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
       {/* Row 1: title + meta + badges */}
@@ -1038,8 +1153,9 @@ function DeliveredItemRow({ item, allItems, record, onToggleBadge, onToggleDemo,
       <input
         style={{ ...INPUT_STYLE, marginTop: 6, width: '100%', boxSizing: 'border-box' }}
         placeholder="Note PO…"
-        value={record.note}
-        onChange={e => onNoteChange(e.target.value)}
+        value={note}
+        onChange={e => setNote(e.target.value)}
+        onBlur={onNoteBlur}
       />
     </div>
   )
@@ -1052,6 +1168,7 @@ function UnfinishedItemRow({ item, allItems, record, onReasonChange, onDecisionC
   onReasonChange: (r: string) => void
   onDecisionChange: (d: SRUnfinishedDecision) => void
 }) {
+  const [reason, setReason, onReasonBlur] = useDebouncedInput(record.reason, onReasonChange)
   return (
     <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
       {/* Row 1: title + meta */}
@@ -1064,8 +1181,9 @@ function UnfinishedItemRow({ item, allItems, record, onReasonChange, onDecisionC
         <input
           style={{ ...INPUT_STYLE, flex: 1, minWidth: 0 }}
           placeholder="Raison du non-achèvement…"
-          value={record.reason}
-          onChange={e => onReasonChange(e.target.value)}
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          onBlur={onReasonBlur}
         />
         <select
           style={{ ...INPUT_STYLE, flexShrink: 0, cursor: 'pointer' }}
@@ -1292,6 +1410,7 @@ function NoteRow({ note, items, onChange, onDelete }: {
 }) {
   const [showLink, setShowLink] = useState(false)
   const [search, setSearch]     = useState('')
+  const [text, setText, onTextBlur] = useDebouncedInput(note.text, v => onChange({ text: v }))
   const dropRef = useRef<HTMLDivElement>(null)
   const linkedItem = note.linkedItemId ? items.find(i => i.id === note.linkedItemId) : null
 
@@ -1315,8 +1434,9 @@ function NoteRow({ note, items, onChange, onDelete }: {
       <textarea
         style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', background: 'transparent', color: 'var(--text)', fontFamily: 'inherit', resize: 'vertical', minHeight: 64 }}
         placeholder="Retours stakeholders, points d'attention, décisions prises en séance…"
-        value={note.text}
-        onChange={e => onChange({ text: e.target.value })}
+        value={text}
+        onChange={e => setText(e.target.value)}
+        onBlur={onTextBlur}
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
         {/* Linked item badge */}

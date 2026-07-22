@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback, useEffect, useState } from 'react'
+import { createContext, useContext, useReducer, useCallback, useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { CadenceState, Item, Sprint, RoadmapGoal } from '../types'
 import { DEMO_STATE } from '../data/demo'
@@ -71,6 +71,23 @@ type Action =
   | { type: 'UPSERT_SR_SESSION'; payload: import('../types').SprintReviewSession }
   | { type: 'ADD_SR_ARCHIVE';    payload: import('../types').SprintReviewArchive }
   | { type: 'DELETE_SR_ARCHIVE'; payload: string }
+  // Champs édités frappe par frappe (Note PO, Raison du non-achèvement, Notes globales) : la
+  // fusion se fait ICI, dans le reducer, à partir de son propre état à jour — jamais à partir
+  // d'un instantané de session capturé dans la page, qui peut être périmé si deux frappes
+  // s'enchaînent avant qu'un rendu n'ait eu le temps de s'intercaler (bug constaté 2026-07-22,
+  // voir docs/corrections.md).
+  | { type: 'UPDATE_SR_ITEM_RECORD'; payload: { sessionDefaults: import('../types').SprintReviewSession; itemId: string; patch: Partial<import('../types').SRItemRecord> } }
+  | { type: 'UPDATE_SR_UNFINISHED_RECORD'; payload: { sessionDefaults: import('../types').SprintReviewSession; itemId: string; patch: Partial<import('../types').SRUnfinishedRecord> } }
+  | { type: 'UPDATE_SR_NOTE'; payload: { sessionDefaults: import('../types').SprintReviewSession; noteId: string; patch: Partial<import('../types').SRNote> } }
+  // Mêmes précautions pour les décisions backlog et notes globales (ajout/suppression) : `save()`
+  // reconstruisait tout le tableau dans la page à partir d'un instantané `session`, dispatché tel
+  // quel — vulnérable si deux actions s'enchaînent avant qu'un rendu ne s'intercale (constaté
+  // 2026-07-22 avec des décisions qui s'écrasaient l'une l'autre, voir docs/corrections.md).
+  | { type: 'ADD_SR_DECISION'; payload: { sessionDefaults: import('../types').SprintReviewSession; decision: import('../types').SRDecision } }
+  | { type: 'DELETE_SR_DECISION'; payload: { sessionDefaults: import('../types').SprintReviewSession; decisionId: string } }
+  | { type: 'APPLY_SR_DECISION'; payload: { sessionDefaults: import('../types').SprintReviewSession; decisionId: string } }
+  | { type: 'ADD_SR_NOTE'; payload: { sessionDefaults: import('../types').SprintReviewSession; note: import('../types').SRNote } }
+  | { type: 'DELETE_SR_NOTE'; payload: { sessionDefaults: import('../types').SprintReviewSession; noteId: string } }
 
 /**
  * Ordre garanti à la source : state.sprints est toujours trié par `number`, jamais supposé
@@ -80,9 +97,43 @@ function sortSprints(sprints: Sprint[]): Sprint[] {
   return [...sprints].sort((a, b) => a.number - b.number)
 }
 
+/**
+ * Nettoyage ponctuel (2026-07-22, voir docs/corrections.md — cause finale de l'alternance "une
+ * fois sur deux" sur Sprint Review) : avant correctif, la session par défaut d'un sprint recevait
+ * un id aléatoire (`uid()`) recalculé à chaque rendu tant qu'aucune session n'existait encore pour
+ * ce sprint — en StrictMode (rendu en double au montage, en développement), deux ids différents
+ * pouvaient être générés puis tous deux sauvegardés, produisant deux objets session distincts pour
+ * le même `sprintId`. La page ne lisait toujours que le premier trouvé (`.find()`), l'autre restant
+ * une "session fantôme" qui pouvait réapparaître selon l'ordre du tableau. Ce nettoyage fusionne les
+ * doublons éventuels par `sprintId` au chargement (best-effort : en cas de valeur divergente sur un
+ * même champ entre deux doublons, celle du premier rencontré est conservée — cas limite qui ne
+ * devrait plus se produire une fois l'id rendu déterministe côté page, voir SprintReviewPage.tsx).
+ */
+function dedupeSrSessions(sessions: import('../types').SprintReviewSession[]): import('../types').SprintReviewSession[] {
+  const bySprintId = new Map<string, import('../types').SprintReviewSession>()
+  for (const s of sessions) {
+    const prev = bySprintId.get(s.sprintId)
+    if (!prev) { bySprintId.set(s.sprintId, s); continue }
+    const dedupeBy = <T extends { id?: string; itemId?: string }>(a: T[], b: T[], key: 'id' | 'itemId') =>
+      [...a, ...b].filter((item, i, arr) => arr.findIndex(x => x[key] === item[key]) === i)
+    bySprintId.set(s.sprintId, {
+      ...prev,
+      itemRecords: dedupeBy(prev.itemRecords, s.itemRecords, 'itemId'),
+      unfinishedRecords: dedupeBy(prev.unfinishedRecords, s.unfinishedRecords, 'itemId'),
+      notes: dedupeBy(prev.notes ?? [], s.notes ?? [], 'id'),
+      decisions: dedupeBy(prev.decisions, s.decisions, 'id'),
+    })
+  }
+  return [...bySprintId.values()]
+}
+
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
-    case 'SET_STATE': return { ...action.payload, sprints: sortSprints(action.payload.sprints) }
+    case 'SET_STATE': return {
+      ...action.payload,
+      sprints: sortSprints(action.payload.sprints),
+      sprintReviewSessions: dedupeSrSessions(action.payload.sprintReviewSessions ?? []),
+    }
     case 'ADD_ITEM': return {
       ...state,
       items: [...state.items, action.payload],
@@ -142,6 +193,58 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     }
     case 'ADD_SR_ARCHIVE': return { ...state, sprintReviewArchives: [...(state.sprintReviewArchives ?? []), action.payload] }
     case 'DELETE_SR_ARCHIVE': return { ...state, sprintReviewArchives: (state.sprintReviewArchives ?? []).filter(a => a.id !== action.payload) }
+    case 'UPDATE_SR_ITEM_RECORD': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const prev = base.itemRecords.find(r => r.itemId === action.payload.itemId)
+      const updated = { ...(prev ?? { itemId: action.payload.itemId, badge: 'pending' as const, toDemo: false, note: '' }), ...action.payload.patch }
+      const nextSession = { ...base, itemRecords: [...base.itemRecords.filter(r => r.itemId !== action.payload.itemId), updated] }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'UPDATE_SR_UNFINISHED_RECORD': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const prev = base.unfinishedRecords.find(r => r.itemId === action.payload.itemId)
+      const updated = { ...(prev ?? { itemId: action.payload.itemId, reason: '', decision: 'report' as const }), ...action.payload.patch }
+      const nextSession = { ...base, unfinishedRecords: [...base.unfinishedRecords.filter(r => r.itemId !== action.payload.itemId), updated] }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'UPDATE_SR_NOTE': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, notes: (base.notes ?? []).map(n => n.id === action.payload.noteId ? { ...n, ...action.payload.patch } : n) }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'ADD_SR_DECISION': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, decisions: [...base.decisions, action.payload.decision] }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'DELETE_SR_DECISION': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, decisions: base.decisions.filter(d => d.id !== action.payload.decisionId) }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'APPLY_SR_DECISION': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, decisions: base.decisions.map(d => d.id === action.payload.decisionId ? { ...d, applied: true } : d) }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'ADD_SR_NOTE': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, notes: [...(base.notes ?? []), action.payload.note] }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'DELETE_SR_NOTE': {
+      const sessions = state.sprintReviewSessions ?? []
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, notes: (base.notes ?? []).filter(n => n.id !== action.payload.noteId) }
+      return { ...state, sprintReviewSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
     case 'UPSERT_DAILY_ENTRY': {
       const entries = state.dailyEntries.filter(e => !(e.memberId === action.payload.memberId && e.date === action.payload.date))
       return { ...state, dailyEntries: [...entries, action.payload] }
@@ -179,8 +282,23 @@ export function StateProvider({ children }: { children: ReactNode }) {
     document.documentElement.setAttribute('data-theme', state.settings?.theme ?? 'light')
   }, [state.settings?.theme])
 
-  const saveToServer = useCallback(async (s: CadenceState) => {
-    try { await api.putState(s) } catch { /* offline mode */ }
+  // File d'attente : deux appels à saveToServer proches dans le temps envoient chacun leur propre
+  // requête PUT en parallèle, sans garantie que la requête envoyée en premier arrive au serveur
+  // en premier (aléas réseau). Le PUT arrivé en dernier gagne côté serveur, quel que soit l'ordre
+  // d'envoi — ce qui peut faire réapparaître une version plus ancienne de l'état après coup. Ce
+  // n'est visible que sur les pages qui enchaînent beaucoup de sauvegardes rapprochées (Sprint
+  // Review : frappe + clics rapides sur décisions/notes), mais le défaut est présent partout où
+  // saveToServer est utilisé. Corrigé en sérialisant les appels : chaque PUT n'est envoyé qu'une
+  // fois le précédent terminé, ce qui garantit que l'ordre d'arrivée au serveur respecte l'ordre
+  // d'appel (constaté 2026-07-22, voir docs/corrections.md).
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
+  const saveToServer = useCallback((s: CadenceState) => {
+    const run = saveQueueRef.current
+      .catch(() => { /* une sauvegarde précédente en échec ne doit pas bloquer les suivantes */ })
+      .then(() => api.putState(s))
+      .catch(() => { /* offline mode */ })
+    saveQueueRef.current = run
+    return run
   }, [])
 
   const loadFromServer = useCallback(async () => {
