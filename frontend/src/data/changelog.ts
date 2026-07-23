@@ -15,7 +15,56 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.90.5',date:'17 Juillet 2026',dateISO:'2026-07-17',title:'NNL — Texte enrichi, opérations booléennes et polissage calques',current:true,changes:[
+  {version:'v0.90.10',date:'23 Juillet 2026',dateISO:'2026-07-23',title:'Chantier G — décisions Sprint Review actives, statut Annulé, filtres Backlog corrigés',current:true,changes:[
+    {tag:'feat',    text:'Les décisions Sprint Review (Reprioriser, Reporter, Annuler, Redimensionner) agissent enfin sur les données réelles — auparavant seule "Nouvel item" créait effectivement quelque chose'},
+    {tag:'feat',    text:'Nouveau statut "Annulé" (couleur noire, colonne Kanban optionnelle) : "Annuler" bascule réellement l\'item et ajoute la raison saisie comme note ; "Reporter" propose un sélecteur (prochain sprint, liste des sprints, dernier sprint avant deadline, ou "Plus tard") ; "Reprioriser"/"Redimensionner" ouvrent directement la fiche d\'édition de l\'item'},
+    {tag:'feat',    text:'Clôturer un sprint (Roadmap, Release Planning) bloque désormais si des items non terminés n\'ont aucune décision Sprint Review appliquée, au lieu de les ignorer silencieusement'},
+    {tag:'fix',     text:'Statut "Annulé" absent du sélecteur STATUT de la fiche d\'édition d\'item — liste désormais dérivée dynamiquement des colonnes Kanban réelles plutôt que recopiée à la main'},
+    {tag:'fix',     text:'Retirer la colonne "Annulé" du Kanban reclassait silencieusement ses items en "Livré" (repli sur la colonne voisine) — traitée comme "Backlog", ne touche plus jamais au statut des items'},
+    {tag:'fix',     text:'Le regroupement "Grouper : Statut" du Backlog n\'affichait plus les items "Annulé" dès que la colonne correspondante n\'était plus active au Kanban — corrigé'},
+    {tag:'fix',     text:'Impossible de combiner les filtres (client, statut...) avec "Grouper : Epic" au Backlog — un Epic sans enfant correspondant aux filtres reste masqué, mais un Epic qui matche lui-même les filtres reste affiché même sans enfant filtré'},
+    {tag:'test',    text:'Resynchronisation de 3 suites Playwright (daily/retro/sprint-review) avec le markup actuel de l\'app — 14 assertions obsolètes corrigées (sélecteurs, placeholders, désambiguïsation de boutons)'},
+  ]},
+  {version:'v0.90.9',date:'22 Juillet 2026',dateISO:'2026-07-22',title:'Sprint Review — fiabilisation complète de la saisie et de la sauvegarde',current:false,changes:[
+    {tag:'fix', text:'Taper dans un champ de Sprint Review juste après un chargement pouvait afficher du texte incohérent (course avec les données de démo) — écran de chargement bloquant la saisie tant que les données serveur ne sont pas arrivées'},
+    {tag:'fix', text:'Note PO / Raison du non-achèvement / Notes globales dispatchaient l\'état global à chaque frappe (rendu coûteux, graphique de vélocité inclus) — saisie locale débouncée, sauvegarde à la sortie du champ plutôt qu\'après un délai arbitraire'},
+    {tag:'fix', text:'Décisions backlog et Notes globales pouvaient s\'écraser entre elles (fusion faite sur un instantané de la page plutôt que dans le reducer) — cinq nouvelles actions de reducer fusionnent désormais depuis l\'état réel'},
+    {tag:'fix', text:'Sauvegardes réseau envoyées en parallèle sans garantie d\'ordre d\'arrivée — file d\'attente ajoutée à saveToServer() pour que l\'ordre au serveur respecte toujours l\'ordre des actions'},
+    {tag:'fix', text:'Backend : PUT /api/state pouvait mettre à jour une ligne différente de celle lue par GET — remplacé par un vrai singleton (id fixe, upsert atomique), éliminant toute ambiguïté de tri'},
+    {tag:'fix', text:'Le debounce de sauvegarde de session (600ms) pouvait être annulé par un rechargement de page avant son échéance, perdant la sauvegarde en attente — délai supprimé, sauvegarde synchrone au commit'},
+    {tag:'fix', text:'React StrictMode pouvait générer deux sessions Sprint Review "fantômes" pour un même sprint (id aléatoire au double rendu du mode développement) — id de secours rendu déterministe, dédoublonnage automatique au chargement'},
+  ]},
+  {version:'v0.90.8',date:'21 Juillet 2026',dateISO:'2026-07-21',title:'Traçabilité Historique généralisée à toute l\'application',current:false,changes:[
+    {tag:'feat', text:'Historique : traçabilité étendue à l\'activation/clôture/réouverture de sprint (Roadmap, Release Planning), avec badges dédiés'},
+    {tag:'feat', text:'Historique : traçabilité pour l\'application d\'un scénario Auto-planning (résumé : sprints créés, items réaffectés/créés)'},
+    {tag:'feat', text:'Historique : traçabilité pour l\'attribution d\'items (Sprint Planning) et le changement de sprint par glisser-déposer (Release Planning)'},
+    {tag:'feat', text:'Historique : traçabilité pour le changement de statut Kanban (glisser-déposer, retrait du sprint) et pour l\'auto-avancement silencieux des items Ajournés (auteur "Système")'},
+    {tag:'feat', text:'Historique : traçabilité pour l\'archivage du Daily Standup, de la Rétrospective et de la Sprint Review'},
+    {tag:'feat', text:'Historique : types dédiés item_link/item_unlink pour le rattachement/dissociation d\'un post-it Vision, remplacent le badge générique "Autre"'},
+    {tag:'fix',  text:'Créer un item lié depuis un post-it Vision générait une entrée Historique en double (Création + Rattachement redondant) — dédupliqué'},
+    {tag:'fix',  text:'Suppression d\'une archive Rétrospective/Sprint Review jamais réellement persistée côté serveur ; création d\'archive parfois perdue au rechargement suivant — les deux corrigés'},
+    {tag:'fix',  text:'Une entrée d\'Historique fraîchement créée pouvait ne pas survivre à un rechargement immédiat, sur les 7 pages tracées cette semaine (état capturé avant le dispatch) — helper partagé withHistoryEntry() reconstruit systématiquement le payload envoyé au serveur'},
+  ]},
+  {version:'v0.90.7',date:'20 Juillet 2026',dateISO:'2026-07-20',title:'Sprint courant unifié, capacité harmonisée, suppression en cascade',current:false,changes:[
+    {tag:'fix',  text:'Génération de clé d\'item (ex. AGA-004) pouvait produire des doublons après suppression d\'un item du milieu — recalcul basé sur le numéro maximum réellement utilisé par préfixe'},
+    {tag:'feat', text:'Compteur de clé persistant par préfixe (alignement Jira/Linear) : un numéro déjà attribué n\'est plus jamais réutilisé, même après suppression de l\'item qui le portait'},
+    {tag:'fix',  text:'"Sprint courant" recalculé différemment selon les pages (3 formules distinctes sur 11 sites d\'appel) — helper unique getCurrentSprint() partout, plus un correctif du flash de resynchronisation au premier chargement (Kanban, Sprint Review, Sprint Planning)'},
+    {tag:'fix',  text:'`state.sprints` n\'était trié par numéro qu\'implicitement selon les pages — tri garanti à la source sur toute mutation du state'},
+    {tag:'fix',  text:'Calcul de capacité de sprint incohérent : Roadmap/Kanban/Release Planning/Auto-planning ne déduisaient que les jours fériés, Sprint Planning déduisait aussi les absences — harmonisé partout'},
+    {tag:'fix',  text:'Suppression d\'un Epic, d\'un client ou d\'un membre d\'équipe laissait des références mortes (epicId, clientId, assignés, dépendances) — nettoyage en cascade avec confirmation détaillant l\'impact avant suppression'},
+    {tag:'fix',  text:'Sprint Review régénérait un nouvel id de session à chaque archivage, cassant le remplacement des sessions (accumulation fantôme) — helper partagé archiveAndReset()'},
+    {tag:'fix',  text:'Daily Standup et Rétrospective avaient chacun un bouton "Effacer" séparé d\'"Archiver", oubliable indépendamment — fusionnés en une seule action atomique'},
+    {tag:'fix',  text:'Nom d\'auteur de l\'Historique jamais résolu (recherche par id d\'équipe sur un nom de connexion) — filtre par auteur réparé ; Rétrospective utilisait un id codé en dur pour les votes, remplacé par l\'identité réellement connectée'},
+    {tag:'fix',  text:'Scénarios what-if d\'Auto-planning perdus au moindre rechargement de page — persistés en localStorage'},
+    {tag:'fix',  text:'Bouton "Créer un item dans le Backlog" du post-it Vision ne s\'affichait jamais (prop manquante) — branché sur l\'ItemModal partagée'},
+    {tag:'fix',  text:'Bouton de suppression d\'un tag de base (Réglages) affichait une fausse alerte sans jamais rien supprimer — retiré (réintroduction prévue avec un vrai système de rôles)'},
+    {tag:'feat', text:'Traçabilité Historique pour les post-its Vision/NNL : création d\'item lié, rattachement et dissociation d\'un item existant'},
+  ]},
+  {version:'v0.90.6',date:'19 Juillet 2026',dateISO:'2026-07-19',title:'Statuts "terminé" et colonnes Kanban unifiés',current:false,changes:[
+    {tag:'fix',  text:'Dashboard, Clients et RH/Équipe testaient le statut "terminé" via une liste codée en dur (\'done\'/\'delivered\') au lieu du catalogue dynamique des colonnes Kanban — nouveau helper isItemDone()/doneColIds() (utils/status.ts), toute colonne "terminé" personnalisée est désormais prise en compte partout'},
+    {tag:'fix',  text:'Réglages permettait d\'ajouter/renommer/supprimer des colonnes Kanban indépendamment de la page Kanban (brouillon non sauvegardé tant que "Enregistrer" n\'était pas cliqué, suppression sans réaffectation des items) — gestion des colonnes désormais exclusivement centralisée sur le Kanban, Réglages n\'édite plus que couleur et flag "Terminé"'},
+  ]},
+  {version:'v0.90.5',date:'17 Juillet 2026',dateISO:'2026-07-17',title:'NNL — Texte enrichi, opérations booléennes et polissage calques',current:false,changes:[
     {tag:'feat',    text:'Éditeur de texte enrichi (contenteditable) : mini-toolbar flottante avec sélecteur de police (8 familles Google Fonts), Gras / Italique / Souligné par sélection, couleur + opacité via ColorOpacityPopover'},
     {tag:'feat',    text:'8 polices Google Fonts : Inter, Lato, Montserrat, Raleway, Oswald, Playfair Display, Merriweather, Roboto Mono — chargées via <link> dans index.html'},
     {tag:'feat',    text:'Opérations booléennes sur formes (2 formes sélectionnées) : Union, Soustraction, Intersection, XOR, Diviser — résultats stockés en polygone arbitraire (polyPts), draggables comme les autres formes'},
