@@ -220,6 +220,12 @@ export function BacklogPage() {
     if (groupBy === 'status') return allStatusCols.map(c => ({ id: c.id, label: c.label, color: c.color, items: filtered.filter(i => i.status === c.id) })).filter(g => g.items.length)
     if (groupBy === 'epic') {
       const allEpics = state.items.filter(i => i.type === 'epic')
+      // Chantier G (complément, 2026-07-23) : un Epic est un item comme un autre — il doit donc
+      // être soumis aux mêmes filtres (client/statut/tag/sprint/prêt) que ses enfants, pas
+      // seulement "affiché s'il a un enfant filtré". `filtered` applique déjà tous ces filtres à
+      // TOUS les items (Epics compris) ; un Epic est donc "retenu par les filtres actifs" s'il
+      // apparaît dans cette liste, indépendamment de ses enfants.
+      const matchingEpicIds = new Set(filtered.filter(i => i.type === 'epic').map(i => i.id))
       const result: Group[] = allEpics.map(ep => {
         const children = state.items.filter(i => i.epicId === ep.id)
         const filteredChildren = filtered.filter(i => i.epicId === ep.id)
@@ -229,7 +235,14 @@ export function BacklogPage() {
         const doneCount = children.filter(i => i.status === 'done').length
         const color = state.clients.find(c => c.id === ep.clientId)?.color
         return { id: ep.id, label: ep.key, sublabel: ep.desc, color, items: filteredChildren, epicSP, epicFixed, doneCount, capacity: epicSP, used: doneCount }
-      }).filter(g => g.items.length > 0 || allEpics.find(e => e.id === g.id))
+      })
+      // Un groupe Epic reste affiché si l'Epic lui-même correspond aux filtres actifs — même sans
+      // aucun enfant correspondant (un Epic "vide" au filtrage courant reste un Epic bien réel) —
+      // ou s'il a au moins un enfant correspondant (l'Epic peut alors ne pas matcher lui-même,
+      // ex. un Epic non daté rattaché malgré tout à des US filtrées). Précédent correctif du jour
+      // (`g.items.length > 0` seul) corrigeait la vraie tautologie plus haut mais perdait ce
+      // premier cas — signalé par l'utilisateur juste après coup.
+        .filter(g => g.items.length > 0 || matchingEpicIds.has(g.id))
       const noEpic = filtered.filter(i => !i.epicId && i.type !== 'epic')
       if (noEpic.length) result.push({ id: 'no-epic', label: 'Sans Epic', items: noEpic })
       return result
