@@ -129,6 +129,14 @@ function dedupeSrSessions(sessions: import('../types').SprintReviewSession[]): i
 
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
+    // Chantier G, 2e complément (2026-07-23) : la colonne "Annulé" n'est plus forcée dans
+    // `kanbanCols` à chaque chargement — elle est optionnelle comme Backlog/Ajourné/Bloqué/etc.
+    // (demande explicite : ne pas obliger le Kanban à toujours l'afficher, potentiellement
+    // beaucoup d'items annulés qui ne seront jamais traités). Si le PO la retire depuis le
+    // Kanban, elle ne revient plus au rechargement suivant. Le statut "Annulé" reste toujours
+    // sélectionnable depuis le Backlog/Sprint Review indépendamment de cette colonne (voir
+    // `statusOptionsForItemModal()`, `utils/kanbanStages.ts`) — seul l'affichage d'une colonne
+    // dédiée au Kanban est concerné par ce choix, pas la possibilité d'annuler un item.
     case 'SET_STATE': return {
       ...action.payload,
       sprints: sortSprints(action.payload.sprints),

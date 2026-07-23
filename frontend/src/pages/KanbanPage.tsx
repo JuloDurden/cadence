@@ -7,7 +7,13 @@ import { effectiveCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
+import { BASE_COL_IDS, WORKFLOW_ORDER, EXTRA_STAGES } from '../utils/kanbanStages'
 import type { Item, KanbanCol, HistoryEntry } from '../types'
+
+// Ré-exportés pour compatibilité : ces constantes vivaient ici jusqu'au Chantier G (2026-07-23),
+// déplacées dans `utils/kanbanStages.ts` pour être importables depuis `ItemModal.tsx` sans créer
+// de cycle (KanbanPage → ItemModal → KanbanPage). Voir ce fichier pour le détail.
+export { BASE_COL_IDS, WORKFLOW_ORDER, EXTRA_STAGES }
 
 // ── Icons ─────────────────────────────────────────────────────────────────
 const ICO = {
@@ -24,26 +30,6 @@ function Ico({ d, size = 14, stroke = 'currentColor' }: { d: string; size?: numb
       dangerouslySetInnerHTML={{ __html: d }} />
   )
 }
-
-// ── Stages / Statuts ──────────────────────────────────────────────────────
-export const BASE_COL_IDS = ['todo', 'doing', 'done']
-
-/** Canonical workflow order — used to position columns on insertion */
-export const WORKFLOW_ORDER = [
-  'backlog', 'todo', 'doing', 'review', 'testing',
-  'waiting', 'blocked', 'validation', 'done', 'deferred',
-]
-
-/** All extra stages selectable as Kanban columns */
-export const EXTRA_STAGES: KanbanCol[] = [
-  { id: 'backlog',    label: 'Backlog',     color: '#9ca3af', isDone: false },
-  { id: 'deferred',  label: 'Ajourné',     color: '#78716c', isDone: false },
-  { id: 'review',    label: 'En révision', color: '#8b5cf6', isDone: false },
-  { id: 'testing',   label: 'En test',     color: '#3b82f6', isDone: false },
-  { id: 'waiting',   label: 'En attente',  color: '#f59e0b', isDone: false },
-  { id: 'blocked',   label: 'Bloqué',      color: '#ef4444', isDone: false },
-  { id: 'validation',label: 'Validation',  color: '#ec4899', isDone: false },
-]
 
 // ── Sort ──────────────────────────────────────────────────────────────────
 const SORT_OPTIONS = [
@@ -122,7 +108,7 @@ export function KanbanPage() {
     [state.kanbanCols]
   )
 
-  // Items per column — backlog/deferred ignore sprint filter
+  // Items per column — backlog/deferred/cancelled ignorent le filtre de sprint courant
   const itemsByCol = useMemo(() => {
     const sorted = [...sprintItems].sort((a, b) => {
       if (sortBy === 'sp-desc') return b.sp - a.sp
@@ -145,9 +131,16 @@ export function KanbanPage() {
         .filter(i => i.status === 'deferred')
         .sort((a, b) => priorityOrder(a.priority) - priorityOrder(b.priority))
     }
+    // Annulé (Chantier G) : items de n'importe quel sprint, comme Ajourné — mais sans
+    // auto-avancement (voir plus bas), un item annulé ne doit jamais revenir tout seul.
+    if ('cancelled' in map) {
+      map['cancelled'] = [...state.items]
+        .filter(i => i.status === 'cancelled')
+        .sort((a, b) => priorityOrder(a.priority) - priorityOrder(b.priority))
+    }
     // Regular sprint items
     sorted.forEach(item => {
-      if (item.status === 'backlog' || item.status === 'deferred') return
+      if (item.status === 'backlog' || item.status === 'deferred' || item.status === 'cancelled') return
       if (map[item.status] !== undefined) map[item.status].push(item)
       else {
         const def = state.kanbanCols.find(c => c.isDefault)?.id ?? state.kanbanCols[0]?.id
@@ -286,6 +279,21 @@ export function KanbanPage() {
 
     // Backlog is a virtual view — items keep their status, just hide the column
     if (colId === 'backlog') {
+      dispatch({ type: 'UPDATE_KANBAN_COLS', payload: newCols })
+      saveToServer({ ...state, kanbanCols: newCols })
+      return
+    }
+
+    // Chantier G (2026-07-23, bug remonté par l'utilisateur) : "Annulé" doit avoir le même
+    // traitement que "Backlog" ci-dessus, et pour une raison plus grave que pour les autres
+    // colonnes optionnelles. Le fallback générique ci-dessous prend la colonne VOISINE dans
+    // `state.kanbanCols` — or "Annulé" est ajoutée en dernière position du tableau (voir
+    // `handleAddCol`/`WORKFLOW_ORDER`, `cancelled` a le rang le plus élevé), juste après une
+    // colonne `isDone: true` (ex. "Livré"). Retirer "Annulé" du board réassignait donc en
+    // silence tous les items annulés vers ce voisin — les faisant passer pour LIVRÉS, l'exact
+    // inverse de leur statut réel. Comme pour "Backlog", retirer cette colonne ne doit faire que
+    // masquer la vue dédiée du Kanban, jamais toucher au statut des items déjà annulés.
+    if (colId === 'cancelled') {
       dispatch({ type: 'UPDATE_KANBAN_COLS', payload: newCols })
       saveToServer({ ...state, kanbanCols: newCols })
       return

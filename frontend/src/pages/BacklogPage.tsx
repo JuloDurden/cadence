@@ -3,7 +3,7 @@ import { useCadence } from '../context/StateContext'
 import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
-import { EXTRA_STAGES } from './KanbanPage'
+import { EXTRA_STAGES } from '../utils/kanbanStages'
 import { fmtDate } from '../utils/dates'
 import { findEpicChildren, detachEpicChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
 import type { Item, ItemType, BugSeverity } from '../types'
@@ -211,7 +211,13 @@ export function BacklogPage() {
     }
     if (groupBy === 'client') return state.clients.map(c => ({ id: c.id, label: c.name, color: c.color, items: filtered.filter(i => i.clientId === c.id) })).filter(g => g.items.length)
     if (groupBy === 'type')   return (['story','epic','bug','task','spike'] as ItemType[]).map(t => ({ id: t, label: TYPE_LABEL[t], items: filtered.filter(i => (i.type ?? 'story') === t) })).filter(g => g.items.length)
-    if (groupBy === 'status') return state.kanbanCols.map(c => ({ id: c.id, label: c.label, color: c.color, items: filtered.filter(i => i.status === c.id) })).filter(g => g.items.length)
+    // Chantier G (2026-07-23, complément) : basé sur `state.kanbanCols` seul, ce groupement ne
+    // montrait aucun groupe pour un statut qui n'est plus (ou jamais été) une colonne active du
+    // Kanban — "Annulé" étant désormais optionnel (3e complément du jour), un item annulé sans
+    // colonne dédiée sur le board devenait invisible ici. `allStatusCols` (calculé plus haut,
+    // catalogue `kanbanCols` ∪ `EXTRA_STAGES` restreint aux statuts réellement portés par des
+    // items) couvre ce cas comme il couvre déjà celui du filtre STATUT juste au-dessus.
+    if (groupBy === 'status') return allStatusCols.map(c => ({ id: c.id, label: c.label, color: c.color, items: filtered.filter(i => i.status === c.id) })).filter(g => g.items.length)
     if (groupBy === 'epic') {
       const allEpics = state.items.filter(i => i.type === 'epic')
       const result: Group[] = allEpics.map(ep => {
@@ -229,7 +235,7 @@ export function BacklogPage() {
       return result
     }
     return [{ id: 'all', label: 'Tous les items', items: filtered }]
-  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady])
+  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, allStatusCols, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady])
 
   /* ── save / delete ── */
   function handleSave(item: Item, keyCounters?: Record<string, number>) {

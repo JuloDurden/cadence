@@ -5,7 +5,7 @@ import { Header } from '../components/layout/Header'
 import { computeSprintEndDate, effectiveCapacity, teamCapacity } from '../utils/sprintCapacity'
 import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
-import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry } from '../utils/sprintLifecycle'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import type { RoadmapGoal } from '../types'
@@ -120,6 +120,18 @@ export function RoadmapPage() {
   }
   function handleClose(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
+    // Chantier G (2026-07-23) : filet de sécurité — bloque la clôture si des items non terminés
+    // n'ont pas encore de décision Sprint Review appliquée (Reporter/Annuler/Redimensionner).
+    // Dans le fonctionnement normal la Sprint Review précède la clôture ; ce cas ne se présente
+    // que si le sprint est clôturé sans y être passé, ou qu'un item y a été oublié.
+    const unresolved = getUnresolvedUnfinishedItems(state, sprintId)
+    if (unresolved.length > 0) {
+      const list = unresolved.map(i => `• ${i.key} — ${i.desc}`).join('\n')
+      alert(
+        `Impossible de clôturer ce sprint : ${unresolved.length} item(s) non terminé(s) n'ont pas encore de décision Sprint Review appliquée.\n\n${list}\n\nRendez-vous sur la Sprint Review pour statuer sur chacun (Reporter / Annuler / Redimensionner) avant de clôturer.`
+      )
+      return
+    }
     const updatedSprints = closeSprint(state.sprints, sprintId)
     const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })

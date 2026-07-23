@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore } from '../../types'
 import { useCadence } from '../../context/StateContext'
 import { BASE_TAGS } from '../../data/baseTags'
+import { statusOptionsForItemModal } from '../../utils/kanbanStages'
 
 /* ─── Constants ──────────────────────────────────────────────────── */
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
@@ -175,6 +176,18 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   const [sp,       setSp]       = useState(item?.sp ?? 3)
   const [sprintId, setSprintId] = useState(item?.sprintId ?? '')
   const [status, setStatus] = useState(item?.status ?? (item?.sprintId ? defaultStatus : 'backlog'))
+
+  // Catalogue de statuts pour le sélecteur STATUT ci-dessous : jusqu'ici une liste recopiée à la
+  // main, indépendante de `state.kanbanCols` — tout nouveau statut (ex. "Annulé", Chantier G,
+  // 2026-07-23) devait être ajouté ici séparément, et une colonne renommée/retirée depuis le
+  // Kanban n'y était jamais répercutée. Correctif du 2026-07-23 (demande explicite) : cette liste
+  // doit être strictement identique aux colonnes visibles au Kanban (`state.kanbanCols`), pas
+  // l'ensemble plus large `EXTRA_STAGES` (qui inclut des statuts jamais ajoutés comme colonne) —
+  // "Annulé" reste garanti même si un jour retiré du board (`statusOptionsForItemModal()`).
+  const statusOptions = useMemo(
+    () => statusOptionsForItemModal(state.kanbanCols),
+    [state.kanbanCols]
+  )
 
   function handleSprintChange(newSprintId: string) {
     setSprintId(newSprintId)
@@ -505,16 +518,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
         <div className="form-group" style={{ marginBottom: 14 }}>
           <label className="form-label">STATUT</label>
           <select className="form-input" value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="backlog">Backlog</option>
-            <option value="todo">À faire</option>
-            <option value="doing">En cours</option>
-            <option value="review">En révision</option>
-            <option value="testing">En test</option>
-            <option value="waiting">En attente</option>
-            <option value="blocked">Bloqué</option>
-            <option value="validation">Validation</option>
-            <option value="deferred">Ajourné</option>
-            <option value="done">Terminé</option>
+            {statusOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>

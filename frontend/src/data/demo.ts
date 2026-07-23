@@ -376,6 +376,11 @@ export const DEMO_STATE: CadenceState = {
     { id: "done",      label: "Terminé",    color: "#16a34a", isDone: true },
     { id: "staging",   label: "En recette", color: "#0891b2", isDone: false },
     { id: "delivered", label: "Livré",      color: "#0d9488", isDone: true },
+    // "Annulé" (Chantier G, 2026-07-23) n'est volontairement PAS une colonne par défaut ici —
+    // optionnelle comme Backlog/Ajourné/Bloqué/etc. (2e complément, même jour) : un board neuf ne
+    // l'affiche pas tant qu'elle n'est pas ajoutée depuis "+ Ajouter colonne" au Kanban. Le statut
+    // "Annulé" reste toujours utilisable depuis le Backlog/Sprint Review même sans cette colonne
+    // (voir `statusOptionsForItemModal()`, `utils/kanbanStages.ts`).
   ],
 
   settings: {

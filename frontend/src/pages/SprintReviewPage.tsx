@@ -1,14 +1,15 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
+import { ItemModal } from '../components/backlog/ItemModal'
 import type {
   SprintReviewSession, SprintReviewArchive,
   SRItemRecord, SRUnfinishedRecord, SRDecision, SRNote, SROtherParticipant,
   SRBadge, SRUnfinishedDecision,
-  Item, Sprint, TeamMember, Client, Contact, HistoryEntry,
+  Item, Sprint, TeamMember, Client, Contact, HistoryEntry, Note,
 } from '../types'
 import { archiveAndReset } from '../utils/session'
-import { getCurrentSprint } from '../utils/sprints'
+import { getCurrentSprint, reportableSprintsExcluding, nextReportableSprint, lastSprintBeforeDeadline } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 
@@ -113,7 +114,16 @@ function sprintDeliveredSP(sprint: Sprint, items: Item[], doneCols: string[]): n
 // ── Main page ──────────────────────────────────────────────────────────────────
 export function SprintReviewPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
-  const { userName } = useAuth()
+  const { userName, userId } = useAuth()
+
+  // Chantier G (2026-07-23) : modale d'édition d'item, ouverte depuis une décision "Reprioriser"
+  // (Décisions backlog) ou "Redimensionner" (Non terminé) — réutilise l'ItemModal existante du
+  // Backlog plutôt que de dupliquer un formulaire d'édition ici. `modalOrigin` retient quelle
+  // décision a ouvert la modale, pour la marquer "appliquée" une fois la sauvegarde faite.
+  const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
+  const [modalOrigin, setModalOrigin] = useState<
+    { kind: 'decision'; decisionId: string } | { kind: 'unfinished'; itemId: string } | null
+  >(null)
 
   const [selectedSprintId, setSelectedSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
   // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
@@ -295,6 +305,113 @@ export function SprintReviewPage() {
     dispatch({ type: 'ADD_ITEM', payload: item })
     dispatch({ type: 'APPLY_SR_DECISION', payload: { sessionDefaults: session, decisionId: decision.id } })
     saveToServer({ ...state, items: [...state.items, item] })
+  }
+
+  // Chantier G (2026-07-23) : ouvre l'ItemModal pré-remplie sur l'item ciblé par une décision
+  // "Reprioriser" (Décisions backlog) — le PO ajuste priorité/SP/tout ce qu'il veut, y compris
+  // faire passer l'item en Epic pour le scinder en plusieurs items plus petits (déjà supporté
+  // par l'ItemModal via son sélecteur de type + champ "Epic parent", aucun flux à recoder ici).
+  function openReprioritizeModal(decision: SRDecision) {
+    const item = decision.itemId ? state.items.find(i => i.id === decision.itemId) : undefined
+    if (!item) return
+    setModalOrigin({ kind: 'decision', decisionId: decision.id })
+    setModalItem(item)
+  }
+
+  // Chantier G : ouvre la même ItemModal pour la décision "Redimensionner" (Non terminé).
+  function openResizeModal(item: Item) {
+    setModalOrigin({ kind: 'unfinished', itemId: item.id })
+    setModalItem(item)
+  }
+
+  // Sauvegarde depuis l'ItemModal (mêmes helpers que KanbanPage/BacklogPage) — en plus, si la
+  // modale a été ouverte depuis une décision Sprint Review, la marque comme appliquée.
+  function handleItemModalSave(item: Item, keyCounters?: Record<string, number>) {
+    const exists = !!state.items.find(i => i.id === item.id)
+    dispatch(exists ? { type: 'UPDATE_ITEM', payload: item } : { type: 'ADD_ITEM', payload: item, keyCounters })
+    const nextItems = exists ? state.items.map(i => i.id === item.id ? item : i) : [...state.items, item]
+    if (modalOrigin?.kind === 'decision') {
+      dispatch({ type: 'APPLY_SR_DECISION', payload: { sessionDefaults: session, decisionId: modalOrigin.decisionId } })
+    } else if (modalOrigin?.kind === 'unfinished') {
+      dispatch({
+        type: 'UPDATE_SR_UNFINISHED_RECORD',
+        payload: { sessionDefaults: session, itemId: modalOrigin.itemId, patch: { applied: true } },
+      })
+    }
+    saveToServer({ ...state, items: nextItems, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) })
+    setModalItem(undefined)
+    setModalOrigin(null)
+  }
+
+  // Chantier G (2026-07-23) : décisions "Non terminé" (Reporter/Annuler) — jusqu'ici purement
+  // déclaratives (`session.unfinishedRecords[].decision` enregistrait juste un choix, jamais
+  // appliqué à l'item réel). Ces deux fonctions dispatchent réellement UPDATE_ITEM, en plus de
+  // marquer le SRUnfinishedRecord comme "appliqué" (garde-fou utilisé par closeSprint(), voir
+  // utils/sprintLifecycle.ts). "Redimensionner" est géré séparément via l'ItemModal (openResizeModal).
+  function applyCancel(item: Item) {
+    const record = getUnfinished(item.id)
+    const reason = record.reason.trim()
+    const updatedItem: Item = { ...item, status: 'cancelled', sprintId: null }
+    if (reason) {
+      const note: Note = {
+        id: uid(),
+        text: `Annulé en Sprint Review (${sprint?.label ?? 'sprint'}) : ${reason}`,
+        authorId: userId || undefined,
+        createdAt: new Date().toISOString(),
+        attachments: [],
+      }
+      updatedItem.notes = [...(item.notes ?? []), note]
+    }
+    dispatch({ type: 'UPDATE_ITEM', payload: updatedItem })
+    dispatch({
+      type: 'UPDATE_SR_UNFINISHED_RECORD',
+      payload: { sessionDefaults: session, itemId: item.id, patch: { applied: true } },
+    })
+    const cancelledLabel = state.kanbanCols.find(c => c.id === 'cancelled')?.label ?? 'Annulé'
+    const fromLabel = state.kanbanCols.find(c => c.id === item.status)?.label ?? item.status
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'item_status',
+      timestamp: new Date().toISOString(),
+      sprintId: selectedSprintId,
+      itemKey: item.key,
+      itemDesc: item.desc,
+      from: fromLabel,
+      to: cancelledLabel,
+      detail: 'Annulé depuis la Sprint Review',
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry(
+      { ...state, items: state.items.map(i => i.id === item.id ? updatedItem : i) },
+      historyEntry,
+    ))
+  }
+
+  function applyReport(item: Item, targetSprintId: string | null) {
+    const updatedItem: Item = { ...item, sprintId: targetSprintId }
+    dispatch({ type: 'UPDATE_ITEM', payload: updatedItem })
+    dispatch({
+      type: 'UPDATE_SR_UNFINISHED_RECORD',
+      payload: { sessionDefaults: session, itemId: item.id, patch: { applied: true, resolvedSprintId: targetSprintId } },
+    })
+    const targetSprint = targetSprintId ? state.sprints.find(s => s.id === targetSprintId) : undefined
+    const targetLabel = targetSprint ? (targetSprint.label || `Sprint ${targetSprint.number}`) : 'Plus tard (non planifié)'
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'item_sprint_change',
+      timestamp: new Date().toISOString(),
+      sprintId: targetSprintId ?? undefined,
+      itemKey: item.key,
+      itemDesc: item.desc,
+      detail: `Reporté depuis la Sprint Review vers ${targetLabel}`,
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry(
+      { ...state, items: state.items.map(i => i.id === item.id ? updatedItem : i) },
+      historyEntry,
+    ))
   }
 
   function addNote() {
@@ -512,9 +629,17 @@ export function SprintReviewPage() {
                     key={item.id}
                     item={item}
                     allItems={state.items}
+                    sprints={state.sprints}
+                    currentSprintId={selectedSprintId}
                     record={rec}
                     onReasonChange={reason => updateUnfinished({ itemId: item.id, reason })}
-                    onDecisionChange={decision => updateUnfinished({ itemId: item.id, decision })}
+                    // Changer de décision invalide une éventuelle application précédente
+                    // (ex. le PO choisit "Reporter" après avoir déjà annulé) — évite d'afficher
+                    // "Appliqué" pour une décision qui n'est plus celle sélectionnée.
+                    onDecisionChange={decision => updateUnfinished({ itemId: item.id, decision, applied: false })}
+                    onApplyCancel={() => applyCancel(item)}
+                    onApplyReport={targetSprintId => applyReport(item, targetSprintId)}
+                    onOpenResize={() => openResizeModal(item)}
                   />
                 )
               })}
@@ -592,7 +717,9 @@ export function SprintReviewPage() {
                 <DecisionRow
                   key={d.id}
                   decision={d}
+                  linkedItem={d.itemId ? state.items.find(i => i.id === d.itemId) : undefined}
                   onApplyNew={() => applyNewItem(d)}
+                  onReprioritize={() => openReprioritizeModal(d)}
                   onDelete={() => removeDecision(d.id)}
                 />
               ))}
@@ -680,6 +807,16 @@ export function SprintReviewPage() {
           </div>
         )}
       </div>
+
+      {/* Chantier G (2026-07-23) : ItemModal ouverte depuis "Reprioriser"/"Redimensionner" */}
+      {modalItem !== undefined && (
+        <ItemModal
+          item={modalItem}
+          state={state}
+          onSave={handleItemModalSave}
+          onClose={() => { setModalItem(undefined); setModalOrigin(null) }}
+        />
+      )}
     </>
   )
 }
@@ -1161,14 +1298,40 @@ function DeliveredItemRow({ item, allItems, record, onToggleBadge, onToggleDemo,
   )
 }
 
-function UnfinishedItemRow({ item, allItems, record, onReasonChange, onDecisionChange }: {
+// Valeur spéciale du sélecteur de sprint cible signifiant "Plus tard" (non planifié) —
+// distincte de la chaîne vide pour ne pas se confondre avec "aucun sprint sélectionné".
+const REPORT_LATER = '__later__'
+
+function UnfinishedItemRow({
+  item, allItems, sprints, currentSprintId, record,
+  onReasonChange, onDecisionChange, onApplyCancel, onApplyReport, onOpenResize,
+}: {
   item: Item
   allItems: Item[]
+  sprints: Sprint[]
+  currentSprintId: string
   record: SRUnfinishedRecord
   onReasonChange: (r: string) => void
   onDecisionChange: (d: SRUnfinishedDecision) => void
+  onApplyCancel: () => void
+  onApplyReport: (targetSprintId: string | null) => void
+  onOpenResize: () => void
 }) {
   const [reason, setReason, onReasonBlur] = useDebouncedInput(record.reason, onReasonChange)
+
+  // Chantier G (2026-07-23) : options du sélecteur de sprint cible pour "Reporter" — prochain
+  // sprint non clôturé pré-sélectionné, tous les sprints prévus, le dernier possible avant
+  // l'échéance de l'item s'il y en a une, et "Plus tard" (sprintId → null, à replanifier).
+  const reportable = useMemo(() => reportableSprintsExcluding(sprints, currentSprintId), [sprints, currentSprintId])
+  const defaultTarget = useMemo(() => nextReportableSprint(sprints, currentSprintId), [sprints, currentSprintId])
+  const deadlineSprint = useMemo(
+    () => lastSprintBeforeDeadline(sprints, currentSprintId, item.deadline),
+    [sprints, currentSprintId, item.deadline]
+  )
+  const [targetSprintId, setTargetSprintId] = useState<string>(defaultTarget?.id ?? REPORT_LATER)
+
+  const applied = !!record.applied
+
   return (
     <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
       {/* Row 1: title + meta */}
@@ -1195,6 +1358,49 @@ function UnfinishedItemRow({ item, allItems, record, onReasonChange, onDecisionC
           <option value="resize">Redimensionner</option>
         </select>
       </div>
+      {/* Row 3 (Chantier G) : application réelle de la décision sur l'item */}
+      {!applied && record.decision === 'report' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+          <select
+            style={{ ...INPUT_STYLE, flex: 1, minWidth: 0, cursor: 'pointer' }}
+            value={targetSprintId}
+            onChange={e => setTargetSprintId(e.target.value)}
+          >
+            {reportable.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.label || `Sprint ${s.number}`}
+                {deadlineSprint?.id === s.id ? ' (dernier avant échéance)' : ''}
+                {defaultTarget?.id === s.id ? ' (prochain)' : ''}
+              </option>
+            ))}
+            <option value={REPORT_LATER}>Plus tard (non planifié)</option>
+          </select>
+          <button
+            className="btn-sm btn-primary"
+            style={{ flexShrink: 0 }}
+            onClick={() => onApplyReport(targetSprintId === REPORT_LATER ? null : targetSprintId)}
+          >
+            Appliquer
+          </button>
+        </div>
+      )}
+      {!applied && record.decision === 'cancel' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+          <button className="btn-sm btn-primary" onClick={onApplyCancel}>Appliquer</button>
+        </div>
+      )}
+      {!applied && record.decision === 'resize' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+          <button className="btn-sm btn-primary" onClick={onOpenResize}>Modifier l'item…</button>
+        </div>
+      )}
+      {applied && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+          <span style={{ fontSize: 11, color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Ico d={ICO.check} size={12} stroke="var(--success)" /> Décision appliquée
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -1209,9 +1415,14 @@ const TYPE_TEXT: Record<string, string> = {
   reprioritize: 'var(--warning, #b45309)',
 }
 
-function DecisionRow({ decision, onApplyNew, onDelete }: {
+function DecisionRow({ decision, linkedItem, onApplyNew, onReprioritize, onDelete }: {
   decision: SRDecision
+  // Chantier G (2026-07-23) : item réellement ciblé par une décision "Reprioriser" — affiché
+  // pour que le PO puisse le retrouver dans le Backlog (clé jusqu'ici absente de cette ligne,
+  // voir docs/pages/sprint-review.md, problème 1).
+  linkedItem?: Item
   onApplyNew: () => void
+  onReprioritize: () => void
   onDelete: () => void
 }) {
   return (
@@ -1220,6 +1431,9 @@ function DecisionRow({ decision, onApplyNew, onDelete }: {
         {TYPE_LABEL[decision.type]}
       </span>
       <span style={{ flex: 1, fontSize: 13, minWidth: 0 }}>{decision.desc}</span>
+      {linkedItem && (
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0, whiteSpace: 'nowrap' }}>{linkedItem.key}</span>
+      )}
       {decision.sp != null && decision.sp > 0 && (
         <span style={{ fontSize: 11, background: 'var(--border)', borderRadius: 4, padding: '1px 6px', flexShrink: 0 }}>
           {decision.sp} SP
@@ -1231,9 +1445,15 @@ function DecisionRow({ decision, onApplyNew, onDelete }: {
           onClick={onApplyNew}
         >→ Backlog</button>
       )}
+      {!decision.applied && decision.type === 'reprioritize' && linkedItem && (
+        <button
+          style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--primary)', background: 'none', color: 'var(--primary)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+          onClick={onReprioritize}
+        >Modifier l'item…</button>
+      )}
       {decision.applied && (
         <span style={{ fontSize: 11, color: 'var(--success)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Ico d={ICO.check} size={12} stroke="var(--success)" /> Créé
+          <Ico d={ICO.check} size={12} stroke="var(--success)" /> {decision.type === 'new-item' ? 'Créé' : 'Modifié'}
         </span>
       )}
       <button style={{ ...ICON_BTN, color: 'var(--danger)' }} onClick={onDelete} title="Supprimer">

@@ -438,6 +438,14 @@ export interface SRUnfinishedRecord {
   itemId: string
   reason: string
   decision: SRUnfinishedDecision
+  /** true une fois que `decision` a réellement été appliquée à l'item (Chantier G) —
+   *  distingue un simple choix dans la liste déroulante d'une action effectivement
+   *  dispatchée sur l'item réel. Sert de garde-fou à closeSprint() : un item non
+   *  terminé sans décision appliquée bloque la clôture du sprint plutôt que d'être
+   *  silencieusement ignoré. */
+  applied?: boolean
+  /** Sprint cible choisi si decision === 'report' (undefined = "Plus tard", non planifié). */
+  resolvedSprintId?: string | null
 }
 
 /** Décision backlog issue de la revue */

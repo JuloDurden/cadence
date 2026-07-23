@@ -10,7 +10,7 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { computeSprintEndDate, teamCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
-import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry } from '../utils/sprintLifecycle'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import type { Item, Sprint, HistoryEntry } from '../types'
@@ -123,6 +123,15 @@ export function PlanningPage() {
   function handleClose(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
+    // Chantier G (2026-07-23) : même garde-fou que Roadmap — voir commentaire là-bas.
+    const unresolved = getUnresolvedUnfinishedItems(state, sprintId)
+    if (unresolved.length > 0) {
+      const list = unresolved.map(i => `• ${i.key} — ${i.desc}`).join('\n')
+      alert(
+        `Impossible de clôturer ce sprint : ${unresolved.length} item(s) non terminé(s) n'ont pas encore de décision Sprint Review appliquée.\n\n${list}\n\nRendez-vous sur la Sprint Review pour statuer sur chacun (Reporter / Annuler / Redimensionner) avant de clôturer.`
+      )
+      return
+    }
     const updatedSprints = closeSprint(state.sprints, sprintId)
     const updated = updatedSprints.find(s => s.id === sprintId)!
     dispatch({ type: 'UPDATE_SPRINT', payload: updated })
