@@ -14,11 +14,12 @@ test.describe('Rétrospective', () => {
     await expect(formatSelect).toHaveValue('start-stop-continue');
   });
 
-  test('affiche les boutons de contrôle (copier, archiver, effacer)', async ({ page }) => {
+  test('affiche les boutons de contrôle (copier, archiver)', async ({ page }) => {
     await goTo(page, '/retro');
     await expect(page.locator('button[title="Copier le résumé"]')).toBeVisible();
+    // Archiver vide aussi la session en une seule action atomique, ancien bouton
+    // "Effacer" séparé supprimé/fusionné — voir commit 7fc628e
     await expect(page.locator('button[title="Archiver cette rétrospective"]')).toBeVisible();
-    await expect(page.locator('button[title="Effacer toutes les saisies"]')).toBeVisible();
   });
 
   test('affiche le compteur items et actions', async ({ page }) => {
@@ -115,14 +116,14 @@ test.describe('Rétrospective', () => {
     await expect(page.getByText('Améliorer la CI')).toBeVisible();
   });
 
-  test('effacer réinitialise la session', async ({ page }) => {
+  test('archiver réinitialise la session', async ({ page }) => {
     await goTo(page, '/retro');
     // Ajouter un item
     await page.getByPlaceholder('Ajouter...').first().fill('Item temporaire');
     await page.getByPlaceholder('Ajouter...').first().press('Enter');
     await expect(page.getByText('Item temporaire')).toBeVisible();
-    // Effacer
-    await page.locator('button[title="Effacer toutes les saisies"]').click();
+    // Archiver (vide aussi la session — plus de bouton "Effacer" séparé)
+    await page.locator('button[title="Archiver cette rétrospective"]').click();
     await expect(page.getByText('Item temporaire')).not.toBeVisible();
   });
 

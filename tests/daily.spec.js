@@ -22,10 +22,9 @@ test.describe('Daily Standup', () => {
     await expect(page.locator('button[title="Réinitialiser"]')).toBeVisible();
     // Bouton copier résumé
     await expect(page.locator('button[title="Copier le résumé du jour"]')).toBeVisible();
-    // Bouton archiver
-    await expect(page.locator('button[title="Archiver ce daily"]')).toBeVisible();
-    // Bouton effacer
-    await expect(page.locator('button[title="Effacer toutes les saisies"]')).toBeVisible();
+    // Bouton archiver (archive + vide les saisies en une seule action atomique,
+    // ancien bouton "Effacer" séparé supprimé/fusionné — voir commit 7fc628e)
+    await expect(page.locator('button[title="Archiver ce daily (et vider les saisies du jour)"]')).toBeVisible();
   });
 
   test('affiche les cartes des membres du DEMO_STATE', async ({ page }) => {

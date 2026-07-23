@@ -16,7 +16,8 @@ test.describe('Sprint Review — /sprint-review', () => {
 
     test('le header affiche le titre "Sprint Review"', async ({ page }) => {
       await goTo(page, '/sprint-review');
-      await expect(page.locator('.page-header')).toContainText('Sprint Review');
+      // La classe du header applicatif est `.app-header` (`.page-header` n'a jamais existé)
+      await expect(page.locator('.app-header')).toContainText('Sprint Review');
     });
 
     test('un sélecteur de sprint est présent', async ({ page }) => {
@@ -28,15 +29,15 @@ test.describe('Sprint Review — /sprint-review', () => {
       await goTo(page, '/sprint-review');
       // Time-box
       await expect(page.locator('.page-content')).toContainText('Time-box');
-      // Champ participants
-      await expect(page.getByPlaceholder(/Julien.*Sarah.*Marc/i)).toBeVisible();
+      // Champ participants (placeholder réel de l'auto-complétion membre/client)
+      await expect(page.getByPlaceholder(/Membre d'équipe/i)).toBeVisible();
       // Champ date de revue
       await expect(page.locator('input[type="date"]')).toBeVisible();
     });
 
     test('le bouton Archiver est présent dans le header', async ({ page }) => {
       await goTo(page, '/sprint-review');
-      await expect(page.locator('.page-header button[title="Archiver cette Sprint Review"]')).toBeVisible();
+      await expect(page.locator('.app-header button[title="Archiver cette Sprint Review"]')).toBeVisible();
     });
 
   });
@@ -114,15 +115,21 @@ test.describe('Sprint Review — /sprint-review', () => {
       await goTo(page, '/sprint-review');
       await page.getByText('Ajouter une décision').click();
       await expect(page.getByPlaceholder(/Décrire l'item/i)).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Ajouter' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Annuler' })).toBeVisible();
+      // exact: true — sinon le bouton "Ajouter une note" (toujours visible, section Notes
+      // globales) matche aussi "Ajouter" en tant que sous-chaîne du nom accessible.
+      // "Annuler" est ambigu même en exact: le bouton Undo du header (hors .page-content)
+      // a pour aria-label "Annuler" (nom accessible identique, pas juste une sous-chaîne) —
+      // on scope donc la recherche à .page-content pour ne cibler que le formulaire.
+      const content = page.locator('.page-content');
+      await expect(content.getByRole('button', { name: 'Ajouter', exact: true })).toBeVisible();
+      await expect(content.getByRole('button', { name: 'Annuler', exact: true })).toBeVisible();
     });
 
     test('ajouter une décision l\'affiche dans la liste', async ({ page }) => {
       await goTo(page, '/sprint-review');
       await page.getByText('Ajouter une décision').click();
       await page.getByPlaceholder(/Décrire l'item/i).fill('Créer story handle rotation');
-      await page.getByRole('button', { name: 'Ajouter' }).click();
+      await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
       await expect(page.locator('.page-content')).toContainText('Créer story handle rotation');
     });
 
@@ -130,7 +137,7 @@ test.describe('Sprint Review — /sprint-review', () => {
       await goTo(page, '/sprint-review');
       await page.getByText('Ajouter une décision').click();
       await page.getByPlaceholder(/Décrire l'item/i).fill('Feature test backlog');
-      await page.getByRole('button', { name: 'Ajouter' }).click();
+      await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
       await expect(page.getByText('→ Backlog')).toBeVisible();
     });
 
@@ -138,7 +145,7 @@ test.describe('Sprint Review — /sprint-review', () => {
       await goTo(page, '/sprint-review');
       await page.getByText('Ajouter une décision').click();
       await page.getByPlaceholder(/Décrire l'item/i).fill('Feature test backlog apply');
-      await page.getByRole('button', { name: 'Ajouter' }).click();
+      await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
       await page.getByText('→ Backlog').click();
       await expect(page.locator('.page-content')).toContainText('Créé');
     });
@@ -152,11 +159,15 @@ test.describe('Sprint Review — /sprint-review', () => {
     test('la section "Notes globales" est présente avec un textarea', async ({ page }) => {
       await goTo(page, '/sprint-review');
       await expect(page.locator('.page-content')).toContainText('Notes globales');
+      // Les notes sont horodatées (comme les post-its Vision NNL) : pas de textarea
+      // unique toujours affiché, il faut d'abord créer une note via "Ajouter une note"
+      await page.getByText('Ajouter une note').click();
       await expect(page.getByPlaceholder(/Retours stakeholders/i)).toBeVisible();
     });
 
     test('saisir une note la conserve dans le textarea', async ({ page }) => {
       await goTo(page, '/sprint-review');
+      await page.getByText('Ajouter une note').click();
       const ta = page.getByPlaceholder(/Retours stakeholders/i);
       await ta.fill('Bonne revue, stakeholders satisfaits');
       await expect(ta).toHaveValue('Bonne revue, stakeholders satisfaits');
@@ -175,14 +186,14 @@ test.describe('Sprint Review — /sprint-review', () => {
 
     test('cliquer sur le bouton Archiver crée une archive', async ({ page }) => {
       await goTo(page, '/sprint-review');
-      await page.locator('.page-header button[title="Archiver cette Sprint Review"]').click();
+      await page.locator('.app-header button[title="Archiver cette Sprint Review"]').click();
       // La section Archives doit afficher "Archives (1)"
       await expect(page.locator('.page-content')).toContainText('Archives (1)');
     });
 
     test("une archive est cliquable et affiche son contenu", async ({ page }) => {
       await goTo(page, '/sprint-review');
-      await page.locator('.page-header button[title="Archiver cette Sprint Review"]').click();
+      await page.locator('.app-header button[title="Archiver cette Sprint Review"]').click();
       // Cliquer sur la card archive pour l'ouvrir
       await page.locator('.archive-card-hdr').first().click();
       await expect(page.locator('.archive-card-body').first()).toBeVisible();
