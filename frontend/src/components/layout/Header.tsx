@@ -170,6 +170,13 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
 
   const recent = (state.history ?? []).slice(0, 8)
 
+  // Titre d'onglet du navigateur : "Cadence - {titre de la page}", jamais juste
+  // le nom du projet Vite par défaut. Toutes les pages sauf Login passent par ce
+  // composant, donc un seul endroit à maintenir.
+  useEffect(() => {
+    document.title = `Cadence - ${title}`
+  }, [title])
+
   return (
     <>
       <header className="app-header">

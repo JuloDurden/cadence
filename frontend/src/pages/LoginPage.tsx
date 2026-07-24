@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
@@ -10,6 +10,12 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  // Seule page sans <Header> (voir Header.tsx pour les autres) : le titre
+  // d'onglet doit donc être posé ici explicitement.
+  useEffect(() => {
+    document.title = 'Cadence - Connexion'
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
