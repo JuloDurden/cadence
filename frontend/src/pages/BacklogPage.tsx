@@ -6,7 +6,8 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { EXTRA_STAGES } from '../utils/kanbanStages'
 import { fmtDate } from '../utils/dates'
 import { findEpicChildren, detachEpicChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
-import type { Item, ItemType, BugSeverity } from '../types'
+import { withHistoryEntry } from '../utils/history'
+import type { Item, ItemType, BugSeverity, HistoryEntry } from '../types'
 
 /* ─── Error Boundary ─────────────────────────────────────────────── */
 class ModalErrorBoundary extends React.Component<
@@ -275,7 +276,7 @@ export function BacklogPage() {
       })
     }
     // Historique
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: isNew ? 'item_create' : 'item_edit',
       timestamp: new Date().toISOString(),
@@ -283,8 +284,12 @@ export function BacklogPage() {
       itemDesc: item.desc,
       sprintId: item.sprintId ?? undefined,
       author: userName,
-    }})
-    saveToServer({ ...state, items: base, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) })
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    // withHistoryEntry() : même bug de persistance que celui corrigé sur les 7 tranches du
+    // Chantier B (2026-07-21) — `state` ici est capturé avant le dispatch ADD_HISTORY
+    // ci-dessus, son `history` ne contient donc pas encore cette entrée sans ce helper.
+    saveToServer(withHistoryEntry({ ...state, items: base, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) }, historyEntry))
   }
   function handleDelete(id: string) {
     const item = state.items.find(i => i.id === id)
@@ -299,18 +304,19 @@ export function BacklogPage() {
     dispatch({ type: 'DELETE_ITEM', payload: id })
     children.forEach(c => dispatch({ type: 'UPDATE_ITEM', payload: { ...c, epicId: null } }))
     dependents.forEach(d => dispatch({ type: 'UPDATE_ITEM', payload: { ...d, deps: (d.deps ?? []).filter(x => x !== id) } }))
-    dispatch({ type: 'ADD_HISTORY', payload: {
+    const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'item_delete',
       timestamp: new Date().toISOString(),
       itemKey: item?.key,
       itemDesc: item?.desc,
       author: userName,
-    }})
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     let remaining = state.items.filter(i => i.id !== id)
     if (children.length > 0)   remaining = detachEpicChildren(remaining, id)
     if (dependents.length > 0) remaining = detachDependents(remaining, id)
-    saveToServer({ ...state, items: remaining })
+    saveToServer(withHistoryEntry({ ...state, items: remaining }, historyEntry))
   }
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
