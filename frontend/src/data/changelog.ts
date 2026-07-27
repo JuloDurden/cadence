@@ -15,7 +15,25 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.90.10',date:'23 Juillet 2026',dateISO:'2026-07-23',title:'Chantier G — décisions Sprint Review actives, statut Annulé, filtres Backlog corrigés',current:true,changes:[
+  {version:'v0.90.14',date:'27 Juillet 2026',dateISO:'2026-07-27',title:'Réglages — color picker riche pour les colonnes Kanban',current:true,changes:[
+    {tag:'feat',  text:'Le sélecteur de couleur natif des colonnes Kanban (Réglages) est remplacé par un color picker riche : palette de couleurs cliquables + repli couleur libre + code hex affiché'},
+    {tag:'feat',  text:'Palette dédiée aux statuts (13 couleurs déjà utilisées par les statuts de l\'app — Backlog, À faire, En cours, En révision, etc.) plutôt que la palette générique de dessin du canevas NNL, avec le nom du statut en infobulle'},
+    {tag:'chore', text:'Composant ColorPicker générique et réutilisable ailleurs dans l\'app (prop palette personnalisable)'},
+    {tag:'test',  text:'2 tests Playwright ajoutés (tests/settings.spec.js) pour ce nouveau picker'},
+  ]},
+  {version:'v0.90.13',date:'27 Juillet 2026',dateISO:'2026-07-27',title:'Kanban — mode Réorganiser visible sur tout le board',current:false,changes:[
+    {tag:'feat', text:'Bandeau explicatif et cadre pointillé teinté autour du board en mode "Réorganiser" — auparavant seul le bouton lui-même changeait d\'apparence'},
+    {tag:'feat', text:'Les vraies cartes d\'item (non déplaçables dans ce mode) sont remplacées par des cartes squelettes dont le nombre remplit la hauteur visible de l\'écran, sans jamais déclencher de scroll'},
+    {tag:'fix',  text:'Le curseur "grab" des en-têtes de colonne s\'affichait en permanence, même hors mode Réorganiser (où les colonnes ne sont pourtant pas déplaçables) — désormais limité à ce mode'},
+    {tag:'test', text:'2 tests Playwright ajoutés (tests/kanban.spec.js) pour ce comportement'},
+  ]},
+  {version:'v0.90.12',date:'26 Juillet 2026',dateISO:'2026-07-26',title:'Backlog — persistance fiable de l\'Historique',current:false,changes:[
+    {tag:'fix', text:'Créer, éditer ou supprimer un item depuis le Backlog ne garantissait pas la persistance de la dernière entrée d\'Historique avant un rechargement immédiat — même défaut que celui déjà corrigé sur les 7 tranches du Chantier B (2026-07-21), repris ici avec le même helper'},
+  ]},
+  {version:'v0.90.11',date:'24 Juillet 2026',dateISO:'2026-07-24',title:'Titre d\'onglet du navigateur dynamique',current:false,changes:[
+    {tag:'feat', text:'L\'onglet du navigateur affiche désormais "Cadence - {titre de la page}" sur toutes les pages, au lieu du titre par défaut "frontend" laissé par Vite'},
+  ]},
+  {version:'v0.90.10',date:'23 Juillet 2026',dateISO:'2026-07-23',title:'Chantier G — décisions Sprint Review actives, statut Annulé, filtres Backlog corrigés',current:false,changes:[
     {tag:'feat',    text:'Les décisions Sprint Review (Reprioriser, Reporter, Annuler, Redimensionner) agissent enfin sur les données réelles — auparavant seule "Nouvel item" créait effectivement quelque chose'},
     {tag:'feat',    text:'Nouveau statut "Annulé" (couleur noire, colonne Kanban optionnelle) : "Annuler" bascule réellement l\'item et ajoute la raison saisie comme note ; "Reporter" propose un sélecteur (prochain sprint, liste des sprints, dernier sprint avant deadline, ou "Plus tard") ; "Reprioriser"/"Redimensionner" ouvrent directement la fiche d\'édition de l\'item'},
     {tag:'feat',    text:'Clôturer un sprint (Roadmap, Release Planning) bloque désormais si des items non terminés n\'ont aucune décision Sprint Review appliquée, au lieu de les ignorer silencieusement'},

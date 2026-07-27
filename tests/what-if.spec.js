@@ -101,7 +101,7 @@ test.describe('What-if — Scénarios', () => {
 
   test('le changelog affiche v0.90 comme version courante', async ({ page }) => {
     await goTo(page, '/changelog');
-    await expect(page.locator('.cl-card.current')).toContainText('v0.90.10');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.90.14');
   });
 
 });
