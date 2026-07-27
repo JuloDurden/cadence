@@ -1,5 +1,15 @@
+import { useMemo } from 'react'
 import type { Item, KanbanCol, CadenceState } from '../../types'
 import { KanbanCard } from './KanbanCard'
+import { KanbanCardSkeleton } from './KanbanCardSkeleton'
+
+// Hauteur approximative d'une carte squelette + son gap (.kanban-cards gap: 6px) — sert
+// uniquement à estimer combien de squelettes il faut pour couvrir la hauteur visible de
+// l'écran, pas une valeur pixel-perfect (la zone scrolle de toute façon si on en met trop).
+const SKELETON_CARD_HEIGHT = 96
+// Hauteur retirée pour le header applicatif + l'en-tête de colonne + le padding de la zone
+// de cartes, avant de diviser par SKELETON_CARD_HEIGHT.
+const SKELETON_CHROME_HEIGHT = 200
 
 interface Props {
   col: KanbanCol
@@ -35,6 +45,22 @@ export function KanbanColumn({
   onCardDragStart, onColDragStart, onDragOver, onDrop,
   onDeleteCol, onEdit, onRemoveFromSprint,
 }: Props) {
+  // Nombre de squelettes en mode Réorganiser : indépendant du nombre d'items réels de la
+  // colonne (docs/corrections futures.md, Kanban — "pas juste celles existantes"), calé sur
+  // la hauteur d'écran visible, ± 1 ou 2 au hasard par colonne pour un rendu moins uniforme.
+  // Recalculé uniquement à l'activation du mode (dépendance [reorgMode]) : rester stable tant
+  // qu'on réorganise, pas se réinitialiser à chaque re-rendu pendant le drag des colonnes.
+  const skeletonCount = useMemo(() => {
+    if (!reorgMode) return 0
+    const available = (typeof window !== 'undefined' ? window.innerHeight : 900) - SKELETON_CHROME_HEIGHT
+    // "maxi" = le nombre qui atteint le bas de l'écran sans scroll — la variance ne doit donc
+    // jamais l'augmenter (sinon la colonne déborde et un scroll apparaît), seulement le
+    // réduire de 0, 1 ou 2 cartes au hasard pour un rendu moins uniforme d'une colonne à l'autre.
+    const max = Math.max(4, Math.floor(available / SKELETON_CARD_HEIGHT))
+    const variance = Math.floor(Math.random() * 3) // 0, 1 ou 2
+    return Math.max(3, max - variance)
+  }, [reorgMode])
+
   return (
     <div
       className={`kanban-col${isDragOver ? ' kanban-col-over' : ''}`}
@@ -43,7 +69,7 @@ export function KanbanColumn({
     >
       {/* Header */}
       <div
-        className="kanban-col-header"
+        className={`kanban-col-header${reorgMode ? ' reorg-active' : ''}`}
         style={{ background: col.color + '22', borderBottom: `2px solid ${col.color}44` }}
         draggable={reorgMode}
         onDragStart={e => { if (reorgMode) { e.stopPropagation(); onColDragStart(col.id) } }}
@@ -73,21 +99,30 @@ export function KanbanColumn({
         </span>
       </div>
 
-      {/* Cards area */}
-      <div className="kanban-cards" style={{ background: col.color + '0d' }}>
-        {items.map(item => (
-          <KanbanCard
-            key={item.id}
-            item={item}
-            state={state}
-            colColor={col.color}
-            cardDraggable={!reorgMode}
-            onEdit={onEdit}
-            onRemoveFromSprint={onRemoveFromSprint}
-            onDragStart={onCardDragStart}
-          />
-        ))}
-        {items.length === 0 && (
+      {/* Cards area — en mode Réorganiser, des squelettes remplacent les vraies cartes
+          (jamais draggables dans ce mode) pour ne pas inviter l'utilisateur à essayer de les
+          glisser. Leur nombre (skeletonCount) est indépendant des items réels de la colonne,
+          calé sur la hauteur d'écran. Voir KanbanCardSkeleton.tsx et docs/corrections
+          futures.md, Kanban. */}
+      {/* overflowY forcé à 'hidden' en mode Réorganiser : filet de sécurité pour garantir
+          "sans scroll" même si l'estimation de skeletonCount (fondée sur window.innerHeight,
+          pas une mesure DOM réelle) est légèrement optimiste sur un écran ou un zoom donné. */}
+      <div className="kanban-cards" style={{ background: col.color + '0d', overflowY: reorgMode ? 'hidden' : 'auto' }}>
+        {reorgMode
+          ? Array.from({ length: skeletonCount }, (_, i) => <KanbanCardSkeleton key={i} />)
+          : items.map(item => (
+            <KanbanCard
+              key={item.id}
+              item={item}
+              state={state}
+              colColor={col.color}
+              cardDraggable={!reorgMode}
+              onEdit={onEdit}
+              onRemoveFromSprint={onRemoveFromSprint}
+              onDragStart={onCardDragStart}
+            />
+          ))}
+        {!reorgMode && items.length === 0 && (
           <div className="kanban-empty">Glisser ici</div>
         )}
       </div>

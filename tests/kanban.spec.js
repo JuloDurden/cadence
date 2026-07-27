@@ -104,6 +104,27 @@ test.describe('Kanban', () => {
     }
   });
 
+  test('mode Réorganiser affiche un bandeau explicatif dans le cadre du board', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await expect(page.getByText('Mode réorganisation')).not.toBeVisible();
+    await page.getByRole('button', { name: 'Réorganiser' }).click();
+    await expect(page.locator('.kanban-board-wrap.reorg-active')).toBeVisible();
+    await expect(page.getByText('Mode réorganisation')).toBeVisible();
+  });
+
+  test('mode Réorganiser remplace les vraies cartes par des squelettes', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await expect(page.locator('.kanban-card').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Réorganiser' }).click();
+    // Plus aucune vraie carte (non draggable dans ce mode) — remplacées par des squelettes
+    await expect(page.locator('.kanban-card')).toHaveCount(0);
+    await expect(page.locator('.kanban-card-skeleton').first()).toBeVisible();
+    // Revenir au mode normal restaure les vraies cartes
+    await page.getByRole('button', { name: 'Réorganiser' }).click();
+    await expect(page.locator('.kanban-card').first()).toBeVisible();
+    await expect(page.locator('.kanban-card-skeleton')).toHaveCount(0);
+  });
+
   test('les cartes ont un bouton modifier et un bouton retirer du sprint', async ({ page }) => {
     await goTo(page, '/kanban');
     const firstCard = page.locator('.kanban-card').first();

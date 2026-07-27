@@ -423,25 +423,46 @@ export function KanbanPage() {
       )}
 
       <div className="page-content" style={{ padding: '24px 16px' }}>
-        <div className="kanban-board">
-          {state.kanbanCols.map(col => (
-            <KanbanColumn
-              key={col.id}
-              col={col}
-              items={itemsByCol[col.id] ?? []}
-              state={state}
-              isBase={BASE_COL_IDS.includes(col.id)}
-              reorgMode={reorgMode}
-              isDragOver={dragOverColId === col.id}
-              onCardDragStart={id => { dragItemId.current = id; dragColId.current = null }}
-              onColDragStart={id  => { dragColId.current  = id; dragItemId.current = null }}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onDeleteCol={handleDeleteCol}
-              onEdit={item => setModalItem(item)}
-              onRemoveFromSprint={handleRemoveFromSprint}
-            />
-          ))}
+        {/* Signal visuel du mode Réorganiser (docs/corrections futures.md, Kanban) : avant ce
+            correctif, seul le bouton "Réorganiser" changeait d'apparence — rien sur le board
+            lui-même n'indiquait qu'on réorganise les colonnes plutôt que de manipuler des
+            cartes. Le bandeau explicatif est rendu à l'intérieur du cadre pointillé, au-dessus
+            des colonnes (voir index.css, .kanban-board-wrap). */}
+        <div className={`kanban-board-wrap${reorgMode ? ' reorg-active' : ''}`}>
+          {reorgMode && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: 'var(--primary-light)', borderLeft: '3px solid var(--primary)',
+              borderRadius: 6, padding: '8px 12px', marginBottom: 12, fontSize: 12,
+              color: 'var(--text-muted)',
+            }}>
+              <Ico d={ICO.gripVertical} size={14} stroke="var(--primary)" />
+              <span>
+                <strong style={{ color: 'var(--primary)' }}>Mode réorganisation</strong>
+                {' '}— glissez les colonnes pour les réordonner, ou supprimez-en une. Les cartes ne sont pas déplaçables tant que ce mode est actif.
+              </span>
+            </div>
+          )}
+          <div className="kanban-board">
+            {state.kanbanCols.map(col => (
+              <KanbanColumn
+                key={col.id}
+                col={col}
+                items={itemsByCol[col.id] ?? []}
+                state={state}
+                isBase={BASE_COL_IDS.includes(col.id)}
+                reorgMode={reorgMode}
+                isDragOver={dragOverColId === col.id}
+                onCardDragStart={id => { dragItemId.current = id; dragColId.current = null }}
+                onColDragStart={id  => { dragColId.current  = id; dragItemId.current = null }}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onDeleteCol={handleDeleteCol}
+                onEdit={item => setModalItem(item)}
+                onRemoveFromSprint={handleRemoveFromSprint}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
