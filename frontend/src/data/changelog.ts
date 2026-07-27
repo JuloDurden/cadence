@@ -15,7 +15,14 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.90.14',date:'27 Juillet 2026',dateISO:'2026-07-27',title:'Réglages — color picker riche pour les colonnes Kanban',current:true,changes:[
+  {version:'v0.90.15',date:'27 Juillet 2026',dateISO:'2026-07-27',title:'Roadmap / Release Planning — suppression d\'un sprint',current:true,changes:[
+    {tag:'feat', text:'Nouveau bouton "Supprimer" sur les cartes de sprint (Roadmap) et les colonnes de sprint (Release Planning), disponible uniquement pour un sprint ni actif ni clôturé — bloqué par une alerte explicative sinon'},
+    {tag:'feat', text:'Si des items sont encore assignés au sprint supprimé, ils sont automatiquement déplacés vers le Backlog (jamais supprimés) ; le nombre concerné est annoncé dans la confirmation avant suppression'},
+    {tag:'feat', text:'La suppression retire aussi l\'objectif de sprint associé et les sessions Rétrospective/Sprint Review "vivantes" liées, sans jamais toucher aux archives ; confirmation récapitulant l\'impact avant suppression effective'},
+    {tag:'fix',  text:'Un sprint devenu inutile ou créé par erreur ne pouvait auparavant être supprimé ni depuis la Roadmap ni depuis Release Planning'},
+    {tag:'test', text:'4 tests Playwright ajoutés (tests/roadmap.spec.js, tests/planning.spec.js) : visibilité du bouton selon l\'état du sprint, suppression d\'un sprint vide, suppression d\'un sprint avec items (détachés vers le Backlog)'},
+  ]},
+  {version:'v0.90.14',date:'27 Juillet 2026',dateISO:'2026-07-27',title:'Réglages — color picker riche pour les colonnes Kanban',current:false,changes:[
     {tag:'feat',  text:'Le sélecteur de couleur natif des colonnes Kanban (Réglages) est remplacé par un color picker riche : palette de couleurs cliquables + repli couleur libre + code hex affiché'},
     {tag:'feat',  text:'Palette dédiée aux statuts (13 couleurs déjà utilisées par les statuts de l\'app — Backlog, À faire, En cours, En révision, etc.) plutôt que la palette générique de dessin du canevas NNL, avec le nom du statut en infobulle'},
     {tag:'chore', text:'Composant ColorPicker générique et réutilisable ailleurs dans l\'app (prop palette personnalisable)'},

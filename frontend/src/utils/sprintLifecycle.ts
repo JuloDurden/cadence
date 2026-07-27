@@ -4,9 +4,10 @@
 // et on y ajoute la construction de l'entrée d'Historique correspondante, pour ne pas
 // recoder ce couple mutation+traçabilité une 3e fois si une future page en a besoin.
 
-import type { CadenceState, Item, Sprint, HistoryEntry, HistoryEventType } from '../types'
+import type { CadenceState, Item, Sprint, HistoryEntry, HistoryEventType, RoadmapGoal, RetroSession, SprintReviewSession } from '../types'
+import { getCurrentSprint } from './sprints'
 
-export type SprintLifecycleAction = 'activate' | 'close' | 'reopen'
+export type SprintLifecycleAction = 'activate' | 'close' | 'reopen' | 'delete'
 
 /** Active `sprintId` (et désactive tous les autres) ; le rouvre au passage s'il était clos. */
 export function activateSprint(sprints: Sprint[], sprintId: string): Sprint[] {
@@ -53,11 +54,75 @@ const ACTION_TYPE: Record<SprintLifecycleAction, HistoryEventType> = {
   activate: 'sprint_activate',
   close: 'sprint_close',
   reopen: 'sprint_reopen',
+  delete: 'sprint_delete',
 }
 const ACTION_LABEL: Record<SprintLifecycleAction, string> = {
   activate: 'activé',
   close: 'clôturé',
   reopen: 'réouvert',
+  delete: 'supprimé',
+}
+
+/**
+ * Suppression d'un sprint (Roadmap / Release Planning, 2026-07-27) — décisions de conception :
+ * - Éligibilité : le sprint ne doit être ni le sprint courant (voir `getCurrentSprint`), ni
+ *   clôturé. `getSprintDeletionBlockReason` centralise ce garde-fou (même convention que le filet
+ *   de sécurité de `getUnresolvedUnfinishedItems` à la clôture) — ces deux conditions bloquent,
+ *   car un sprint actif ou clôturé porte probablement de l'historique réel à préserver.
+ * - Un sprint qui contient encore des items **n'est pas bloqué** : ils sont détachés vers le
+ *   Backlog (`status: 'backlog', sprintId: null`) au moment de la suppression — convention déjà
+ *   en place dans `KanbanPage.tsx` (`handleDrop`/`handleRemoveFromSprint`). La page appelante
+ *   affiche le nombre d'items concernés dans le `confirm()` avant de procéder, pour que ce
+ *   déplacement automatique reste visible plutôt que silencieux.
+ * - L'objectif de sprint (`RoadmapGoal`) et les sessions "vivantes" (Rétrospective, Sprint Review)
+ *   liées à ce sprint sont supprimés avec lui. Les archives (`retroArchives`, `sprintReviewArchives`,
+ *   `dailyArchives`) sont figées et historiques : elles ne sont jamais touchées par cette cascade.
+ */
+export interface SprintDeletionResult {
+  sprints: Sprint[]
+  items: Item[]
+  roadmap: RoadmapGoal[]
+  retroSessions: RetroSession[]
+  sprintReviewSessions: SprintReviewSession[]
+  detachedItemIds: string[]
+  deletedGoalId: string | null
+  deletedRetroSessionIds: string[]
+  deletedSrSessionIds: string[]
+}
+
+/** Renvoie un message explicatif si `sprintId` n'est pas supprimable en l'état, sinon `null`. */
+export function getSprintDeletionBlockReason(state: CadenceState, sprintId: string): string | null {
+  const sprint = state.sprints.find(s => s.id === sprintId)
+  if (!sprint) return null
+  if (getCurrentSprint(state)?.id === sprintId) {
+    return "Impossible de supprimer le sprint courant. Activez un autre sprint ou clôturez celui-ci d'abord."
+  }
+  if (sprint.closed) {
+    return 'Impossible de supprimer un sprint clôturé (son historique est conservé).'
+  }
+  return null
+}
+
+/** Calcule la cascade de suppression d'un sprint — ne dispatch rien, renvoie l'état résultant à appliquer. */
+export function deleteSprintCascade(state: CadenceState, sprintId: string): SprintDeletionResult {
+  const detached = state.items.filter(i => i.sprintId === sprintId)
+  const items = state.items.map(i =>
+    i.sprintId === sprintId ? { ...i, status: 'backlog', sprintId: null } : i
+  )
+  const sprints = state.sprints.filter(s => s.id !== sprintId)
+  const goal = (state.roadmap || []).find(g => g.sprintId === sprintId)
+  const roadmap = (state.roadmap || []).filter(g => g.sprintId !== sprintId)
+  const removedRetro = state.retroSessions.filter(s => s.sprintId === sprintId)
+  const retroSessions = state.retroSessions.filter(s => s.sprintId !== sprintId)
+  const removedSr = (state.sprintReviewSessions ?? []).filter(s => s.sprintId === sprintId)
+  const sprintReviewSessions = (state.sprintReviewSessions ?? []).filter(s => s.sprintId !== sprintId)
+  return {
+    sprints, items, roadmap, retroSessions, sprintReviewSessions,
+    detachedItemIds: detached.map(i => i.id),
+    deletedGoalId: goal?.id ?? null,
+    deletedRetroSessionIds: removedRetro.map(s => s.id),
+    deletedSrSessionIds: removedSr.map(s => s.id),
+  }
 }
 
 /** Construit l'entrée d'Historique correspondant à une transition de cycle de vie de sprint. */

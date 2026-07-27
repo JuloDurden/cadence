@@ -65,3 +65,36 @@ test.describe('Planning', () => {
   });
 
 });
+
+test.describe('Planning — Suppression d\'un sprint (2026-07-27)', () => {
+
+  test('un sprint nouvellement créé (vide, non actif, non clôturé) peut être supprimé', async ({ page }) => {
+    await goTo(page, '/planning');
+    const before = await page.locator('.planning-col').count();
+    await page.getByRole('button', { name: 'Sprint', exact: true }).click();
+    await page.waitForTimeout(300);
+    expect(await page.locator('.planning-col').count()).toBe(before + 1);
+
+    const newCol = page.locator('.planning-col').last();
+    await expect(newCol.locator('button[title="Supprimer le sprint"]')).toBeVisible();
+    page.on('dialog', d => d.accept());
+    await newCol.locator('button[title="Supprimer le sprint"]').click();
+    await page.waitForTimeout(300);
+    expect(await page.locator('.planning-col').count()).toBe(before);
+  });
+
+  test('supprimer un sprint contenant des items les détache vers le Backlog plutôt que de les supprimer', async ({ page }) => {
+    await goTo(page, '/planning');
+    // Sprint 3 (index 2) n'est ni actif ni clôturé, et contient des items (voir roadmap.spec.js) —
+    // la suppression ne doit pas être bloquée par leur présence : ils sont détachés vers le Backlog.
+    const sprint3Col = page.locator('.planning-col').nth(2);
+    await expect(sprint3Col).toContainText('Tests E2E composants React v3');
+    page.on('dialog', d => d.accept());
+    await sprint3Col.locator('button[title="Supprimer le sprint"]').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('.planning-col')).toHaveCount(3);
+    await goTo(page, '/backlog');
+    await expect(page.locator('.page-content')).toContainText('Tests E2E composants React v3');
+  });
+
+});

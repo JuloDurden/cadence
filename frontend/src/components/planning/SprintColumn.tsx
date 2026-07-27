@@ -22,6 +22,7 @@ interface Props {
   onActivate: (sprintId: string) => void
   onClose: (sprintId: string) => void
   onReopen: (sprintId: string) => void
+  onDelete: (sprintId: string) => void
   onUpdateCapacity: (sprintId: string, capacity: number) => void
 }
 
@@ -38,6 +39,10 @@ function Ico({ d, size = 12, style }: { d: string; size?: number; style?: React.
 const ICO_CALENDAR  = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
 const ICO_PENCIL    = '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>'
 const ICO_UMBRELLA  = '<path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/>'
+const ICO_TRASH =
+  '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>' +
+  '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' +
+  '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>'
 
 const BTN: React.CSSProperties = {
   fontSize: 10, padding: '2px 8px', border: '1px solid var(--border)',
@@ -50,11 +55,14 @@ const BTN_PRIMARY: React.CSSProperties = {
 const BTN_DANGER: React.CSSProperties = {
   ...BTN, color: '#b91c1c', borderColor: '#fca5a5',
 }
+const BTN_DANGER_ICON: React.CSSProperties = {
+  ...BTN_DANGER, padding: '2px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+}
 
 export function SprintColumn({
   sprint, items, state, isOver, isActive, highlightClient, highlightType,
   onDragStart, onDragGroup, onDragOver, onDrop, onEdit, onUpdateDates,
-  onActivate, onClose, onReopen, onUpdateCapacity,
+  onActivate, onClose, onReopen, onDelete, onUpdateCapacity,
 }: Props) {
   const [editDates, setEditDates] = useState(false)
   const [draftStart, setDraftStart] = useState(sprint.startDate)
@@ -164,7 +172,13 @@ export function SprintColumn({
               <button style={BTN_DANGER} onClick={() => onClose(sprint.id)}>Clôturer</button>
             </>
           ) : (
-            <button style={BTN_PRIMARY} onClick={() => onActivate(sprint.id)}>▶ Activer</button>
+            <>
+              <button style={BTN_PRIMARY} onClick={() => onActivate(sprint.id)}>▶ Activer</button>
+              <button style={BTN_DANGER_ICON} title="Supprimer le sprint" data-testid={`btn-delete-sprint-${sprint.id}`}
+                onClick={() => onDelete(sprint.id)}>
+                <Ico d={ICO_TRASH} size={11} />
+              </button>
+            </>
           )}
         </div>
 

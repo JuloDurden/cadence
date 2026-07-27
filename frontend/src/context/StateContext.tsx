@@ -12,6 +12,7 @@ const UNDOABLE = new Set([
   'UPDATE_SETTINGS','UPDATE_KANBAN_COLS',
   'ADD_ROADMAP_GOAL','UPDATE_ROADMAP_GOAL','DELETE_ROADMAP_GOAL',
   'ADD_ABSENCE','UPDATE_ABSENCE','DELETE_ABSENCE',
+  'DELETE_RETRO_SESSION','DELETE_SR_SESSION',
 ])
 
 type Action =
@@ -24,6 +25,7 @@ type Action =
   | { type: 'DELETE_SPRINT'; payload: string }
   | { type: 'UPSERT_DAILY_ENTRY'; payload: import('../types').DailyEntry }
   | { type: 'UPSERT_RETRO_SESSION'; payload: import('../types').RetroSession }
+  | { type: 'DELETE_RETRO_SESSION'; payload: string }
   | { type: 'ADD_CLIENT'; payload: import('../types').Client }
   | { type: 'UPDATE_CLIENT'; payload: import('../types').Client }
   | { type: 'DELETE_CLIENT'; payload: string }
@@ -69,6 +71,7 @@ type Action =
   | { type: 'SET_NNL_LAYERS'; payload: import('../types').NNLLayer[] }
   // Sprint Review
   | { type: 'UPSERT_SR_SESSION'; payload: import('../types').SprintReviewSession }
+  | { type: 'DELETE_SR_SESSION'; payload: string }
   | { type: 'ADD_SR_ARCHIVE';    payload: import('../types').SprintReviewArchive }
   | { type: 'DELETE_SR_ARCHIVE'; payload: string }
   // Champs édités frappe par frappe (Note PO, Raison du non-achèvement, Notes globales) : la
@@ -195,10 +198,12 @@ function reducer(state: CadenceState, action: Action): CadenceState {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }
     }
+    case 'DELETE_RETRO_SESSION': return { ...state, retroSessions: state.retroSessions.filter(s => s.id !== action.payload) }
     case 'UPSERT_SR_SESSION': {
       const sessions = (state.sprintReviewSessions ?? []).filter(s => s.id !== action.payload.id)
       return { ...state, sprintReviewSessions: [...sessions, action.payload] }
     }
+    case 'DELETE_SR_SESSION': return { ...state, sprintReviewSessions: (state.sprintReviewSessions ?? []).filter(s => s.id !== action.payload) }
     case 'ADD_SR_ARCHIVE': return { ...state, sprintReviewArchives: [...(state.sprintReviewArchives ?? []), action.payload] }
     case 'DELETE_SR_ARCHIVE': return { ...state, sprintReviewArchives: (state.sprintReviewArchives ?? []).filter(a => a.id !== action.payload) }
     case 'UPDATE_SR_ITEM_RECORD': {

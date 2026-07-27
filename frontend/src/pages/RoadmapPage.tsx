@@ -5,7 +5,7 @@ import { Header } from '../components/layout/Header'
 import { computeSprintEndDate, effectiveCapacity, teamCapacity } from '../utils/sprintCapacity'
 import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
-import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems } from '../utils/sprintLifecycle'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import type { RoadmapGoal } from '../types'
@@ -69,6 +69,10 @@ const ICO_ZAP =
   '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>'
 const ICO_CLOCK =
   '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'
+const ICO_TRASH =
+  '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>' +
+  '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' +
+  '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>'
 
 // Vue Sprints — icône custom (fournie par l'utilisateur)
 // viewBox: 0 250 1650 1100  (x: 0→1650, y: 250→1350)
@@ -147,6 +151,39 @@ export function RoadmapPage() {
     const historyEntry = sprintLifecycleHistoryEntry('reopen', updated, userName)
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     saveToServer(withHistoryEntry({ ...state, sprints: updatedSprints }, historyEntry))
+  }
+  function handleDeleteSprint(sprintId: string) {
+    const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
+    const blockReason = getSprintDeletionBlockReason(state, sprintId)
+    if (blockReason) { alert(blockReason); return }
+    const cascade = deleteSprintCascade(state, sprintId)
+    const impacts: string[] = []
+    if (cascade.deletedGoalId) impacts.push("son objectif de sprint")
+    if (cascade.deletedRetroSessionIds.length > 0) impacts.push("sa rétrospective en cours")
+    if (cascade.deletedSrSessionIds.length > 0) impacts.push("sa Sprint Review en cours")
+    const impactMsg = impacts.length > 0 ? ` Ceci supprimera aussi : ${impacts.join(', ')}.` : ''
+    const itemMsg = cascade.detachedItemIds.length > 0
+      ? `\n\n${cascade.detachedItemIds.length} item(s) encore assigné(s) seront déplacés vers le Backlog.`
+      : ''
+    if (!confirm(`Supprimer définitivement le Sprint ${sp.number} (${sp.label}) ?${impactMsg}${itemMsg}\n\nLes archives déjà clôturées ne sont pas affectées.`)) return
+    dispatch({ type: 'DELETE_SPRINT', payload: sprintId })
+    cascade.detachedItemIds.forEach(id => {
+      const item = cascade.items.find(i => i.id === id)
+      if (item) dispatch({ type: 'UPDATE_ITEM', payload: item })
+    })
+    if (cascade.deletedGoalId) dispatch({ type: 'DELETE_ROADMAP_GOAL', payload: cascade.deletedGoalId })
+    cascade.deletedRetroSessionIds.forEach(id => dispatch({ type: 'DELETE_RETRO_SESSION', payload: id }))
+    cascade.deletedSrSessionIds.forEach(id => dispatch({ type: 'DELETE_SR_SESSION', payload: id }))
+    const historyEntry = sprintLifecycleHistoryEntry('delete', sp, userName)
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
+      ...state,
+      sprints: cascade.sprints,
+      items: cascade.items,
+      roadmap: cascade.roadmap,
+      retroSessions: cascade.retroSessions,
+      sprintReviewSessions: cascade.sprintReviewSessions,
+    }, historyEntry))
   }
 
   const roadmapMap = new Map((state.roadmap || []).map(g => [g.sprintId, g]))
@@ -343,11 +380,20 @@ export function RoadmapPage() {
                       <ViewIco d={ICO_LOCK} />
                     </button>
                   ) : (
-                    <button onClick={e => { e.stopPropagation(); handleActivate(sprint.id) }} title="Activer le sprint"
-                      style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
-                        padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
-                      <ViewIco d={ICO_POWER} />
-                    </button>
+                    <>
+                      <button onClick={e => { e.stopPropagation(); handleActivate(sprint.id) }} title="Activer le sprint"
+                        style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                          padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                        <ViewIco d={ICO_POWER} />
+                      </button>
+                      <div style={{ width: 1, background: 'rgba(255,255,255,.35)', flexShrink: 0 }} />
+                      <button onClick={e => { e.stopPropagation(); handleDeleteSprint(sprint.id) }} title="Supprimer le sprint"
+                        data-testid={`btn-delete-sprint-${sprint.id}`}
+                        style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                          padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                        <ViewIco d={ICO_TRASH} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

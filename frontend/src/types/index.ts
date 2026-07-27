@@ -408,6 +408,8 @@ export type HistoryEventType =
   | 'item_assignee' | 'item_sprint_change'
   // Archivage d'une session (Daily / Sprint Review / Rétrospective) — Chantier B, tranches Daily/Sprint Review/Retrospective
   | 'daily_archive' | 'sprint_review_archive' | 'retro_archive'
+  // Suppression d'un sprint vide, non actif, non clôturé (Roadmap / Release Planning)
+  | 'sprint_delete'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string

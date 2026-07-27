@@ -10,7 +10,7 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { computeSprintEndDate, teamCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
-import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems } from '../utils/sprintLifecycle'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import type { Item, Sprint, HistoryEntry } from '../types'
@@ -149,6 +149,41 @@ export function PlanningPage() {
     const historyEntry = sprintLifecycleHistoryEntry('reopen', updated, userName)
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     saveToServer(withHistoryEntry({ ...state, sprints: updatedSprints }, historyEntry))
+  }
+
+  function handleDeleteSprint(sprintId: string) {
+    const sp = state.sprints.find(s => s.id === sprintId)
+    if (!sp) return
+    const blockReason = getSprintDeletionBlockReason(state, sprintId)
+    if (blockReason) { alert(blockReason); return }
+    const cascade = deleteSprintCascade(state, sprintId)
+    const impacts: string[] = []
+    if (cascade.deletedGoalId) impacts.push("son objectif de sprint")
+    if (cascade.deletedRetroSessionIds.length > 0) impacts.push("sa rétrospective en cours")
+    if (cascade.deletedSrSessionIds.length > 0) impacts.push("sa Sprint Review en cours")
+    const impactMsg = impacts.length > 0 ? ` Ceci supprimera aussi : ${impacts.join(', ')}.` : ''
+    const itemMsg = cascade.detachedItemIds.length > 0
+      ? `\n\n${cascade.detachedItemIds.length} item(s) encore assigné(s) seront déplacés vers le Backlog.`
+      : ''
+    if (!confirm(`Supprimer définitivement le Sprint ${sp.number} (${sp.label}) ?${impactMsg}${itemMsg}\n\nLes archives déjà clôturées ne sont pas affectées.`)) return
+    dispatch({ type: 'DELETE_SPRINT', payload: sprintId })
+    cascade.detachedItemIds.forEach(id => {
+      const item = cascade.items.find(i => i.id === id)
+      if (item) dispatch({ type: 'UPDATE_ITEM', payload: item })
+    })
+    if (cascade.deletedGoalId) dispatch({ type: 'DELETE_ROADMAP_GOAL', payload: cascade.deletedGoalId })
+    cascade.deletedRetroSessionIds.forEach(id => dispatch({ type: 'DELETE_RETRO_SESSION', payload: id }))
+    cascade.deletedSrSessionIds.forEach(id => dispatch({ type: 'DELETE_SR_SESSION', payload: id }))
+    const historyEntry = sprintLifecycleHistoryEntry('delete', sp, userName)
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
+      ...state,
+      sprints: cascade.sprints,
+      items: cascade.items,
+      roadmap: cascade.roadmap,
+      retroSessions: cascade.retroSessions,
+      sprintReviewSessions: cascade.sprintReviewSessions,
+    }, historyEntry))
   }
 
   function handleUpdateCapacity(sprintId: string, capacity: number) {
@@ -332,6 +367,7 @@ export function PlanningPage() {
                   onActivate={handleActivate}
                   onClose={handleClose}
                   onReopen={handleReopen}
+                  onDelete={handleDeleteSprint}
                   onUpdateCapacity={handleUpdateCapacity}
                 />
               ))}

@@ -156,3 +156,53 @@ test.describe('Roadmap — Groupement Epic dans les cartes sprint (v0.86)', () =
   });
 
 });
+
+test.describe('Roadmap — Suppression d\'un sprint (2026-07-27)', () => {
+
+  test('le bouton Supprimer n\'apparaît que pour un sprint non actif et non clôturé', async ({ page }) => {
+    await goTo(page, '/roadmap');
+    const cards = page.locator('.roadmap-goal');
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const card = cards.nth(i);
+      const isClosed = await card.locator('text=Clôturé').count() > 0;
+      const isActive = await card.locator('text=Actif').count() > 0;
+      const delBtn = card.locator('button[title="Supprimer le sprint"]');
+      if (isClosed || isActive) {
+        await expect(delBtn).toHaveCount(0);
+      } else {
+        await expect(delBtn).toHaveCount(1);
+      }
+    }
+  });
+
+  test('un sprint nouvellement créé (vide, non actif, non clôturé) peut être supprimé', async ({ page }) => {
+    await goTo(page, '/roadmap');
+    const before = await page.locator('.roadmap-goal').count();
+    await page.locator('[data-testid="btn-add-sprint"]').click();
+    await page.waitForTimeout(300);
+    expect(await page.locator('.roadmap-goal').count()).toBe(before + 1);
+
+    const newCard = page.locator('.roadmap-goal').last();
+    page.on('dialog', d => d.accept());
+    await newCard.locator('button[title="Supprimer le sprint"]').click();
+    await page.waitForTimeout(300);
+    expect(await page.locator('.roadmap-goal').count()).toBe(before);
+  });
+
+  test('supprimer un sprint contenant des items les détache vers le Backlog plutôt que de les supprimer', async ({ page }) => {
+    await goTo(page, '/roadmap');
+    // Sprint 3 (index 2) n'est ni actif (Sprint 2 l'est) ni clôturé, et contient FAX-026/FAX-013 —
+    // la suppression ne doit pas être bloquée par la présence d'items : ils sont détachés vers le Backlog.
+    const sprint3Card = page.locator('.roadmap-goal').nth(2);
+    await expect(sprint3Card).toContainText('Tests E2E composants React v3');
+    page.on('dialog', d => d.accept());
+    await sprint3Card.locator('button[title="Supprimer le sprint"]').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('.roadmap-goal')).toHaveCount(3);
+    // L'item n'a pas été supprimé avec le sprint : il doit réapparaître dans le Backlog
+    await goTo(page, '/backlog');
+    await expect(page.locator('.page-content')).toContainText('Tests E2E composants React v3');
+  });
+
+});
