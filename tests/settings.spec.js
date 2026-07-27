@@ -42,4 +42,21 @@ test.describe('Réglages', () => {
     await expect(page.getByRole('button', { name: 'Exporter JSON' })).toBeVisible();
   });
 
+  test('affiche la section Colonnes Kanban avec un picker de couleur par colonne', async ({ page }) => {
+    await goTo(page, '/settings');
+    await expect(page.getByText('Colonnes Kanban')).toBeVisible();
+    await expect(page.locator('[data-testid="color-picker-trigger"]').first()).toBeVisible();
+  });
+
+  test('cliquer le picker de couleur ouvre la palette prédéfinie', async ({ page }) => {
+    await goTo(page, '/settings');
+    await page.locator('[data-testid="color-picker-trigger"]').first().click();
+    const popover = page.locator('[data-testid="color-picker-popover"]');
+    await expect(popover).toBeVisible();
+    await expect(popover.locator('[data-testid="color-picker-swatch"]')).toHaveCount(13);
+    // Choisir une couleur de la palette referme le popover
+    await popover.locator('[data-testid="color-picker-swatch"]').first().click();
+    await expect(popover).not.toBeVisible();
+  });
+
 });

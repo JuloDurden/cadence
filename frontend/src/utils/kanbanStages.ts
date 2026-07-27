@@ -47,3 +47,28 @@ export const EXTRA_STAGES: KanbanCol[] = [
 export function statusOptionsForItemModal(kanbanCols: KanbanCol[]): KanbanCol[] {
   return kanbanCols.some(c => c.id === 'cancelled') ? kanbanCols : [...kanbanCols, CANCELLED_COL]
 }
+
+/**
+ * Palette "liée aux statuts" pour le color picker des colonnes Kanban (Réglages, 2026-07-27,
+ * sur demande explicite de l'utilisateur — la palette générique du canevas NNL n'avait pas de
+ * rapport avec les couleurs réellement utilisées par l'app). Reprend les couleurs canoniques
+ * des statuts de base (`demo.ts` — todo/doing/done/staging/delivered, dupliquées ici car non
+ * exportées séparément de `DEMO_STATE`) et des statuts optionnels (`EXTRA_STAGES` ci-dessus),
+ * pour que choisir une couleur de colonne rappelle un statut existant plutôt qu'une teinte
+ * arbitraire de palette de dessin.
+ */
+export const STATUS_COLOR_PALETTE: { color: string; label: string }[] = [
+  { color: '#9ca3af', label: 'Backlog' },
+  { color: '#6b7280', label: 'À faire' },
+  { color: '#d97706', label: 'En cours' },
+  { color: '#0891b2', label: 'En recette' },
+  { color: '#8b5cf6', label: 'En révision' },
+  { color: '#3b82f6', label: 'En test' },
+  { color: '#f59e0b', label: 'En attente' },
+  { color: '#ef4444', label: 'Bloqué' },
+  { color: '#ec4899', label: 'Validation' },
+  { color: '#16a34a', label: 'Terminé' },
+  { color: '#0d9488', label: 'Livré' },
+  { color: '#78716c', label: 'Ajourné' },
+  { color: '#000000', label: 'Annulé' },
+]

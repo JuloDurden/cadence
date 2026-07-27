@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
+import { ColorPicker } from '../components/ui/ColorPicker'
+import { STATUS_COLOR_PALETTE } from '../utils/kanbanStages'
 import { BASE_TAGS } from '../data/baseTags'
 import { cascadeSprintDates } from '../utils/dates'
 import { computeSprintEndDate } from '../utils/sprintCapacity'
@@ -126,8 +128,8 @@ export function SettingsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {cols.map((col, i) => (
               <div key={col.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <input type="color" value={col.color} style={{ width: 28, height: 28, borderRadius: 4, cursor: 'pointer', border: 'none' }}
-                  onChange={e => setCols(c => c.map((x, j) => j === i ? { ...x, color: e.target.value } : x))} />
+                <ColorPicker value={col.color} palette={STATUS_COLOR_PALETTE}
+                  onChange={color => setCols(c => c.map((x, j) => j === i ? { ...x, color } : x))} />
                 <span style={{ flex: 1, fontSize: 13 }}>{col.label}</span>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, whiteSpace: 'nowrap', cursor: 'pointer' }}>
                   <input type="checkbox" checked={col.isDone}
