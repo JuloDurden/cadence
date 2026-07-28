@@ -13,6 +13,7 @@ import { cascadeSprintDates } from '../utils/dates'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
+import { useDialog } from '../context/DialogContext'
 import type { Item, Sprint, HistoryEntry } from '../types'
 
 type View = 'grid' | 'swimlanes'
@@ -56,6 +57,7 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 export function PlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { userName } = useAuth()
+  const { confirm, alert } = useDialog()
   const [view, setView] = useState<View>('grid')
   const [highlightClient, setHighlightClient] = useState('')
   const [highlightType,   setHighlightType]   = useState('')
@@ -120,15 +122,16 @@ export function PlanningPage() {
     saveToServer(historyEntry ? withHistoryEntry(payload, historyEntry) : payload)
   }
 
-  function handleClose(sprintId: string) {
+  async function handleClose(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     // Chantier G (2026-07-23) : même garde-fou que Roadmap — voir commentaire là-bas.
     const unresolved = getUnresolvedUnfinishedItems(state, sprintId)
     if (unresolved.length > 0) {
       const list = unresolved.map(i => `• ${i.key} — ${i.desc}`).join('\n')
-      alert(
-        `Impossible de clôturer ce sprint : ${unresolved.length} item(s) non terminé(s) n'ont pas encore de décision Sprint Review appliquée.\n\n${list}\n\nRendez-vous sur la Sprint Review pour statuer sur chacun (Reporter / Annuler / Redimensionner) avant de clôturer.`
+      await alert(
+        `${unresolved.length} item(s) non terminé(s) n'ont pas encore de décision Sprint Review appliquée.\n\n${list}\n\nRendez-vous sur la Sprint Review pour statuer sur chacun (Reporter / Annuler / Redimensionner) avant de clôturer.`,
+        { title: 'Impossible de clôturer ce sprint' }
       )
       return
     }
@@ -151,11 +154,11 @@ export function PlanningPage() {
     saveToServer(withHistoryEntry({ ...state, sprints: updatedSprints }, historyEntry))
   }
 
-  function handleDeleteSprint(sprintId: string) {
+  async function handleDeleteSprint(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     const blockReason = getSprintDeletionBlockReason(state, sprintId)
-    if (blockReason) { alert(blockReason); return }
+    if (blockReason) { await alert(blockReason, { title: 'Suppression impossible' }); return }
     const cascade = deleteSprintCascade(state, sprintId)
     const impacts: string[] = []
     if (cascade.deletedGoalId) impacts.push("son objectif de sprint")
@@ -165,7 +168,11 @@ export function PlanningPage() {
     const itemMsg = cascade.detachedItemIds.length > 0
       ? `\n\n${cascade.detachedItemIds.length} item(s) encore assigné(s) seront déplacés vers le Backlog.`
       : ''
-    if (!confirm(`Supprimer définitivement le Sprint ${sp.number} (${sp.label}) ?${impactMsg}${itemMsg}\n\nLes archives déjà clôturées ne sont pas affectées.`)) return
+    const ok = await confirm(
+      `Supprimer définitivement le Sprint ${sp.number} (${sp.label}) ?${impactMsg}${itemMsg}\n\nLes archives déjà clôturées ne sont pas affectées.`,
+      { title: 'Supprimer le sprint', confirmLabel: 'Supprimer', danger: true }
+    )
+    if (!ok) return
     dispatch({ type: 'DELETE_SPRINT', payload: sprintId })
     cascade.detachedItemIds.forEach(id => {
       const item = cascade.items.find(i => i.id === id)

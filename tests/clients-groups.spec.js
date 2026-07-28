@@ -150,8 +150,8 @@ test.describe('Clients — CRUD groupes depuis le panneau gauche (v0.87)', () =>
   test('supprimer un groupe existant', async ({ page }) => {
     await goTo(page, '/clients');
     const before = await page.locator('[data-testid^="group-card-"]').count();
-    page.once('dialog', d => d.accept());
     await page.locator('[data-testid="group-delete-cg2"]').click();
+    await page.locator('[data-testid="dialog-confirm"]').click();
     await expect(page.locator('[data-testid^="group-card-"]')).toHaveCount(before - 1);
   });
 

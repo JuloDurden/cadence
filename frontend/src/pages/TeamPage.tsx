@@ -6,6 +6,7 @@ import { frenchHolidays, countWorkdays } from '../data/holidays'
 import { fmtDate } from '../utils/fmt'
 import { isItemDone } from '../utils/status'
 import { findMemberAssignedItems, detachMemberReferences } from '../utils/cascadeDelete'
+import { useDialog } from '../context/DialogContext'
 import type { TeamMember, Absence, AbsenceType, Sprint } from '../types'
 
 function Svg({ d, size = 14 }: { d: string; size?: number }) {
@@ -519,6 +520,7 @@ function AbsenceModal({ absence, onSave, onClose }: AbsenceModalProps) {
 
 export function TeamPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { confirm } = useDialog()
   const [memberModal,  setMemberModal]  = useState<TeamMember | null | undefined>(undefined)
   const [absenceModal, setAbsenceModal] = useState<Absence | null | undefined>(undefined)
 
@@ -549,16 +551,14 @@ export function TeamPage() {
     setMemberModal(undefined)
   }
 
-  function handleDeleteMember(id: string) {
+  async function handleDeleteMember(id: string) {
     const assignedItems = findMemberAssignedItems(state.items, id)
     const memberAbsences = state.absences.filter(a => a.memberId === id)
     const parts: string[] = []
     if (assignedItems.length > 0) parts.push(`retiré de ${assignedItems.length} item(s) assigné(s)`)
     if (memberAbsences.length > 0) parts.push(`${memberAbsences.length} absence(s) supprimée(s)`)
-    const msg = parts.length > 0
-      ? `Supprimer ce membre ? ${parts.join(', ')}.`
-      : 'Supprimer ce membre ?'
-    if (!confirm(msg)) return
+    const msg = parts.length > 0 ? `${parts.join(', ')}.` : 'Cette action est irréversible.'
+    if (!await confirm(msg, { title: 'Supprimer ce membre ?', confirmLabel: 'Supprimer', danger: true })) return
     const cleaned = detachMemberReferences(id, state.items, state.absences, state.retroSessions)
     const affectedSessions = state.retroSessions.filter(s => s.actions.some(a => a.ownerId === id))
     dispatch({ type: 'DELETE_MEMBER', payload: id })
@@ -583,8 +583,8 @@ export function TeamPage() {
     setAbsenceModal(undefined)
   }
 
-  function handleDeleteAbsence(id: string) {
-    if (!confirm('Supprimer cette absence ?')) return
+  async function handleDeleteAbsence(id: string) {
+    if (!await confirm('Cette action est irréversible.', { title: 'Supprimer cette absence ?', confirmLabel: 'Supprimer', danger: true })) return
     dispatch({ type: 'DELETE_ABSENCE', payload: id })
   }
 

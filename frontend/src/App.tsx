@@ -20,6 +20,7 @@ import { Sidebar } from './components/layout/Sidebar'
 import { StateProvider, useCadence } from './context/StateContext'
 import { TimerProvider } from './context/TimerContext'
 import { ToastProvider } from './context/ToastContext'
+import { DialogProvider } from './context/DialogContext'
 import { useAuth } from './hooks/useAuth'
 
 // Tant que les vraies données du serveur ne sont pas arrivées, l'app affichait déjà le contenu
@@ -73,11 +74,13 @@ function AppShell() {
 function AppLayout() {
   return (
     <ToastProvider>
+    <DialogProvider>
     <TimerProvider>
       <StateProvider>
         <AppShell />
       </StateProvider>
     </TimerProvider>
+    </DialogProvider>
     </ToastProvider>
   )
 }

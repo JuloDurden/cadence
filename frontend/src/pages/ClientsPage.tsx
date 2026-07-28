@@ -6,6 +6,7 @@ import { ClientModal } from '../components/clients/ClientModal'
 import { fmtDateShort } from '../utils/dates'
 import { isItemDone } from '../utils/status'
 import { findClientItems, detachClientReferences, removeClientFromGroups } from '../utils/cascadeDelete'
+import { useDialog } from '../context/DialogContext'
 import type { Client, ClientGroup } from '../types'
 
 // ── Icônes Lucide (SVG inline) ───────────────────────────────────────────
@@ -226,6 +227,7 @@ function GroupModal({ group, clients, onSave, onClose }: {
 // ── Page principale ───────────────────────────────────────────────────────
 export function ClientsPage() {
   const { state, dispatch, saveToServer } = useCadence()
+  const { confirm } = useDialog()
   const [view, setView] = useState<'liste' | 'timeline'>('liste')
   const [modal, setModal] = useState<Client | null | undefined>(undefined)
   const [groupModal, setGroupModal] = useState<ClientGroup | null | undefined>(undefined)
@@ -275,16 +277,14 @@ export function ClientsPage() {
     saveToServer({ ...state, clients: isNew ? [...state.clients, client] : state.clients.map(c => c.id === client.id ? client : c) })
     setModal(undefined)
   }
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     const affectedItems = findClientItems(state.items, id)
     const inGroups = groups.filter(g => g.clientIds.includes(id))
     const parts: string[] = []
     if (affectedItems.length > 0) parts.push(`${affectedItems.length} item(s) passeront en "sans client"`)
     if (inGroups.length > 0) parts.push(`retiré de ${inGroups.length} groupe(s) de clients`)
-    const msg = parts.length > 0
-      ? `Supprimer ce client ? ${parts.join(', ')}.`
-      : 'Supprimer ce client ?'
-    if (!confirm(msg)) return
+    const msg = parts.length > 0 ? `${parts.join(', ')}.` : 'Cette action est irréversible.'
+    if (!await confirm(msg, { title: 'Supprimer ce client ?', confirmLabel: 'Supprimer', danger: true })) return
     dispatch({ type: 'DELETE_CLIENT', payload: id })
     affectedItems.forEach(i => dispatch({ type: 'UPDATE_ITEM', payload: { ...i, clientId: '' } }))
     inGroups.forEach(g => dispatch({ type: 'UPDATE_CLIENT_GROUP', payload: { ...g, clientIds: g.clientIds.filter(cid => cid !== id) } }))
@@ -304,8 +304,8 @@ export function ClientsPage() {
     saveToServer({ ...state, clientGroups: updated })
     setGroupModal(undefined)
   }
-  function handleDeleteGroup(id: string) {
-    if (!confirm('Supprimer ce groupe ?')) return
+  async function handleDeleteGroup(id: string) {
+    if (!await confirm('Cette action est irréversible.', { title: 'Supprimer ce groupe ?', confirmLabel: 'Supprimer', danger: true })) return
     dispatch({ type: 'DELETE_CLIENT_GROUP', payload: id })
     saveToServer({ ...state, clientGroups: groups.filter(g => g.id !== id) })
   }

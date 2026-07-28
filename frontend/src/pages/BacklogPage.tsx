@@ -7,6 +7,7 @@ import { EXTRA_STAGES } from '../utils/kanbanStages'
 import { fmtDate } from '../utils/dates'
 import { findEpicChildren, detachEpicChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
 import { withHistoryEntry } from '../utils/history'
+import { useDialog } from '../context/DialogContext'
 import type { Item, ItemType, BugSeverity, HistoryEntry } from '../types'
 
 /* ─── Error Boundary ─────────────────────────────────────────────── */
@@ -124,6 +125,7 @@ function DorDodBadge({ stat, label }: { stat: { done: number; total: number } | 
 export function BacklogPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { userName } = useAuth()
+  const { confirm } = useDialog()
   const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
   const [filterSprint,   setFilterSprint]   = useState('')
   const [filterClient,   setFilterClient]   = useState('')
@@ -291,7 +293,7 @@ export function BacklogPage() {
     // ci-dessus, son `history` ne contient donc pas encore cette entrée sans ce helper.
     saveToServer(withHistoryEntry({ ...state, items: base, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) }, historyEntry))
   }
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     const item = state.items.find(i => i.id === id)
     const isEpic = item?.type === 'epic'
     const children = isEpic ? findEpicChildren(state.items, id) : []
@@ -299,8 +301,8 @@ export function BacklogPage() {
     const parts: string[] = []
     if (children.length > 0)   parts.push(`${children.length} item(s) enfant(s) seront détaché(s) de cet epic (conservés)`)
     if (dependents.length > 0) parts.push(`retiré des dépendances de ${dependents.length} item(s)`)
-    const msg = parts.length > 0 ? `Supprimer cet item ? ${parts.join(', ')}.` : 'Supprimer cet item ?'
-    if (!confirm(msg)) return
+    const msg = parts.length > 0 ? `${parts.join(', ')}.` : 'Cette action est irréversible.'
+    if (!await confirm(msg, { title: 'Supprimer cet item ?', confirmLabel: 'Supprimer', danger: true })) return
     dispatch({ type: 'DELETE_ITEM', payload: id })
     children.forEach(c => dispatch({ type: 'UPDATE_ITEM', payload: { ...c, epicId: null } }))
     dependents.forEach(d => dispatch({ type: 'UPDATE_ITEM', payload: { ...d, deps: (d.deps ?? []).filter(x => x !== id) } }))

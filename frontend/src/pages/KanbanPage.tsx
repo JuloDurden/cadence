@@ -7,6 +7,7 @@ import { effectiveCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
+import { useDialog } from '../context/DialogContext'
 import { BASE_COL_IDS, WORKFLOW_ORDER, EXTRA_STAGES } from '../utils/kanbanStages'
 import type { Item, KanbanCol, HistoryEntry } from '../types'
 
@@ -67,6 +68,7 @@ function sprintTheme(label: string): string {
 export function KanbanPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
   const { userName } = useAuth()
+  const { confirm } = useDialog()
 
   const [sprintId, setSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
   // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
@@ -273,8 +275,8 @@ export function KanbanPage() {
     setShowAddCol(false)
   }
 
-  function handleDeleteCol(colId: string) {
-    if (!confirm('Retirer cette colonne du board ?')) return
+  async function handleDeleteCol(colId: string) {
+    if (!await confirm('Retirer cette colonne du board ?', { confirmLabel: 'Retirer', danger: true })) return
     const newCols = state.kanbanCols.filter(c => c.id !== colId)
 
     // Backlog is a virtual view — items keep their status, just hide the column

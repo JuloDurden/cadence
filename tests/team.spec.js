@@ -49,9 +49,9 @@ test.describe('Equipe (Team)', () => {
     await page.fill('input[placeholder="Prénom Nom"]', 'Charlie Temp');
     await page.click('button:has-text("Créer")');
     await expect(page.locator('text=Charlie Temp')).toBeVisible();
-    page.on('dialog', d => d.accept());
     const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Charlie Temp' });
     await card.locator('button[title="Supprimer"]').click();
+    await page.locator('[data-testid="dialog-confirm"]').click();
     await expect(page.locator('text=Charlie Temp')).not.toBeVisible();
   });
 

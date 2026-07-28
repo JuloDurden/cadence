@@ -15,7 +15,14 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.90.15',date:'27 Juillet 2026',dateISO:'2026-07-27',title:'Roadmap / Release Planning — suppression d\'un sprint',current:true,changes:[
+  {version:'v0.91',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Boîte de dialogue propre à l\'outil (Phase 0 — roadmap v1)',current:true,changes:[
+    {tag:'feat', text:'Nouveau système de boîte de dialogue (confirmation, alerte), parallèle au système de toasts existant, qui remplace les confirm()/alert() natifs du navigateur sur toute l\'application'},
+    {tag:'feat', text:'Confirmations destructrices (suppression de sprint, membre, client, groupe, colonne Kanban, absence, archive Daily...) affichées dans une boîte au style de l\'app, avec bouton d\'action en rouge'},
+    {tag:'ux',   text:'Messages transitoires sans décision à prendre (copie, import, archivage réussi) basculés vers le système de toasts existant plutôt que vers une boîte bloquante, pour rester cohérent avec l\'usage déjà en place sur Vision/NNL'},
+    {tag:'chore', text:'Premier item de la Phase 0 de la roadmap vers la v1 (docs/roadmap-v1.md)'},
+    {tag:'test', text:'Tests Playwright existants adaptés (team/roadmap/planning) + nouveau tests/dialog.spec.js pour la boîte elle-même'},
+  ]},
+  {version:'v0.90.15',date:'27 Juillet 2026',dateISO:'2026-07-27',title:'Roadmap / Release Planning — suppression d\'un sprint',current:false,changes:[
     {tag:'feat', text:'Nouveau bouton "Supprimer" sur les cartes de sprint (Roadmap) et les colonnes de sprint (Release Planning), disponible uniquement pour un sprint ni actif ni clôturé — bloqué par une alerte explicative sinon'},
     {tag:'feat', text:'Si des items sont encore assignés au sprint supprimé, ils sont automatiquement déplacés vers le Backlog (jamais supprimés) ; le nombre concerné est annoncé dans la confirmation avant suppression'},
     {tag:'feat', text:'La suppression retire aussi l\'objectif de sprint associé et les sessions Rétrospective/Sprint Review "vivantes" liées, sans jamais toucher aux archives ; confirmation récapitulant l\'impact avant suppression effective'},

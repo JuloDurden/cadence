@@ -7,6 +7,8 @@ import type { DailyEntry, DailyArchive, TeamMember, HistoryEntry } from '../type
 import { getCurrentSprint } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
+import { useToast } from '../context/ToastContext'
+import { useDialog } from '../context/DialogContext'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
@@ -58,6 +60,8 @@ function today() { return new Date().toISOString().slice(0, 10) }
 export function DailyPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { userName } = useAuth()
+  const { showToast } = useToast()
+  const { confirm } = useDialog()
   const { duration, seconds, running, done, setDuration, toggle, reset } = useTimer()
   const date = useMemo(() => today(), [])
   const [todayOpen, setTodayOpen] = useState(true)
@@ -108,18 +112,18 @@ export function DailyPage() {
       lines.push('')
     })
     navigator.clipboard.writeText(lines.join('\n'))
-      .then(() => alert('Résumé copié'))
-      .catch(() => alert('Impossible de copier'))
+      .then(() => showToast('Résumé copié'))
+      .catch(() => showToast('Impossible de copier', 'error'))
   }
 
   // Archiver et vider les saisies du jour en une seule action atomique — auparavant deux
   // boutons séparés et non liés ("Archiver" / "Effacer"), qui pouvaient être utilisés
   // indépendamment l'un de l'autre : oublier "Effacer" laissait les saisies s'accumuler
   // en double avec l'archive, oublier "Archiver" perdait les saisies sans trace.
-  function archiveDaily() {
+  async function archiveDaily() {
     const todayEntries = state.dailyEntries.filter(e => e.date === date)
-    if (todayEntries.length === 0) { alert("Aucune saisie à archiver aujourd'hui."); return }
-    if (!window.confirm('Archiver ce daily et vider les saisies du jour ?')) return
+    if (todayEntries.length === 0) { showToast("Aucune saisie à archiver aujourd'hui.", 'info'); return }
+    if (!await confirm('Les saisies du jour seront vidées après archivage.', { title: 'Archiver ce daily ?', confirmLabel: 'Archiver' })) return
     const archive: DailyArchive = {
       id: crypto.randomUUID(),
       date,
@@ -150,11 +154,11 @@ export function DailyPage() {
       dailyArchives: [...(state.dailyArchives ?? []), archive],
       dailyEntries: state.dailyEntries.filter(e => e.date !== date),
     }, historyEntry))
-    alert('Daily archivé.')
+    showToast('Daily archivé.')
   }
 
-  function deleteArchive(id: string) {
-    if (!window.confirm('Supprimer cette archive ?')) return
+  async function deleteArchive(id: string) {
+    if (!await confirm('Cette action est irréversible.', { title: 'Supprimer cette archive ?', confirmLabel: 'Supprimer', danger: true })) return
     const archive = state.dailyArchives?.find(a => a.id === id)
     dispatch({ type: 'DELETE_DAILY_ARCHIVE', payload: id })
     // Réutilise le type `daily_archive` (même concept que l'archivage, juste l'inverse)
@@ -183,8 +187,8 @@ export function DailyPage() {
       lines.push('')
     })
     navigator.clipboard.writeText(lines.join('\n'))
-      .then(() => alert('Résumé copié'))
-      .catch(() => alert('Impossible de copier'))
+      .then(() => showToast('Résumé copié'))
+      .catch(() => showToast('Impossible de copier', 'error'))
   }
 
   function exportMarkdown(archive: DailyArchive) {

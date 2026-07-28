@@ -184,8 +184,8 @@ test.describe('Roadmap — Suppression d\'un sprint (2026-07-27)', () => {
     expect(await page.locator('.roadmap-goal').count()).toBe(before + 1);
 
     const newCard = page.locator('.roadmap-goal').last();
-    page.on('dialog', d => d.accept());
     await newCard.locator('button[title="Supprimer le sprint"]').click();
+    await page.locator('[data-testid="dialog-confirm"]').click();
     await page.waitForTimeout(300);
     expect(await page.locator('.roadmap-goal').count()).toBe(before);
   });
@@ -196,8 +196,8 @@ test.describe('Roadmap — Suppression d\'un sprint (2026-07-27)', () => {
     // la suppression ne doit pas être bloquée par la présence d'items : ils sont détachés vers le Backlog.
     const sprint3Card = page.locator('.roadmap-goal').nth(2);
     await expect(sprint3Card).toContainText('Tests E2E composants React v3');
-    page.on('dialog', d => d.accept());
     await sprint3Card.locator('button[title="Supprimer le sprint"]').click();
+    await page.locator('[data-testid="dialog-confirm"]').click();
     await page.waitForTimeout(300);
     await expect(page.locator('.roadmap-goal')).toHaveCount(3);
     // L'item n'a pas été supprimé avec le sprint : il doit réapparaître dans le Backlog
