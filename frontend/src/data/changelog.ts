@@ -15,7 +15,14 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.91.1',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Release Planning — groupe Epic repliable',current:true,changes:[
+  {version:'v0.91.2',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Raccourcis clavier Ctrl+Z / Ctrl+Y (undo/redo global)',current:true,changes:[
+    {tag:'feat', text:'Ctrl+Z / Ctrl+Y (et Ctrl+Shift+Z) déclenchent désormais le undo/redo global partout dans l\'application, en plus des boutons du Header'},
+    {tag:'ux',   text:'Le raccourci global reste inactif tant que le canevas NNL est affiché : NNL garde son propre stack isolé et ses propres raccourcis, pour annuler un tracé de stylo à la volée sans dépiler l\'historique global (post-its, sprints, items...) — décision explicite de ne pas unifier les deux stacks'},
+    {tag:'fix',  text:'Le raccourci ne se déclenche pas quand le focus est dans un champ de saisie (input, textarea, contenteditable), pour ne pas gêner l\'annulation native du navigateur dans le texte'},
+    {tag:'chore', text:'Item de la Phase 0 de la roadmap vers la v1 (docs/roadmap-v1.md) ; l\'unification NNL/global (Chantier H) est explicitement abandonnée, pas seulement reportée'},
+    {tag:'test', text:'3 tests Playwright ajoutés (tests/undo-redo-shortcut.spec.js) : annulation/rétablissement d\'un sprint créé, inactif dans un champ de saisie, inactif pendant que NNL est affiché'},
+  ]},
+  {version:'v0.91.1',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Release Planning — groupe Epic repliable',current:false,changes:[
     {tag:'feat', text:'Chaque groupe Epic (Release Planning, Swimlanes) peut désormais être replié/déplié via un chevron dans son en-tête, pour mieux distinguer ses US des items suivants du même sprint'},
     {tag:'fix',  text:'Le badge "N US" reste affiché même groupe replié, pour garder le nombre réel d\'items toujours visible'},
     {tag:'fix',  text:'Corrigé le vrai bug d\'affichage : un groupe Epic déplié pouvait se faire rétrécir par flexbox (flex-shrink par défaut) dans une colonne de sprint pleine, coupant visuellement ses derniers items ; les groupes Epic et les cartes ne se rétrécissent plus, et un dégradé de bord signale quand il reste du contenu à faire défiler'},

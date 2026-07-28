@@ -22,6 +22,7 @@ import { TimerProvider } from './context/TimerContext'
 import { ToastProvider } from './context/ToastContext'
 import { DialogProvider } from './context/DialogContext'
 import { useAuth } from './hooks/useAuth'
+import { useGlobalUndoRedoShortcut } from './hooks/useGlobalUndoRedoShortcut'
 
 // Tant que les vraies données du serveur ne sont pas arrivées, l'app affichait déjà le contenu
 // (Sidebar + pages) en s'appuyant sur DEMO_STATE, sans empêcher de saisir quoi que ce soit dedans.
@@ -30,7 +31,8 @@ import { useAuth } from './hooks/useAuth'
 // constaté sur Sprint Review le 2026-07-22 (voir docs/corrections.md), mais la course concerne en
 // réalité toute l'application. On bloque donc l'affichage éditable tant que stateLoaded est faux.
 function AppShell() {
-  const { stateLoaded } = useCadence()
+  const { stateLoaded, undo, redo, canUndo, canRedo } = useCadence()
+  useGlobalUndoRedoShortcut({ undo, redo, canUndo, canRedo })
 
   if (!stateLoaded) {
     return (
