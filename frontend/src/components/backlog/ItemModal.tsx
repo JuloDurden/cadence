@@ -7,7 +7,6 @@ import { statusOptionsForItemModal } from '../../utils/kanbanStages'
 /* ─── Constants ──────────────────────────────────────────────────── */
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
   { value: 'story', label: 'Story'  },
-  { value: 'epic',  label: 'Epic'   },
   { value: 'bug',   label: 'Bug'    },
   { value: 'task',  label: 'Tâche'  },
   { value: 'spike', label: 'Spike'  },
@@ -104,9 +103,9 @@ function getVisibleTabs(type: ItemType): Tab[] {
   const tabs: Tab[] = ['general']
   if (type !== 'task') tabs.push('us')        // Tâche : pas d'US/critères/objectif
   tabs.push('deps')
-  if (type === 'story' || type === 'epic' || type === 'bug') tabs.push('priority')
+  if (type === 'story' || type === 'bug') tabs.push('priority')
   tabs.push('team')
-  if (type === 'story' || type === 'epic' || type === 'bug') tabs.push('dordod')
+  if (type === 'story' || type === 'bug') tabs.push('dordod')
   tabs.push('notes')
   return tabs
 }
@@ -278,7 +277,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     }
   }
 
-  const epicOptions = state.items.filter(i => (i.type ?? 'story') === 'epic')
+  const epicOptions = state.hierarchyNodes.filter(n => n.level === 'epic')
   const depResults = depSearch.length >= 2
     ? state.items.filter(i => i.id !== item?.id && !deps.includes(i.id) &&
         (i.key.toLowerCase().includes(depSearch.toLowerCase()) || i.desc.toLowerCase().includes(depSearch.toLowerCase()))
@@ -415,15 +414,15 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
       assignees, tags, type: iType,
       severity: (iType === 'bug' && severity) ? severity as BugSeverity : undefined,
       epicId: epicId || null,
-      role: (iType === 'story' || iType === 'epic' || iType === 'spike') ? role : undefined,
-      need: (iType === 'story' || iType === 'epic' || iType === 'spike') ? need : undefined,
-      benefit: (iType === 'story' || iType === 'epic' || iType === 'spike') ? benefit : undefined,
-      criteria: (iType === 'story' || iType === 'epic' || iType === 'bug') ? criteria : undefined,
+      role: (iType === 'story' || iType === 'spike') ? role : undefined,
+      need: (iType === 'story' || iType === 'spike') ? need : undefined,
+      benefit: (iType === 'story' || iType === 'spike') ? benefit : undefined,
+      criteria: (iType === 'story' || iType === 'bug') ? criteria : undefined,
       deps,
-      dor: (iType === 'story' || iType === 'epic' || iType === 'bug') ? dor : undefined,
-      dod: (iType === 'story' || iType === 'epic' || iType === 'bug') ? dod : undefined,
+      dor: (iType === 'story' || iType === 'bug') ? dor : undefined,
+      dod: (iType === 'story' || iType === 'bug') ? dod : undefined,
       deadline: (deadline.date && deadline.type !== 'none') ? deadline : undefined,
-      moscow: (iType === 'story' || iType === 'epic' || iType === 'bug') ? moscow || undefined : undefined,
+      moscow: (iType === 'story' || iType === 'bug') ? moscow || undefined : undefined,
       scoringFramework: framework, wsjf, rice, notes,
       createdAt: item?.createdAt ?? now,
     }
@@ -583,8 +582,8 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     /* ── USER STORY / CRITÈRES / OBJECTIF ── */
     if (tab === 'us') return (
       <div className="modal-tab-body">
-        {/* Bloc User Story — Story, Epic, Spike */}
-        {(iType === 'story' || iType === 'epic' || iType === 'spike') && (
+        {/* Bloc User Story — Story, Spike */}
+        {(iType === 'story' || iType === 'spike') && (
           <>
             <div className="us-section-label">{iType === 'spike' ? 'OBJECTIF DU SPIKE' : 'USER STORY'}</div>
             <div className="us-card">
@@ -602,8 +601,8 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           </>
         )}
 
-        {/* Bloc Critères d'acceptation — Story, Epic, Bug */}
-        {(iType === 'story' || iType === 'epic' || iType === 'bug') && (
+        {/* Bloc Critères d'acceptation — Story, Bug */}
+        {(iType === 'story' || iType === 'bug') && (
         <div style={{ marginTop: iType === 'bug' ? 0 : 24 }}>
           <div className="us-section-label">{iType === 'bug' ? 'CRITÈRES DE RÉSOLUTION (GHERKIN)' : 'CRITÈRES D\'ACCEPTATION (GHERKIN)'}</div>
           {criteria.map(c => (

@@ -1,14 +1,15 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useCadence } from '../context/StateContext'
 import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
 import { EXTRA_STAGES } from '../utils/kanbanStages'
 import { fmtDate } from '../utils/dates'
+import { HierarchyNodeModal } from '../components/backlog/HierarchyNodeModal'
 import { findEpicChildren, detachEpicChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
-import type { Item, ItemType, BugSeverity, HistoryEntry } from '../types'
+import type { Item, ItemType, BugSeverity, HistoryEntry, HierarchyNode } from '../types'
 
 /* ─── Error Boundary ─────────────────────────────────────────────── */
 class ModalErrorBoundary extends React.Component<
@@ -45,11 +46,18 @@ const PRIO_LABEL:   Record<string, string> = { critical: 'P1', high: 'P2', mediu
 const PRIO_COLOR:   Record<string, string> = { critical: '#FF2929', high: '#FF981C', medium: '#165FCC', low: '#9CC9F4' }
 const PRIO_TEXT:    Record<string, string> = { critical: '#fff', high: '#fff', medium: '#fff', low: '#0d1a33' }
 const PRIO_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
-const TYPE_LABEL: Record<ItemType, string> = { story: 'US', epic: 'Epic', bug: 'Bug', task: 'Tâche', spike: 'Spike' }
-const TYPE_BG:    Record<ItemType, string> = { story: '#165FCC18', epic: '#7c3aed18', bug: '#FF292918', task: '#6b728018', spike: '#0891b218' }
-const TYPE_FG:    Record<ItemType, string> = { story: '#165FCC',   epic: '#7c3aed',   bug: '#FF2929',   task: '#6b7280',   spike: '#0891b2'   }
+const TYPE_LABEL: Record<ItemType, string> = { story: 'US', bug: 'Bug', task: 'Tâche', spike: 'Spike' }
+const TYPE_BG:    Record<ItemType, string> = { story: '#165FCC18', bug: '#FF292918', task: '#6b728018', spike: '#0891b218' }
+const TYPE_FG:    Record<ItemType, string> = { story: '#165FCC',   bug: '#FF2929',   task: '#6b7280',   spike: '#0891b2'   }
 const SEV_LABEL:  Record<BugSeverity, string> = { critical: 'Crit.', major: 'Maj.', minor: 'Min.' }
 const SEV_COLOR:  Record<BugSeverity, string> = { critical: '#FF2929', major: '#FF981C', minor: '#165FCC' }
+
+// Menu "+ Ajouter" (Item / Epic) — mêmes styles que le menu "+ Ajouter" de ClientsPage.tsx.
+const ADD_MENU_ITEM_STYLE: React.CSSProperties = {
+  display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left',
+  background: 'none', border: 'none', cursor: 'pointer',
+  fontSize: 13, fontWeight: 600, color: 'var(--text)',
+}
 
 type GroupBy = 'sprint' | 'client' | 'type' | 'status' | 'epic' | 'none'
 
@@ -57,6 +65,7 @@ interface Group {
   id: string; label: string; sublabel?: string; color?: string
   items: Item[]; capacity?: number; used?: number
   epicSP?: number; epicFixed?: boolean; doneCount?: number
+  epicNode?: HierarchyNode
 }
 
 /* ─── SVG helpers ────────────────────────────────────────────────── */
@@ -127,6 +136,7 @@ export function BacklogPage() {
   const { userName } = useAuth()
   const { confirm } = useDialog()
   const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
+  const [modalEpic, setModalEpic] = useState<HierarchyNode | null | undefined>(undefined)
   const [filterSprint,   setFilterSprint]   = useState('')
   const [filterClient,   setFilterClient]   = useState('')
   const [filterPriority] = useState('')
@@ -138,6 +148,34 @@ export function BacklogPage() {
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [collapsedGroups,  setCollapsedGroups]  = useState<Set<string>>(new Set())
   const [hoveredId,        setHoveredId]        = useState<string | null>(null)
+
+  // Menu "+ Ajouter" (Item / Epic) — même pattern que ClientsPage.tsx ("+ Ajouter" client/groupe) :
+  // deux refs (bouton + menu) pour que le mousedown sur le menu ne le referme pas avant le click.
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [addMenuPos,  setAddMenuPos]  = useState<{ top: number; right: number } | null>(null)
+  const addBtnRef = useRef<HTMLButtonElement>(null)
+  const addMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!addMenuOpen) return
+    function handle(e: MouseEvent) {
+      if (!addBtnRef.current?.contains(e.target as Node) && !addMenuRef.current?.contains(e.target as Node)) {
+        setAddMenuOpen(false)
+        setAddMenuPos(null)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [addMenuOpen])
+
+  function openAddMenu() {
+    if (addMenuOpen) { setAddMenuOpen(false); setAddMenuPos(null); return }
+    const rect = addBtnRef.current?.getBoundingClientRect()
+    if (rect) {
+      setAddMenuOpen(true)
+      setAddMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    }
+  }
 
   /* ── dep chain: Map<itemId, depth> ── */
   const depChain = useMemo(() => {
@@ -213,7 +251,7 @@ export function BacklogPage() {
       return result
     }
     if (groupBy === 'client') return state.clients.map(c => ({ id: c.id, label: c.name, color: c.color, items: filtered.filter(i => i.clientId === c.id) })).filter(g => g.items.length)
-    if (groupBy === 'type')   return (['story','epic','bug','task','spike'] as ItemType[]).map(t => ({ id: t, label: TYPE_LABEL[t], items: filtered.filter(i => (i.type ?? 'story') === t) })).filter(g => g.items.length)
+    if (groupBy === 'type')   return (['story','bug','task','spike'] as ItemType[]).map(t => ({ id: t, label: TYPE_LABEL[t], items: filtered.filter(i => (i.type ?? 'story') === t) })).filter(g => g.items.length)
     // Chantier G (2026-07-23, complément) : basé sur `state.kanbanCols` seul, ce groupement ne
     // montrait aucun groupe pour un statut qui n'est plus (ou jamais été) une colonne active du
     // Kanban — "Annulé" étant désormais optionnel (3e complément du jour), un item annulé sans
@@ -222,60 +260,40 @@ export function BacklogPage() {
     // items) couvre ce cas comme il couvre déjà celui du filtre STATUT juste au-dessus.
     if (groupBy === 'status') return allStatusCols.map(c => ({ id: c.id, label: c.label, color: c.color, items: filtered.filter(i => i.status === c.id) })).filter(g => g.items.length)
     if (groupBy === 'epic') {
-      const allEpics = state.items.filter(i => i.type === 'epic')
-      // Chantier G (complément, 2026-07-23) : un Epic est un item comme un autre — il doit donc
-      // être soumis aux mêmes filtres (client/statut/tag/sprint/prêt) que ses enfants, pas
-      // seulement "affiché s'il a un enfant filtré". `filtered` applique déjà tous ces filtres à
-      // TOUS les items (Epics compris) ; un Epic est donc "retenu par les filtres actifs" s'il
-      // apparaît dans cette liste, indépendamment de ses enfants.
-      const matchingEpicIds = new Set(filtered.filter(i => i.type === 'epic').map(i => i.id))
+      // Phase 1 (2026-07-28) : un Epic n'est plus un Item mais un HierarchyNode (voir
+      // types/index.ts). Un Epic n'a donc plus de statut/sprint/tag/client "filtrable" au même
+      // titre qu'un item dans `filtered` (qui ne contient plus que des Items) — un groupe Epic
+      // reste affiché dès qu'il a au moins un enfant correspondant aux filtres actifs, ou
+      // toujours si aucun filtre n'est actif (comportement précédent conservé pour ce 2e cas).
+      const allEpics = state.hierarchyNodes.filter(n => n.level === 'epic')
+      const noFilterActive = !filterSprint && !filterClient && !filterPriority && !filterTag && !filterStatus && !filterReady
       const result: Group[] = allEpics.map(ep => {
         const children = state.items.filter(i => i.epicId === ep.id)
         const filteredChildren = filtered.filter(i => i.epicId === ep.id)
         const childrenSP = children.reduce((s, i) => s + i.sp, 0)
-        const epicFixed = ep.sp > 0
-        const epicSP = epicFixed ? ep.sp : childrenSP
+        const epicFixed = (ep.sp ?? 0) > 0
+        const epicSP = epicFixed ? ep.sp! : childrenSP
         const doneCount = children.filter(i => i.status === 'done').length
         const color = state.clients.find(c => c.id === ep.clientId)?.color
-        return { id: ep.id, label: ep.key, sublabel: ep.desc, color, items: filteredChildren, epicSP, epicFixed, doneCount, capacity: epicSP, used: doneCount }
+        return { id: ep.id, label: ep.key, sublabel: ep.desc, color, items: filteredChildren, epicSP, epicFixed, doneCount, capacity: epicSP, used: doneCount, epicNode: ep }
       })
-      // Un groupe Epic reste affiché si l'Epic lui-même correspond aux filtres actifs — même sans
-      // aucun enfant correspondant (un Epic "vide" au filtrage courant reste un Epic bien réel) —
-      // ou s'il a au moins un enfant correspondant (l'Epic peut alors ne pas matcher lui-même,
-      // ex. un Epic non daté rattaché malgré tout à des US filtrées). Précédent correctif du jour
-      // (`g.items.length > 0` seul) corrigeait la vraie tautologie plus haut mais perdait ce
-      // premier cas — signalé par l'utilisateur juste après coup.
-        .filter(g => g.items.length > 0 || matchingEpicIds.has(g.id))
-      const noEpic = filtered.filter(i => !i.epicId && i.type !== 'epic')
+        .filter(g => g.items.length > 0 || noFilterActive)
+      const noEpic = filtered.filter(i => !i.epicId)
       if (noEpic.length) result.push({ id: 'no-epic', label: 'Sans Epic', items: noEpic })
       return result
     }
     return [{ id: 'all', label: 'Tous les items', items: filtered }]
-  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, allStatusCols, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady])
+  }, [groupBy, filtered, state.sprints, state.clients, state.kanbanCols, state.hierarchyNodes, state.items, allStatusCols, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady])
 
-  /* ── save / delete ── */
+  /* ── save / delete (Items) ── */
   function handleSave(item: Item, keyCounters?: Record<string, number>) {
     const isNew = !state.items.find(i => i.id === item.id)
+    const base = isNew ? [...state.items, item] : state.items.map(i => i.id === item.id ? item : i)
 
-    // Cascade: epic done → tous les enfants passent à 'done'
-    const doneStatus = state.kanbanCols.find(c => c.isDone)?.id ?? 'done'
-    const epicDoneCascade = item.type === 'epic' && item.status === doneStatus
-
-    let base = isNew ? [...state.items, item] : state.items.map(i => i.id === item.id ? item : i)
-    if (epicDoneCascade) {
-      base = base.map(i => i.epicId === item.id ? { ...i, status: doneStatus } : i)
-    }
-
-    // Dispatch: item principal + enfants mis à jour
     if (isNew) {
       dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
     } else {
       dispatch({ type: 'UPDATE_ITEM', payload: item })
-    }
-    if (epicDoneCascade) {
-      base.filter(i => i.epicId === item.id).forEach(child => {
-        dispatch({ type: 'UPDATE_ITEM', payload: child })
-      })
     }
     // Historique
     const historyEntry: HistoryEntry = {
@@ -295,16 +313,12 @@ export function BacklogPage() {
   }
   async function handleDelete(id: string) {
     const item = state.items.find(i => i.id === id)
-    const isEpic = item?.type === 'epic'
-    const children = isEpic ? findEpicChildren(state.items, id) : []
     const dependents = findDependents(state.items, id)
-    const parts: string[] = []
-    if (children.length > 0)   parts.push(`${children.length} item(s) enfant(s) seront détaché(s) de cet epic (conservés)`)
-    if (dependents.length > 0) parts.push(`retiré des dépendances de ${dependents.length} item(s)`)
-    const msg = parts.length > 0 ? `${parts.join(', ')}.` : 'Cette action est irréversible.'
+    const msg = dependents.length > 0
+      ? `Retiré des dépendances de ${dependents.length} item(s).`
+      : 'Cette action est irréversible.'
     if (!await confirm(msg, { title: 'Supprimer cet item ?', confirmLabel: 'Supprimer', danger: true })) return
     dispatch({ type: 'DELETE_ITEM', payload: id })
-    children.forEach(c => dispatch({ type: 'UPDATE_ITEM', payload: { ...c, epicId: null } }))
     dependents.forEach(d => dispatch({ type: 'UPDATE_ITEM', payload: { ...d, deps: (d.deps ?? []).filter(x => x !== id) } }))
     const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
@@ -316,9 +330,68 @@ export function BacklogPage() {
     }
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     let remaining = state.items.filter(i => i.id !== id)
-    if (children.length > 0)   remaining = detachEpicChildren(remaining, id)
     if (dependents.length > 0) remaining = detachDependents(remaining, id)
     saveToServer(withHistoryEntry({ ...state, items: remaining }, historyEntry))
+  }
+
+  /* ── save / delete (Epics — HierarchyNode) ── */
+  function handleSaveEpic(node: HierarchyNode, keyCounters?: Record<string, number>) {
+    const isNew = !state.hierarchyNodes.find(n => n.id === node.id)
+
+    // Cascade conservée du modèle précédent (Epic = Item) : Epic "done" → tous ses enfants passent
+    // à 'done'. Le statut "done" du HierarchyNode se compare désormais à state.kanbanCols, comme
+    // pour un Item.
+    const doneStatus = state.kanbanCols.find(c => c.isDone)?.id ?? 'done'
+    const epicDoneCascade = node.status === doneStatus
+    let items = state.items
+    if (epicDoneCascade) {
+      items = items.map(i => i.epicId === node.id ? { ...i, status: doneStatus } : i)
+    }
+
+    if (isNew) {
+      dispatch({ type: 'ADD_HIERARCHY_NODE', payload: node, keyCounters })
+    } else {
+      dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node })
+    }
+    if (epicDoneCascade) {
+      items.filter(i => i.epicId === node.id).forEach(child => {
+        dispatch({ type: 'UPDATE_ITEM', payload: child })
+      })
+    }
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: isNew ? 'hierarchy_node_create' : 'hierarchy_node_edit',
+      timestamp: new Date().toISOString(),
+      itemKey: node.key,
+      itemDesc: node.desc,
+      sprintId: node.sprintId ?? undefined,
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    const nodes = isNew ? [...state.hierarchyNodes, node] : state.hierarchyNodes.map(n => n.id === node.id ? node : n)
+    saveToServer(withHistoryEntry({ ...state, items, hierarchyNodes: nodes, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) }, historyEntry))
+  }
+  async function handleDeleteEpic(id: string) {
+    const node = state.hierarchyNodes.find(n => n.id === id)
+    const children = findEpicChildren(state.items, id)
+    const msg = children.length > 0
+      ? `${children.length} item(s) enfant(s) seront détaché(s) de cet epic (conservés).`
+      : 'Cette action est irréversible.'
+    if (!await confirm(msg, { title: 'Supprimer cet Epic ?', confirmLabel: 'Supprimer', danger: true })) return
+    dispatch({ type: 'DELETE_HIERARCHY_NODE', payload: id })
+    children.forEach(c => dispatch({ type: 'UPDATE_ITEM', payload: { ...c, epicId: null } }))
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'hierarchy_node_delete',
+      timestamp: new Date().toISOString(),
+      itemKey: node?.key,
+      itemDesc: node?.desc,
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    const remainingNodes = state.hierarchyNodes.filter(n => n.id !== id)
+    const remainingItems = children.length > 0 ? detachEpicChildren(state.items, id) : state.items
+    saveToServer(withHistoryEntry({ ...state, items: remainingItems, hierarchyNodes: remainingNodes }, historyEntry))
   }
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
@@ -434,11 +507,34 @@ export function BacklogPage() {
         </div>
 
         <div className="hdr-ctx-sep" />
-        <button className="hdr-btn primary" data-testid="btn-new-item" style={{ gap: 5, display: 'flex', alignItems: 'center' }}
-          onClick={() => setModalItem(null)}>
-          <Svg d={ICO_PLUS} size={11} /> Nouvel Item
+        <button ref={addBtnRef} className="hdr-btn primary" data-testid="btn-add-menu" onClick={openAddMenu}
+          style={{ gap: 5, display: 'flex', alignItems: 'center' }}>
+          <Svg d={ICO_PLUS} size={11} /> Ajouter <Svg d={SVG_CHEV_D} size={11} />
         </button>
       </Header>
+
+      {/* Rendu hors du Header pour échapper à son overflow, même principe que ClientsPage.tsx */}
+      {addMenuOpen && addMenuPos && (
+        <div ref={addMenuRef} style={{
+          position: 'fixed', top: addMenuPos.top, right: addMenuPos.right, zIndex: 9999,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.18)',
+          minWidth: 160, overflow: 'hidden',
+        }}>
+          <button style={ADD_MENU_ITEM_STYLE} data-testid="menu-new-item"
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            onClick={() => { setModalItem(null); setAddMenuOpen(false); setAddMenuPos(null) }}>
+            Nouvel Item
+          </button>
+          <button style={{ ...ADD_MENU_ITEM_STYLE, borderTop: '1px solid var(--border)' }} data-testid="menu-new-epic"
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+            onClick={() => { setModalEpic(null); setAddMenuOpen(false); setAddMenuPos(null) }}>
+            Nouvel Epic
+          </button>
+        </div>
+      )}
 
       <div className="page-content">
         <table className="backlog-table" data-testid="backlog-table">
@@ -468,6 +564,7 @@ export function BacklogPage() {
               <React.Fragment key={group.id}>
                 <tr className="sprint-row">
                   <td colSpan={15}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span className="sprint-badge" style={group.color ? { borderLeft: `3px solid ${group.color}`, paddingLeft: 10 } : undefined}>
                       {groupBy === 'epic' && (
                         <button className="btn-icon" style={{ opacity: .6, marginRight: 4 }}
@@ -500,6 +597,13 @@ export function BacklogPage() {
                         {group.items.length} item{group.items.length !== 1 ? 's' : ''} · {group.epicSP === undefined ? `${group.items.reduce((s, i) => s + i.sp, 0)} SP` : ''}
                       </span>
                     </span>
+                    {group.epicNode && (
+                      <span style={{ display: 'inline-flex', gap: 2, flexShrink: 0 }}>
+                        <button className="btn-icon" onClick={() => setModalEpic(group.epicNode!)} title="Modifier l'Epic"><Svg d={SVG_EDIT} size={11} /></button>
+                        <button className="btn-icon danger" onClick={() => handleDeleteEpic(group.epicNode!.id)} title="Supprimer l'Epic"><Svg d={SVG_DEL} size={11} /></button>
+                      </span>
+                    )}
+                  </div>
                   </td>
                 </tr>
 
@@ -581,7 +685,7 @@ export function BacklogPage() {
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                             <div style={{ minWidth: 0 }}>
                               {item.epicId && (() => {
-                                const ep = state.items.find(x => x.id === item.epicId)
+                                const ep = state.hierarchyNodes.find(x => x.id === item.epicId)
                                 const epColor = ep ? (state.clients.find(c => c.id === ep.clientId)?.color ?? 'var(--primary)') : 'var(--primary)'
                                 return ep ? <span title={ep.desc} style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: epColor + '18', color: epColor, marginBottom: 2, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.key}</span> : null
                               })()}
@@ -616,16 +720,7 @@ export function BacklogPage() {
 
                         {/* SP */}
                         <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>
-                          {iType === 'epic' ? (() => {
-                            const fixed = item.sp > 0
-                            const sp = fixed ? item.sp : state.items.filter(i => i.epicId === item.id).reduce((s, i) => s + i.sp, 0)
-                            return (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                                {sp}
-                                {!fixed && <span style={{ fontSize: 9, color: 'var(--text-faint)', fontWeight: 400 }} title="Somme des US enfants">Σ</span>}
-                              </span>
-                            )
-                          })() : item.sp}
+                          {item.sp}
                         </td>
 
                         {/* Dépendances */}
@@ -678,11 +773,11 @@ export function BacklogPage() {
                                   {criteria.map((c, ci) => (
                                     <div key={c.id} className="ca-bdd-row">
                                       <span className="ca-bdd-num">#{ci + 1}</span>
-                                      <span className="ca-bdd-field given">{c.given}</span>
+                                      <span className="ca-bdd-field given"><span className="ca-badge given">Étant donné que</span> {c.given}</span>
                                       <span className="ca-bdd-sep">→</span>
-                                      <span className="ca-bdd-field when">{c.when}</span>
+                                      <span className="ca-bdd-field when"><span className="ca-badge when">Quand</span> {c.when}</span>
                                       <span className="ca-bdd-sep">→</span>
-                                      <span className="ca-bdd-field then">{c.then}</span>
+                                      <span className="ca-bdd-field then"><span className="ca-badge then">Alors</span> {c.then}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -705,6 +800,16 @@ export function BacklogPage() {
         <ModalErrorBoundary key={modalItem?.id ?? 'new'} onClose={() => setModalItem(undefined)}>
           <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} />
         </ModalErrorBoundary>
+      )}
+
+      {modalEpic !== undefined && (
+        <HierarchyNodeModal
+          node={modalEpic}
+          level="epic"
+          state={state}
+          onSave={(node, keyCounters) => { handleSaveEpic(node, keyCounters); setModalEpic(undefined) }}
+          onClose={() => setModalEpic(undefined)}
+        />
       )}
     </>
   )

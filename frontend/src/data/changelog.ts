@@ -15,7 +15,19 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.91.3',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Corrige le libellé "après fériés" quand la perte de capacité vient des congés',current:true,changes:[
+  {version:'v0.92',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Phase 1 (roadmap v1) — Epic devient un HierarchyNode indépendant des Items',current:true,changes:[
+    {tag:'refactor', text:'Un Epic n\'est plus un Item (`type: \'epic\'`) mais un nouveau type dédié HierarchyNode (`level: \'epic\' | \'initiative\'`, champ `parentId` générique façon Jira), pensé pour accueillir le futur niveau Initiative sans nouveau modèle de données'},
+    {tag:'feat', text:'Nouvelle modale dédiée (Backlog) pour créer/modifier/supprimer un Epic, avec bouton "Nouvel Epic" à côté de "Nouvel Item" ; ItemModal ne gère plus que Story/Bug/Tâche/Spike'},
+    {tag:'fix', text:'Les données existantes (Epics enregistrés avant ce changement) sont migrées automatiquement au chargement, en conservant leur identifiant : toutes les US déjà rattachées à un Epic restent rattachées sans aucune action nécessaire'},
+    {tag:'chore', text:'Release Planning, Swimlanes, Roadmap, Auto-planning et Backlog adaptés au nouveau modèle ; les cascades existantes (Epic terminé → US enfants terminées, suppression d\'un Epic → US détachées et conservées) sont conservées à l\'identique'},
+    {tag:'test', text:'4 tests Playwright ajoutés (tests/backlog.spec.js) pour la création, l\'édition et la suppression d\'un Epic ; suite existante (planning/roadmap/auto-planning) revérifiée compatible avec le jeu de données démo inchangé'},
+    {tag:'fix', text:'Un Epic nouvellement créé ou modifié ne s\'affichait pas dans le mode "Grouper par Epic" du Backlog sans changer un autre filtre : le calcul des groupes ne se rafraîchissait pas quand seuls les Epics changeaient'},
+    {tag:'fix', text:'La ligne d\'en-tête de groupe (Backlog) ne s\'affichait plus du tout et perturbait la largeur du tableau (et le style du panneau US/Critères déplié) suite à un correctif précédent le même jour'},
+    {tag:'ux', text:'"Nouvel Epic" et "Nouvel Item" (Backlog) sont regroupés dans un seul bouton "+ Ajouter" avec menu déroulant, sur le même principe que "+ Ajouter" (client/groupe) de la page Clients, plutôt que deux boutons séparés'},
+    {tag:'ux', text:'Bordures verticales entre colonnes du tableau Backlog retirées (essai demandé, gardé après validation)'},
+    {tag:'fix', text:'La ligne dépliée d\'un Bug/US/Spike (clic sur le chevron) n\'affichait plus le format Gherkin ("Étant donné que" / "Quand" / "Alors") de ses critères, seulement le texte brut collé sans repère visuel ; les libellés (en badges colorés, mêmes couleurs que dans la modale d\'édition) et la mise en forme de la ligne sont restaurés'},
+  ]},
+  {version:'v0.91.3',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Corrige le libellé "après fériés" quand la perte de capacité vient des congés',current:false,changes:[
     {tag:'fix', text:'Release Planning affichait "(-X après fériés)" sur des sprints sans aucun jour férié dans leur période, alors que la perte de capacité venait en réalité de congés d\'équipe ; le calcul était déjà correct, seul le libellé était trompeur'},
     {tag:'feat', text:'Le détail (jours fériés vs congés d\'équipe) est maintenant calculé séparément et reflété dans le libellé ("après congés", "après fériés", ou "après fériés et congés"), avec un détail au survol'},
     {tag:'ux', text:'La Roadmap, qui n\'expliquait pas du tout une capacité réduite, affiche désormais le même détail au survol'},

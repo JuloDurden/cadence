@@ -13,6 +13,7 @@ const UNDOABLE = new Set([
   'ADD_ROADMAP_GOAL','UPDATE_ROADMAP_GOAL','DELETE_ROADMAP_GOAL',
   'ADD_ABSENCE','UPDATE_ABSENCE','DELETE_ABSENCE',
   'DELETE_RETRO_SESSION','DELETE_SR_SESSION',
+  'ADD_HIERARCHY_NODE','UPDATE_HIERARCHY_NODE','DELETE_HIERARCHY_NODE',
 ])
 
 type Action =
@@ -20,6 +21,10 @@ type Action =
   | { type: 'ADD_ITEM'; payload: Item; keyCounters?: Record<string, number> }
   | { type: 'UPDATE_ITEM'; payload: Item }
   | { type: 'DELETE_ITEM'; payload: string }
+  // Nœuds de regroupement (Epic/Initiative) — Phase 1, 2026-07-28 (voir types/index.ts, HierarchyNode)
+  | { type: 'ADD_HIERARCHY_NODE'; payload: import('../types').HierarchyNode; keyCounters?: Record<string, number> }
+  | { type: 'UPDATE_HIERARCHY_NODE'; payload: import('../types').HierarchyNode }
+  | { type: 'DELETE_HIERARCHY_NODE'; payload: string }
   | { type: 'ADD_SPRINT'; payload: Sprint }
   | { type: 'UPDATE_SPRINT'; payload: Sprint }
   | { type: 'DELETE_SPRINT'; payload: string }
@@ -130,6 +135,34 @@ function dedupeSrSessions(sessions: import('../types').SprintReviewSession[]): i
   return [...bySprintId.values()]
 }
 
+/**
+ * Migration ponctuelle (2026-07-28, Phase 1 — voir HierarchyNode dans types/index.ts) :
+ * avant l'introduction de HierarchyNode, un Epic était un `Item` comme un autre
+ * (`type: 'epic'`) dans `state.items`. Des données déjà enregistrées côté serveur (avant
+ * ce changement) peuvent donc encore porter ce schéma legacy — cette fonction le détecte
+ * au chargement et le convertit, en conservant l'`id` à l'identique : les enfants qui
+ * pointent déjà vers cet id via `epicId` continuent de résoudre correctement sans aucune
+ * autre modification. Idempotente (sans donnée legacy, ne fait rien) ; volontairement
+ * défensive au niveau des types (`any`) car les données réelles peuvent ne pas respecter
+ * le schéma courant tant qu'elles n'ont pas traversé cette fonction une fois.
+ */
+function migrateLegacyEpics(state: CadenceState): CadenceState {
+  const items = (state.items ?? []) as any[]
+  const legacyEpics = items.filter(i => i?.type === 'epic')
+  if (legacyEpics.length === 0 && state.hierarchyNodes) return state
+  const migratedNodes: import('../types').HierarchyNode[] = legacyEpics.map(i => ({
+    id: i.id, key: i.key, level: 'epic', parentId: null,
+    desc: i.desc, clientId: i.clientId || undefined, sprintId: i.sprintId ?? null,
+    sp: i.sp, status: i.status, notes: i.notes, createdAt: i.createdAt,
+  }))
+  const legacyIds = new Set(legacyEpics.map(i => i.id))
+  return {
+    ...state,
+    items: items.filter(i => !legacyIds.has(i.id)) as Item[],
+    hierarchyNodes: [...(state.hierarchyNodes ?? []), ...migratedNodes],
+  }
+}
+
 function reducer(state: CadenceState, action: Action): CadenceState {
   switch (action.type) {
     // Chantier G, 2e complément (2026-07-23) : la colonne "Annulé" n'est plus forcée dans
@@ -140,11 +173,11 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     // sélectionnable depuis le Backlog/Sprint Review indépendamment de cette colonne (voir
     // `statusOptionsForItemModal()`, `utils/kanbanStages.ts`) — seul l'affichage d'une colonne
     // dédiée au Kanban est concerné par ce choix, pas la possibilité d'annuler un item.
-    case 'SET_STATE': return {
+    case 'SET_STATE': return migrateLegacyEpics({
       ...action.payload,
       sprints: sortSprints(action.payload.sprints),
       sprintReviewSessions: dedupeSrSessions(action.payload.sprintReviewSessions ?? []),
-    }
+    })
     case 'ADD_ITEM': return {
       ...state,
       items: [...state.items, action.payload],
@@ -152,6 +185,13 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     }
     case 'UPDATE_ITEM': return { ...state, items: state.items.map(i => i.id === action.payload.id ? action.payload : i) }
     case 'DELETE_ITEM': return { ...state, items: state.items.filter(i => i.id !== action.payload) }
+    case 'ADD_HIERARCHY_NODE': return {
+      ...state,
+      hierarchyNodes: [...state.hierarchyNodes, action.payload],
+      ...(action.keyCounters ? { itemKeyCounters: action.keyCounters } : {}),
+    }
+    case 'UPDATE_HIERARCHY_NODE': return { ...state, hierarchyNodes: state.hierarchyNodes.map(n => n.id === action.payload.id ? action.payload : n) }
+    case 'DELETE_HIERARCHY_NODE': return { ...state, hierarchyNodes: state.hierarchyNodes.filter(n => n.id !== action.payload) }
     case 'ADD_SPRINT': return { ...state, sprints: sortSprints([...state.sprints, action.payload]) }
     case 'UPDATE_SPRINT': return { ...state, sprints: sortSprints(state.sprints.map(s => s.id === action.payload.id ? action.payload : s)) }
     case 'DELETE_SPRINT': return { ...state, sprints: state.sprints.filter(s => s.id !== action.payload) }

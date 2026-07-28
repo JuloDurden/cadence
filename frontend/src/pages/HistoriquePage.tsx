@@ -22,6 +22,10 @@ const TYPE_CFG: Record<HistoryEventType, { bg: string; color: string; label: str
   daily_archive:         { bg: '#f3f4f6', color: '#374151', label: 'ARCHIVAGE' },
   sprint_review_archive: { bg: '#f3f4f6', color: '#374151', label: 'ARCHIVAGE' },
   retro_archive:         { bg: '#f3f4f6', color: '#374151', label: 'ARCHIVAGE' },
+  sprint_delete:          { bg: '#fee2e2', color: '#991b1b', label: 'SUPPRESSION SPRINT' },
+  hierarchy_node_create:  { bg: '#d1fae5', color: '#065f46', label: 'EPIC CRÉÉ' },
+  hierarchy_node_edit:    { bg: '#dbeafe', color: '#1e40af', label: 'EPIC ÉDITÉ' },
+  hierarchy_node_delete:  { bg: '#fee2e2', color: '#991b1b', label: 'EPIC SUPPRIMÉ' },
 }
 
 function fmtTs(ts: string) {

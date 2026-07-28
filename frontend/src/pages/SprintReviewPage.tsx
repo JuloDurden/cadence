@@ -94,12 +94,11 @@ function archiveDateLabel(date: string) {
   })
 }
 
-/** SP effectif : pour un Epic avec sp=0, somme les enfants */
-function effectiveSP(item: Item, allItems: Item[]): number {
-  if (item.type === 'epic' && (!item.sp || item.sp === 0)) {
-    const children = allItems.filter(i => i.epicId === item.id)
-    if (children.length > 0) return children.reduce((s, i) => s + (i.sp ?? 0), 0)
-  }
+/** SP effectif d'un item. Phase 1 (2026-07-28) : un Epic n'est plus un Item (voir HierarchyNode
+ *  dans types/index.ts) — cette fonction ne s'applique donc plus qu'à des US/Bug/Tâche/Spike,
+ *  jamais à un Epic. Le SP effectif d'un Epic (arbitraire ou somme des US) se calcule désormais
+ *  via utils/hierarchyScore.ts (getHierarchyNodeSP). */
+function effectiveSP(item: Item): number {
   return item.sp ?? 0
 }
 
@@ -191,8 +190,8 @@ export function SprintReviewPage() {
     [sprintItems, doneCols]
   )
 
-  const plannedSP   = sprintItems.reduce((s, i) => s + effectiveSP(i, state.items), 0)
-  const deliveredSP = deliveredItems.reduce((s, i) => s + effectiveSP(i, state.items), 0)
+  const plannedSP   = sprintItems.reduce((s, i) => s + effectiveSP(i), 0)
+  const deliveredSP = deliveredItems.reduce((s, i) => s + effectiveSP(i), 0)
   const completionPct = plannedSP > 0 ? Math.round((deliveredSP / plannedSP) * 100) : 0
 
   // Velocity history — closed sprints + past-endDate sprints (up to 5)
@@ -597,7 +596,6 @@ export function SprintReviewPage() {
                   <DeliveredItemRow
                     key={item.id}
                     item={item}
-                    allItems={state.items}
                     record={rec}
                     onToggleBadge={() => updateItemRecord({ itemId: item.id, badge: nextBadge(rec.badge) })}
                     onToggleDemo={() => updateItemRecord({ itemId: item.id, toDemo: !rec.toDemo })}
@@ -628,7 +626,6 @@ export function SprintReviewPage() {
                   <UnfinishedItemRow
                     key={item.id}
                     item={item}
-                    allItems={state.items}
                     sprints={state.sprints}
                     currentSprintId={selectedSprintId}
                     record={rec}
@@ -1185,8 +1182,8 @@ function VelocityChart({ sprints, items, doneCols, maxVel }: {
   )
 }
 
-function ItemMetaBadges({ item, allItems }: { item: Item; allItems: Item[] }) {
-  const sp = effectiveSP(item, allItems)
+function ItemMetaBadges({ item }: { item: Item }) {
+  const sp = effectiveSP(item)
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
       <span style={{ fontSize: 11, background: 'var(--border)', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap', fontWeight: 600 }}>
@@ -1258,9 +1255,8 @@ function useDebouncedInput(value: string, onCommit: (v: string) => void, delay =
   return [local, onChange, onBlur] as const
 }
 
-function DeliveredItemRow({ item, allItems, record, onToggleBadge, onToggleDemo, onNoteChange }: {
+function DeliveredItemRow({ item, record, onToggleBadge, onToggleDemo, onNoteChange }: {
   item: Item
-  allItems: Item[]
   record: SRItemRecord
   onToggleBadge: () => void
   onToggleDemo: () => void
@@ -1272,7 +1268,7 @@ function DeliveredItemRow({ item, allItems, record, onToggleBadge, onToggleDemo,
       {/* Row 1: title + meta + badges */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 120 }}>{item.desc}</span>
-        <ItemMetaBadges item={item} allItems={allItems} />
+        <ItemMetaBadges item={item} />
         <button
           style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
             background: record.toDemo ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'var(--border)',
@@ -1303,11 +1299,10 @@ function DeliveredItemRow({ item, allItems, record, onToggleBadge, onToggleDemo,
 const REPORT_LATER = '__later__'
 
 function UnfinishedItemRow({
-  item, allItems, sprints, currentSprintId, record,
+  item, sprints, currentSprintId, record,
   onReasonChange, onDecisionChange, onApplyCancel, onApplyReport, onOpenResize,
 }: {
   item: Item
-  allItems: Item[]
   sprints: Sprint[]
   currentSprintId: string
   record: SRUnfinishedRecord
@@ -1337,7 +1332,7 @@ function UnfinishedItemRow({
       {/* Row 1: title + meta */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 120 }}>{item.desc}</span>
-        <ItemMetaBadges item={item} allItems={allItems} />
+        <ItemMetaBadges item={item} />
       </div>
       {/* Row 2: raison + décision */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

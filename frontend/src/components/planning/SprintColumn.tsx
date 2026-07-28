@@ -328,14 +328,13 @@ export function SprintColumn({
         }
         const standalone: Item[] = []
         for (const item of items) {
-          // Epic avec enfants dans ce sprint → rendu via epicGroups, pas comme card standalone
-          if (item.type === 'epic' && byEpic.has(item.id)) continue
-          // Items avec epicId → dans un groupe, pas standalone
+          // Items avec epicId → dans un groupe, pas standalone (l'Epic lui-même n'est
+          // plus jamais dans `items` depuis Phase 1 — voir HierarchyNode, types/index.ts)
           if (item.epicId) continue
           standalone.push(item)
         }
         const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
-          epicId, stories, epic: state.items.find(i => i.id === epicId),
+          epicId, stories, epic: state.hierarchyNodes.find(n => n.id === epicId),
         }))
         const isEmpty = epicGroups.length === 0 && standalone.length === 0
 

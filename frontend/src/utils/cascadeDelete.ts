@@ -14,11 +14,26 @@
  * portent — un item ne doit jamais disparaître silencieusement parce qu'une entité
  * qu'il référence a été supprimée ailleurs.
  */
-import type { Item, ClientGroup, Absence, RetroSession } from '../types'
+import type { Item, ClientGroup, Absence, RetroSession, HierarchyNode } from '../types'
 
 /** Items ayant un `epicId` pointant vers l'epic sur le point d'être supprimé. */
 export function findEpicChildren(items: Item[], epicId: string): Item[] {
   return items.filter(i => i.epicId === epicId)
+}
+
+/**
+ * Équivalent de `findEpicChildren`/`detachEpicChildren`, mais un niveau plus haut dans la
+ * hiérarchie (2026-07-28, Phase 1) : nœuds de regroupement (Epics) dont le `parentId`
+ * pointe vers l'Initiative sur le point d'être supprimée. Même principe : détacher plutôt
+ * que supprimer.
+ */
+export function findHierarchyChildren(nodes: HierarchyNode[], parentId: string): HierarchyNode[] {
+  return nodes.filter(n => n.parentId === parentId)
+}
+
+/** Détache tous les Epics d'une Initiative supprimée : `parentId` remis à `null`, Epics conservés. */
+export function detachHierarchyChildren(nodes: HierarchyNode[], parentId: string): HierarchyNode[] {
+  return nodes.map(n => n.parentId === parentId ? { ...n, parentId: null } : n)
 }
 
 /**

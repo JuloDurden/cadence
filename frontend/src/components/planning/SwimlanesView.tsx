@@ -79,7 +79,6 @@ export function SwimlanesView({
               const byEpic = new Map<string, Item[]>()
               const standalone: Item[] = []
               for (const item of sprintItems) {
-                if (item.type === 'epic') continue
                 if (item.epicId) {
                   const arr = byEpic.get(item.epicId) ?? []
                   arr.push(item)
@@ -87,7 +86,7 @@ export function SwimlanesView({
                 } else standalone.push(item)
               }
               const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
-                epicId, stories, epic: state.items.find(i => i.id === epicId),
+                epicId, stories, epic: state.hierarchyNodes.find(n => n.id === epicId),
               }))
 
               return (
@@ -144,7 +143,7 @@ export function SwimlanesView({
             {(() => {
               const key  = cellKey(client.id, null)
               const isOver = dragOverKey === key
-              const unassignedItems = clientItems.filter(i => i.sprintId === null && i.type !== 'epic')
+              const unassignedItems = clientItems.filter(i => i.sprintId === null)
               return (
                 <div
                   className={`swimlanes-cell sl-unassigned-cell${isOver ? ' swimlanes-cell-over' : ''}`}

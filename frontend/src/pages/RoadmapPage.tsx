@@ -345,12 +345,17 @@ export function RoadmapPage() {
           const dateLabel = sprintDateLabel(sprint.startDate, sprint.endDate)
 
           // ── Groupement par Epic ──────────────────────────────────────
-          const epicItems = items.filter(i => i.type === 'epic')
+          // Epic n'est plus un Item depuis Phase 1 (2026-07-28) — voir HierarchyNode,
+          // types/index.ts. Un Epic est "de ce sprint" si son propre sprintId correspond
+          // (même limite de conception qu'avant, non corrigée ici : un Epic dont les US
+          // sont dans ce sprint mais dont le sprintId propre diffère n'apparaîtra pas ici).
+          const epicItems = state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id)
           const epicIdSet = new Set(epicItems.map(e => e.id))
           const storiesInEpics = items.filter(i => i.epicId && epicIdSet.has(i.epicId))
           const storiesInEpicsIds = new Set(storiesInEpics.map(i => i.id))
-          // Items orphelins : ni epic, ni story rattachée à un epic de ce sprint
-          const orphanItems = items.filter(i => i.type !== 'epic' && !storiesInEpicsIds.has(i.id))
+          // Items orphelins : aucune story rattachée à un epic de ce sprint (les items ne
+          // sont plus jamais eux-mêmes des Epics)
+          const orphanItems = items.filter(i => !storiesInEpicsIds.has(i.id))
 
           // Group orphans by client
           const byClient = new Map<string, typeof items>()
@@ -466,7 +471,7 @@ export function RoadmapPage() {
                   return byGid.get(key)!
                 }
                 epicItems.forEach(epic => {
-                  const g = clientToGroup.get(epic.clientId) ?? null
+                  const g = clientToGroup.get(epic.clientId ?? '') ?? null
                   ensure(g?.id ?? '__none__', g).gEpics.push(epic)
                 })
                 orphanItems.forEach(item => {

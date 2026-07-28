@@ -1,7 +1,17 @@
 export type Priority = 'critical' | 'high' | 'medium' | 'low'
 export type RAG = 'R' | 'A' | 'G'
 export type UserRole = 'ADMIN' | 'MEMBER' | 'VIEWER'
-export type ItemType = 'story' | 'epic' | 'bug' | 'task' | 'spike'
+export type ItemType = 'story' | 'bug' | 'task' | 'spike'
+
+/**
+ * Niveau de regroupement au-dessus des items de travail (2026-07-28, Phase 1 —
+ * docs/roadmap-v1.md). Un Epic et une Initiative sont structurellement la même
+ * sorte de chose : un conteneur d'organisation, jamais un travail réalisable
+ * lui-même (pas de SP réel, pas de sprint au même sens qu'une US) — contrairement
+ * à l'ancien modèle où un Epic était un `Item` comme un autre (`type: 'epic'`).
+ * `'initiative'` est extensible si un niveau supplémentaire devient utile un jour.
+ */
+export type HierarchyLevel = 'epic' | 'initiative'
 export type BugSeverity = 'critical' | 'major' | 'minor'
 
 export interface CheckItem { id: string; text: string; done: boolean }
@@ -90,6 +100,36 @@ export interface Item {
   scoringFramework?: ScoringFramework
   wsjf?: WSJFScore
   rice?: RICEScore
+  createdAt: string
+}
+
+/**
+ * Nœud de regroupement (Epic ou Initiative) — Phase 1, 2026-07-28. Remplace l'ancien
+ * modèle où un Epic était un `Item` (`type: 'epic'`) : les items de travail (`Item`,
+ * via `epicId`) et les Epics (via `parentId`) pointent vers un `HierarchyNode`, jamais
+ * vers un autre `Item`. `parentId` est générique (comme `parent` dans Jira) plutôt que
+ * nommé par niveau (pas de `initiativeId` séparé) : un Epic peut avoir un `parentId`
+ * pointant vers une Initiative, une Initiative n'a aujourd'hui aucun parent possible
+ * (`level` au-dessus non défini), mais le champ reste générique pour rester extensible.
+ *
+ * Champ volontairement minimaliste par rapport à `Item` : ni rôle/besoin/bénéfice, ni
+ * critères, ni DoR/DoD — ces champs n'ont pas de sens pour un conteneur d'organisation
+ * (confirmé par audit du code existant, voir docs/corrections.md : aucun de ces champs
+ * n'était lu nulle part pour un Epic).
+ */
+export interface HierarchyNode {
+  id: string
+  key: string                    // même convention que Item.key (ex: "FAX-007"), partage state.itemKeyCounters
+  level: HierarchyLevel
+  parentId: string | null        // id d'un autre HierarchyNode (niveau au-dessus), ou non rattaché
+  desc: string
+  clientId?: string
+  sprintId?: string | null       // un Epic peut être "affiché sous" un sprint (Roadmap) — même limite de conception qu'avant, non corrigée ici
+  color?: string
+  icon?: string
+  sp?: number                    // score arbitraire ; sinon somme des enfants — voir utils/hierarchyScore.ts
+  status?: string                // ex: déclenche la cascade "Epic terminé → enfants terminés" du Backlog
+  notes?: Note[]
   createdAt: string
 }
 
@@ -340,7 +380,7 @@ export interface VisionBoard {
 }
 
 export interface CadenceState {
-  sprints: Sprint[]; items: Item[]; team: TeamMember[]
+  sprints: Sprint[]; items: Item[]; hierarchyNodes: HierarchyNode[]; team: TeamMember[]
   clients: Client[]; kanbanCols: KanbanCol[]; settings: Settings
   dailyEntries: DailyEntry[]; retroSessions: RetroSession[]
   history: HistoryEntry[]; roadmap: RoadmapGoal[]
@@ -410,6 +450,8 @@ export type HistoryEventType =
   | 'daily_archive' | 'sprint_review_archive' | 'retro_archive'
   // Suppression d'un sprint vide, non actif, non clôturé (Roadmap / Release Planning)
   | 'sprint_delete'
+  // CRUD d'un nœud de regroupement (Epic/Initiative) — Phase 1, 2026-07-28 (voir HierarchyNode)
+  | 'hierarchy_node_create' | 'hierarchy_node_edit' | 'hierarchy_node_delete'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string

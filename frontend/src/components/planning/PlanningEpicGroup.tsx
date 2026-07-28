@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { Item, CadenceState } from '../../types'
+import type { Item, CadenceState, HierarchyNode } from '../../types'
 import { PlanningCard } from './PlanningCard'
-import { getEpicSP } from '../../utils/epicScore'
+import { getEpicSP } from '../../utils/hierarchyScore'
 
 // Chevron (Lucide chevron-down), pivote de 180° quand le groupe est ouvert.
 const ICO_CHEVRON = '<path d="m6 9 6 6 6-6"/>'
@@ -17,7 +17,7 @@ function Chevron({ open }: { open: boolean }) {
 
 interface Props {
   epicId: string
-  epic: Item | undefined
+  epic: HierarchyNode | undefined
   stories: Item[]
   state: CadenceState
   highlightClient?: string
@@ -39,7 +39,7 @@ export function PlanningEpicGroup({
   // à l'Epic (champ sp propre, saisi dans Backlog), soit la somme des SP de ses US — jamais
   // les deux additionnés. Voir utils/epicScore.ts (partagé avec RoadmapPage.tsx).
   const sumStories = stories.reduce((acc, s) => acc + s.sp, 0)
-  const hasArbitraryScore = !!epic && epic.sp > 0
+  const hasArbitraryScore = !!epic && (epic.sp ?? 0) > 0
   const totalSP = getEpicSP(epic, stories)
   // Repliable (2026-07-28) : dans une carte de sprint étroite (Release Planning) ou une cellule
   // Swimlanes, un Epic avec plusieurs US pouvait rendre difficile de voir où il s'arrête et où

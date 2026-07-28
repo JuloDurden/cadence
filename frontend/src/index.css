@@ -254,7 +254,9 @@ body {
 .backlog-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .backlog-table tr:last-child td { border-bottom: none; }
 .backlog-table tbody tr:hover { background: var(--surface2); }
-.backlog-table tbody tr:not(.sprint-row):not(.ca-expand-row) td:not(:last-child) { border-right: 1px solid var(--border); }
+/* Bordures verticales des colonnes retirées à l'essai (2026-07-28, demande de Julien, pas encore
+   validé) — décommenter cette règle pour les remettre. */
+/* .backlog-table tbody tr:not(.sprint-row):not(.ca-expand-row) td:not(:last-child) { border-right: 1px solid var(--border); } */
 .sprint-row td { background: var(--surface2); font-weight: 600; font-size: 12px; color: var(--text-secondary); padding: 8px 12px; }
 .sprint-badge { display: inline-flex; align-items: center; gap: 6px; }
 .sprint-capacity { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 8px; }
@@ -1168,6 +1170,15 @@ tr:hover .ca-toggle { opacity: 1; }
 .ca-badge.given { background: #7c3aed; }
 .ca-badge.when  { background: #d97706; }
 .ca-badge.then  { background: #16a34a; }
+
+/* ─── Critères Gherkin (ligne dépliée du Backlog) ────────────────── */
+.ca-bdd-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  font-size: 11px; line-height: 1.5; margin-bottom: 6px;
+}
+.ca-bdd-num { flex-shrink: 0; font-size: 9px; font-weight: 800; color: var(--text-faint); }
+.ca-bdd-field { display: inline-flex; align-items: center; gap: 5px; }
+.ca-bdd-sep { color: var(--text-faint); flex-shrink: 0; }
 
 /* ─── Modal tab badge pill ───────────────────────────────────────── */
 .tab-badge-pill {

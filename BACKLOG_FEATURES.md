@@ -16,7 +16,7 @@
 
 ### 🏗 Initiative > Epic > Items — hiérarchie complète
 
-Aujourd'hui : Epic → Items (Story, Bug, Tâche, Spike). À faire :
+Sous-chantier 1/6 fait (2026-07-28, v0.92, voir `docs/roadmap-v1.md` Phase 1 et `docs/corrections.md`) : Epic n'est plus un `Item` (`type: 'epic'`) mais un `HierarchyNode` dédié (`level: 'epic' | 'initiative'`, `parentId` générique façon Jira), prêt à accueillir le niveau Initiative sans nouveau modèle de données. Restent à faire (sous-chantiers 2 à 6) :
 
 - **Niveau Initiative** au-dessus des Epics : vision stratégique sur plusieurs mois, portée multi-équipes ou multi-produits
 - Hiérarchie : Initiative → Epic → Items

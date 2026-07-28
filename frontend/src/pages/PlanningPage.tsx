@@ -77,29 +77,40 @@ export function PlanningPage() {
     setDragOverSprint(null)
     const newSprintId = sprintId === 'unassigned' ? null : sprintId
     const toMove = state.items.filter(i => ids.includes(i.id) && i.sprintId !== newSprintId)
-    if (!toMove.length) return
+    // Un groupe Epic glissé inclut l'id de l'Epic lui-même (voir PlanningEpicGroup.tsx,
+    // groupIds) — depuis Phase 1 (2026-07-28), l'Epic est un HierarchyNode, plus un Item,
+    // donc son sprintId doit être mis à jour séparément pour que le groupe entier suive
+    // réellement le sprint cible (sinon seules ses US se déplaceraient).
+    const nodesToMove = state.hierarchyNodes.filter(n => ids.includes(n.id) && n.sprintId !== newSprintId)
+    if (!toMove.length && !nodesToMove.length) return
     const updatedItems = state.items.map(i =>
       toMove.find(m => m.id === i.id) ? { ...i, sprintId: newSprintId } : i
     )
+    const updatedNodes = state.hierarchyNodes.map(n =>
+      nodesToMove.find(m => m.id === n.id) ? { ...n, sprintId: newSprintId } : n
+    )
     toMove.forEach(item => dispatch({ type: 'UPDATE_ITEM', payload: { ...item, sprintId: newSprintId } }))
+    nodesToMove.forEach(node => dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: { ...node, sprintId: newSprintId } }))
     // Chantier B (tranche Sprint Planning) : une seule entrée d'Historique par dépôt, résumée
     // si plusieurs items sont déplacés à la fois (multi-sélection).
+    const totalMoved = toMove.length + nodesToMove.length
     const targetSprint = state.sprints.find(s => s.id === newSprintId)
     const targetLabel = targetSprint ? (targetSprint.label || `Sprint ${targetSprint.number}`) : 'Non assigné'
+    const single = totalMoved === 1 ? (toMove[0] ?? nodesToMove[0]) : undefined
     const historyEntry: HistoryEntry = {
       id: crypto.randomUUID(),
       type: 'item_sprint_change',
       timestamp: new Date().toISOString(),
       sprintId: newSprintId ?? undefined,
-      itemKey: toMove.length === 1 ? toMove[0].key : undefined,
-      itemDesc: toMove.length === 1 ? toMove[0].desc : undefined,
-      detail: toMove.length === 1
+      itemKey: single?.key,
+      itemDesc: single?.desc,
+      detail: totalMoved === 1
         ? `Déplacé vers ${targetLabel}`
-        : `${toMove.length} item(s) déplacés vers ${targetLabel}`,
+        : `${totalMoved} item(s) déplacés vers ${targetLabel}`,
       author: userName,
     }
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
-    saveToServer(withHistoryEntry({ ...state, items: updatedItems }, historyEntry))
+    saveToServer(withHistoryEntry({ ...state, items: updatedItems, hierarchyNodes: updatedNodes }, historyEntry))
     dragIds.current = []
   }
 
@@ -254,10 +265,10 @@ export function PlanningPage() {
 
   // Groupement Epic dans le panneau non-assigné
   // On groupe TOUTES les stories non-assignées par epicId, peu importe où est l'Epic lui-même
+  // (l'Epic n'est plus jamais dans `unassigned`/`state.items` depuis Phase 1 — voir HierarchyNode)
   const childrenByEpicId   = new Map<string, Item[]>()
   const standaloneUnassigned: Item[] = []
   for (const item of unassigned) {
-    if (item.type === 'epic') continue
     if (item.epicId) {
       const arr = childrenByEpicId.get(item.epicId) ?? []
       arr.push(item)
@@ -266,11 +277,12 @@ export function PlanningPage() {
       standaloneUnassigned.push(item)
     }
   }
-  // Epics non-assignés sans stories non-assignées (toutes en sprint) → carte standalone
-  const lonelyUnassignedEpics = unassigned.filter(i => i.type === 'epic' && !childrenByEpicId.has(i.id))
-  // Groupes à afficher (epic trouvé dans state.items, même s'il est dans un sprint)
+  // Epics non-assignés à aucun sprint, sans stories non-assignées (toutes en sprint) → groupe vide
+  const unassignedEpicNodes = state.hierarchyNodes.filter(n => n.level === 'epic' && !n.sprintId)
+  const lonelyUnassignedEpics = unassignedEpicNodes.filter(n => !childrenByEpicId.has(n.id))
+  // Groupes à afficher (epic trouvé dans state.hierarchyNodes, même s'il est dans un sprint)
   const epicGroupsUnassigned = Array.from(childrenByEpicId.entries()).map(([epicId, stories]) => ({
-    epicId, stories, epic: state.items.find(i => i.id === epicId),
+    epicId, stories, epic: state.hierarchyNodes.find(n => n.id === epicId),
   }))
 
   return (
@@ -413,16 +425,23 @@ export function PlanningPage() {
                   onDragItem={id  => { dragIds.current = [id] }}
                 />
               ))}
-              {/* Epics non-assignés sans stories non-assignées */}
-              {lonelyUnassignedEpics.map(item => (
-                <PlanningCard
-                  key={item.id}
-                  item={item}
+              {/* Epics non-assignés sans stories non-assignées : groupe vide (0 US) plutôt
+                  qu'une carte de story — un Epic n'est plus un Item depuis Phase 1 (2026-07-28),
+                  PlanningCard ne sait afficher qu'un Item. Édition de l'Epic lui-même encore
+                  limitée au Backlog (mode "Grouper par Epic") tant qu'une modale dédiée
+                  Epic/Initiative n'est pas construite — voir docs/corrections.md. */}
+              {lonelyUnassignedEpics.map(epic => (
+                <PlanningEpicGroup
+                  key={epic.id}
+                  epicId={epic.id}
+                  epic={epic}
+                  stories={[]}
                   state={state}
                   highlightClient={highlightClient}
                   highlightType={highlightType}
                   onEdit={item => setModalItem(item)}
-                  onDragStart={id => { dragIds.current = [id] }}
+                  onDragGroup={ids => { dragIds.current = ids }}
+                  onDragItem={id  => { dragIds.current = [id] }}
                 />
               ))}
               {/* Items sans Epic */}

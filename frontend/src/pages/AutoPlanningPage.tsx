@@ -7,7 +7,7 @@ import { effectiveCapacity } from '../utils/sprintCapacity'
 import { fmtDate, fmtDateShort, localIso } from '../utils/dates'
 import { topoSort, computeMoveBadge, isItemHighlighted, nextScenarioIdx, isSlotNonEmpty } from '../utils/autoPlanning'
 import { withHistoryEntry } from '../utils/history'
-import type { Item, Sprint, Scenario, ScenarioSlot, ScenarioViolation, VirtualItem, ScenarioItemOverride, HistoryEntry } from '../types'
+import type { Item, Sprint, Scenario, ScenarioSlot, ScenarioViolation, VirtualItem, ScenarioItemOverride, HistoryEntry, HierarchyNode } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
 const ICO = {
@@ -191,7 +191,6 @@ export function AutoPlanningPage() {
 
     const doneSt        = state.kanbanCols.filter(c => c.isDone).map(c => c.id)
     const durationWeeks = state.settings.sprintDuration ?? 2
-    const epicIds       = new Set(state.items.filter(i => i.epicId).map(i => i.epicId!))
 
     const effectiveItems: Item[] = state.items.map(item => {
       const ov = sc.itemOverrides.find(o => o.itemId === item.id)
@@ -222,7 +221,6 @@ export function AutoPlanningPage() {
       const sprintForItem = allSprints.find(s => s.id === i.sprintId)
       if (sprintForItem?.closed) return false
       if (doneSt.includes(i.status)) return false
-      if (i.type === 'epic' && epicIds.has(i.id)) return false
       return true
     })
 
@@ -998,8 +996,8 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
   const hovChain = hoveredId ? depChain(hoveredId) : null
 
   // ── Epic map ─────────────────────────────────────────────────────────────
-  const epicMap = new Map<string, Item>(
-    (state.items as Item[]).filter((i: Item) => i.type === 'epic').map((i: Item) => [i.id, i])
+  const epicMap = new Map<string, HierarchyNode>(
+    state.hierarchyNodes.filter((n: HierarchyNode) => n.level === 'epic').map((n: HierarchyNode): [string, HierarchyNode] => [n.id, n])
   )
   const epicChildCount = new Map<string, number>()
   ;(state.items as Item[]).filter((i: Item) => i.epicId).forEach((i: Item) => {
