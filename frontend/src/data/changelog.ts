@@ -15,7 +15,13 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.91.2',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Raccourcis clavier Ctrl+Z / Ctrl+Y (undo/redo global)',current:true,changes:[
+  {version:'v0.91.3',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Corrige le libellé "après fériés" quand la perte de capacité vient des congés',current:true,changes:[
+    {tag:'fix', text:'Release Planning affichait "(-X après fériés)" sur des sprints sans aucun jour férié dans leur période, alors que la perte de capacité venait en réalité de congés d\'équipe ; le calcul était déjà correct, seul le libellé était trompeur'},
+    {tag:'feat', text:'Le détail (jours fériés vs congés d\'équipe) est maintenant calculé séparément et reflété dans le libellé ("après congés", "après fériés", ou "après fériés et congés"), avec un détail au survol'},
+    {tag:'ux', text:'La Roadmap, qui n\'expliquait pas du tout une capacité réduite, affiche désormais le même détail au survol'},
+    {tag:'chore', text:'Nouvelles fonctions partagées capacityLossBreakdown() et describeCapacityLoss() (utils/sprintCapacity.ts), effectiveCapacity() refactorisée pour les réutiliser sans dupliquer le calcul'},
+  ]},
+  {version:'v0.91.2',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Raccourcis clavier Ctrl+Z / Ctrl+Y (undo/redo global)',current:false,changes:[
     {tag:'feat', text:'Ctrl+Z / Ctrl+Y (et Ctrl+Shift+Z) déclenchent désormais le undo/redo global partout dans l\'application, en plus des boutons du Header'},
     {tag:'ux',   text:'Le raccourci global reste inactif tant que le canevas NNL est affiché : NNL garde son propre stack isolé et ses propres raccourcis, pour annuler un tracé de stylo à la volée sans dépiler l\'historique global (post-its, sprints, items...) — décision explicite de ne pas unifier les deux stacks'},
     {tag:'fix',  text:'Le raccourci ne se déclenche pas quand le focus est dans un champ de saisie (input, textarea, contenteditable), pour ne pas gêner l\'annulation native du navigateur dans le texte'},

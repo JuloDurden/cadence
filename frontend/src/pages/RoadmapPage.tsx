@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 // Vision Board moved to VisionPage (/vision)
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
-import { computeSprintEndDate, effectiveCapacity, teamCapacity } from '../utils/sprintCapacity'
+import { computeSprintEndDate, effectiveCapacity, teamCapacity, capacityLossBreakdown, describeCapacityLoss } from '../utils/sprintCapacity'
 import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
@@ -333,6 +333,15 @@ export function RoadmapPage() {
           const totalSP = items.reduce((acc, i) => acc + i.sp, 0)
           const effCap   = effectiveCapacity(sprint, state.team, state.absences)
           const capLabel = sprint.capacity > 0 ? ` / ${effCap} SP` : ''
+          // Détail de la perte de capacité (2026-07-28) : la Roadmap n'expliquait pas
+          // pourquoi effCap < sprint.capacity (aucun texte, contrairement à Release
+          // Planning qui affichait à tort "après fériés" même quand la cause était des
+          // congés d'équipe) — un title au survol comble ce manque sans changer le
+          // texte affiché par défaut. Voir docs/corrections.md.
+          const capLoss = capacityLossBreakdown(sprint, state.team, state.absences)
+          const capLossTitle = effCap < sprint.capacity
+            ? `Capacité réduite de ${sprint.capacity - effCap} SP (après ${describeCapacityLoss(capLoss.spLostHolidays, capLoss.spLostAbsences)})`
+            : undefined
           const dateLabel = sprintDateLabel(sprint.startDate, sprint.endDate)
 
           // ── Groupement par Epic ──────────────────────────────────────
@@ -358,7 +367,7 @@ export function RoadmapPage() {
               <div className="roadmap-goal-header" style={{ background: goal.color }}>
                 <div className="roadmap-goal-icon">{goal.icon}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="roadmap-goal-sprint">Sprint {sprint.number}  {totalSP}{capLabel} SP</div>
+                  <div className="roadmap-goal-sprint" title={capLossTitle}>Sprint {sprint.number}  {totalSP}{capLabel} SP</div>
                   <div className="roadmap-goal-title">{goal.name}</div>
                   {dateLabel && <div className="roadmap-goal-date">{dateLabel}</div>}
                 </div>

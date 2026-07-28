@@ -139,16 +139,49 @@ export function teamCapacity(
  * @param absences  Absences de l'équipe (optionnel — omises, seuls les fériés sont déduits,
  *                   comme avant le Chantier L, pour ne pas casser un appel existant)
  */
+export interface CapacityLossBreakdown {
+  spLostHolidays: number
+  spLostAbsences: number
+  holidaysCount: number
+}
+
+/**
+ * Détail des SP perdus sur un sprint, séparément pour les jours fériés et pour
+ * les absences de l'équipe (2026-07-28) : `effectiveCapacity()` ne retournait
+ * qu'un total agrégé, ce qui a mené à afficher "(-X après fériés)" dans
+ * SprintColumn.tsx même quand la perte venait en réalité d'absences (aucun
+ * jour férié dans la période du sprint) — voir docs/corrections.md.
+ */
+export function capacityLossBreakdown(
+  sprint: { capacity: number; startDate: string; endDate: string },
+  team:   { id: string; spPerDay: number }[],
+  absences: Absence[] = []
+): CapacityLossBreakdown {
+  if (!sprint.startDate || !sprint.endDate) return { spLostHolidays: 0, spLostAbsences: 0, holidaysCount: 0 }
+  const holidays       = holidaysInRange(sprint.startDate, sprint.endDate)
+  const teamSpPerDay    = team.reduce((sum, m) => sum + (m.spPerDay || 1), 0)
+  const spLostHolidays = holidays.length * teamSpPerDay
+  const spLostAbsences = team.reduce((sum, m) => sum + memberAbsenceSpLoss(m.id, sprint, m.spPerDay, absences), 0)
+  return { spLostHolidays, spLostAbsences, holidaysCount: holidays.length }
+}
+
+/** Texte court décrivant la ou les causes d'une perte de capacité ("fériés", "congés", "fériés et congés"). */
+export function describeCapacityLoss(spLostHolidays: number, spLostAbsences: number): string {
+  const hasHolidays = spLostHolidays > 0
+  const hasAbsences = spLostAbsences > 0
+  if (hasHolidays && hasAbsences) return 'fériés et congés'
+  if (hasHolidays) return 'fériés'
+  if (hasAbsences) return 'congés'
+  return ''
+}
+
 export function effectiveCapacity(
   sprint: { capacity: number; startDate: string; endDate: string },
   team:   { id: string; spPerDay: number }[],
   absences: Absence[] = []
 ): number {
   if (!sprint.startDate || !sprint.endDate) return sprint.capacity
-  const holidays        = holidaysInRange(sprint.startDate, sprint.endDate)
-  const teamSpPerDay     = team.reduce((sum, m) => sum + (m.spPerDay || 1), 0)
-  const spLostHolidays  = holidays.length * teamSpPerDay
-  const spLostAbsences  = team.reduce((sum, m) => sum + memberAbsenceSpLoss(m.id, sprint, m.spPerDay, absences), 0)
+  const { spLostHolidays, spLostAbsences } = capacityLossBreakdown(sprint, team, absences)
   return Math.max(0, sprint.capacity - spLostHolidays - spLostAbsences)
 }
 

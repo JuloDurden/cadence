@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Item, Sprint, CadenceState } from '../../types'
 import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
-import { effectiveCapacity, holidaysInRange, computeSprintEndDate } from '../../utils/sprintCapacity'
+import { effectiveCapacity, capacityLossBreakdown, describeCapacityLoss, holidaysInRange, computeSprintEndDate } from '../../utils/sprintCapacity'
 import { fmtDateShort } from '../../utils/dates'
 
 interface Props {
@@ -73,6 +73,12 @@ export function SprintColumn({
   const usedSP = items.reduce((s, i) => s + i.sp, 0)
   const effCap = effectiveCapacity(sprint, state.team, state.absences)
   const holidays = sprint.startDate && sprint.endDate ? holidaysInRange(sprint.startDate, sprint.endDate) : []
+  // Détail de la perte de capacité (2026-07-28) : fériés et absences sont deux causes
+  // distinctes, agrégées par effectiveCapacity() dans un seul nombre — on recalcule
+  // séparément ici pour ne plus afficher "après fériés" quand la perte vient en
+  // réalité de congés d'équipe (aucun jour férié dans la période du sprint).
+  const capLoss = capacityLossBreakdown(sprint, state.team, state.absences)
+  const capLossLabel = describeCapacityLoss(capLoss.spLostHolidays, capLoss.spLostAbsences)
   const pct  = effCap > 0 ? Math.min(100, (usedSP / effCap) * 100) : 0
   const over = usedSP > effCap
   const remaining = effCap - usedSP
@@ -242,8 +248,14 @@ export function SprintColumn({
           <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>SP</span>
           <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: over ? 'var(--danger)' : '#d97706', whiteSpace: 'nowrap' }}>
             {usedSP} / {effCap} SP
-            {effCap < sprint.capacity && !over && (
-              <span style={{ color: '#d97706', marginLeft: 2 }} title={`-${holidays.length}j fériés`}>(-{sprint.capacity - effCap} après fériés)</span>
+            {effCap < sprint.capacity && !over && capLossLabel && (
+              <span style={{ color: '#d97706', marginLeft: 2 }}
+                title={[
+                  capLoss.spLostHolidays > 0 ? `${capLoss.holidaysCount}j fériés (-${capLoss.spLostHolidays} SP)` : '',
+                  capLoss.spLostAbsences > 0 ? `absences d'équipe (-${capLoss.spLostAbsences} SP)` : '',
+                ].filter(Boolean).join(' + ')}>
+                (-{sprint.capacity - effCap} après {capLossLabel})
+              </span>
             )}
           </span>
         </div>
