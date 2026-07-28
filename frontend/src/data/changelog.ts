@@ -15,7 +15,14 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.91',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Boîte de dialogue propre à l\'outil (Phase 0 — roadmap v1)',current:true,changes:[
+  {version:'v0.91.1',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Release Planning — groupe Epic repliable',current:true,changes:[
+    {tag:'feat', text:'Chaque groupe Epic (Release Planning, Swimlanes) peut désormais être replié/déplié via un chevron dans son en-tête, pour mieux distinguer ses US des items suivants du même sprint'},
+    {tag:'fix',  text:'Le badge "N US" reste affiché même groupe replié, pour garder le nombre réel d\'items toujours visible'},
+    {tag:'fix',  text:'Corrigé le vrai bug d\'affichage : un groupe Epic déplié pouvait se faire rétrécir par flexbox (flex-shrink par défaut) dans une colonne de sprint pleine, coupant visuellement ses derniers items ; les groupes Epic et les cartes ne se rétrécissent plus, et un dégradé de bord signale quand il reste du contenu à faire défiler'},
+    {tag:'feat', text:'Le badge du groupe Epic affiche désormais ses SP : son score propre s\'il a été attribué arbitrairement, sinon la somme des SP de ses US (jamais les deux additionnés) — même règle appliquée sur la Roadmap, qui avait le même calcul erroné'},
+    {tag:'test', text:'5 tests Playwright ajoutés (tests/planning.spec.js) : repli/dépli du groupe, badge inchangé après repli, flex-shrink correct sur le groupe Epic, aucun contenu masqué par overflow, SP correct (score arbitraire prioritaire)'},
+  ]},
+  {version:'v0.91',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Boîte de dialogue propre à l\'outil (Phase 0 — roadmap v1)',current:false,changes:[
     {tag:'feat', text:'Nouveau système de boîte de dialogue (confirmation, alerte), parallèle au système de toasts existant, qui remplace les confirm()/alert() natifs du navigateur sur toute l\'application'},
     {tag:'feat', text:'Confirmations destructrices (suppression de sprint, membre, client, groupe, colonne Kanban, absence, archive Daily...) affichées dans une boîte au style de l\'app, avec bouton d\'action en rouge'},
     {tag:'ux',   text:'Messages transitoires sans décision à prendre (copie, import, archivage réussi) basculés vers le système de toasts existant plutôt que vers une boîte bloquante, pour rester cohérent avec l\'usage déjà en place sur Vision/NNL'},

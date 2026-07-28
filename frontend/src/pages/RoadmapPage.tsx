@@ -9,6 +9,7 @@ import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry,
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
+import { getEpicSP } from '../utils/epicScore'
 import type { RoadmapGoal } from '../types'
 
 const COLORS = [
@@ -467,7 +468,7 @@ export function RoadmapPage() {
                 const renderEpicRow = (epic: typeof epicItems[0]) => {
                   const stories = storiesInEpics.filter(s => s.epicId === epic.id)
                   const epicClient = state.clients.find(c => c.id === epic.clientId)
-                  const eSP = epic.sp + stories.reduce((a, s) => a + s.sp, 0)
+                  const eSP = getEpicSP(epic, stories)
                   return (
                     <React.Fragment key={epic.id}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 12px 3px 14px', fontSize: 11 }}>
@@ -513,7 +514,7 @@ export function RoadmapPage() {
                   if (!sec || (sec.gEpics.length === 0 && sec.gOrphans.length === 0)) return
                   const gc = g.color ?? '#6366f1'
                   const totalSP =
-                    sec.gEpics.reduce((acc, epic) => acc + epic.sp + storiesInEpics.filter(s => s.epicId === epic.id).reduce((a, s) => a + s.sp, 0), 0) +
+                    sec.gEpics.reduce((acc, epic) => acc + getEpicSP(epic, storiesInEpics.filter(s => s.epicId === epic.id)), 0) +
                     sec.gOrphans.reduce((acc, i) => acc + i.sp, 0)
                   result.push(
                     <div key={g.id} className="roadmap-section" data-testid={`roadmap-group-${g.id}`}>
@@ -534,7 +535,7 @@ export function RoadmapPage() {
                   none.gEpics.forEach(epic => {
                     const stories = storiesInEpics.filter(s => s.epicId === epic.id)
                     const epicClient = state.clients.find(c => c.id === epic.clientId)
-                    const eSP = epic.sp + stories.reduce((a, s) => a + s.sp, 0)
+                    const eSP = getEpicSP(epic, stories)
                     result.push(
                       <div key={epic.id} className="roadmap-section">
                         <div className="roadmap-section-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -592,7 +593,7 @@ export function RoadmapPage() {
                   {epicItems.map(epic => {
                     const stories = storiesInEpics.filter(s => s.epicId === epic.id)
                     const epicClient = state.clients.find(c => c.id === epic.clientId)
-                    const groupSP = epic.sp + stories.reduce((acc, s) => acc + s.sp, 0)
+                    const groupSP = getEpicSP(epic, stories)
                     return (
                       <div key={epic.id} className="roadmap-section">
                         <div className="roadmap-section-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

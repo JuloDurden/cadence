@@ -380,22 +380,35 @@ textarea { resize: vertical; min-height: 72px; }
 .planning-col-closed     { opacity: .8; }
 .planning-col-active     { border-color: var(--primary) !important; box-shadow: 0 0 0 3px var(--primary-light), var(--shadow-sm); }
 .planning-col-header { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
-.planning-items { padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; }
-.planning-card { background: var(--surface); border-radius: 7px; padding: 9px 11px; box-shadow: var(--shadow-xs); cursor: grab; transition: box-shadow .15s, transform .1s; border: 1px solid var(--border); }
+.planning-items {
+  padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; min-height: 0;
+  background:
+    linear-gradient(var(--surface) 30%, rgba(255, 255, 255, 0)),
+    linear-gradient(rgba(255, 255, 255, 0), var(--surface) 70%) 0 100%,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, .12), rgba(0, 0, 0, 0)),
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, .12), rgba(0, 0, 0, 0)) 0 100%;
+  background-repeat: no-repeat;
+  background-size: 100% 18px, 100% 18px, 100% 8px, 100% 8px;
+  background-attachment: local, local, scroll, scroll;
+}
+.planning-card { background: var(--surface); border-radius: 7px; padding: 9px 11px; box-shadow: var(--shadow-xs); cursor: grab; transition: box-shadow .15s, transform .1s; border: 1px solid var(--border); flex-shrink: 0; }
 .planning-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .planning-unassigned-row { margin-top: 16px; background: var(--surface); border-radius: var(--radius); border: 2px solid var(--border); padding: 12px 14px; transition: border-color .15s; }
 .planning-unassigned-row.planning-col-over { border-color: var(--primary) !important; }
 .planning-unassigned-items { display: flex; flex-direction: column; gap: 8px; }
 
 /* ─── Epic groups (Planning) ─────────────────────────────────────────────── */
-.epic-group { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface2); }
+.epic-group { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface2); flex-shrink: 0; }
 .epic-group-header { display: flex; align-items: center; gap: 6px; padding: 8px 10px; cursor: grab; background: var(--surface2); border-bottom: 1px solid var(--border); transition: background .15s; }
 .epic-group-header:hover { background: var(--border); }
 .epic-group-header:active { cursor: grabbing; }
 .epic-type-tag { font-size: 9px; font-weight: 700; letter-spacing: .08em; color: #6366f1; background: #eef2ff; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; }
 .epic-group-name { font-size: 12px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .epic-group-count { font-size: 10px; color: var(--text-faint); flex-shrink: 0; background: var(--surface); padding: 1px 6px; border-radius: 8px; border: 1px solid var(--border); }
+.epic-group-toggle { background: none; border: none; padding: 2px; margin: -2px 0; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; flex-shrink: 0; border-radius: 4px; }
+.epic-group-toggle:hover { background: var(--surface); color: var(--text); }
 .epic-group-stories { padding: 6px; display: flex; flex-direction: column; gap: 5px; }
+.epic-group-collapsed { background: var(--surface2); }
 .epic-group-compact .epic-group-header { padding: 6px 8px; }
 .epic-group-compact .epic-group-stories { padding: 4px; gap: 4px; }
 

@@ -98,3 +98,77 @@ test.describe('Planning — Suppression d\'un sprint (2026-07-27)', () => {
   });
 
 });
+
+test.describe('Release Planning — Epic repliable dans une carte de sprint (2026-07-28)', () => {
+
+  test('un groupe Epic peut être replié puis déplié à nouveau', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    const toggle = sprint2Col.locator('[data-testid^="epic-group-toggle-"]').first();
+    await expect(toggle).toBeVisible();
+    // Le testid du bouton et celui du bloc d'US partagent le même epicId : on le lit
+    // pour cibler exactement ce groupe, plutôt que .first() sur les deux sélecteurs
+    // indépendamment (qui re-cible le groupe suivant du sprint une fois celui-ci replié
+    // et retiré du DOM, si le sprint contient plusieurs Epics).
+    const toggleTestId = await toggle.getAttribute('data-testid');
+    const epicId = toggleTestId.replace('epic-group-toggle-', '');
+    const storiesBox = sprint2Col.locator(`[data-testid="epic-group-stories-${epicId}"]`);
+    await expect(storiesBox).toBeVisible();
+
+    await toggle.click();
+    await expect(storiesBox).not.toBeVisible();
+
+    await toggle.click();
+    await expect(storiesBox).toBeVisible();
+  });
+
+  test('replier un groupe Epic ne modifie pas le nombre d\'US annoncé dans le badge', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    const epicHeader = sprint2Col.locator('.epic-group-header').first();
+    const badgeText = await epicHeader.locator('.epic-group-count').innerText();
+    await sprint2Col.locator('[data-testid^="epic-group-toggle-"]').first().click();
+    await expect(epicHeader.locator('.epic-group-count')).toHaveText(badgeText);
+  });
+
+  test('affiche le score arbitraire de l\'Epic quand il est renseigné (jamais additionné à ses US)', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    // Jeu de données démo (demo.ts) : Sprint 2 (s2). i7 "FAX-007" a un score propre (sp:30)
+    // ET une US rattachée (i24 "FAX-024", sp:8) -> le score arbitraire de l'Epic prime : 30 SP,
+    // pas 38 (30+8), conformément à la correction du 2026-07-28.
+    const epicI7 = sprint2Col.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-i7"]') });
+    await expect(epicI7.locator('.epic-group-count')).toContainText('1 US · 30 SP');
+    // i8 "MAN-008" (epic, sp:20, arbitraire) + i25 "MAN-025" (story, sp:5) -> 20 SP, pas 25.
+    const epicI8 = sprint2Col.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-i8"]') });
+    await expect(epicI8.locator('.epic-group-count')).toContainText('1 US · 20 SP');
+  });
+
+});
+
+test.describe('Release Planning — groupe Epic non tronque en mode deplie (2026-07-28)', () => {
+
+  test('le groupe Epic ne se fait pas ecraser par flexbox (flex-shrink: 0)', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    const epicGroup = sprint2Col.locator('.epic-group').first();
+    await expect(epicGroup).toBeVisible();
+    const shrink = await epicGroup.evaluate(el => getComputedStyle(el).flexShrink);
+    expect(shrink).toBe('0');
+  });
+
+  test('le contenu d\'un groupe Epic deplie n\'est jamais coupe (pas d\'overflow cache)', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    const epicGroup = sprint2Col.locator('.epic-group').first();
+    await expect(epicGroup).toBeVisible();
+    // .epic-group a overflow:hidden : si flexbox le retrecit sous sa hauteur de contenu,
+    // scrollHeight > clientHeight revele un contenu coupe et invisible pour l'utilisateur.
+    const { scrollHeight, clientHeight } = await epicGroup.evaluate(el => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    expect(scrollHeight).toBeLessThanOrEqual(clientHeight + 1);
+  });
+
+});
