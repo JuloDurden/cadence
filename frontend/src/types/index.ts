@@ -290,7 +290,7 @@ export interface DailyArchive {
 
 export type NNLZone     = 'now' | 'next' | 'later'
 export type NNLItemType = 'feature' | 'release'
-export type NNLTool     = 'select' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'pen' | 'marker' | 'eraser'
+export type NNLTool     = 'select' | 'rect' | 'ellipse' | 'frame' | 'arrow' | 'text' | 'pen' | 'marker' | 'eraser'
 export type NNLShapeType = 'rect' | 'ellipse' | 'arrow' | 'polygon'
 
 export interface NNLItem {
@@ -411,6 +411,9 @@ export interface NNLFrame {
   x: number; y: number      // premier coin, coords monde
   x2: number; y2: number    // coin opposé, coords monde
   layerId?: string
+  /** Couleur de contour/étiquette personnalisée (point 3.5, 2026-07-29) — remplace la couleur
+   *  par défaut du niveau (FRAME_COLOR dans NNLCanvas.tsx) si définie. */
+  color?: string
 }
 
 export interface VisionBoard {

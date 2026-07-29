@@ -44,3 +44,30 @@ export function framesContainingItem(item: Pick<NNLItem, 'x' | 'y'>, frames: NNL
 export function mostSpecificFrameForItem(item: Pick<NNLItem, 'x' | 'y'>, frames: NNLFrame[]): NNLFrame | undefined {
   return framesContainingItem(item, frames)[0]
 }
+
+/**
+ * Sélection d'un cadre (point 3.5, 2026-07-29) : seul le CONTOUR est cliquable, jamais
+ * l'intérieur — l'intérieur d'un cadre doit rester libre pour interagir normalement avec les
+ * post-its/formes qu'il contient et pour démarrer un rubber-band de sélection. `thresh` est une
+ * marge en coordonnées monde (mêmes unités que les bornes du cadre).
+ */
+export function isPointNearFrameBorder(point: { x: number; y: number }, frame: NNLFrame, thresh: number): boolean {
+  const b = frameBounds(frame)
+  const withinX = point.x >= b.minX - thresh && point.x <= b.maxX + thresh
+  const withinY = point.y >= b.minY - thresh && point.y <= b.maxY + thresh
+  if (!withinX || !withinY) return false
+  const nearLeft   = Math.abs(point.x - b.minX) <= thresh
+  const nearRight  = Math.abs(point.x - b.maxX) <= thresh
+  const nearTop    = Math.abs(point.y - b.minY) <= thresh
+  const nearBottom = Math.abs(point.y - b.maxY) <= thresh
+  return nearLeft || nearRight || nearTop || nearBottom
+}
+
+/** Cadre dont le contour est le plus proche du point donné (le plus petit en cas d'égalité, pour
+ *  qu'un cadre Epic imbriqué reste sélectionnable individuellement plutôt que sa seule
+ *  Initiative parente), ou `undefined` si aucun contour n'est assez proche. */
+export function frameAtBorder(point: { x: number; y: number }, frames: NNLFrame[], thresh: number): NNLFrame | undefined {
+  return frames
+    .filter(f => isPointNearFrameBorder(point, f, thresh))
+    .sort((a, b) => frameArea(a) - frameArea(b))[0]
+}

@@ -32,9 +32,29 @@ async function canvasMouseDown(page, x, y) {
   await page.waitForTimeout(200)
 }
 
+/**
+ * Sélectionne Rectangle ou Ellipse via le bouton "Formes" groupé (v0.92.9) : un clic court
+ * réactive la dernière forme choisie (rect par défaut au montage), un long-press (>500ms)
+ * ouvre le flyout pour choisir explicitement — même mécanique que le bouton Sélection.
+ */
+async function selectShapeTool(page, shape = 'rect') {
+  const btn = page.locator('[data-testid="nnl-tool-shapes"]')
+  if (shape === 'rect') {
+    await btn.click()
+    return
+  }
+  await btn.dispatchEvent('mousedown')
+  await page.waitForTimeout(550)
+  await btn.dispatchEvent('mouseup')
+  await page.waitForTimeout(100)
+  const label = shape === 'ellipse' ? 'Ellipse' : 'Rectangle'
+  await page.locator('button').filter({ hasText: label }).first().click()
+  await page.waitForTimeout(100)
+}
+
 /** Dessine un rectangle sur le canvas par drag */
 async function drawRect(page, x1 = 250, y1 = 220, x2 = 450, y2 = 360) {
-  await page.locator('[data-testid="nnl-tool-rect"]').click()
+  await selectShapeTool(page, 'rect')
   const box = await page.locator('[data-testid="nnl-canvas"]').boundingBox()
   await page.mouse.move(box.x + x1, box.y + y1)
   await page.mouse.down()
@@ -109,16 +129,16 @@ test.describe('NNL — Toolbar (v0.90)', () => {
     await expect(page.locator('[data-testid="nnl-toolbar"]')).toBeVisible()
   })
 
-  test('les 8 outils sont présents', async ({ page }) => {
+  test('les 7 outils sont présents (Rectangle/Ellipse regroupés dans "Formes")', async ({ page }) => {
     await goToNNL(page)
-    for (const id of ['select', 'rect', 'ellipse', 'arrow', 'text', 'pen', 'marker', 'eraser']) {
+    for (const id of ['select', 'shapes', 'arrow', 'text', 'pen', 'marker', 'eraser']) {
       await expect(page.locator(`[data-testid="nnl-tool-${id}"]`)).toBeVisible()
     }
   })
 
   test("les boutons d'épaisseur sont visibles avec l'outil Rect", async ({ page }) => {
     await goToNNL(page)
-    await page.locator('[data-testid="nnl-tool-rect"]').click()
+    await selectShapeTool(page, 'rect')
     for (const w of [1, 2, 4, 8, 16]) {
       await expect(page.locator(`[data-testid="nnl-width-${w}"]`)).toBeVisible()
     }
@@ -143,14 +163,14 @@ test.describe('NNL — Toolbar (v0.90)', () => {
 
   test('cliquer sur le bouton Contour ouvre le sélecteur de couleur', async ({ page }) => {
     await goToNNL(page)
-    await page.locator('[data-testid="nnl-tool-rect"]').click()
+    await selectShapeTool(page, 'rect')
     await page.locator('[data-testid="nnl-color-btn"]').click()
     await expect(page.getByText('Contour')).toBeVisible()
   })
 
   test('le sélecteur de couleur se ferme en recliquant dessus', async ({ page }) => {
     await goToNNL(page)
-    await page.locator('[data-testid="nnl-tool-rect"]').click()
+    await selectShapeTool(page, 'rect')
     await page.locator('[data-testid="nnl-color-btn"]').click()
     await expect(page.getByText('Contour')).toBeVisible()
     await page.locator('[data-testid="nnl-color-btn"]').click()
@@ -281,7 +301,7 @@ test.describe('NNL — Dessin de formes (v0.90)', () => {
 
   test("dessiner une ellipse crée un <ellipse> SVG dans le canvas", async ({ page }) => {
     await goToNNL(page)
-    await page.locator('[data-testid="nnl-tool-ellipse"]').click()
+    await selectShapeTool(page, 'ellipse')
     const box = await page.locator('[data-testid="nnl-canvas"]').boundingBox()
     const before = await page.locator('[data-testid="nnl-canvas"] svg ellipse').count()
     await page.mouse.move(box.x + 250, box.y + 220)

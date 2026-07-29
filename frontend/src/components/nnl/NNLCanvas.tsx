@@ -3,12 +3,14 @@ import { useCadence } from '../../context/StateContext'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../hooks/useAuth'
 import { withHistoryEntry } from '../../utils/history'
-import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, NNLFrame, HierarchyNode, CadenceState, Item, HistoryEntry } from '../../types'
+import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, NNLFrame, HierarchyNode, HierarchyLevel, CadenceState, Item, HistoryEntry } from '../../types'
 import { NNLItemModal } from './NNLItemModal'
 import { ItemModal } from '../backlog/ItemModal'
-import { NNLToolbar } from './NNLToolbar'
+import { HierarchyNodeModal } from '../backlog/HierarchyNodeModal'
+import { NNLFrameLinkModal } from './NNLFrameLinkModal'
+import { NNLToolbar, PALETTE } from './NNLToolbar'
 import { NNLLayersPanel } from './NNLLayersPanel'
-import { frameBounds } from '../../utils/nnlFrames'
+import { frameBounds, frameAtBorder, isItemInFrame } from '../../utils/nnlFrames'
 import polygonClipping from 'polygon-clipping'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
@@ -88,7 +90,7 @@ function toolCursor(tool: NNLTool, panning: boolean): string {
 
 // Keyboard shortcuts → tool
 const KEY_TO_TOOL: Record<string, NNLTool> = {
-  v: 'select', r: 'rect', e: 'ellipse', a: 'arrow',
+  v: 'select', r: 'rect', e: 'ellipse', f: 'frame', a: 'arrow',
   t: 'text', p: 'pen', m: 'marker', g: 'eraser',
 }
 
@@ -185,9 +187,20 @@ function ZoneLabels({ ox, oy, zoom, W, H, r1, r2 }: { ox: number; oy: number; zo
 const FRAME_COLOR: Record<HierarchyNode['level'], string> = { epic: '#6366f1', initiative: '#b45309' }
 const FRAME_LEVEL_LABEL: Record<HierarchyNode['level'], string> = { epic: 'EPIC', initiative: 'INITIATIVE' }
 
-function FrameLayer({ frames, hierarchyNodes, ox, oy, zoom, W, H }: {
+function FrameLayer({ frames, hierarchyNodes, previewFrame, selectedFrameId, onFrameResizeStart, ox, oy, zoom, W, H }: {
   frames: NNLFrame[]
   hierarchyNodes: HierarchyNode[]
+  // Aperçu pendant le tracé de l'outil Cadre (point 3, 2026-07-29) — bornes brutes en coords
+  // monde, avant que le niveau/le nœud lié ne soient choisis dans la modale de liaison qui suit
+  // le relâchement de la souris : rendu neutre (gris, pas d'étiquette), contrairement aux cadres
+  // réels colorés par niveau.
+  previewFrame?: { x: number; y: number; x2: number; y2: number } | null
+  // Sélection + poignées de redimensionnement (point 3.5, 2026-07-29) — le corps/contour du
+  // cadre reste pointerEvents:'none' (sélection gérée par hit-test manuel dans
+  // onCanvasMouseDown, comme les formes), seules les 4 poignées de coin sont de vrais éléments
+  // interactifs, affichées uniquement quand ce cadre est sélectionné.
+  selectedFrameId?: string | null
+  onFrameResizeStart?: (frameId: string, handle: 'nw'|'ne'|'sw'|'se', e: React.MouseEvent) => void
   ox: number; oy: number; zoom: number; W: number; H: number
 }) {
   const nodeById = new Map(hierarchyNodes.map(n => [n.id, n] as const))
@@ -198,19 +211,48 @@ function FrameLayer({ frames, hierarchyNodes, ox, oy, zoom, W, H }: {
     const rx = Math.min(p1.x, p2.x), ry = Math.min(p1.y, p2.y)
     const rw = Math.abs(p2.x - p1.x), rh = Math.abs(p2.y - p1.y)
     const node  = nodeById.get(f.hierarchyNodeId)
-    const color = FRAME_COLOR[f.level]
+    const color = f.color ?? FRAME_COLOR[f.level]
+    const isSelected = f.id === selectedFrameId
     // Nœud introuvable (supprimé côté Backlog depuis) : le cadre reste affiché — pas de
     // suppression automatique à ce stade (point 2, rendu seul) — mais le libellé le signale.
     const label = node ? `${FRAME_LEVEL_LABEL[f.level]} · ${node.key}` : `${FRAME_LEVEL_LABEL[f.level]} (introuvable)`
     const labelW = Math.max(60, label.length * 6.5 + 16)
+    // Poignées de coin (point 3.5) — mêmes coordonnées que les 4 coins écran du rectangle,
+    // visibles/interactives uniquement si sélectionné (pointerEvents:'auto', contrairement au
+    // reste du calque).
+    const HANDLES: Array<{ h: 'nw'|'ne'|'sw'|'se'; x: number; y: number }> = [
+      { h: 'nw', x: rx,      y: ry      },
+      { h: 'ne', x: rx + rw, y: ry      },
+      { h: 'sw', x: rx,      y: ry + rh },
+      { h: 'se', x: rx + rw, y: ry + rh },
+    ]
 
     return (
       <g key={f.id} data-testid={`nnl-frame-${f.id}`} data-frame-id={f.id}>
         <rect x={rx} y={ry} width={rw} height={rh}
-          fill={`${color}0d`} stroke={color} strokeWidth={1.5} strokeDasharray="6 4" rx={6} />
+          fill={`${color}0d`} stroke={color} strokeWidth={isSelected ? 2.5 : 1.5}
+          strokeDasharray={isSelected ? undefined : '6 4'} rx={6} />
         <rect x={rx} y={ry - 18} width={labelW} height={18} fill={color} rx={4} />
         <text x={rx + 8} y={ry - 5} fontSize={11} fontWeight={600} fill="#fff">{label}</text>
+        {isSelected && HANDLES.map(({ h, x, y }) => (
+          <rect key={h} x={x - 5} y={y - 5} width={10} height={10} rx={2}
+            fill="#fff" stroke={color} strokeWidth={2}
+            style={{ cursor: h === 'nw' || h === 'se' ? 'nwse-resize' : 'nesw-resize', pointerEvents: 'auto' }}
+            onMouseDown={e => { e.stopPropagation(); onFrameResizeStart?.(f.id, h, e) }} />
+        ))}
       </g>
+    )
+  }
+
+  function renderPreview() {
+    if (!previewFrame) return null
+    const p1 = w2s(previewFrame.x,  previewFrame.y,  ox, oy, zoom)
+    const p2 = w2s(previewFrame.x2, previewFrame.y2, ox, oy, zoom)
+    const rx = Math.min(p1.x, p2.x), ry = Math.min(p1.y, p2.y)
+    const rw = Math.abs(p2.x - p1.x), rh = Math.abs(p2.y - p1.y)
+    return (
+      <rect key="preview-frame" x={rx} y={ry} width={rw} height={rh}
+        fill="rgba(100,116,139,0.08)" stroke="#64748b" strokeWidth={1.5} strokeDasharray="6 4" rx={6} />
     )
   }
 
@@ -218,6 +260,7 @@ function FrameLayer({ frames, hierarchyNodes, ox, oy, zoom, W, H }: {
     <svg style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}
       width={W} height={H}>
       {frames.map(renderFrame)}
+      {renderPreview()}
     </svg>
   )
 }
@@ -1562,6 +1605,87 @@ function TextPropertiesPanel({ text, onUpdate, onSave, onDelete }: {
   )
 }
 
+// ── FramePropertiesPanel (sous-chantier 6, point 3.5, 2026-07-29) ─────────────
+// Même position/style que ShapePropertiesPanel/TextPropertiesPanel (barre fixe en haut du
+// canevas) — sélections mutuellement exclusives, donc pas de conflit d'affichage.
+// Palette reprise de celle des autres outils NNL (PALETTE, NNLToolbar.tsx) plutôt qu'une palette
+// bespoke, à la demande de Julien (2026-07-29) — 'none' n'a pas de sens pour le contour/étiquette
+// d'un cadre (toujours visible), remplacé par un noir pur : 11 couleurs + noir.
+const FRAME_PALETTE = [...PALETTE.filter(c => c !== 'none'), '#000000']
+
+function FramePropertiesPanel({ frame, node, defaultColor, onRelink, onColorChange, onDelete }: {
+  frame: NNLFrame
+  node: HierarchyNode | undefined
+  defaultColor: string
+  onRelink: () => void
+  onColorChange: (color: string | undefined) => void
+  onDelete: () => void
+}) {
+  const [picking, setPicking] = useState(false)
+  const color = frame.color ?? defaultColor
+
+  return (
+    <div onMouseDown={e => e.stopPropagation()}
+      style={{
+        position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 61, background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: 10, padding: '6px 10px', boxShadow: '0 2px 12px rgba(0,0,0,.14)',
+        display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+      }}>
+
+      {/* ── Rattachement Epic/Initiative ── */}
+      <button onClick={onRelink}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px',
+          border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer',
+          background: 'transparent', color: 'var(--text)', fontSize: 11,
+        }}>
+        <span style={{ fontFamily: 'monospace', fontWeight: 700, color }}>
+          {node ? node.key : '(introuvable)'}
+        </span>
+        <span style={{ color: 'var(--text-muted)' }}>Relier à…</span>
+      </button>
+
+      {PANEL_SEP}
+
+      {/* ── Couleur du contour/étiquette ── */}
+      <div style={{ position: 'relative' }}>
+        <div title="Couleur du cadre" onClick={() => setPicking(p => !p)}>
+          <PSwatch color={color} size={22} selected={picking} />
+        </div>
+        {picking && (
+          <div onMouseDown={e => e.stopPropagation()}
+            style={{
+              position: 'absolute', top: 28, left: 0, zIndex: 200,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: 8, boxShadow: '0 4px 16px rgba(0,0,0,.18)',
+              display: 'grid', gridTemplateColumns: 'repeat(4, 22px)', gap: 4, minWidth: 120,
+            }}>
+            {FRAME_PALETTE.map(c => (
+              <div key={c} style={{ cursor: 'pointer' }}
+                onClick={() => { onColorChange(c); setPicking(false) }}>
+                <PSwatch color={c} size={22} selected={c === frame.color} />
+              </div>
+            ))}
+            {/* Réinitialiser à la couleur par défaut du niveau */}
+            <div title="Couleur par défaut du niveau" style={{ cursor: 'pointer' }}
+              onClick={() => { onColorChange(undefined); setPicking(false) }}>
+              <PSwatch color={defaultColor} size={22} selected={!frame.color} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {PANEL_SEP}
+
+      <button title="Supprimer (Suppr)" onClick={onDelete}
+        style={{ width: 24, height: 24, border: 'none', borderRadius: 4, cursor: 'pointer',
+          background: 'transparent', color: 'var(--text-muted)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>×</button>
+    </div>
+  )
+}
+
 // ── Type snapshot NNL ─────────────────────────────────────────────────────────
 type NNLSnapshot = {
   nnlItems: NNLItem[]
@@ -1603,6 +1727,9 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   const [selectedTextId,   setSelectedTextId]   = useState<string | null>(null)
   const [selectedPtIdx,    setSelectedPtIdx]    = useState<number | null>(null)
   const [selectedStrokeIds, setSelectedStrokeIds] = useState<string[]>([])
+  // Sélection cadre (sous-chantier 6, point 3.5, 2026-07-29) — mutuellement exclusive avec les
+  // autres sélections (forme/texte/trait), comme elles entre elles.
+  const [selectedFrameId, setSelectedFrameId] = useState<string | null>(null)
 
   // ── Select tool sub-state (v0.90.5) ───────────────────────────────────────
   const [selectMode,  setSelectMode]  = useState<'pointer' | 'rect' | 'lasso'>('pointer')
@@ -1614,6 +1741,22 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // ── Drawing preview state ─────────────────────────────────────────────────
   const [previewShape,  setPreviewShape]  = useState<NNLShape | null>(null)
   const [previewStroke, setPreviewStroke] = useState<NNLStroke | null>(null)
+  // Aperçu de tracé pour l'outil Cadre (point 3, 2026-07-29) — distinct de `previewShape` : un
+  // cadre n'est pas une NNLShape (pas de stroke/fill), et ses coordonnées finales ne deviennent
+  // un vrai NNLFrame qu'une fois la modale de liaison (niveau + Epic/Initiative) validée.
+  const [previewFrame, setPreviewFrame] = useState<{ x: number; y: number; x2: number; y2: number } | null>(null)
+  // Cible de la modale de liaison (point 3, puis étendu au point 3.5 pour le "Relier à un
+  // autre Epic/Initiative" depuis le panneau de propriétés d'un cadre déjà créé) : soit une
+  // création (bornes fraîchement tracées, `id` déjà généré), soit un ré-attachement d'un cadre
+  // existant (ses bornes ne changent pas, seul son `level`/`hierarchyNodeId` est remplacé).
+  type FrameLinkTarget =
+    | { mode: 'create'; bounds: { id: string; x: number; y: number; x2: number; y2: number } }
+    | { mode: 'relink'; frameId: string }
+  const [frameLinkTarget, setFrameLinkTarget] = useState<FrameLinkTarget | null>(null)
+  // Création d'un nouvel Epic/Initiative depuis la modale de liaison du Cadre (même mécanique que
+  // `linkingCallback` ci-dessous pour les items) : non-null = HierarchyNodeModal ouverte.
+  const [frameNodeLinkingCallback, setFrameNodeLinkingCallback] = useState<((node: HierarchyNode) => void) | null>(null)
+  const [frameNodeLinkingLevel, setFrameNodeLinkingLevel] = useState<HierarchyLevel>('epic')
 
   // ── Inline text editing ───────────────────────────────────────────────────
   const [editingText, setEditingText] = useState<NNLText | null>(null)
@@ -1702,6 +1845,27 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     shapeId: string
     handle: 'nw'|'ne'|'sw'|'se'|'start'|'end'
     fixedWx: number; fixedWy: number  // coin opposé (non utilisé pour start/end)
+  } | null>(null)
+
+  // ── Drag / resize cadre (sous-chantier 6, point 3.5, 2026-07-29) ───────────
+  // Déplacement : glisser depuis le contour translate les 4 coordonnées ensemble, ET les post-its
+  // actuellement contenus (capturés une fois au mousedown via isItemInFrame, comme `starts` pour
+  // shapeDragRef) — sinon les post-its restent en place et sortent du cadre déplacé, ce qui ne
+  // correspond pas à un déplacement de cadre au sens Miro/FigJam (signalé par Julien, 2026-07-29).
+  // Contrairement au containment (jamais stocké), ceci ne mémorise rien : seules les coordonnées
+  // x/y des post-its sont réécrites, exactement comme un déplacement normal de post-it.
+  const frameDragRef = useRef<{
+    id: string; wx0: number; wy0: number; wx20: number; wy20: number
+    items: Array<{ id: string; x0: number; y0: number }>
+    sx0: number; sy0: number; hasMoved: boolean
+  } | null>(null)
+  // Redimensionnement : même principe que shapeResizeRef (coin opposé fixe, coin glissé suit
+  // la souris) — un cadre est toujours un simple rectangle, pas de mode start/end (réservé aux
+  // flèches).
+  const frameResizeRef = useRef<{
+    frameId: string
+    handle: 'nw'|'ne'|'sw'|'se'
+    fixedWx: number; fixedWy: number
   } | null>(null)
 
   // ── Resize tracé libre ────────────────────────────────────────────────────
@@ -1904,6 +2068,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   const selectedTextIdRef    = useRef(selectedTextId);    selectedTextIdRef.current    = selectedTextId
   const selectedPtIdxRef     = useRef(selectedPtIdx);     selectedPtIdxRef.current     = selectedPtIdx
   const selectedStrokeIdsRef = useRef(selectedStrokeIds); selectedStrokeIdsRef.current = selectedStrokeIds
+  const selectedFrameIdRef   = useRef(selectedFrameId);   selectedFrameIdRef.current   = selectedFrameId
 
   function handlePaste(cb: { shapes: NNLShape[]; texts: NNLText[] }, offset: number) {
     const st = stateRef.current
@@ -2007,6 +2172,17 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       const shapeIds = selectedShapeIdsRef.current
       const textId   = selectedTextIdRef.current
       const ptIdx    = selectedPtIdxRef.current
+      const frameId  = selectedFrameIdRef.current
+
+      // Supprimer le cadre sélectionné (point 3.5) — priorité la plus simple, pas de calque à
+      // nettoyer contrairement aux formes/textes/traits (un cadre n'a pas de layerId propre).
+      if (frameId) {
+        const st = stateRef.current
+        dispatch({ type: 'DELETE_NNL_FRAME', payload: frameId })
+        saveNNLRef.current({ ...st, nnlFrames: (st.nnlFrames ?? []).filter(f => f.id !== frameId) })
+        setSelectedFrameId(null)
+        return
+      }
 
       // Supprimer un nœud bezier sélectionné (priorité)
       if (shapeId && ptIdx !== null) {
@@ -2351,6 +2527,55 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         return
       }
 
+      // Déplacement cadre (point 3.5)
+      if (frameDragRef.current) {
+        const dr = frameDragRef.current
+        const z = zoomRef.current
+        const dwx = (e.clientX - dr.sx0) / z
+        const dwy = -(e.clientY - dr.sy0) / z
+        if (!dr.hasMoved && (Math.abs(e.clientX - dr.sx0) > 2 || Math.abs(e.clientY - dr.sy0) > 2)) {
+          dr.hasMoved = true
+        }
+        if (dr.hasMoved) {
+          const f = (stateRef.current.nnlFrames ?? []).find(fr => fr.id === dr.id)
+          if (f) {
+            dispatch({ type: 'UPDATE_NNL_FRAME', payload: {
+              ...f,
+              x:  snapW(dr.wx0  + dwx), y:  snapW(dr.wy0  + dwy),
+              x2: snapW(dr.wx20 + dwx), y2: snapW(dr.wy20 + dwy),
+            }})
+          }
+          // Les post-its contenus au départ du drag suivent le cadre (translation identique,
+          // pas de snap individuel pour rester visuellement solidaires du contour qui, lui,
+          // snap sur son origine — voir commentaire sur frameDragRef).
+          const items = stateRef.current.nnlItems ?? []
+          dr.items.forEach(({ id, x0, y0 }) => {
+            const it = items.find(n => n.id === id)
+            if (!it) return
+            const nx = x0 + dwx, ny = y0 + dwy
+            dispatch({ type: 'UPDATE_NNL_ITEM', payload: { ...it, x: nx, y: ny, zone: zoneFromWorld(nx, ny, r1Ref.current, r2Ref.current) } })
+          })
+        }
+        return
+      }
+
+      // Redimensionnement cadre (point 3.5) — même principe que le resize forme ci-dessus
+      if (frameResizeRef.current) {
+        const { frameId, fixedWx, fixedWy } = frameResizeRef.current
+        const el = canvasRef.current; if (!el) return
+        const rect = el.getBoundingClientRect()
+        const newW = s2w(e.clientX - rect.left, e.clientY - rect.top, oxRef.current, oyRef.current, zoomRef.current)
+        const f = (stateRef.current.nnlFrames ?? []).find(fr => fr.id === frameId)
+        if (!f) return
+        const nx = snapW(newW.x), ny = snapW(newW.y)
+        dispatch({ type: 'UPDATE_NNL_FRAME', payload: {
+          ...f,
+          x:  Math.min(nx, fixedWx), x2: Math.max(nx, fixedWx),
+          y:  Math.max(ny, fixedWy), y2: Math.min(ny, fixedWy),
+        }})
+        return
+      }
+
       if (panRef.current) {
         setOx(panRef.current.ox0 + e.clientX - panRef.current.sx0)
         setOy(panRef.current.oy0 + e.clientY - panRef.current.sy0)
@@ -2363,6 +2588,12 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         const sx = e.clientX - rect.left, sy = e.clientY - rect.top
         const p1 = s2w(drawRef.current.sx0, drawRef.current.sy0, oxRef.current, oyRef.current, zoomRef.current)
         let p2   = s2w(sx, sy, oxRef.current, oyRef.current, zoomRef.current)
+        // Aperçu du cadre (point 3) : bornes brutes, pas de contrainte shift ni de propriétés
+        // stroke/fill (un cadre n'est pas une NNLShape) — voir `previewFrame` vs `previewShape`.
+        if (toolRef.current === 'frame') {
+          setPreviewFrame({ x: p1.x, y: p1.y, x2: p2.x, y2: p2.y })
+          return
+        }
         if (toolRef.current === 'rect' || toolRef.current === 'ellipse') {
           p2 = applyShiftConstrain(p1, p2)
         }
@@ -2489,6 +2720,19 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         saveNNLRef.current(stateRef.current)
         return
       }
+      // Fin déplacement cadre (point 3.5)
+      if (frameDragRef.current) {
+        const hasMoved = frameDragRef.current.hasMoved
+        frameDragRef.current = null
+        if (hasMoved) saveNNLRef.current(stateRef.current)
+        return
+      }
+      // Fin resize cadre (point 3.5)
+      if (frameResizeRef.current) {
+        frameResizeRef.current = null
+        saveNNLRef.current(stateRef.current)
+        return
+      }
       if (panRef.current) { panRef.current = null; setIsPanning(false); return }
       // Finaliser rubber-band / lasso (v0.90.5)
       if (rubberRef.current) {
@@ -2578,7 +2822,20 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         // Capturer et effacer IMMÉDIATEMENT pour éviter le tracé fantôme
         const startSx = drawRef.current.sx0, startSy = drawRef.current.sy0
         const drawId  = drawRef.current.id
-        drawRef.current = null; setPreviewShape(null)
+        // Outil Cadre (point 3) : le tracé ne crée pas directement un NNLFrame — les bornes sont
+        // mises en attente (`pendingFrameBounds`) le temps de choisir/créer l'Epic ou l'Initiative
+        // lié dans la modale qui s'ouvre juste après (voir NNLFrameLinkModal + handleFrameLinkNode).
+        if (toolRef.current === 'frame') {
+          drawRef.current = null; setPreviewFrame(null)
+          let fp1 = s2w(startSx, startSy, oxRef.current, oyRef.current, zoomRef.current)
+          let fp2 = s2w(sx, sy, oxRef.current, oyRef.current, zoomRef.current)
+          fp1 = { x: snapW(fp1.x), y: snapW(fp1.y) }
+          fp2 = { x: snapW(fp2.x), y: snapW(fp2.y) }
+          if (Math.hypot(sx - startSx, sy - startSy) > 4) {
+            setFrameLinkTarget({ mode: 'create', bounds: { id: drawId, x: fp1.x, y: fp1.y, x2: fp2.x, y2: fp2.y } })
+          }
+          return
+        }
         let p1 = s2w(startSx, startSy, oxRef.current, oyRef.current, zoomRef.current)
         let p2  = s2w(sx, sy, oxRef.current, oyRef.current, zoomRef.current)
         if (toolRef.current === 'rect' || toolRef.current === 'ellipse') {
@@ -2757,6 +3014,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         setSelectedTextId(null)
         setSelectedStrokeIds([])
         setSelectedPtIdx(null)
+        setSelectedFrameId(null)
 
         // Démarrer un drag potentiel sur toutes les formes sélectionnées
         const allShapes = stateRef.current.nnlShapes ?? []
@@ -2780,6 +3038,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         setSelectedShapeIds([])
         setSelectedStrokeIds([])
         setSelectedPtIdx(null)
+        setSelectedFrameId(null)
         textDragRef.current = { id: hitText.id, wx0: hitText.x, wy0: hitText.y, sx0: e.clientX, sy0: e.clientY, hasMoved: false }
         return
       }
@@ -2814,6 +3073,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         setSelectedShapeIds([])
         setSelectedTextId(null)
         setSelectedPtIdx(null)
+        setSelectedFrameId(null)
         // Démarrer un drag potentiel sur tous les tracés sélectionnés
         const allStrokes = stateRef.current.nnlStrokes ?? []
         const startPts = newIds.map(id => {
@@ -2824,12 +3084,34 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         return
       }
 
+      // Hit-test contour de cadre (point 3.5) — seul le contour est cliquable, pas l'intérieur :
+      // l'intérieur reste libre pour interagir normalement avec les post-its/formes qu'il contient
+      // et pour démarrer un rubber-band. Le plus petit cadre dont le contour est touché gagne (un
+      // cadre Epic imbriqué dans une Initiative doit rester sélectionnable individuellement).
+      const hitFrame = frameAtBorder(cp, visibleFrames, THRESH)
+      if (hitFrame) {
+        setSelectedFrameId(hitFrame.id)
+        setSelectedShapeId(null); setSelectedShapeIds([])
+        setSelectedTextId(null); setSelectedStrokeIds([])
+        setSelectedPtIdx(null)
+        const containedItems = (stateRef.current.nnlItems ?? [])
+          .filter(it => isItemInFrame(it, hitFrame))
+          .map(it => ({ id: it.id, x0: it.x, y0: it.y }))
+        frameDragRef.current = {
+          id: hitFrame.id, wx0: hitFrame.x, wy0: hitFrame.y, wx20: hitFrame.x2, wy20: hitFrame.y2,
+          items: containedItems,
+          sx0: e.clientX, sy0: e.clientY, hasMoved: false,
+        }
+        return
+      }
+
       // Fond : désélectionner + démarrer rubber-band (v0.90.5)
       setSelectedShapeId(null)
       setSelectedShapeIds([])
       setSelectedTextId(null)
       setSelectedStrokeIds([])
       setSelectedPtIdx(null)
+      setSelectedFrameId(null)
       rubberRef.current = { sx0: e.clientX, sy0: e.clientY, sx1: e.clientX, sy1: e.clientY }
       return
     }
@@ -2861,6 +3143,17 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         stroke: strokeColor, fill: fillColor, strokeWidth: drawWidth,
         ...(t === 'rect' && rectRadius > 0 ? { rx: rectRadius } : {}),
       })
+      return
+    }
+
+    // Outil Cadre (sous-chantier 6, point 3, 2026-07-29) : même tracé par drag que Rectangle,
+    // mais le résultat n'est mis en attente (`pendingFrameBounds`) qu'à la fin du drag (voir
+    // onCanvasMouseUp) — pas de création directe, la modale de liaison Epic/Initiative suit.
+    if (t === 'frame') {
+      const id = uid()
+      const p = s2w(sx, sy, ox, oy, zoom)
+      drawRef.current = { id, sx0: sx, sy0: sy }
+      setPreviewFrame({ x: p.x, y: p.y, x2: p.x, y2: p.y })
       return
     }
 
@@ -2897,6 +3190,8 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   // ── Shape properties callbacks ────────────────────────────────────────────
   const selectedShape = selectedShapeId ? (state.nnlShapes ?? []).find(s => s.id === selectedShapeId) ?? null : null
+  const selectedFrame = selectedFrameId ? (state.nnlFrames ?? []).find(f => f.id === selectedFrameId) ?? null : null
+  const selectedFrameNode = selectedFrame ? (state.hierarchyNodes ?? []).find(n => n.id === selectedFrame.hierarchyNodeId) : undefined
 
   function handleShapeUpdate(updates: Partial<NNLShape>) {
     if (!selectedShape) return
@@ -3277,6 +3572,115 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     setLinkingCallback(null)
   }
 
+  // ── Cadre Epic/Initiative (sous-chantier 6, points 3 et 3.5, 2026-07-29) ───
+  // Deux cas selon `frameLinkTarget.mode` : 'create' (cadre fraîchement tracé, bornes dans
+  // `bounds`) ou 'relink' (cadre déjà existant, on ne change que son rattachement — "Relier à un
+  // autre Epic/Initiative" depuis le panneau de propriétés, point 3.5). Dans les deux cas, le
+  // nœud lié (existant ou tout juste créé via HierarchyNodeModal, voir juste après) fixe le
+  // `level` du cadre.
+  function handleFrameLinkNode(node: HierarchyNode) {
+    if (!frameLinkTarget) return
+    const st = stateRef.current
+    if (frameLinkTarget.mode === 'create') {
+      const { id, x, y, x2, y2 } = frameLinkTarget.bounds
+      const frame: NNLFrame = { id, level: node.level, hierarchyNodeId: node.id, x, y, x2, y2 }
+      dispatch({ type: 'ADD_NNL_FRAME', payload: frame })
+      saveNNL({ ...st, nnlFrames: [...(st.nnlFrames ?? []), frame] })
+    } else {
+      const existing = (st.nnlFrames ?? []).find(f => f.id === frameLinkTarget.frameId)
+      if (!existing) { setFrameLinkTarget(null); return }
+      const updated: NNLFrame = { ...existing, level: node.level, hierarchyNodeId: node.id }
+      dispatch({ type: 'UPDATE_NNL_FRAME', payload: updated })
+      saveNNL({ ...st, nnlFrames: (st.nnlFrames ?? []).map(f => f.id === updated.id ? updated : f) })
+    }
+    setFrameLinkTarget(null)
+  }
+
+  // Annuler la modale de liaison : abandonne le tracé (création) ou le ré-attachement en cours,
+  // sans rien changer d'autre.
+  function handleFrameLinkCancel() {
+    setFrameLinkTarget(null)
+  }
+
+  // "Relier à un autre Epic/Initiative" depuis le panneau de propriétés d'un cadre sélectionné.
+  function handleRelinkFrame(frameId: string) {
+    setFrameLinkTarget({ mode: 'relink', frameId })
+  }
+
+  // ── Redimensionnement cadre (point 3.5) ─────────────────────────────────────
+  function handleFrameResizeStart(frameId: string, handle: 'nw'|'ne'|'sw'|'se', e: React.MouseEvent) {
+    e.stopPropagation()
+    const f = (stateRef.current.nnlFrames ?? []).find(fr => fr.id === frameId)
+    if (!f) return
+    saveNNLRef.current(stateRef.current)
+    const minX = Math.min(f.x, f.x2), maxX = Math.max(f.x, f.x2)
+    const minY = Math.min(f.y, f.y2), maxY = Math.max(f.y, f.y2)
+    const fx = handle === 'nw' || handle === 'sw' ? maxX : minX
+    const fy = handle === 'nw' || handle === 'ne' ? minY : maxY
+    frameResizeRef.current = { frameId, handle, fixedWx: fx, fixedWy: fy }
+  }
+
+  // ── Couleur personnalisée du cadre (point 3.5) ──────────────────────────────
+  function handleFrameColorChange(frameId: string, color: string | undefined) {
+    const st = stateRef.current
+    const f = (st.nnlFrames ?? []).find(fr => fr.id === frameId)
+    if (!f) return
+    const updated: NNLFrame = { ...f, color }
+    dispatch({ type: 'UPDATE_NNL_FRAME', payload: updated })
+    saveNNL({ ...st, nnlFrames: (st.nnlFrames ?? []).map(fr => fr.id === updated.id ? updated : fr) })
+  }
+
+  // ── Suppression du cadre (point 3.5) ────────────────────────────────────────
+  function handleDeleteFrame(frameId: string) {
+    const st = stateRef.current
+    dispatch({ type: 'DELETE_NNL_FRAME', payload: frameId })
+    saveNNL({ ...st, nnlFrames: (st.nnlFrames ?? []).filter(f => f.id !== frameId) })
+    setSelectedFrameId(null)
+  }
+
+  // Sélection d'un cadre depuis le panneau de calques (entrée miroir, point 3.5) — même effet
+  // que le cliquer directement sur son contour : les autres sélections sont exclusives.
+  function handleSelectFrameFromPanel(id: string | null) {
+    setSelectedFrameId(id)
+    if (id) {
+      setSelectedShapeId(null); setSelectedShapeIds([])
+      setSelectedTextId(null); setSelectedStrokeIds([])
+      setSelectedPtIdx(null)
+    }
+  }
+
+  // "Créer un nouvel Epic/Initiative" depuis la modale de liaison : ouvre HierarchyNodeModal
+  // (réutilisée telle quelle depuis le Backlog, comme validé avec Julien). `onCreated` est en
+  // réalité `handleFrameLinkNode` lui-même, passé par NNLFrameLinkModal (même signature).
+  function handleCreateNewHierarchyNodeForFrame(level: HierarchyLevel, onCreated: (node: HierarchyNode) => void) {
+    setFrameNodeLinkingLevel(level)
+    setFrameNodeLinkingCallback(() => onCreated)
+  }
+
+  // Sauvegarde d'un Epic/Initiative nouvellement créé depuis le Cadre — même logique que
+  // `handleSaveHierarchyNode` de BacklogPage.tsx pour la partie création (pas de cascade "done"
+  // possible ici, un nœud tout juste créé ne peut pas déjà être "done" avec des enfants).
+  function handleFrameHierarchyNodeSave(node: HierarchyNode, keyCounters?: Record<string, number>) {
+    dispatch({ type: 'ADD_HIERARCHY_NODE', payload: node, keyCounters })
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'hierarchy_node_create',
+      timestamp: new Date().toISOString(),
+      itemKey: node.key,
+      itemDesc: node.desc,
+      detail: 'Créé depuis un cadre NNL',
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
+      ...state,
+      hierarchyNodes: [...state.hierarchyNodes, node],
+      ...(keyCounters ? { itemKeyCounters: keyCounters } : {}),
+    }, historyEntry))
+    frameNodeLinkingCallback?.(node)
+    setFrameNodeLinkingCallback(null)
+  }
+
   // ── Text block handlers ───────────────────────────────────────────────────
   function handleTextDblClick(id: string) {
     const t = (state.nnlTexts ?? []).find(x => x.id === id)
@@ -3370,11 +3774,26 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
           />
         )}
 
+        {/* Panneau propriétés du cadre sélectionné (point 3.5) */}
+        {selectedFrame && (
+          <FramePropertiesPanel
+            frame={selectedFrame}
+            node={selectedFrameNode}
+            defaultColor={FRAME_COLOR[selectedFrame.level]}
+            onRelink={() => handleRelinkFrame(selectedFrame.id)}
+            onColorChange={c => handleFrameColorChange(selectedFrame.id, c)}
+            onDelete={() => handleDeleteFrame(selectedFrame.id)}
+          />
+        )}
+
         {/* Cadres Epic/Initiative (sous-chantier 6, point 2) — rendus avant les formes/post-its
-            pour rester visuellement en arrière-plan */}
-        {W > 0 && visibleFrames.length > 0 && (
+            pour rester visuellement en arrière-plan. Rendu aussi si seul un apercu de tracé
+            (previewFrame, point 3) est actif, même sans aucun cadre réel encore créé. */}
+        {W > 0 && (visibleFrames.length > 0 || previewFrame) && (
           <FrameLayer
             frames={visibleFrames} hierarchyNodes={state.hierarchyNodes ?? []}
+            previewFrame={previewFrame}
+            selectedFrameId={selectedFrameId} onFrameResizeStart={handleFrameResizeStart}
             ox={ox} oy={oy} zoom={zoom} W={W} H={H}
           />
         )}
@@ -3483,7 +3902,8 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         />
 
         {/* Layers panel */}
-        <NNLLayersPanel activeLayerId={activeLayerId} onActiveLayerChange={setActiveLayerId} onSave={saveNNL} />
+        <NNLLayersPanel activeLayerId={activeLayerId} onActiveLayerChange={setActiveLayerId} onSave={saveNNL}
+          selectedFrameId={selectedFrameId} onSelectFrame={handleSelectFrameFromPanel} />
 
         {/* Minimap + Zoom */}
         {W > 0 && (
@@ -3525,6 +3945,26 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
           state={state}
           onSave={handleLinkedItemSave}
           onClose={() => setLinkingCallback(null)}
+        />
+      )}
+
+      {/* Cadre Epic/Initiative (sous-chantier 6, point 3) — modale de liaison ouverte juste après
+          le tracé, puis HierarchyNodeModal réutilisée si "Créer un nouvel Epic/Initiative" */}
+      <NNLFrameLinkModal
+        open={frameLinkTarget !== null}
+        state={state}
+        onLink={handleFrameLinkNode}
+        onCreateNew={handleCreateNewHierarchyNodeForFrame}
+        onCancel={handleFrameLinkCancel}
+      />
+
+      {frameNodeLinkingCallback && (
+        <HierarchyNodeModal
+          node={null}
+          level={frameNodeLinkingLevel}
+          state={state}
+          onSave={handleFrameHierarchyNodeSave}
+          onClose={() => setFrameNodeLinkingCallback(null)}
         />
       )}
     </>

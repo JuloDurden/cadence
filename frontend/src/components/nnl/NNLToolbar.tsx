@@ -14,6 +14,10 @@ const ICO_RECT_SELECT = '<path d="M12.034 12.681a.498.498 0 0 1 .647-.647l9 3.5a
 const ICO_LASSO_SELECT = '<path d="M7 22a5 5 0 0 1-2-4"/><path d="M7 16.93c.96.43 1.96.74 2.99.91"/><path d="M3.34 14A6.8 6.8 0 0 1 2 10c0-4.42 4.48-8 10-8s10 3.58 10 8a7.19 7.19 0 0 1-.33 2"/><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M14.33 22h-.09a.35.35 0 0 1-.24-.32v-10a.34.34 0 0 1 .33-.34c.08 0 .15.03.21.08l7.34 6a.33.33 0 0 1-.21.59h-4.49l-2.57 3.85a.35.35 0 0 1-.28.14z"/>'
 const ICO_RECT    = '<rect x="3" y="3" width="18" height="18" rx="2"/>'
 const ICO_ELLIPSE = '<ellipse cx="12" cy="12" rx="10" ry="7"/>'
+// Bouton "Formes" groupé (Rectangle + Ellipse, extensible plus tard) — Lucide shapes
+const ICO_SHAPES  = '<path d="M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/>'
+// Outil Cadre (sous-chantier 6, point 3, 2026-07-29) — Lucide group
+const ICO_GROUP   = '<path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/>'
 const ICO_ARROW   = '<line x1="5" y1="19" x2="19" y2="5"/><polyline points="12 5 19 5 19 12"/>'
 const ICO_TEXT    = '<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'
 const ICO_PEN     = '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'
@@ -33,6 +37,9 @@ const TOOLS: Array<{ id: NNLTool; icon: string; label: string; key: string; grou
   { id: 'select',  icon: ICO_SELECT,  label: 'Sélection', key: 'V', group: 'select' },
   { id: 'rect',    icon: ICO_RECT,    label: 'Rectangle', key: 'R', group: 'shape'  },
   { id: 'ellipse', icon: ICO_ELLIPSE, label: 'Ellipse',   key: 'E', group: 'shape'  },
+  // Bouton séparé (pas dans le groupe Formes) — décision Julien, 2026-07-29 : le Cadre a un
+  // comportement différent (lié à un Epic/Initiative, ouvre une modale de liaison au relâchement).
+  { id: 'frame',   icon: ICO_GROUP,   label: 'Cadre',     key: 'F', group: 'shape'  },
   { id: 'arrow',   icon: ICO_ARROW,   label: 'Flèche',    key: 'A', group: 'shape'  },
   { id: 'text',    icon: ICO_TEXT,    label: 'Texte',     key: 'T', group: 'shape'  },
   { id: 'pen',     icon: ICO_PEN,     label: 'Stylo',     key: 'P', group: 'draw'   },
@@ -40,7 +47,11 @@ const TOOLS: Array<{ id: NNLTool; icon: string; label: string; key: string; grou
   { id: 'eraser',  icon: ICO_ERASER,  label: 'Gomme',     key: 'G', group: 'draw'   },
 ]
 
-const PALETTE = [
+// Exportée (sous-chantier 6, point 3.5, 2026-07-29) : réutilisée par FramePropertiesPanel
+// (NNLCanvas.tsx) pour la couleur des cadres, à la demande de Julien plutôt qu'une palette
+// bespoke — voir NNL_FRAME_COLORS dans NNLCanvas.tsx pour l'adaptation (sans 'none', qui n'a pas
+// de sens pour le contour/étiquette d'un cadre, remplacé par un noir pur).
+export const PALETTE = [
   '#1e293b', '#94a3b8', '#ef4444', '#f97316', '#fbbf24',
   '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#40e0d0', '#ffffff', 'none',
 ]
@@ -90,13 +101,27 @@ export function NNLToolbar({
   const [selectFlyout, setSelectFlyout] = useState(false)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Fermer le flyout si clic en dehors
+  // Long-press flyout pour le bouton "Formes" groupé (Rectangle/Ellipse, sous-chantier 6 point 3
+  // prep, 2026-07-29) — même mécanique que le bouton Sélection : clic court réactive la dernière
+  // forme choisie, long-press ouvre le flyout de choix. `lastShapeTool` mémorise ce choix pour
+  // que le clic court sache quoi réactiver quand un autre outil (ex. Sélection) est actif.
+  const [shapeFlyout, setShapeFlyout] = useState(false)
+  const [lastShapeTool, setLastShapeTool] = useState<'rect' | 'ellipse'>('rect')
+  const shapeLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Fermer les flyouts si clic en dehors
   useEffect(() => {
-    if (!selectFlyout) return
-    function handleClose() { setSelectFlyout(false) }
+    if (!selectFlyout && !shapeFlyout) return
+    function handleClose() { setSelectFlyout(false); setShapeFlyout(false) }
     window.addEventListener('mousedown', handleClose)
     return () => window.removeEventListener('mousedown', handleClose)
-  }, [selectFlyout])
+  }, [selectFlyout, shapeFlyout])
+
+  // Garde `lastShapeTool` synchronisé si l'outil actif devient rect/ellipse par un autre biais
+  // (raccourci clavier R/E par exemple), pour que le bouton groupé reste cohérent.
+  useEffect(() => {
+    if (activeTool === 'rect' || activeTool === 'ellipse') setLastShapeTool(activeTool)
+  }, [activeTool])
 
   const isHoriz = orientation === 'horizontal-bottom'
   const showSizes  = (['pen', 'marker', 'rect', 'ellipse', 'arrow'] as NNLTool[]).includes(activeTool)
@@ -132,8 +157,10 @@ export function NNLToolbar({
     : <div style={{ height: 1, background: 'var(--border)', margin: '4px 0', flexShrink: 0 }} />
 
   // ── Boutons outils ───────────────────────────────────────────────────────
+  // 'ellipse' n'a pas son propre bouton : fusionné avec 'rect' dans le bouton "Formes" groupé
+  // ci-dessous (voir cas spécial tool.id === 'rect').
   let lastGroup: string | null = null
-  const toolButtons = TOOLS.map(tool => {
+  const toolButtons = TOOLS.filter(tool => tool.id !== 'ellipse').map(tool => {
     const showDiv = lastGroup !== null && lastGroup !== tool.group
     lastGroup = tool.group
 
@@ -160,6 +187,7 @@ export function NNLToolbar({
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <button
               data-testid="nnl-tool-select"
+              data-tool-active={isActive ? 'true' : undefined}
               title="Sélection (V) — maintenir pour choisir le mode"
               onMouseDown={e => {
                 e.stopPropagation()
@@ -241,11 +269,117 @@ export function NNLToolbar({
       )
     }
 
+    // Bouton "Formes" groupé : Rectangle + Ellipse (sous-chantier 6 point 3 prep, 2026-07-29).
+    // Même mécanique que le bouton Sélection : clic court réactive la dernière forme choisie,
+    // long-press ouvre un flyout de choix. Extensible : un futur type de forme n'aurait qu'à
+    // rejoindre le tableau `shapeChoices` ci-dessous.
+    if (tool.id === 'rect') {
+      const isActive = activeTool === 'rect' || activeTool === 'ellipse'
+      const shapePos: React.CSSProperties = isHoriz
+        ? { position: 'absolute', bottom: 42, left: 0 }
+        : { position: 'absolute', left: 42, top: 0 }
+      // Icône fixe "Formes" (pas dynamique selon la forme active, contrairement au bouton
+      // Sélection) — demandé par Julien, l'état actif se voit déjà au fond coloré du bouton.
+      const shapeIcon = ICO_SHAPES
+
+      function applyShapeTool(t: 'rect' | 'ellipse') {
+        setLastShapeTool(t)
+        onToolChange(t); setPicking(null)
+        setShapeFlyout(false)
+      }
+
+      const shapeChoices: Array<{ t: 'rect' | 'ellipse'; label: string; icon: string; key: string }> = [
+        { t: 'rect',    label: 'Rectangle', icon: ICO_RECT,    key: 'R' },
+        { t: 'ellipse', label: 'Ellipse',   icon: ICO_ELLIPSE, key: 'E' },
+      ]
+
+      return (
+        <React.Fragment key="shapes-group">
+          {showDiv && divider}
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+              data-testid="nnl-tool-shapes"
+              data-tool-active={isActive ? 'true' : undefined}
+              title="Formes (R/E) — maintenir pour choisir"
+              onMouseDown={e => {
+                e.stopPropagation()
+                shapeLongPressTimerRef.current = setTimeout(() => {
+                  shapeLongPressTimerRef.current = null
+                  setShapeFlyout(v => !v)
+                }, 500)
+              }}
+              onMouseUp={e => {
+                e.stopPropagation()
+                if (shapeLongPressTimerRef.current !== null) {
+                  clearTimeout(shapeLongPressTimerRef.current)
+                  shapeLongPressTimerRef.current = null
+                  applyShapeTool(lastShapeTool)
+                }
+              }}
+              onMouseLeave={() => {
+                if (shapeLongPressTimerRef.current !== null) {
+                  clearTimeout(shapeLongPressTimerRef.current)
+                  shapeLongPressTimerRef.current = null
+                }
+              }}
+              style={{
+                width: 34, height: 34, border: 'none', borderRadius: 8, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isActive ? 'var(--primary)' : 'transparent',
+                color: isActive ? '#fff' : 'var(--text-muted)',
+                transition: 'background .12s, color .12s', flexShrink: 0,
+                position: 'relative',
+              }}>
+              <Svg d={shapeIcon} size={16} />
+              <svg width="5" height="5" viewBox="0 0 5 5" style={{
+                position: 'absolute', bottom: 4, right: 4,
+                fill: isActive ? 'rgba(255,255,255,0.7)' : 'var(--text-faint)',
+              }}>
+                <polygon points="0,5 5,5 5,0" />
+              </svg>
+            </button>
+
+            {shapeFlyout && (
+              <div onMouseDown={e => e.stopPropagation()}
+                style={{
+                  ...shapePos,
+                  position: 'absolute', zIndex: 300,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 10, padding: 6, boxShadow: '0 4px 16px rgba(0,0,0,.18)',
+                  display: 'flex', flexDirection: 'column', gap: 2, minWidth: 140,
+                }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '2px 4px 4px' }}>
+                  Formes
+                </div>
+                {shapeChoices.map(({ t, label, icon, key }) => (
+                  <button key={t}
+                    onMouseUp={() => applyShapeTool(t)}
+                    onClick={() => applyShapeTool(t)}
+                    title={`${label} (${key})`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '5px 8px', border: 'none', borderRadius: 7, cursor: 'pointer',
+                      background: activeTool === t ? 'var(--primary-light)' : 'transparent',
+                      color: activeTool === t ? 'var(--primary)' : 'var(--text)',
+                      fontSize: 12, fontWeight: activeTool === t ? 600 : 400,
+                    }}>
+                    <Svg d={icon} size={14} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </React.Fragment>
+      )
+    }
+
     return (
       <React.Fragment key={tool.id}>
         {showDiv && divider}
         <button
           data-testid={`nnl-tool-${tool.id}`}
+          data-tool-active={activeTool === tool.id ? 'true' : undefined}
           title={`${tool.label} (${tool.key})`}
           onClick={() => { onToolChange(tool.id); setPicking(null) }}
           style={{

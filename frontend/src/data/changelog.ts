@@ -15,7 +15,27 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.8',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : rendu des cadres Epic/Initiative + containment géométrique',current:true,changes:[
+  {version:'v0.92.12',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'NNL — cadre : déplacement solidaire des post-its + palette de couleur harmonisée',current:true,changes:[
+    {tag:'fix', text:'Déplacer un cadre déplace désormais aussi les post-its qu\'il contient au moment du drag (glisser le contour du cadre les entraîne avec lui) — auparavant seul le contour bougeait, laissant les post-its en dehors du cadre déplacé'},
+    {tag:'ux', text:'Palette de couleur du panneau de propriétés du cadre remplacée par celle des autres outils NNL (Rectangle/Ellipse/Flèche/Texte) : 11 couleurs + noir, au lieu d\'une palette différente à 7 couleurs'},
+  ]},
+  {version:'v0.92.11',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : sélection/édition du cadre + entrée calques',current:false,changes:[
+    {tag:'feat', text:'Point 3.5 du sous-chantier 6 (NNL) : un cadre existant devient sélectionnable (clic sur son contour) et affiche un panneau de propriétés — relier à un autre Epic/Initiative, changer la couleur du contour/étiquette (ou revenir à la couleur par défaut du niveau), supprimer (bouton ou touche Suppr)'},
+    {tag:'feat', text:'Un cadre sélectionné se déplace (glisser le contour) et se redimensionne (4 poignées de coin), comme les formes existantes'},
+    {tag:'feat', text:'Panneau de calques : nouvelle section "Cadres" en lecture seule, listant chaque cadre et les post-its qu\'il contient actuellement (calculé à la volée par containment géométrique, rien de nouveau stocké) — cliquer un cadre dans cette liste le sélectionne sur le canevas'},
+    {tag:'chore', text:'Déplacement/redimensionnement/couleur du cadre intégrés à l\'undo/redo local du canevas NNL'},
+  ]},
+  {version:'v0.92.10',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : outil "Cadre" dans la toolbar',current:false,changes:[
+    {tag:'feat', text:'Troisième pas du sous-chantier 6 (NNL) : nouvel outil "Cadre" dans la toolbar (raccourci F), à côté de Rectangle/Ellipse/Flèche — se dessine par drag comme un rectangle'},
+    {tag:'feat', text:'Au relâchement, une modale de liaison s\'ouvre : choisir le niveau (Epic ou Initiative), puis lier un nœud existant ou en créer un nouveau (réutilise HierarchyNodeModal du Backlog) — le cadre n\'est créé qu\'une fois ce choix fait ; annuler la modale abandonne le tracé'},
+    {tag:'chore', text:'Le cadre créé rejoint l\'undo/redo local du canevas NNL comme les autres éléments, et est immédiatement sauvegardé côté serveur'},
+  ]},
+  {version:'v0.92.9',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'NNL — toolbar : bouton "Formes" groupé (Rectangle/Ellipse)',current:false,changes:[
+    {tag:'ux', text:'Les outils Rectangle et Ellipse sont regroupés dans un seul bouton "Formes" (icône dédiée), sur le modèle du bouton Sélection existant : clic court réactive la dernière forme choisie, appui long ouvre un flyout pour choisir entre Rectangle et Ellipse'},
+    {tag:'chore', text:'Préparation à l\'ajout futur d\'autres formes dans ce même bouton (pas prévu dans l\'immédiat) — le flyout est construit à partir d\'un tableau extensible'},
+    {tag:'fix', text:'Corrigé : en thème clair, survoler l\'outil actif de la toolbar NNL rendait son icône illisible (fond éclairci par le survol, icône restée blanche) — le survol ne change plus le fond de l\'outil actif, un léger effet de luminosité remplace l\'ancien changement de fond'},
+  ]},
+  {version:'v0.92.8',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : rendu des cadres Epic/Initiative + containment géométrique',current:false,changes:[
     {tag:'feat', text:'Deuxième pas du sous-chantier 6 (NNL) : les cadres `NNLFrame` s\'affichent désormais sur le canevas (rectangle en pointillés + étiquette "EPIC · <clé>" ou "INITIATIVE · <clé>"), rendus en arrière-plan des formes et post-its'},
     {tag:'refactor', text:'Nouveau `utils/nnlFrames.ts` : logique de containment géométrique partagée (`isItemInFrame`, `framesContainingItem`, `mostSpecificFrameForItem`) — un post-it appartient à un cadre si son centre est dans ses limites, sans qu\'aucun champ ne mémorise ce lien (voir raisonnement au point 1)'},
     {tag:'chore', text:'`NNLFrame` revu de `x/y/largeur/hauteur` vers deux coins `x/y` et `x2/y2`, comme les formes existantes — l\'axe Y du monde est inversé par rapport à l\'écran, ce qui rendait un "haut-gauche" ambigu ; les bornes réelles se recalculent via min/max, robuste à un redimensionnement qui inverse les coins'},

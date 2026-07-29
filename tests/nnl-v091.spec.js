@@ -32,7 +32,9 @@ async function canvasMouseDown(page, x, y) {
 }
 
 async function drawRect(page, x1, y1, x2, y2) {
-  await page.locator('[data-testid="nnl-tool-rect"]').click()
+  // Rectangle et Ellipse sont regroupés dans le bouton "Formes" (v0.92.9) — un clic court
+  // active la dernière forme choisie, 'rect' par défaut au montage du composant.
+  await page.locator('[data-testid="nnl-tool-shapes"]').click()
   const box = await page.locator('[data-testid="nnl-canvas"]').boundingBox()
   await page.mouse.move(box.x + x1, box.y + y1)
   await page.mouse.down()

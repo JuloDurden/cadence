@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { useCadence } from '../../context/StateContext'
-import type { NNLLayer, CadenceState } from '../../types'
+import type { NNLLayer, CadenceState, HierarchyLevel } from '../../types'
+import { isItemInFrame } from '../../utils/nnlFrames'
 
 // ── Icônes ────────────────────────────────────────────────────────────────────
 const Svg = ({ d, size = 14 }: { d: string; size?: number }) => (
@@ -22,25 +23,39 @@ const ICO_MERGE     = '<line x1="12" y1="3" x2="12" y2="21"/><polyline points="6
 const ICO_CHEV_R    = '<polyline points="9 18 15 12 9 6"/>'
 const ICO_CHEV_D    = '<polyline points="6 9 12 15 18 9"/>'
 const ICO_UNGROUP   = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>'
+// Cadre Epic/Initiative (point 3) — même icône Lucide "group" que le bouton de la toolbar
+const ICO_FRAME     = '<path d="M3 7V5c0-1.1.9-2 2-2h2"/><path d="M17 3h2c1.1 0 2 .9 2 2v2"/><path d="M21 17v2c0 1.1-.9 2-2 2h-2"/><path d="M7 21H5c-1.1 0-2-.9-2-2v-2"/><rect width="7" height="5" x="7" y="7" rx="1"/><rect width="7" height="5" x="10" y="12" rx="1"/>'
 
 function uid() { return Math.random().toString(36).slice(2, 9) }
+
+// Mêmes couleurs/libellés que FRAME_COLOR/FRAME_LEVEL_LABEL dans NNLCanvas.tsx (dupliqué ici
+// volontairement plutôt qu'exporté, pour ne pas alourdir le couplage entre les deux fichiers pour
+// deux petites constantes d'affichage — sous-chantier 6, point 3.5, entrée miroir calques).
+const FRAME_LEVEL_COLOR: Record<HierarchyLevel, string> = { epic: '#6366f1', initiative: '#b45309' }
+const FRAME_LEVEL_LABEL: Record<HierarchyLevel, string> = { epic: 'EPIC', initiative: 'INITIATIVE' }
 
 interface NNLLayersPanelProps {
   activeLayerId: string
   onActiveLayerChange: (id: string) => void
   // Bug 5 : saveNNL passé depuis NNLCanvas pour inclure les ops calques dans l'historique undo
   onSave?: (state: CadenceState) => void
+  // Sélection cadre (point 3.5, 2026-07-29) — cliquer une entrée "Cadres" sélectionne le cadre
+  // correspondant sur le canevas (ouvre son panneau de propriétés), comme cliquer directement
+  // sur son contour.
+  selectedFrameId?: string | null
+  onSelectFrame?: (id: string | null) => void
 }
 
 // ── Types DnD ─────────────────────────────────────────────────────────────────
 type DropPos = 'above' | 'below' | 'into'
 interface DropTarget { id: string; pos: DropPos }
 
-export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave }: NNLLayersPanelProps) {
+export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave, selectedFrameId, onSelectFrame }: NNLLayersPanelProps) {
   const { state, dispatch, saveToServer } = useCadence()
   const saveCallback = onSave ?? saveToServer
 
   const [collapsed,   setCollapsed]   = useState(false)
+  const [framesCollapsed, setFramesCollapsed] = useState(false)
   const [editingId,   setEditingId]   = useState<string | null>(null)
   const [editName,    setEditName]    = useState('')
   const [groupMenuId, setGroupMenuId] = useState<string | null>(null)
@@ -531,6 +546,64 @@ export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave }: N
         <div style={{ maxHeight: 360, overflowY: 'auto', overflowX: 'visible' }}>
           {topLevel.map(layer => renderLayer(layer))}
         </div>
+      )}
+
+      {/* ── Cadres Epic/Initiative (sous-chantier 6, point 3.5, 2026-07-29) ──────
+          Entrée miroir en LECTURE SEULE (décision Julien) : liste les post-its actuellement
+          contenus par containment géométrique (isItemInFrame), calculé à la volée à chaque
+          rendu — aucune donnée stockée ici, aucun impact sur le modèle de calques ci-dessus.
+          Volontairement pas de drag-drop / réordonnancement / renommage : ce n'est pas un vrai
+          calque, seulement une vue de ce que le canevas contient déjà. */}
+      {!collapsed && (state.nnlFrames ?? []).length > 0 && (
+        <>
+          <div style={{ borderTop: '1px solid var(--border)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', padding: '8px 10px', gap: 4 }}>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}
+              title={framesCollapsed ? 'Afficher les cadres' : 'Réduire'}
+              onClick={() => setFramesCollapsed(c => !c)}>
+              <Svg d={framesCollapsed ? ICO_CHEV_R : ICO_CHEV_D} size={11} />
+            </button>
+            <Svg d={ICO_FRAME} size={13} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.06em', flex: 1 }}>
+              Cadres ({(state.nnlFrames ?? []).length})
+            </span>
+          </div>
+          {!framesCollapsed && (
+            <div style={{ maxHeight: 240, overflowY: 'auto', paddingBottom: 6 }}>
+              {(state.nnlFrames ?? []).map(f => {
+                const node = (state.hierarchyNodes ?? []).find(n => n.id === f.hierarchyNodeId)
+                const contained = (state.nnlItems ?? []).filter(it => isItemInFrame(it, f))
+                const isSelected = f.id === selectedFrameId
+                return (
+                  <div key={f.id} data-testid={`nnl-layers-frame-${f.id}`}
+                    onClick={() => onSelectFrame?.(isSelected ? null : f.id)}
+                    style={{
+                      padding: '5px 10px', cursor: onSelectFrame ? 'pointer' : 'default',
+                      background: isSelected ? 'var(--primary-light)' : 'transparent',
+                      borderLeft: `3px solid ${isSelected ? 'var(--primary)' : 'transparent'}`,
+                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: '#fff', padding: '1px 5px', borderRadius: 3,
+                        background: f.color ?? FRAME_LEVEL_COLOR[f.level], flexShrink: 0,
+                      }}>{FRAME_LEVEL_LABEL[f.level]}</span>
+                      <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {node ? `${node.key} · ${node.desc}` : 'Nœud introuvable'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, paddingLeft: 2 }}>
+                      {contained.length === 0
+                        ? 'Aucun post-it'
+                        : contained.length === 1
+                          ? contained[0].text
+                          : `${contained.length} post-its`}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

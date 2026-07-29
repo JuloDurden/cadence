@@ -1012,8 +1012,25 @@ body.sb-collapsed .app-header { left: 52px; }
 .nnl-toolbar button[style*="primary"] {
   box-shadow: 0 0 0 2px var(--primary);
 }
-.nnl-toolbar button:hover:not([disabled]) {
+/* Outil inactif survolé : fond clair + icône assombrie (fonctionne dans les 2 thèmes). */
+.nnl-toolbar button:hover:not([disabled]):not([data-tool-active="true"]) {
   background: var(--surface2) !important;
+  color: rgb(0, 0, 0)
+}
+/* Outil ACTIF survolé (fond `--primary` posé en inline style) : ne pas remplacer ce fond par
+   `--surface2` — en thème clair, `--surface2` est clair et l'icône (blanche, en inline style,
+   donc non écrasable par une couleur CSS sans !important) devenait invisible dessus. Signalé par
+   Julien le 2026-07-29 : "aucun problème en thème sombre" car `--surface2` y est sombre — seul le
+   thème clair était concerné. On garde le fond primary et on ajoute juste un léger effet au survol.
+   Ciblage via `[data-tool-active="true"]` (posé par NNLToolbar.tsx sur les 3 boutons spéciaux —
+   Sélection, Formes, Cadre — et sur le rendu par défaut des autres outils) plutôt que l'ancien
+   `[style*="primary"]` : ce dernier matchait par coïncidence toute inline style contenant la
+   sous-chaîne "primary" (donc aussi "primary-light" utilisé par les boutons de réglages, scope,
+   etc.), fragile et pas explicite sur l'intention. Revu le 2026-07-29 en même temps que l'ajout
+   du bouton "Cadre" (sous-chantier 6, point 3) et du regroupement Rectangle/Ellipse (v0.92.9),
+   qui utilisent tous le même pattern `background: isActive ? 'var(--primary)' : 'transparent'`. */
+.nnl-toolbar button:hover:not([disabled])[data-tool-active="true"] {
+  filter: brightness(1.15);
 }
 
 /* ── NNL Layers panel ────────────────────────────────────────────────────── */
