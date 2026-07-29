@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { goTo } = require('./helpers');
+const { goTo, setBacklogFilter, toggleBacklogReadyFilter } = require('./helpers');
 
 test.describe('DoR / DoD (via modal)', () => {
 
@@ -50,14 +50,15 @@ test.describe('DoR / DoD — colonnes Backlog', () => {
     await expect(partialSpans.first()).toBeVisible();
   });
 
-  test('le bouton filtre "Prêt" est visible dans la toolbar du backlog', async ({ page }) => {
+  test('le filtre "Prêt" est visible dans le dropdown "Filtrer" (header Backlog, 2026-07-29)', async ({ page }) => {
     await goTo(page, '/backlog');
-    await expect(page.getByRole('button', { name: /Prêt/i })).toBeVisible();
+    await page.locator('[data-testid="btn-filter"]').click();
+    await expect(page.locator('[data-testid="filter-ready"]')).toBeVisible();
   });
 
   test('le filtre "Prêt" n\'affiche que des items avec DoR complète', async ({ page }) => {
     await goTo(page, '/backlog');
-    await page.getByRole('button', { name: /Prêt/i }).click();
+    await toggleBacklogReadyFilter(page);
     await page.waitForTimeout(200);
     // Après filtre, aucune cellule DoR ne doit afficher un compteur partiel
     const partialSpans = page.locator('[data-testid="dor-cell"] span').filter({ hasText: /^\d+\/\d+$/ });
@@ -66,19 +67,14 @@ test.describe('DoR / DoD — colonnes Backlog', () => {
     await expect(page.locator('[data-testid="dor-cell"] svg').first()).toBeVisible();
   });
 
-  test('le select Statut est présent dans la toolbar avec des options dynamiques', async ({ page }) => {
+  test('le select Statut est présent dans le dropdown "Filtrer" avec des options dynamiques', async ({ page }) => {
     await goTo(page, '/backlog');
-    // Le select Statut a un placeholder <option value="">Statut</option>
-    // C'est le seul select dont la première option a value="" et text "Statut"
-    // (le select Grouper a une option value="status" avec texte "Statut", pas value="")
-    const placeholder = page.locator('.fg-item select option[value=""]').filter({ hasText: /^Statut$/ });
-    await expect(placeholder).toHaveCount(1);
-    // Le select doit aussi avoir des options de statut réels (au moins "done" ou "backlog")
-    const parentSelect = page.locator('.fg-item').filter({
-      has: page.locator('option[value=""]', { hasText: /^Statut$/ })
-    }).locator('select');
-    const optCount = await parentSelect.locator('option').count();
-    expect(optCount).toBeGreaterThan(1); // placeholder + au moins 1 statut réel
+    await page.locator('[data-testid="btn-filter"]').click();
+    const statusSelect = page.locator('[data-testid="filter-status"]');
+    await expect(statusSelect).toBeVisible();
+    // Placeholder "Tous" + au moins un statut réel de la démo
+    const optCount = await statusSelect.locator('option').count();
+    expect(optCount).toBeGreaterThan(1);
   });
 
   test('le filtre Statut réduit les résultats', async ({ page }) => {
@@ -88,10 +84,7 @@ test.describe('DoR / DoD — colonnes Backlog', () => {
     const rowsBefore = await table.locator('tr:not(.sprint-row)').count();
 
     // Sélectionner le statut "done" (Terminé) — présent dans la démo (Sprint 1)
-    const parentSelect = page.locator('.fg-item').filter({
-      has: page.locator('option[value=""]', { hasText: /^Statut$/ })
-    }).locator('select');
-    await parentSelect.selectOption('done');
+    await setBacklogFilter(page, 'status', 'done');
     await page.waitForTimeout(200);
 
     const rowsAfter = await table.locator('tr:not(.sprint-row)').count();

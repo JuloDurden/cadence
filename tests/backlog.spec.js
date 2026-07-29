@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { goTo } = require('./helpers');
+const { goTo, setBacklogGroupBy } = require('./helpers');
 
 test.describe('Backlog', () => {
 
@@ -12,13 +12,13 @@ test.describe('Backlog', () => {
 
   test('le groupement "Grouper par Epic" persiste au retour sur la page (retour Julien, 2026-07-29)', async ({ page }) => {
     await goTo(page, '/backlog');
-    await page.locator('[data-testid="select-group-by"]').selectOption('epic');
-    await expect(page.locator('[data-testid="select-group-by"]')).toHaveValue('epic');
+    await setBacklogGroupBy(page, 'epic');
+    await expect(page.locator('[data-testid="btn-group-by"]')).toContainText('Epic');
     // Navigation vers une autre page puis retour — le groupement doit être retrouvé, pas
     // réinitialisé à "none" (avant ce correctif, la config d'affichage n'était pas persistée).
     await goTo(page, '/planning');
     await goTo(page, '/backlog');
-    await expect(page.locator('[data-testid="select-group-by"]')).toHaveValue('epic');
+    await expect(page.locator('[data-testid="btn-group-by"]')).toContainText('Epic');
   });
 
   test('affiche plusieurs clients du DEMO_STATE', async ({ page }) => {
@@ -79,13 +79,13 @@ test.describe('Backlog — Epic (HierarchyNode, Phase 1 sous-chantier 1, 2026-07
     await modal.locator('input').first().fill('Nouvel Epic de test E2E');
     await modal.getByRole('button', { name: 'Créer' }).click();
     await expect(modal).not.toBeVisible();
-    await page.locator('.filter-group select:has(option[value="epic"])').selectOption('epic');
+    await setBacklogGroupBy(page, 'epic');
     await expect(page.locator('[data-testid="backlog-table"]')).toContainText('Nouvel Epic de test E2E');
   });
 
   test('modifier un Epic existant (FAX-002) depuis son en-tête de groupe', async ({ page }) => {
     await goTo(page, '/backlog');
-    await page.locator('.filter-group select:has(option[value="epic"])').selectOption('epic');
+    await setBacklogGroupBy(page, 'epic');
     const group = page.locator('.backlog-group-card').filter({ hasText: 'FAX-002' });
     await group.locator('button[title="Modifier l\'Epic"]').click();
     const modal = page.locator('[data-testid="hierarchy-node-modal"]');
@@ -98,7 +98,7 @@ test.describe('Backlog — Epic (HierarchyNode, Phase 1 sous-chantier 1, 2026-07
 
   test('supprimer un Epic détache ses US (conservées, sans epicId)', async ({ page }) => {
     await goTo(page, '/backlog');
-    await page.locator('.filter-group select:has(option[value="epic"])').selectOption('epic');
+    await setBacklogGroupBy(page, 'epic');
     // AGA-009 (i9) n'a aucune US rattachée dans le jeu de démo → suppression simple, sans US à vérifier détachée
     const group = page.locator('.backlog-group-card').filter({ hasText: 'AGA-009' });
     await group.locator('button[title="Supprimer l\'Epic"]').click();
@@ -112,7 +112,7 @@ test.describe('Backlog — regroupement en cards (retour Julien, 2026-07-29)', (
 
   test('un mode de regroupement (Sprint) affiche des cards plutôt que des lignes de tableau', async ({ page }) => {
     await goTo(page, '/backlog');
-    await page.locator('[data-testid="select-group-by"]').selectOption('sprint');
+    await setBacklogGroupBy(page, 'sprint');
     await expect(page.locator('.backlog-group-card').first()).toBeVisible();
     // Chaque card contient sa propre mini-table d'items (en-tête "Clé" partagé)
     await expect(page.locator('.backlog-group-card').first().locator('table.backlog-table')).toBeVisible();
@@ -126,7 +126,7 @@ test.describe('Backlog — regroupement en cards (retour Julien, 2026-07-29)', (
 
   test('une card peut être repliée puis dépliée', async ({ page }) => {
     await goTo(page, '/backlog');
-    await page.locator('[data-testid="select-group-by"]').selectOption('epic');
+    await setBacklogGroupBy(page, 'epic');
     const card = page.locator('.backlog-group-card').first();
     const toggle = card.locator('[data-testid^="backlog-group-toggle-"]').first();
     const toggleTestId = await toggle.getAttribute('data-testid');
@@ -162,7 +162,7 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
     await modal.locator('input').first().fill('Initiative de test E2E');
     await modal.getByRole('button', { name: 'Créer' }).click();
     await expect(modal).not.toBeVisible();
-    await page.locator('[data-testid="select-group-by"]').selectOption('initiative');
+    await setBacklogGroupBy(page, 'initiative');
     await expect(page.locator('[data-testid="backlog-table"]')).toContainText('Initiative de test E2E');
   });
 
@@ -177,7 +177,7 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
     await expect(initModal).not.toBeVisible();
 
     // Rattacher l'Epic FAX-002 à cette Initiative via "Initiative parente"
-    await page.locator('.filter-group select:has(option[value="epic"])').selectOption('epic');
+    await setBacklogGroupBy(page, 'epic');
     const epicCard = page.locator('.backlog-group-card').filter({ hasText: 'FAX-002' });
     await epicCard.locator('button[title="Modifier l\'Epic"]').click();
     const epicModal = page.locator('[data-testid="hierarchy-node-modal"]');
@@ -191,7 +191,7 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
     await expect(epicModal).not.toBeVisible();
 
     // Basculer en mode Initiative : l'Epic doit apparaître imbriqué dans la card Initiative
-    await page.locator('[data-testid="select-group-by"]').selectOption('initiative');
+    await setBacklogGroupBy(page, 'initiative');
     const initiativeCard = page.locator('.backlog-group-card').filter({ hasText: 'Initiative parente E2E' }).first();
     await expect(initiativeCard).toContainText('FAX-002');
   });
@@ -205,7 +205,7 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
     await initModal.getByRole('button', { name: 'Créer' }).click();
     await expect(initModal).not.toBeVisible();
 
-    await page.locator('[data-testid="select-group-by"]').selectOption('initiative');
+    await setBacklogGroupBy(page, 'initiative');
     const initiativeCard = page.locator('.backlog-group-card').filter({ hasText: 'Initiative à supprimer E2E' }).first();
     await initiativeCard.locator('button[title="Supprimer l\'Initiative"]').click();
     await page.locator('[data-testid="dialog-confirm"]').click();

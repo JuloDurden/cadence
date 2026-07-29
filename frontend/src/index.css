@@ -199,6 +199,53 @@ body {
 /* Pill-style override for "+ Nouveau" etc. — auto width */
 .hdr-btn.primary { width: auto; padding: 0 12px; background: var(--primary); color: #fff; border-radius: 7px; font-size: 12px; font-weight: 600; }
 .hdr-btn.primary:hover { background: #4338ca; color: #fff; }
+
+/* ─── Header dropdown buttons — Trier/Filtrer/Grouper (Backlog, 2026-07-29) ─────────────────
+   "Unibody" : .hdr-btn-group donne un seul contour à plusieurs .hdr-menu-trigger, séparés par
+   un simple trait (même principe que l'ancien .filter-group/.fg-item, appliqué à des boutons
+   plutôt qu'à des <select>). Retour Julien : 8 contrôles ramenés à 3 boutons à dropdown. */
+.hdr-btn-group { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.hdr-menu-trigger {
+  display: flex; align-items: center; gap: 6px; border: none; border-radius: 0;
+  background: none; padding: 0 10px; height: 30px; cursor: pointer;
+  font-size: 12px; font-weight: 500; color: var(--text-muted); font-family: inherit; white-space: nowrap;
+}
+.hdr-btn-group .hdr-menu-trigger:not(:last-child) { border-right: 1px solid var(--border); }
+.hdr-menu-trigger:hover { background: var(--surface2); color: var(--text); }
+.hdr-menu-trigger.active { color: var(--primary); }
+.hdr-menu-trigger-badge {
+  font-size: 10px; font-weight: 600; color: #fff; background: var(--primary);
+  border-radius: 20px; padding: 1px 6px; line-height: 1.4;
+}
+/* Panel flottant partagé par les 3 dropdowns et par "+ Ajouter" */
+.hdr-menu-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18); overflow: hidden;
+}
+.hdr-menu-option {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px;
+  text-align: left; background: none; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 400; color: var(--text); font-family: inherit;
+}
+.hdr-menu-option:hover { background: var(--surface2); }
+.hdr-menu-option.active { color: var(--primary); }
+.hdr-menu-filter-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 14px; }
+.hdr-menu-filter-row select {
+  font-size: 12px; font-weight: 400; max-width: 130px;
+  border: none; background: none; padding: 2px 0; width: auto;
+  text-align: right; text-align-last: right; color: var(--text); cursor: pointer;
+}
+.hdr-menu-filter-row select:focus { box-shadow: none; }
+/* L'alignement à droite (text-align-last) hérite dans le popup d'options natif du <select> —
+   on le neutralise sur <option> pour que la liste déroulée reste alignée à gauche, seule la
+   valeur affichée dans le champ fermé doit être à droite. */
+.hdr-menu-filter-row select option { text-align: left; text-align-last: left; }
+.hdr-menu-clear-btn {
+  display: block; width: 100%; padding: 8px 14px; text-align: left; background: none;
+  border: none; border-top: 1px solid var(--border); cursor: pointer;
+  font-size: 12px; font-weight: 400; color: var(--danger); font-family: inherit;
+}
+.hdr-menu-clear-btn:hover { background: var(--surface2); }
 /* Select inside header */
 .hdr-select {
   border: 1px solid var(--border); background-color: var(--surface); color: var(--text);
@@ -328,6 +375,10 @@ body {
 }
 .form-select { appearance: none; padding-right: 24px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236e6e73'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
 textarea { resize: vertical; min-height: 72px; }
+/* Garde-fou global (retour Julien, 2026-07-29) : les options d'un <select> ne doivent jamais
+   être en gras, sur aucune page — sécurité si un poids de police venait à être hérité du
+   select parent (c'était le cas du bloc de filtres du Backlog, désormais retiré). */
+option { font-weight: 400; }
 
 /* ─── Buttons (modal) ───────────────────────────────────────────────────── */
 .btn, .btn-primary, .btn-secondary, .btn-danger { padding: 8px 16px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600; transition: background .15s; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }

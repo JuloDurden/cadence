@@ -54,11 +54,14 @@ const TYPE_FG:    Record<ItemType, string> = { story: '#165FCC',   bug: '#FF2929
 const SEV_LABEL:  Record<BugSeverity, string> = { critical: 'Crit.', major: 'Maj.', minor: 'Min.' }
 const SEV_COLOR:  Record<BugSeverity, string> = { critical: '#FF2929', major: '#FF981C', minor: '#165FCC' }
 
-// Menu "+ Ajouter" (Item / Epic) — mêmes styles que le menu "+ Ajouter" de ClientsPage.tsx.
+// Menu "+ Ajouter" (Item / Epic / Initiative) — mêmes styles que le menu "+ Ajouter" de
+// ClientsPage.tsx. Poids normal (retour Julien, 2026-07-29 : les choix d'un menu déroulant ne
+// doivent pas être en gras) ; plus de séparateur entre "Nouvel Item" et "Nouvel Epic" (son rôle
+// — distinguer Item de Epic/Initiative — n'était pas assez lisible pour valoir la confusion).
 const ADD_MENU_ITEM_STYLE: React.CSSProperties = {
   display: 'block', width: '100%', padding: '10px 14px', textAlign: 'left',
   background: 'none', border: 'none', cursor: 'pointer',
-  fontSize: 13, fontWeight: 600, color: 'var(--text)',
+  fontSize: 13, fontWeight: 400, color: 'var(--text)',
 }
 
 type GroupBy = 'sprint' | 'client' | 'type' | 'status' | 'epic' | 'initiative' | 'none'
@@ -74,6 +77,7 @@ interface BacklogPrefs {
   filterTag?: string
   filterStatus?: string
   filterReady?: boolean
+  filterEpic?: string
   filterInitiative?: string
   groupBy?: GroupBy
   sortBy?: string
@@ -102,31 +106,103 @@ function Svg({ d, size = 13 }: { d: string; size?: number }) {
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
     dangerouslySetInnerHTML={{ __html: d }} />
 }
-function FgIcon({ d }: { d: string }) {
-  return <svg className="fg-icon" width="12" height="12" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-    dangerouslySetInnerHTML={{ __html: d }} />
-}
-function FgChev() {
-  return <svg className="fg-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="6 9 12 15 18 9"/>
-  </svg>
-}
-
 const SVG_EDIT   = '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/>'
 const SVG_DEL    = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'
 const SVG_CHEV_R = '<path d="m9 18 6-6-6-6"/>'
 const SVG_CHEV_D = '<path d="m6 9 6 6 6-6"/>'
 
-const ICO_USERS  = '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
-const ICO_CAL    = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
 const ICO_SORT   = '<line x1="4" y1="6" x2="11" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="14 9 17 6 20 9"/><polyline points="14 15 17 18 20 15"/>'
 const ICO_LAYERS = '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/>'
-const ICO_TAG    = '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'
 const ICO_PLUS    = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 const ICO_CHECK   = '<path d="M20 6 9 17l-5-5"/>'
-const ICO_STATUS  = '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>'
+const ICO_FILTER  = '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
+
+// Header Backlog — ergonomie (retour Julien, 2026-07-29) : 8 contrôles (7 selects + bouton
+// Prêt) ramenés à 3 boutons à dropdown (Trier/Filtrer/Grouper, "unibody" — un seul contour,
+// séparateurs internes) + le bouton "+ Ajouter" resté séparé. Options de Trier/Grouper.
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: '',         label: 'Aucun tri' },
+  { value: 'key',       label: 'Clé' },
+  { value: 'priority',  label: 'Priorité' },
+  { value: 'sprint',    label: 'Sprint' },
+  { value: 'deadline',  label: 'Deadline' },
+  { value: 'sp-desc',   label: 'SP descendant' },
+  { value: 'sp-asc',    label: 'SP ascendant' },
+]
+const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
+  { value: 'none',       label: 'Aucun' },
+  { value: 'sprint',     label: 'Sprint' },
+  { value: 'client',     label: 'Client' },
+  { value: 'type',       label: 'Type' },
+  { value: 'status',     label: 'Statut' },
+  { value: 'epic',       label: 'Epic' },
+  { value: 'initiative', label: 'Initiative' },
+]
+
+/** Petit hook partagé pour les 3 dropdowns du header (Trier/Filtrer/Grouper) — même mécanisme
+ *  que le menu "+ Ajouter" (position calculée depuis le bouton, fermeture au clic extérieur),
+ *  factorisé ici pour éviter de tripler la logique. */
+function useHeaderMenu() {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handle(e: MouseEvent) {
+      if (!btnRef.current?.contains(e.target as Node) && !menuRef.current?.contains(e.target as Node)) {
+        setOpen(false)
+        setPos(null)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  function toggle() {
+    if (open) { setOpen(false); setPos(null); return }
+    const rect = btnRef.current?.getBoundingClientRect()
+    if (rect) { setOpen(true); setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right }) }
+  }
+  function close() { setOpen(false); setPos(null) }
+
+  return { open, pos, btnRef, menuRef, toggle, close }
+}
+
+/** Ligne d'un menu Trier/Grouper : coche + couleur accent sur l'option active plutôt que du
+ *  gras (retour Julien, 2026-07-29 : les choix d'un dropdown ne doivent pas être en gras). */
+function MenuOption({ label, active, onClick, testId }: { label: string; active: boolean; onClick: () => void; testId?: string }) {
+  return (
+    <button className={`hdr-menu-option${active ? ' active' : ''}`} onClick={onClick} data-testid={testId}>
+      <span style={{ width: 14, display: 'inline-flex', flexShrink: 0 }}>
+        {active && <Svg d={ICO_CHECK} size={12} />}
+      </span>
+      {label}
+    </button>
+  )
+}
+
+/** Ligne du panel "Filtrer" : libellé + select pour un axe (Client/Sprint/Epic/Initiative/
+ *  Tag/Statut). Le select reste natif (accessibilité, comportement familier) mais gagne un
+ *  poids de police normal — voir aussi la règle globale `option { font-weight: 400 }`. */
+function FilterRow({ label, value, onChange, options, testId }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+  testId: string
+}) {
+  return (
+    <div className="hdr-menu-filter-row">
+      <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+      <select data-testid={testId} value={value} onChange={e => onChange(e.target.value)}>
+        <option value="">Tous</option>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  )
+}
 
 /** Retourne null si pas de critères ; sinon { done, total } */
 function dorDodStat(items: { done: boolean }[] | undefined): { done: number; total: number } | null {
@@ -203,6 +279,7 @@ export function BacklogPage() {
   const [filterTag,      setFilterTag]      = useState(backlogPrefs.filterTag ?? '')
   const [filterStatus,   setFilterStatus]   = useState(backlogPrefs.filterStatus ?? '')
   const [filterReady,    setFilterReady]    = useState(backlogPrefs.filterReady ?? false)
+  const [filterEpic,     setFilterEpic]     = useState(backlogPrefs.filterEpic ?? '')
   const [filterInitiative, setFilterInitiative] = useState(backlogPrefs.filterInitiative ?? '')
   const [groupBy,        setGroupBy]        = useState<GroupBy>(backlogPrefs.groupBy ?? 'none')
   const [sortBy,         setSortBy]         = useState(backlogPrefs.sortBy ?? '')
@@ -211,9 +288,9 @@ export function BacklogPage() {
 
   // Sauvegarde de la configuration d'affichage à chaque changement (retour Julien, 2026-07-29).
   useEffect(() => {
-    const prefs: BacklogPrefs = { filterSprint, filterClient, filterTag, filterStatus, filterReady, filterInitiative, groupBy, sortBy }
+    const prefs: BacklogPrefs = { filterSprint, filterClient, filterTag, filterStatus, filterReady, filterEpic, filterInitiative, groupBy, sortBy }
     localStorage.setItem(BACKLOG_PREFS_KEY, JSON.stringify(prefs))
-  }, [filterSprint, filterClient, filterTag, filterStatus, filterReady, filterInitiative, groupBy, sortBy])
+  }, [filterSprint, filterClient, filterTag, filterStatus, filterReady, filterEpic, filterInitiative, groupBy, sortBy])
 
   // Menu "+ Ajouter" (Item / Epic) — même pattern que ClientsPage.tsx ("+ Ajouter" client/groupe) :
   // deux refs (bouton + menu) pour que le mousedown sur le menu ne le referme pas avant le click.
@@ -241,6 +318,17 @@ export function BacklogPage() {
       setAddMenuOpen(true)
       setAddMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
     }
+  }
+
+  // Header — ergonomie (retour Julien, 2026-07-29) : Trier/Filtrer/Grouper, 3 boutons à
+  // dropdown "unibody" (voir useHeaderMenu ci-dessus).
+  const sortMenu  = useHeaderMenu()
+  const filterMenu = useHeaderMenu()
+  const groupMenu = useHeaderMenu()
+
+  function clearAllFilters() {
+    setFilterClient(''); setFilterSprint(''); setFilterEpic(''); setFilterInitiative('')
+    setFilterTag(''); setFilterStatus(''); setFilterReady(false)
   }
 
   /* ── dep chain: Map<itemId, depth> ── */
@@ -289,6 +377,10 @@ export function BacklogPage() {
     if (filterTag)      items = items.filter(i => i.tags.includes(filterTag))
     if (filterStatus)   items = items.filter(i => i.status === filterStatus)
     if (filterReady)    items = items.filter(i => { const s = dorDodStat(i.dor); return s !== null && s.done === s.total })
+    // Filtre Epic (ergonomie du header, 2026-07-29) : rattachement direct uniquement — un
+    // item rattaché à l'Initiative parente d'un Epic ne matche pas ce filtre (voir le filtre
+    // Initiative ci-dessous, qui lui est transitif).
+    if (filterEpic)      items = items.filter(i => i.epicId === filterEpic)
     // Sous-chantier 4 (2026-07-29) : Initiative effective d'un item — directe si `epicId`
     // pointe dessus, transitive via l'Epic parent sinon (utils/hierarchyScore.ts).
     if (filterInitiative) items = items.filter(i => getItemInitiativeId(i, state.hierarchyNodes) === filterInitiative)
@@ -303,9 +395,10 @@ export function BacklogPage() {
       return keyNum(a.key) - keyNum(b.key)
     })
     return items
-  }, [state.items, state.hierarchyNodes, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady, filterInitiative, sortBy])
+  }, [state.items, state.hierarchyNodes, filterSprint, filterClient, filterPriority, filterTag, filterStatus, filterReady, filterEpic, filterInitiative, sortBy])
 
-  const noFilterActive = !filterSprint && !filterClient && !filterPriority && !filterTag && !filterStatus && !filterReady && !filterInitiative
+  const noFilterActive = !filterSprint && !filterClient && !filterPriority && !filterTag && !filterStatus && !filterReady && !filterEpic && !filterInitiative
+  const activeFilterCount = [filterClient, filterSprint, filterEpic, filterInitiative, filterTag, filterStatus].filter(Boolean).length + (filterReady ? 1 : 0)
 
   /** Transforme un EpicGroup (utils/hierarchyScore.ts) en Group affichable (card) —
    *  partagé entre le mode "Grouper par Epic" et les Epics imbriqués dans une Initiative. */
@@ -833,100 +926,24 @@ export function BacklogPage() {
       <Header title="Product Backlog">
         <div style={{ flex: 1 }} />
 
-        {/* Filter group — style copié du HTML */}
-        <div className="filter-group">
-          {/* Clients */}
-          <div className={`fg-item${filterClient ? ' filter-active' : ''}`}>
-            <FgIcon d={ICO_USERS} />
-            <select value={filterClient} onChange={e => setFilterClient(e.target.value)}>
-              <option value="">Clients</option>
-              {state.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <FgChev />
-          </div>
-
-          {/* Sprints */}
-          <div className={`fg-item${filterSprint ? ' filter-active' : ''}`}>
-            <FgIcon d={ICO_CAL} />
-            <select value={filterSprint} onChange={e => setFilterSprint(e.target.value)}>
-              <option value="">Sprints</option>
-              {state.sprints.map(s => <option key={s.id} value={s.id}>Sprint {s.number}</option>)}
-              <option value="unassigned">Non assigné</option>
-            </select>
-            <FgChev />
-          </div>
-
-          {/* Tri */}
-          <div className={`fg-item${sortBy ? ' filter-active' : ''}`}>
-            <FgIcon d={ICO_SORT} />
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-              <option value="">Trier</option>
-              <option value="key">Clé</option>
-              <option value="priority">Priorité</option>
-              <option value="sprint">Sprint</option>
-              <option value="deadline">Deadline</option>
-              <option value="sp-desc">SP ↓</option>
-              <option value="sp-asc">SP ↑</option>
-            </select>
-            <FgChev />
-          </div>
-
-          {/* Grouper */}
-          <div className={`fg-item${groupBy !== 'none' ? ' filter-active' : ''}`}>
-            <FgIcon d={ICO_LAYERS} />
-            <select data-testid="select-group-by" value={groupBy} onChange={e => setGroupBy(e.target.value as GroupBy)}>
-              <option value="none">Grouper</option>
-              <option value="sprint">Sprint</option>
-              <option value="client">Client</option>
-              <option value="type">Type</option>
-              <option value="status">Statut</option>
-              <option value="epic">Epic</option>
-              <option value="initiative">Initiative</option>
-            </select>
-            <FgChev />
-          </div>
-
-          {/* Initiatives */}
-          <div className={`fg-item${filterInitiative ? ' filter-active' : ''}`}>
-            <FgIcon d={ICO_LAYERS} />
-            <select value={filterInitiative} onChange={e => setFilterInitiative(e.target.value)}>
-              <option value="">Initiatives</option>
-              {state.hierarchyNodes.filter(n => n.level === 'initiative').map(i => <option key={i.id} value={i.id}>{i.key}</option>)}
-            </select>
-            <FgChev />
-          </div>
-
-          {/* Tags */}
-          <div className={`fg-item${filterTag ? ' filter-active' : ''}`}>
-            <FgIcon d={ICO_TAG} />
-            <select value={filterTag} onChange={e => setFilterTag(e.target.value)}>
-              <option value="">Tags</option>
-              {allTags.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <FgChev />
-          </div>
-
-          {/* Statut */}
-          <div className={`fg-item${filterStatus ? ' filter-active' : ''}`}>
-            <FgIcon d={ICO_STATUS} />
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-              <option value="">Statut</option>
-              {allStatusCols.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-            <FgChev />
-          </div>
-
-          {/* Prêt (DoR 100%) */}
-          <button
-            className={`hdr-ctx-btn${filterReady ? ' filter-active' : ''}`}
-            onClick={() => setFilterReady(v => !v)}
-            title="Afficher uniquement les items avec DoR complète (prêts pour le sprint)"
-            style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: filterReady ? 700 : undefined }}>
-            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5"/>
-            </svg>
-            Prêt
+        {/* Trier / Filtrer / Grouper — "unibody" : un seul contour, séparateurs internes
+            (retour Julien, 2026-07-29 : 8 contrôles ramenés à 3 boutons à dropdown). */}
+        <div className="hdr-btn-group">
+          <button ref={sortMenu.btnRef} className={`hdr-menu-trigger${sortBy ? ' active' : ''}`}
+            data-testid="btn-sort-by" onClick={sortMenu.toggle}>
+            <Svg d={ICO_SORT} size={13} /> Trier <Svg d={SVG_CHEV_D} size={11} />
+          </button>
+          <button ref={filterMenu.btnRef} className={`hdr-menu-trigger${activeFilterCount ? ' active' : ''}`}
+            data-testid="btn-filter" onClick={filterMenu.toggle}>
+            <Svg d={ICO_FILTER} size={13} /> Filtrer
+            {activeFilterCount > 0 && <span className="hdr-menu-trigger-badge">{activeFilterCount}</span>}
+            <Svg d={SVG_CHEV_D} size={11} />
+          </button>
+          <button ref={groupMenu.btnRef} className={`hdr-menu-trigger${groupBy !== 'none' ? ' active' : ''}`}
+            data-testid="btn-group-by" onClick={groupMenu.toggle}>
+            <Svg d={ICO_LAYERS} size={13} />
+            {groupBy === 'none' ? 'Grouper' : `Grouper : ${GROUP_OPTIONS.find(o => o.value === groupBy)?.label}`}
+            <Svg d={SVG_CHEV_D} size={11} />
           </button>
         </div>
 
@@ -939,11 +956,8 @@ export function BacklogPage() {
 
       {/* Rendu hors du Header pour échapper à son overflow, même principe que ClientsPage.tsx */}
       {addMenuOpen && addMenuPos && (
-        <div ref={addMenuRef} style={{
-          position: 'fixed', top: addMenuPos.top, right: addMenuPos.right, zIndex: 9999,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.18)',
-          minWidth: 160, overflow: 'hidden',
+        <div ref={addMenuRef} className="hdr-menu-panel" style={{
+          position: 'fixed', top: addMenuPos.top, right: addMenuPos.right, zIndex: 9999, minWidth: 160,
         }}>
           <button style={ADD_MENU_ITEM_STYLE} data-testid="menu-new-item"
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
@@ -951,7 +965,7 @@ export function BacklogPage() {
             onClick={() => { setModalItem(null); setAddMenuOpen(false); setAddMenuPos(null) }}>
             Nouvel Item
           </button>
-          <button style={{ ...ADD_MENU_ITEM_STYLE, borderTop: '1px solid var(--border)' }} data-testid="menu-new-epic"
+          <button style={ADD_MENU_ITEM_STYLE} data-testid="menu-new-epic"
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             onClick={() => { setNodeModal({ node: null, level: 'epic' }); setAddMenuOpen(false); setAddMenuPos(null) }}>
@@ -963,6 +977,60 @@ export function BacklogPage() {
             onClick={() => { setNodeModal({ node: null, level: 'initiative' }); setAddMenuOpen(false); setAddMenuPos(null) }}>
             Nouvelle Initiative
           </button>
+        </div>
+      )}
+
+      {/* Dropdown "Trier" */}
+      {sortMenu.open && sortMenu.pos && (
+        <div ref={sortMenu.menuRef} className="hdr-menu-panel"
+          style={{ position: 'fixed', top: sortMenu.pos.top, right: sortMenu.pos.right, zIndex: 9999, minWidth: 170 }}>
+          {SORT_OPTIONS.map(o => (
+            <MenuOption key={o.value || '_none'} label={o.label} active={sortBy === o.value}
+              testId={`sort-by-option-${o.value || 'none'}`}
+              onClick={() => { setSortBy(o.value); sortMenu.close() }} />
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown "Grouper" */}
+      {groupMenu.open && groupMenu.pos && (
+        <div ref={groupMenu.menuRef} className="hdr-menu-panel"
+          style={{ position: 'fixed', top: groupMenu.pos.top, right: groupMenu.pos.right, zIndex: 9999, minWidth: 170 }}>
+          {GROUP_OPTIONS.map(o => (
+            <MenuOption key={o.value} label={o.label} active={groupBy === o.value}
+              testId={`group-by-option-${o.value}`}
+              onClick={() => { setGroupBy(o.value); groupMenu.close() }} />
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown "Filtrer" — panel multi-axes (Client/Sprint/Epic/Initiative/Tag/Statut),
+          contrairement à Trier/Grouper qui sont un choix unique : ces 6 axes se combinent. */}
+      {filterMenu.open && filterMenu.pos && (
+        <div ref={filterMenu.menuRef} className="hdr-menu-panel"
+          style={{ position: 'fixed', top: filterMenu.pos.top, right: filterMenu.pos.right, zIndex: 9999, minWidth: 230 }}>
+          <FilterRow label="Client" testId="filter-client" value={filterClient} onChange={setFilterClient}
+            options={state.clients.map(c => ({ value: c.id, label: c.name }))} />
+          <FilterRow label="Sprint" testId="filter-sprint" value={filterSprint} onChange={setFilterSprint}
+            options={[...state.sprints.map(s => ({ value: s.id, label: `Sprint ${s.number}` })), { value: 'unassigned', label: 'Non assigné' }]} />
+          <FilterRow label="Epic" testId="filter-epic" value={filterEpic} onChange={setFilterEpic}
+            options={state.hierarchyNodes.filter(n => n.level === 'epic').map(e => ({ value: e.id, label: e.key }))} />
+          <FilterRow label="Initiative" testId="filter-initiative" value={filterInitiative} onChange={setFilterInitiative}
+            options={state.hierarchyNodes.filter(n => n.level === 'initiative').map(i => ({ value: i.id, label: i.key }))} />
+          <FilterRow label="Tag" testId="filter-tag" value={filterTag} onChange={setFilterTag}
+            options={allTags.map(t => ({ value: t, label: t }))} />
+          <FilterRow label="Statut" testId="filter-status" value={filterStatus} onChange={setFilterStatus}
+            options={allStatusCols.map(c => ({ value: c.id, label: c.label }))} />
+          <div className="hdr-menu-option hdr-menu-checkbox-row" onClick={() => setFilterReady(v => !v)}>
+            <input type="checkbox" data-testid="filter-ready" checked={filterReady}
+              onChange={e => setFilterReady(e.target.checked)} onClick={e => e.stopPropagation()} />
+            <span>Prêt (DoR complète)</span>
+          </div>
+          {activeFilterCount > 0 && (
+            <button className="hdr-menu-clear-btn" data-testid="filter-clear" onClick={clearAllFilters}>
+              Réinitialiser les filtres
+            </button>
+          )}
         </div>
       )}
 

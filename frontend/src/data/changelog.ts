@@ -15,7 +15,16 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.5',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — Sprint Review : "Incrément livré" regroupé par Epic/Initiative',current:true,changes:[
+  {version:'v0.92.6',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Backlog — header simplifié : Trier / Filtrer / Grouper en 3 boutons',current:true,changes:[
+    {tag:'ux', text:'Le header du Backlog comptait 8 contrôles (7 listes déroulantes + le bouton "Prêt") : ramené à 3 boutons "unibody" (un seul contour, séparateurs internes) — Trier, Filtrer, Grouper — chacun ouvrant son propre menu déroulant'},
+    {tag:'feat', text:'Le menu "Filtrer" réunit les 6 axes (Client, Sprint, Epic, Initiative, Tag, Statut) et la case "Prêt (DoR complète)", avec un lien "Réinitialiser les filtres" dès qu\'un filtre est actif ; le bouton affiche le nombre de filtres actifs'},
+    {tag:'feat', text:'Nouveau filtre "Epic" (rattachement direct, sans passer par l\'Initiative parente) — il manquait à côté du filtre "Initiative" existant'},
+    {tag:'ux', text:'Dans les menus Trier/Grouper, l\'option choisie n\'est plus indiquée en gras mais par une coche et une couleur d\'accent, à poids de police normal — comme demandé pour tous les menus déroulants de l\'application'},
+    {tag:'fix', text:'Le menu "+ Ajouter" (Nouvel Item / Nouvel Epic / Nouvelle Initiative) perd son séparateur entre "Nouvel Item" et "Nouvel Epic" (distinction jugée peu lisible) et repasse en poids de police normal (était en gras)'},
+    {tag:'chore', text:'Garde-fou CSS global (`option { font-weight: 400 }`) pour qu\'aucun `<select>` de l\'application n\'hérite un poids de police en gras sur ses options — le seul cas identifié (le Backlog) est de toute façon retiré par ce chantier'},
+    {tag:'test', text:'Tests Playwright réécrits pour cibler les nouveaux boutons/menus (tests/backlog.spec.js, tests/dor-dod.spec.js) via des helpers dédiés (tests/helpers.js : setBacklogSortBy, setBacklogGroupBy, setBacklogFilter, toggleBacklogReadyFilter)'},
+  ]},
+  {version:'v0.92.5',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — Sprint Review : "Incrément livré" regroupé par Epic/Initiative',current:false,changes:[
     {tag:'feat', text:'La section "Incrément livré" de la Sprint Review affiche désormais un en-tête de groupe (badge EPIC ou INITIATIVE, nombre d\'items, SP) au-dessus des items livrés rattachés à un même Epic ou une même Initiative ; les Epics d\'une Initiative apparaissent imbriqués sous son en-tête, comme au Backlog'},
     {tag:'refactor', text:'Nouvel utilitaire partagé `buildItemsFirstHierarchy()` (utils/hierarchyScore.ts) : version à 2 niveaux (Epic puis Initiative) de `groupItemsByEpic()`, pour les scopes déjà limités par l\'appelant (ici : les items livrés d\'un sprint) — jamais de groupe vide, contrairement à `buildInitiativeSections()` du Backlog qui affiche toute la hiérarchie connue'},
     {tag:'ux', text:'Les en-têtes de groupe de la Sprint Review sont volontairement de simples séparateurs (non repliables, pas de card) — le scope d\'un sprint livré est déjà réduit par nature, contrairement au Backlog qui liste toute la hiérarchie'},
