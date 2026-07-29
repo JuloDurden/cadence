@@ -116,6 +116,11 @@ export interface Item {
  * critères, ni DoR/DoD — ces champs n'ont pas de sens pour un conteneur d'organisation
  * (confirmé par audit du code existant, voir docs/corrections.md : aucun de ces champs
  * n'était lu nulle part pour un Epic).
+ *
+ * `deadline` ajouté le 2026-07-29 (retour Julien) : l'audit du sous-chantier 1 avait conclu
+ * qu'aucun champ de ce type n'était lu pour un Epic — ce cas avait en fait été manqué (un
+ * ancien Epic-Item portait bien une deadline propre avant la Phase 1). Décision : restaurer
+ * la capacité plutôt que d'accepter la perte, voir docs/corrections.md.
  */
 export interface HierarchyNode {
   id: string
@@ -129,6 +134,7 @@ export interface HierarchyNode {
   icon?: string
   sp?: number                    // score arbitraire ; sinon somme des enfants — voir utils/hierarchyScore.ts
   status?: string                // ex: déclenche la cascade "Epic terminé → enfants terminés" du Backlog
+  deadline?: Deadline
   notes?: Note[]
   createdAt: string
 }

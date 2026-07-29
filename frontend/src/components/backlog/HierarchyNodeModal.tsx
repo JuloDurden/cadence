@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { CadenceState, HierarchyNode, HierarchyLevel } from '../../types'
+import type { CadenceState, HierarchyNode, HierarchyLevel, Deadline } from '../../types'
 import { statusOptionsForItemModal } from '../../utils/kanbanStages'
 
 function uid() { return Math.random().toString(36).slice(2, 10) }
@@ -27,6 +27,7 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
   const [sprintId, setSprintId] = useState(node?.sprintId ?? '')
   const [sp,       setSp]       = useState(node?.sp ?? 0)
   const [status,   setStatus]   = useState(node?.status ?? 'backlog')
+  const [deadline, setDeadline] = useState<Deadline>(node?.deadline ?? { date: '', type: 'none' })
 
   const statusOptions = statusOptionsForItemModal(state.kanbanCols)
 
@@ -60,6 +61,7 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
       sprintId: sprintId || null,
       sp:       +sp || undefined,
       status,
+      deadline: (deadline.date && deadline.type !== 'none') ? deadline : undefined,
       notes:    node?.notes,
       createdAt: node?.createdAt ?? new Date().toISOString(),
     }
@@ -106,6 +108,20 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
               <label>Statut</label>
               <select value={status} onChange={e => setStatus(e.target.value)}>
                 {statusOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Date de livraison</label>
+              <input type="date" value={deadline.date} onChange={e => setDeadline(d => ({ ...d, date: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label>Type</label>
+              <select value={deadline.type} onChange={e => setDeadline(d => ({ ...d, type: e.target.value as Deadline['type'] }))}>
+                <option value="none">Aucune</option>
+                <option value="imposed">Imposée</option>
+                <option value="negotiable">Négociable</option>
               </select>
             </div>
           </div>

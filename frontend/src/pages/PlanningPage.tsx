@@ -14,6 +14,7 @@ import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry,
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
+import { attachItemsToEpics } from '../utils/hierarchyScore'
 import type { Item, Sprint, HistoryEntry } from '../types'
 
 type View = 'grid' | 'swimlanes'
@@ -263,27 +264,12 @@ export function PlanningPage() {
   const assigned    = state.items.filter(i => i.sprintId !== null)
   const totalSP     = state.items.reduce((s, i) => s + i.sp, 0)
 
-  // Groupement Epic dans le panneau non-assigné
-  // On groupe TOUTES les stories non-assignées par epicId, peu importe où est l'Epic lui-même
-  // (l'Epic n'est plus jamais dans `unassigned`/`state.items` depuis Phase 1 — voir HierarchyNode)
-  const childrenByEpicId   = new Map<string, Item[]>()
-  const standaloneUnassigned: Item[] = []
-  for (const item of unassigned) {
-    if (item.epicId) {
-      const arr = childrenByEpicId.get(item.epicId) ?? []
-      arr.push(item)
-      childrenByEpicId.set(item.epicId, arr)
-    } else {
-      standaloneUnassigned.push(item)
-    }
-  }
-  // Epics non-assignés à aucun sprint, sans stories non-assignées (toutes en sprint) → groupe vide
+  // Groupement Epic dans le panneau non-assigné (sous-chantier 2, utilitaire partagé) : Epics
+  // sans sprint assigné, y compris sans aucune story non-assignée — `attachItemsToEpics()`
+  // les inclut nativement (groupe vide), remplaçant l'ancienne construction manuelle à deux
+  // listes (`epicGroupsUnassigned` + `lonelyUnassignedEpics`).
   const unassignedEpicNodes = state.hierarchyNodes.filter(n => n.level === 'epic' && !n.sprintId)
-  const lonelyUnassignedEpics = unassignedEpicNodes.filter(n => !childrenByEpicId.has(n.id))
-  // Groupes à afficher (epic trouvé dans state.hierarchyNodes, même s'il est dans un sprint)
-  const epicGroupsUnassigned = Array.from(childrenByEpicId.entries()).map(([epicId, stories]) => ({
-    epicId, stories, epic: state.hierarchyNodes.find(n => n.id === epicId),
-  }))
+  const { groups: epicGroupsUnassigned, orphans: standaloneUnassigned } = attachItemsToEpics(unassignedEpicNodes, unassigned)
 
   return (
     <>
@@ -410,32 +396,16 @@ export function PlanningPage() {
               <span style={{ fontSize: 11, color: 'var(--text-faint)', background: 'var(--surface-alt)', padding: '1px 7px', borderRadius: 8 }}>{unassigned.length}</span>
             </div>
             <div className="planning-unassigned-items">
-              {/* Groupes Epic (epic dans n'importe quel sprint ou non-assigné) */}
-              {epicGroupsUnassigned.map(({ epicId, epic, stories }) => (
+              {/* Groupes Epic (Epics non assignés à un sprint, y compris sans aucune story
+                  non-assignée — groupe vide, `attachItemsToEpics()`). Édition de l'Epic
+                  lui-même encore limitée au Backlog (mode "Grouper par Epic") tant qu'une
+                  modale dédiée Epic/Initiative n'est pas construite — voir docs/corrections.md. */}
+              {epicGroupsUnassigned.map(({ epicId, epic, items: stories }) => (
                 <PlanningEpicGroup
                   key={epicId}
                   epicId={epicId}
                   epic={epic}
                   stories={stories}
-                  state={state}
-                  highlightClient={highlightClient}
-                  highlightType={highlightType}
-                  onEdit={item => setModalItem(item)}
-                  onDragGroup={ids => { dragIds.current = ids }}
-                  onDragItem={id  => { dragIds.current = [id] }}
-                />
-              ))}
-              {/* Epics non-assignés sans stories non-assignées : groupe vide (0 US) plutôt
-                  qu'une carte de story — un Epic n'est plus un Item depuis Phase 1 (2026-07-28),
-                  PlanningCard ne sait afficher qu'un Item. Édition de l'Epic lui-même encore
-                  limitée au Backlog (mode "Grouper par Epic") tant qu'une modale dédiée
-                  Epic/Initiative n'est pas construite — voir docs/corrections.md. */}
-              {lonelyUnassignedEpics.map(epic => (
-                <PlanningEpicGroup
-                  key={epic.id}
-                  epicId={epic.id}
-                  epic={epic}
-                  stories={[]}
                   state={state}
                   highlightClient={highlightClient}
                   highlightType={highlightType}

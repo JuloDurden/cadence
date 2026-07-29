@@ -5,7 +5,8 @@ test.describe('DoR / DoD (via modal)', () => {
 
   test("l'onglet DoR/DoD est accessible depuis la modale d'une Story", async ({ page }) => {
     await goTo(page, '/backlog');
-    await page.click('[data-testid="btn-new-item"]');
+    await page.click('[data-testid="btn-add-menu"]');
+    await page.click('[data-testid="menu-new-item"]');
     const modal = page.locator('[data-testid="item-modal"]');
     await expect(modal).toContainText('DoD / DoR');
     await modal.getByText('DoD / DoR').click();
@@ -31,9 +32,11 @@ test.describe('DoR / DoD — colonnes Backlog', () => {
     await expect(dorCells.locator('svg').first()).toBeVisible();
   });
 
-  test('les items avec DoR partielle affichent un compteur X/N (ex : FAX-007)', async ({ page }) => {
+  test('les items avec DoR partielle affichent un compteur X/N (ex : SOC-010)', async ({ page }) => {
     await goTo(page, '/backlog');
-    // FAX-007 (i7) : DoR[3].done=false, DoR[4].done=false → compteur "3/5"
+    // SOC-010 (i10) : DoR[3].done=false, DoR[4].done=false → compteur "3/5". FAX-007 n'est
+    // plus un exemple valide depuis la Phase 1 (sous-chantier 1) : c'est un HierarchyNode
+    // (Epic), qui n'a pas de champ `dor`.
     // On cherche une cellule DoR avec un span contenant le pattern X/N
     const partialSpans = page.locator('[data-testid="dor-cell"] span').filter({ hasText: /^\d+\/\d+$/ });
     await expect(partialSpans.first()).toBeVisible();
@@ -108,21 +111,23 @@ test.describe('DoR — bandeau Sprint Planning', () => {
     expect(errors).toHaveLength(0);
   });
 
-  test('le bandeau DoR est visible dans Sprint 2 (FAX-007 et SOC-010 ont DoR incomplète)', async ({ page }) => {
+  test('le bandeau DoR est visible dans Sprint 2 (SOC-010 a une DoR incomplète)', async ({ page }) => {
     await goTo(page, '/sprint-planning');
     // Sprint 2 est sélectionné par défaut (premier sprint non clôturé)
-    // FAX-007 (dor[3,4].done=false) et SOC-010 (dor[3,4].done=false) sont dans Sprint 2
+    // FAX-007 était l'ancien Epic-Item de référence (avant Phase 1, sous-chantier 1) : un
+    // Epic est depuis un HierarchyNode sans champ `dor`, il ne compte donc plus dans ce
+    // bandeau qui ne porte que sur les vrais Items. Seul SOC-010 (dor[3,4].done=false)
+    // compte désormais dans Sprint 2.
     const banner = page.locator('[data-testid="dor-banner"]');
     await expect(banner).toBeVisible();
-    await expect(banner).toContainText('FAX-007');
     await expect(banner).toContainText('SOC-010');
   });
 
   test('le bandeau indique le bon nombre d\'items non prêts', async ({ page }) => {
     await goTo(page, '/sprint-planning');
-    // Sprint 2 : FAX-007 + SOC-010 → 2 items non prêts
+    // Sprint 2 : SOC-010 → 1 item non prêt (FAX-007 est un Epic, sans DoR, voir test précédent)
     const banner = page.locator('[data-testid="dor-banner"]');
-    await expect(banner).toContainText('2 items');
+    await expect(banner).toContainText('1 item');
   });
 
 });

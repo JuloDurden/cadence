@@ -15,7 +15,17 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Phase 1 (roadmap v1) — Epic devient un HierarchyNode indépendant des Items',current:true,changes:[
+  {version:'v0.92.2',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Un Epic peut de nouveau porter sa propre deadline',current:true,changes:[
+    {tag:'fix', text:'Le champ deadline avait disparu des Epics lors du passage à HierarchyNode (Phase 1, sous-chantier 1) — un Epic ne pouvait plus porter sa propre date de livraison, contrairement à avant. Restauré : `HierarchyNode` a de nouveau un champ `deadline` (même structure que sur un Item), éditable dans la modale Epic/Initiative'},
+    {tag:'fix', text:'Le badge "deadline dépassée" du header de sprint (Release Planning) ne regardait que les US ; il inclut désormais aussi les Epics du sprint portant une deadline dépassée'},
+    {tag:'test', text:'3 tests Playwright existants (tests/planning-v080.spec.js) qui vérifiaient ce badge sur l\'Epic FAX-013 sont de nouveau valides sans modification, la donnée démo ayant retrouvé sa deadline'},
+  ]},
+  {version:'v0.92.1',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — Utilitaire de regroupement Epic partagé (Epics vides inclus)',current:false,changes:[
+    {tag:'refactor', text:'Nouvel utilitaire partagé (`utils/hierarchyScore.ts`) qui remplace les implémentations inline divergentes du regroupement par Epic dans Release Planning (`SprintColumn.tsx`, `SwimlanesView.tsx`), le panneau non-assigné (`PlanningPage.tsx`), la Roadmap (`RoadmapPage.tsx`), le Backlog (mode "Grouper par Epic") et l\'Auto-planning : `groupItemsByEpic()` (items-first, pour les scopes sans notion stable d\'Epics attendus, comme un slot de scénario what-if) et `attachItemsToEpics()` (Epics-first, à partir d\'un ensemble d\'Epics déjà filtré par l\'appelant)'},
+    {tag:'fix', text:'Un Epic sans aucune US mais avec un SP fixé et un sprint assigné n\'apparaissait plus du tout et ne comptait plus dans la capacité du sprint en Release Planning (`SprintColumn.tsx`, `SwimlanesView.tsx`) depuis le passage d\'Epic en HierarchyNode indépendant — il apparaît de nouveau comme une carte et compte dans la capacité, comme avant la Phase 1'},
+    {tag:'chore', text:'Le panneau non-assigné (Release Planning) et la Roadmap géraient déjà correctement les Epics vides via leur propre logique inline ; migrés sur l\'utilitaire commun pour éviter une nouvelle divergence future'},
+  ]},
+  {version:'v0.92',date:'28 Juillet 2026',dateISO:'2026-07-28',title:'Phase 1 (roadmap v1) — Epic devient un HierarchyNode indépendant des Items',current:false,changes:[
     {tag:'refactor', text:'Un Epic n\'est plus un Item (`type: \'epic\'`) mais un nouveau type dédié HierarchyNode (`level: \'epic\' | \'initiative\'`, champ `parentId` générique façon Jira), pensé pour accueillir le futur niveau Initiative sans nouveau modèle de données'},
     {tag:'feat', text:'Nouvelle modale dédiée (Backlog) pour créer/modifier/supprimer un Epic, avec bouton "Nouvel Epic" à côté de "Nouvel Item" ; ItemModal ne gère plus que Story/Bug/Tâche/Spike'},
     {tag:'fix', text:'Les données existantes (Epics enregistrés avant ce changement) sont migrées automatiquement au chargement, en conservant leur identifiant : toutes les US déjà rattachées à un Epic restent rattachées sans aucune action nécessaire'},

@@ -11,11 +11,14 @@ test.describe('Backlog', () => {
   });
 
   test('affiche plusieurs clients du DEMO_STATE', async ({ page }) => {
+    // FAX-002/MAN-003/AGA-004 sont des clés d'Epic (HierarchyNode) depuis la Phase 1
+    // (2026-07-28) — un Epic n'est plus un Item et n'apparaît plus dans le tableau par
+    // défaut (vue "Tous les items"). On vérifie donc de vraies clés d'Item par client.
     await goTo(page, '/backlog');
     const table = page.locator('[data-testid="backlog-table"]');
-    await expect(table).toContainText('FAX-002');
-    await expect(table).toContainText('MAN-003');
-    await expect(table).toContainText('AGA-004');
+    await expect(table).toContainText('FAX-019');
+    await expect(table).toContainText('MAN-020');
+    await expect(table).toContainText('AGA-021');
   });
 
   test('le bouton Nouvel Item ouvre la modale', async ({ page }) => {

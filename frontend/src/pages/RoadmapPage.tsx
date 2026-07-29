@@ -9,7 +9,7 @@ import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry,
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
-import { getEpicSP } from '../utils/epicScore'
+import { getEpicSP, attachItemsToEpics } from '../utils/hierarchyScore'
 import type { RoadmapGoal } from '../types'
 
 const COLORS = [
@@ -350,12 +350,12 @@ export function RoadmapPage() {
           // (même limite de conception qu'avant, non corrigée ici : un Epic dont les US
           // sont dans ce sprint mais dont le sprintId propre diffère n'apparaîtra pas ici).
           const epicItems = state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id)
-          const epicIdSet = new Set(epicItems.map(e => e.id))
-          const storiesInEpics = items.filter(i => i.epicId && epicIdSet.has(i.epicId))
-          const storiesInEpicsIds = new Set(storiesInEpics.map(i => i.id))
-          // Items orphelins : aucune story rattachée à un epic de ce sprint (les items ne
-          // sont plus jamais eux-mêmes des Epics)
-          const orphanItems = items.filter(i => !storiesInEpicsIds.has(i.id))
+          // Regroupement épics-first (sous-chantier 2, utilitaire partagé utils/hierarchyScore.ts) :
+          // inclut nativement un Epic sans aucune story (ex. FAX-034, non découpé). Items
+          // orphelins : aucune story rattachée à un epic de ce sprint (les items ne sont plus
+          // jamais eux-mêmes des Epics).
+          const { groups: epicGroups, orphans: orphanItems } = attachItemsToEpics(epicItems, items)
+          const storiesByEpicId = new Map(epicGroups.map(g => [g.epicId, g.items]))
 
           // Group orphans by client
           const byClient = new Map<string, typeof items>()
@@ -480,7 +480,7 @@ export function RoadmapPage() {
                 })
 
                 const renderEpicRow = (epic: typeof epicItems[0]) => {
-                  const stories = storiesInEpics.filter(s => s.epicId === epic.id)
+                  const stories = storiesByEpicId.get(epic.id) ?? []
                   const epicClient = state.clients.find(c => c.id === epic.clientId)
                   const eSP = getEpicSP(epic, stories)
                   return (
@@ -528,7 +528,7 @@ export function RoadmapPage() {
                   if (!sec || (sec.gEpics.length === 0 && sec.gOrphans.length === 0)) return
                   const gc = g.color ?? '#6366f1'
                   const totalSP =
-                    sec.gEpics.reduce((acc, epic) => acc + getEpicSP(epic, storiesInEpics.filter(s => s.epicId === epic.id)), 0) +
+                    sec.gEpics.reduce((acc, epic) => acc + getEpicSP(epic, storiesByEpicId.get(epic.id) ?? []), 0) +
                     sec.gOrphans.reduce((acc, i) => acc + i.sp, 0)
                   result.push(
                     <div key={g.id} className="roadmap-section" data-testid={`roadmap-group-${g.id}`}>
@@ -547,7 +547,7 @@ export function RoadmapPage() {
                 const none = byGid.get('__none__')
                 if (none) {
                   none.gEpics.forEach(epic => {
-                    const stories = storiesInEpics.filter(s => s.epicId === epic.id)
+                    const stories = storiesByEpicId.get(epic.id) ?? []
                     const epicClient = state.clients.find(c => c.id === epic.clientId)
                     const eSP = getEpicSP(epic, stories)
                     result.push(
@@ -605,7 +605,7 @@ export function RoadmapPage() {
                 // ── Mode par client (défaut) : épics plats, orphelins triés alpha ──
                 <>
                   {epicItems.map(epic => {
-                    const stories = storiesInEpics.filter(s => s.epicId === epic.id)
+                    const stories = storiesByEpicId.get(epic.id) ?? []
                     const epicClient = state.clients.find(c => c.id === epic.clientId)
                     const groupSP = getEpicSP(epic, stories)
                     return (

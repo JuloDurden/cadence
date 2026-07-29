@@ -99,9 +99,11 @@ test.describe('What-if — Scénarios', () => {
     await expect(page.getByRole('button', { name: 'Ajouter', exact: true })).toBeVisible();
   });
 
-  test('le changelog affiche v0.90 comme version courante', async ({ page }) => {
+  test('le changelog affiche la version courante', async ({ page }) => {
+    // Duplique la vérification de tests/changelog.spec.js — volontaire, pour un
+    // repère rapide depuis ce fichier ; garder les deux synchronisées à chaque bump.
     await goTo(page, '/changelog');
-    await expect(page.locator('.cl-card.current')).toContainText('v0.91');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.92.2');
   });
 
 });

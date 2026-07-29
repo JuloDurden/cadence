@@ -146,6 +146,31 @@ test.describe('Release Planning — Epic repliable dans une carte de sprint (202
 
 });
 
+test.describe('Release Planning — Epic vide compte dans la capacite du sprint (retour Julien, 2026-07-29)', () => {
+
+  test('un Epic sans US mais avec un SP fixe et un sprint assigne apparait comme une carte', async ({ page }) => {
+    // AGA-009 (i9, demo.ts) : Epic sp:10, sprintId:"s2", aucune US rattachee. Avant le
+    // correctif du 2026-07-29, un tel Epic n'apparaissait pas du tout en Release Planning
+    // (attachItemsToEpics() n'existait pas encore côté SprintColumn/SwimlanesView, seul un
+    // Epic avec au moins une US était affiché).
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    const epicAGA009 = sprint2Col.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-i9"]') });
+    await expect(epicAGA009).toBeVisible();
+    await expect(epicAGA009.locator('.epic-group-count')).toContainText('0 US · 10 SP');
+  });
+
+  test('le SP de cet Epic vide est compte dans le total "SP utilises" du sprint', async ({ page }) => {
+    // Sprint 2 (s2, demo.ts) : items propres au sprint = BUG-006 (15) + SOC-010 (15) +
+    // PME-011 (10) + FAX-024 (8, rattaché à l'Epic FAX-007) + MAN-025 (5, rattaché à
+    // l'Epic MAN-008) = 53 SP, + AGA-009 (Epic vide, 10 SP fixes) = 63 SP au total.
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    await expect(sprint2Col).toContainText('63 SP utilisés');
+  });
+
+});
+
 test.describe('Release Planning — groupe Epic non tronque en mode deplie (2026-07-28)', () => {
 
   test('le groupe Epic ne se fait pas ecraser par flexbox (flex-shrink: 0)', async ({ page }) => {

@@ -7,6 +7,7 @@ import { effectiveCapacity } from '../utils/sprintCapacity'
 import { fmtDate, fmtDateShort, localIso } from '../utils/dates'
 import { topoSort, computeMoveBadge, isItemHighlighted, nextScenarioIdx, isSlotNonEmpty } from '../utils/autoPlanning'
 import { withHistoryEntry } from '../utils/history'
+import { groupItemsByEpic } from '../utils/hierarchyScore'
 import type { Item, Sprint, Scenario, ScenarioSlot, ScenarioViolation, VirtualItem, ScenarioItemOverride, HistoryEntry, HierarchyNode } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
@@ -1038,20 +1039,24 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
             const pct   = slot.cap > 0 ? Math.min(Math.round(total / slot.cap * 100), 100) : 0
             const over  = total > slot.cap
 
-            // ── Grouper les items par epicId ───────────────────────────
+            // ── Grouper les items par epicId (sous-chantier 2, utilitaire partagé) ──────
+            // `groupItemsByEpic()` (items-first) : un slot de scénario n'a pas de notion
+            // stable d'"Epics qui devraient être là" comme un sprint réel, donc pas
+            // d'Epic vide à afficher ici, contrairement à Release Planning. Extracteur
+            // explicite car `slot.assigned` mélange `Item` et `VirtualItem` (ce dernier
+            // n'a pas de champ epicId).
             type Row = { kind: 'epic'; epicId: string } | { kind: 'item'; item: Item | VirtualItem; inEpic?: string }
-            const epicGroups = new Map<string, (Item | VirtualItem)[]>()
-            const noEpicItems: (Item | VirtualItem)[] = []
-            for (const it of slot.assigned) {
-              const eid = !it.id.startsWith('virt-') ? (it as Item).epicId : undefined
-              if (eid) { if (!epicGroups.has(eid)) epicGroups.set(eid, []); epicGroups.get(eid)!.push(it) }
-              else noEpicItems.push(it)
-            }
+            const { groups: epicGroups, orphans: noEpicItems } = groupItemsByEpic<Item | VirtualItem>(
+              slot.assigned,
+              state.hierarchyNodes,
+              (it) => !it.id.startsWith('virt-') ? (it as Item).epicId : undefined,
+            )
+            const storiesHereByEpicId = new Map(epicGroups.map(g => [g.epicId, g.items.length]))
             const rows: Row[] = [
               ...noEpicItems.map(it => ({ kind: 'item' as const, item: it })),
-              ...[...epicGroups.entries()].flatMap(([eid, items]) => [
-                { kind: 'epic' as const, epicId: eid },
-                ...items.map(it => ({ kind: 'item' as const, item: it, inEpic: eid })),
+              ...epicGroups.flatMap(({ epicId, items }) => [
+                { kind: 'epic' as const, epicId },
+                ...items.map(it => ({ kind: 'item' as const, item: it, inEpic: epicId })),
               ]),
             ]
 
@@ -1098,7 +1103,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                     if (row.kind === 'epic') {
                       const epic = epicMap.get(row.epicId)
                       if (!epic) return null
-                      const storiesHere  = epicGroups.get(row.epicId)!.length
+                      const storiesHere  = storiesHereByEpicId.get(row.epicId) ?? 0
                       const storiesTotal = epicChildCount.get(row.epicId) ?? 0
                       const epicClient   = state.clients.find((c: any) => c.id === epic.clientId)
                       return (

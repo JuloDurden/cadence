@@ -1,6 +1,7 @@
 import type { Item, CadenceState } from '../../types'
 import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
+import { attachItemsToEpics, getHierarchyNodeSP } from '../../utils/hierarchyScore'
 
 interface Props {
   state: CadenceState
@@ -73,21 +74,14 @@ export function SwimlanesView({
               const key        = cellKey(client.id, sprint.id)
               const isOver     = dragOverKey === key
               const sprintItems = clientItems.filter(i => i.sprintId === sprint.id)
-              const sprintSP   = sprintItems.reduce((s, i) => s + i.sp, 0)
 
-              // Groupement Epic intra-cellule
-              const byEpic = new Map<string, Item[]>()
-              const standalone: Item[] = []
-              for (const item of sprintItems) {
-                if (item.epicId) {
-                  const arr = byEpic.get(item.epicId) ?? []
-                  arr.push(item)
-                  byEpic.set(item.epicId, arr)
-                } else standalone.push(item)
-              }
-              const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
-                epicId, stories, epic: state.hierarchyNodes.find(n => n.id === epicId),
-              }))
+              // Groupement Epic intra-cellule : Epics de ce client assignés à ce sprint, y
+              // compris sans aucun item (retour Julien, 2026-07-29) — `attachItemsToEpics()`
+              // les inclut nativement, contrairement à l'ancien groupement item-first.
+              const cellEpics = state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id && n.clientId === client.id)
+              const { groups: epicGroups, orphans: standalone } = attachItemsToEpics(cellEpics, sprintItems)
+              const emptyEpicsSP = epicGroups.filter(g => g.items.length === 0).reduce((s, g) => s + getHierarchyNodeSP(g.epic, []), 0)
+              const sprintSP   = sprintItems.reduce((s, i) => s + i.sp, 0) + emptyEpicsSP
 
               return (
                 <div
@@ -97,12 +91,12 @@ export function SwimlanesView({
                   onDragLeave={onDragLeave}
                   onDrop={e => { e.preventDefault(); onDrop(sprint.id) }}
                 >
-                  {sprintItems.length > 0 && (
+                  {(sprintItems.length > 0 || emptyEpicsSP > 0) && (
                     <div style={{ fontSize: 9, color: 'var(--text-faint)', textAlign: 'right', marginBottom: 4 }}>
                       {sprintSP} SP
                     </div>
                   )}
-                  {epicGroups.map(({ epicId, epic, stories }) => (
+                  {epicGroups.map(({ epicId, epic, items: stories }) => (
                     <PlanningEpicGroup
                       key={epicId}
                       epicId={epicId}
@@ -130,7 +124,7 @@ export function SwimlanesView({
                       onDragStart={id => { dragIds.current = [id] }}
                     />
                   ))}
-                  {sprintItems.length === 0 && !sprint.closed && (
+                  {sprintItems.length === 0 && epicGroups.length === 0 && !sprint.closed && (
                     <div style={{ height: 36, border: '1.5px dashed var(--border)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ fontSize: 10, color: 'var(--text-faint)' }}>–</span>
                     </div>

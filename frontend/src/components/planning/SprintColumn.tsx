@@ -4,6 +4,7 @@ import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
 import { effectiveCapacity, capacityLossBreakdown, describeCapacityLoss, holidaysInRange, computeSprintEndDate } from '../../utils/sprintCapacity'
 import { fmtDateShort } from '../../utils/dates'
+import { attachItemsToEpics, getHierarchyNodeSP } from '../../utils/hierarchyScore'
 
 interface Props {
   sprint: Sprint
@@ -70,7 +71,14 @@ export function SprintColumn({
   const [editCap,    setEditCap]    = useState(false)
   const [draftCap,   setDraftCap]   = useState(String(sprint.capacity))
 
-  const usedSP = items.reduce((s, i) => s + i.sp, 0)
+  // Epics assignés à ce sprint (via leur propre sprintId) : un Epic sans aucun item mais avec
+  // un SP fixé doit quand même apparaître comme une carte et compter dans la capacité du sprint
+  // (retour Julien, 2026-07-29 — comportement d'avant la Phase 1, quand un Epic était un Item).
+  // `attachItemsToEpics()` inclut nativement les Epics sans item correspondant.
+  const sprintEpics = state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id)
+  const { groups: epicGroups, orphans: standalone } = attachItemsToEpics(sprintEpics, items)
+  const emptyEpicsSP = epicGroups.filter(g => g.items.length === 0).reduce((s, g) => s + getHierarchyNodeSP(g.epic, []), 0)
+  const usedSP = items.reduce((s, i) => s + i.sp, 0) + emptyEpicsSP
   const effCap = effectiveCapacity(sprint, state.team, state.absences)
   const holidays = sprint.startDate && sprint.endDate ? holidaysInRange(sprint.startDate, sprint.endDate) : []
   // Détail de la perte de capacité (2026-07-28) : fériés et absences sont deux causes
@@ -294,17 +302,20 @@ export function SprintColumn({
           </div>
         )}
 
-        {/* Alertes deadlines dépassées */}
+        {/* Alertes deadlines dépassées — inclut les Epics du sprint depuis l'ajout du champ
+            deadline sur HierarchyNode (retour Julien, 2026-07-29 : un Epic peut de nouveau
+            porter sa propre deadline, comme avant la Phase 1). */}
         {(() => {
-          const lateItems = items.filter(i => {
-            const dl = i.deadline
-            return dl && dl.type !== 'none' && sprint.endDate && dl.date < sprint.endDate
-          })
-          return lateItems.length > 0 ? (
+          const isLate = (dl?: { date: string; type: string }) =>
+            !!dl && dl.type !== 'none' && !!sprint.endDate && dl.date < sprint.endDate
+          const lateItems = items.filter(i => isLate(i.deadline))
+          const lateEpics = sprintEpics.filter(e => isLate(e.deadline))
+          const lateNodes: { key: string; deadline?: { date: string } }[] = [...lateItems, ...lateEpics]
+          return lateNodes.length > 0 ? (
             <div style={{ marginTop: 4 }}>
               <span style={{ fontSize: 10, fontWeight: 600, color: '#dc2626', background: '#fee2e2', padding: '2px 7px', borderRadius: 8 }}
-                title={lateItems.map(i => `${i.key} — deadline ${i.deadline?.date}`).join('\n')}>
-                ⚑ {lateItems.length} deadline{lateItems.length > 1 ? 's' : ''} dépassée{lateItems.length > 1 ? 's' : ''}
+                title={lateNodes.map(n => `${n.key} — deadline ${n.deadline?.date}`).join('\n')}>
+                ⚑ {lateNodes.length} deadline{lateNodes.length > 1 ? 's' : ''} dépassée{lateNodes.length > 1 ? 's' : ''}
               </span>
             </div>
           ) : null
@@ -318,29 +329,11 @@ export function SprintColumn({
 
       {/* ── ITEMS ─────────────────────────────────────────────────────────── */}
       {(() => {
-        // Grouper les items par epicId
-        const byEpic = new Map<string, Item[]>()
-        for (const item of items) {
-          if (!item.epicId) continue
-          const arr = byEpic.get(item.epicId) ?? []
-          arr.push(item)
-          byEpic.set(item.epicId, arr)
-        }
-        const standalone: Item[] = []
-        for (const item of items) {
-          // Items avec epicId → dans un groupe, pas standalone (l'Epic lui-même n'est
-          // plus jamais dans `items` depuis Phase 1 — voir HierarchyNode, types/index.ts)
-          if (item.epicId) continue
-          standalone.push(item)
-        }
-        const epicGroups = Array.from(byEpic.entries()).map(([epicId, stories]) => ({
-          epicId, stories, epic: state.hierarchyNodes.find(n => n.id === epicId),
-        }))
         const isEmpty = epicGroups.length === 0 && standalone.length === 0
 
         return (
           <div className="planning-items">
-            {epicGroups.map(({ epicId, epic, stories }) => (
+            {epicGroups.map(({ epicId, epic, items: stories }) => (
               <PlanningEpicGroup
                 key={epicId}
                 epicId={epicId}

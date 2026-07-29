@@ -5,7 +5,8 @@ test.describe('ItemModal — modes d\'affichage', () => {
 
   const openModal = async (page) => {
     await goTo(page, '/backlog');
-    await page.click('[data-testid="btn-new-item"]');
+    await page.click('[data-testid="btn-add-menu"]');
+    await page.click('[data-testid="menu-new-item"]');
     await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
   };
 
@@ -25,7 +26,8 @@ test.describe('ItemModal — modes d\'affichage', () => {
   test('le mode par défaut est fenêtre centrée (.modal-overlay)', async ({ page }) => {
     await goTo(page, '/backlog');
     await page.evaluate(() => localStorage.removeItem('modal-view'));
-    await page.click('[data-testid="btn-new-item"]');
+    await page.click('[data-testid="btn-add-menu"]');
+    await page.click('[data-testid="menu-new-item"]');
     await expect(page.locator('.modal-overlay')).toBeVisible();
     await expect(page.locator('.modal-side-overlay')).not.toBeVisible();
     await expect(page.locator('.modal-fullpage')).not.toBeVisible();
@@ -73,7 +75,8 @@ test.describe('ItemModal — modes d\'affichage', () => {
     await page.locator('button', { hasText: 'Volet latéral' }).click();
     await page.locator('[data-testid="item-modal"] button', { hasText: 'Annuler' }).click();
     await expect(page.locator('[data-testid="item-modal"]')).not.toBeVisible();
-    await page.click('[data-testid="btn-new-item"]');
+    await page.click('[data-testid="btn-add-menu"]');
+    await page.click('[data-testid="menu-new-item"]');
     await expect(page.locator('.modal-side-overlay')).toBeVisible();
   });
 

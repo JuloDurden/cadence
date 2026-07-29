@@ -9,6 +9,7 @@ import { HierarchyNodeModal } from '../components/backlog/HierarchyNodeModal'
 import { findEpicChildren, detachEpicChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
+import { attachItemsToEpics, getHierarchyNodeSP } from '../utils/hierarchyScore'
 import type { Item, ItemType, BugSeverity, HistoryEntry, HierarchyNode } from '../types'
 
 /* ─── Error Boundary ─────────────────────────────────────────────── */
@@ -265,20 +266,23 @@ export function BacklogPage() {
       // titre qu'un item dans `filtered` (qui ne contient plus que des Items) — un groupe Epic
       // reste affiché dès qu'il a au moins un enfant correspondant aux filtres actifs, ou
       // toujours si aucun filtre n'est actif (comportement précédent conservé pour ce 2e cas).
+      // Regroupement épics-first via l'utilitaire partagé (sous-chantier 2, utils/hierarchyScore.ts) :
+      // un appel scope sur `filtered` (affichage), un second scope sur `state.items` (SP/done
+      // non filtrés) — un Epic vide reste inclus dans les deux.
       const allEpics = state.hierarchyNodes.filter(n => n.level === 'epic')
       const noFilterActive = !filterSprint && !filterClient && !filterPriority && !filterTag && !filterStatus && !filterReady
-      const result: Group[] = allEpics.map(ep => {
-        const children = state.items.filter(i => i.epicId === ep.id)
-        const filteredChildren = filtered.filter(i => i.epicId === ep.id)
-        const childrenSP = children.reduce((s, i) => s + i.sp, 0)
+      const { groups: filteredGroups, orphans: noEpic } = attachItemsToEpics(allEpics, filtered)
+      const { groups: allChildrenGroups } = attachItemsToEpics(allEpics, state.items)
+      const allChildrenByEpicId = new Map(allChildrenGroups.map(g => [g.epicId, g.items]))
+      const result: Group[] = filteredGroups.map(({ epicId, epic: ep, items: filteredChildren }) => {
+        const children = allChildrenByEpicId.get(epicId) ?? []
         const epicFixed = (ep.sp ?? 0) > 0
-        const epicSP = epicFixed ? ep.sp! : childrenSP
+        const epicSP = getHierarchyNodeSP(ep, children.map(c => c.sp))
         const doneCount = children.filter(i => i.status === 'done').length
         const color = state.clients.find(c => c.id === ep.clientId)?.color
-        return { id: ep.id, label: ep.key, sublabel: ep.desc, color, items: filteredChildren, epicSP, epicFixed, doneCount, capacity: epicSP, used: doneCount, epicNode: ep }
+        return { id: epicId, label: ep.key, sublabel: ep.desc, color, items: filteredChildren, epicSP, epicFixed, doneCount, capacity: epicSP, used: doneCount, epicNode: ep }
       })
         .filter(g => g.items.length > 0 || noFilterActive)
-      const noEpic = filtered.filter(i => !i.epicId)
       if (noEpic.length) result.push({ id: 'no-epic', label: 'Sans Epic', items: noEpic })
       return result
     }
