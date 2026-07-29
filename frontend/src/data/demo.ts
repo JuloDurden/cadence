@@ -351,7 +351,12 @@ export const DEMO_STATE: CadenceState = {
   nnlShapes:  [],
   nnlTexts:   [],
   nnlStrokes: [],
-  nnlFrames:  [], // cadres Epic/Initiative (Phase 1, sous-chantier 6) — aucun par défaut dans la démo
+  // Cadre de démo (Phase 1, sous-chantier 6, point 2) — englobe nnl1/nnl2 (zone "now") pour
+  // vérifier visuellement le rendu et le containment avant que l'outil de création (point 3)
+  // n'existe. Lié à l'Epic FAX-002 (i2, déjà présent dans hierarchyNodes ci-dessus).
+  nnlFrames: [
+    { id: 'frame1', level: 'epic', hierarchyNodeId: 'i2', x: 0, y: 20, x2: 340, y2: 400 },
+  ],
   nnlItems: [
     // NOW — distance < 400 depuis l'origine (cercle Now)
     { id: 'nnl1', type: 'feature', text: 'OCR & Scoring fraude',     body: 'OCR pièces justificatives\nScoring fraude v1\nWorkflow sinistre configurable', x: 110, y: 280, zone: 'now'  },

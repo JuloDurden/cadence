@@ -15,7 +15,13 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.7',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : modèle de données des cadres Epic/Initiative',current:true,changes:[
+  {version:'v0.92.8',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : rendu des cadres Epic/Initiative + containment géométrique',current:true,changes:[
+    {tag:'feat', text:'Deuxième pas du sous-chantier 6 (NNL) : les cadres `NNLFrame` s\'affichent désormais sur le canevas (rectangle en pointillés + étiquette "EPIC · <clé>" ou "INITIATIVE · <clé>"), rendus en arrière-plan des formes et post-its'},
+    {tag:'refactor', text:'Nouveau `utils/nnlFrames.ts` : logique de containment géométrique partagée (`isItemInFrame`, `framesContainingItem`, `mostSpecificFrameForItem`) — un post-it appartient à un cadre si son centre est dans ses limites, sans qu\'aucun champ ne mémorise ce lien (voir raisonnement au point 1)'},
+    {tag:'chore', text:'`NNLFrame` revu de `x/y/largeur/hauteur` vers deux coins `x/y` et `x2/y2`, comme les formes existantes — l\'axe Y du monde est inversé par rapport à l\'écran, ce qui rendait un "haut-gauche" ambigu ; les bornes réelles se recalculent via min/max, robuste à un redimensionnement qui inverse les coins'},
+    {tag:'chore', text:'Cadres pris en compte dans l\'undo/redo local du canevas NNL, comme les autres éléments (post-its, formes, textes, traits)'},
+  ]},
+  {version:'v0.92.7',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : modèle de données des cadres Epic/Initiative',current:false,changes:[
     {tag:'refactor', text:'Premier pas du sous-chantier 6 (NNL) : nouveau type `NNLFrame` (`types/index.ts`) représentant un cadre de regroupement Epic ou Initiative sur le canevas — objet libre façon Frame Miro/FigJam (position/taille propres), lié à un `HierarchyNode` existant via `hierarchyNodeId`'},
     {tag:'chore', text:'L\'appartenance d\'un post-it (`NNLItem`) à un cadre n\'est volontairement pas stockée sur le post-it : elle se calculera par containment géométrique au moment du rendu, pas via un champ mémorisé qui risquerait de diverger (même principe que le bug de calcul SP déjà rencontré au sous-chantier 2)'},
     {tag:'chore', text:'Nouveau tableau `nnlFrames` sur `CadenceState`, actions reducer `ADD_NNL_FRAME`/`UPDATE_NNL_FRAME`/`DELETE_NNL_FRAME` (même schéma que les formes/textes/traits NNL existants), tableau vide par défaut dans les données de démo — aucune UI ni rendu sur le canevas dans cette version, uniquement le modèle de données'},

@@ -3,11 +3,12 @@ import { useCadence } from '../../context/StateContext'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../hooks/useAuth'
 import { withHistoryEntry } from '../../utils/history'
-import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, CadenceState, Item, HistoryEntry } from '../../types'
+import type { NNLItem, NNLZone, NNLItemType, NNLTool, NNLShape, NNLText, NNLStroke, NNLLayer, NNLFrame, HierarchyNode, CadenceState, Item, HistoryEntry } from '../../types'
 import { NNLItemModal } from './NNLItemModal'
 import { ItemModal } from '../backlog/ItemModal'
 import { NNLToolbar } from './NNLToolbar'
 import { NNLLayersPanel } from './NNLLayersPanel'
+import { frameBounds } from '../../utils/nnlFrames'
 import polygonClipping from 'polygon-clipping'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
@@ -173,6 +174,51 @@ function ZoneLabels({ ox, oy, zoom, W, H, r1, r2 }: { ox: number; oy: number; zo
         )
       })}
     </>
+  )
+}
+
+// ── FrameLayer (cadres Epic/Initiative, Phase 1 sous-chantier 6, point 2, 2026-07-29) ──────
+// Rendu seul pour l'instant : ni sélectionnable ni redimensionnable (pointerEvents:'none',
+// comme ShapeLayer) — l'outil de création/manipulation arrive au point 3. Rendu AVANT
+// ShapeLayer dans le JSX pour rester visuellement derrière les formes/post-its (un cadre est un
+// fond de regroupement, pas un élément de premier plan).
+const FRAME_COLOR: Record<HierarchyNode['level'], string> = { epic: '#6366f1', initiative: '#b45309' }
+const FRAME_LEVEL_LABEL: Record<HierarchyNode['level'], string> = { epic: 'EPIC', initiative: 'INITIATIVE' }
+
+function FrameLayer({ frames, hierarchyNodes, ox, oy, zoom, W, H }: {
+  frames: NNLFrame[]
+  hierarchyNodes: HierarchyNode[]
+  ox: number; oy: number; zoom: number; W: number; H: number
+}) {
+  const nodeById = new Map(hierarchyNodes.map(n => [n.id, n] as const))
+
+  function renderFrame(f: NNLFrame) {
+    const p1 = w2s(f.x,  f.y,  ox, oy, zoom)
+    const p2 = w2s(f.x2, f.y2, ox, oy, zoom)
+    const rx = Math.min(p1.x, p2.x), ry = Math.min(p1.y, p2.y)
+    const rw = Math.abs(p2.x - p1.x), rh = Math.abs(p2.y - p1.y)
+    const node  = nodeById.get(f.hierarchyNodeId)
+    const color = FRAME_COLOR[f.level]
+    // Nœud introuvable (supprimé côté Backlog depuis) : le cadre reste affiché — pas de
+    // suppression automatique à ce stade (point 2, rendu seul) — mais le libellé le signale.
+    const label = node ? `${FRAME_LEVEL_LABEL[f.level]} · ${node.key}` : `${FRAME_LEVEL_LABEL[f.level]} (introuvable)`
+    const labelW = Math.max(60, label.length * 6.5 + 16)
+
+    return (
+      <g key={f.id} data-testid={`nnl-frame-${f.id}`} data-frame-id={f.id}>
+        <rect x={rx} y={ry} width={rw} height={rh}
+          fill={`${color}0d`} stroke={color} strokeWidth={1.5} strokeDasharray="6 4" rx={6} />
+        <rect x={rx} y={ry - 18} width={labelW} height={18} fill={color} rx={4} />
+        <text x={rx + 8} y={ry - 5} fontSize={11} fontWeight={600} fill="#fff">{label}</text>
+      </g>
+    )
+  }
+
+  return (
+    <svg style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}
+      width={W} height={H}>
+      {frames.map(renderFrame)}
+    </svg>
   )
 }
 
@@ -1523,6 +1569,7 @@ type NNLSnapshot = {
   nnlTexts: NNLText[]
   nnlStrokes: NNLStroke[]
   nnlLayers: NNLLayer[]
+  nnlFrames: NNLFrame[]
 }
 
 // ── NNLCanvas ─────────────────────────────────────────────────────────────────
@@ -1682,6 +1729,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   const shapes  = state.nnlShapes  ?? []
   const texts   = state.nnlTexts   ?? []
   const strokes = state.nnlStrokes ?? []
+  const frames  = state.nnlFrames  ?? []
 
   // ── Layer visibility filter (propagation groupe → enfants) ──────────────
   const layersDefined = (state.nnlLayers ?? []).length > 0
@@ -1711,6 +1759,14 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     .sort((a, b) => byLayerOrder(a.layerId) - byLayerOrder(b.layerId))
   const visibleStrokes = strokes.filter(s => isVisible(s.layerId))
     .sort((a, b) => byLayerOrder(a.layerId) - byLayerOrder(b.layerId))
+  // Cadres Epic/Initiative (sous-chantier 6, point 2) — triés du plus grand au plus petit pour
+  // qu'une Initiative (généralement plus grande) ne recouvre pas visuellement ses Epics
+  // imbriqués, indépendamment de l'ordre de calque.
+  const visibleFrames  = frames.filter(f => isVisible(f.layerId))
+    .sort((a, b) => {
+      const ba = frameBounds(a), bb = frameBounds(b)
+      return (bb.maxX - bb.minX) * (bb.maxY - bb.minY) - (ba.maxX - ba.minX) * (ba.maxY - ba.minY)
+    })
 
   // ── Grille magnétique (v0.90.5) ───────────────────────────────────────────
   const SNAP_GRID = 20
@@ -1783,6 +1839,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       nnlTexts:   st.nnlTexts   ?? [],
       nnlStrokes: st.nnlStrokes ?? [],
       nnlLayers:  st.nnlLayers  ?? [],
+      nnlFrames:  st.nnlFrames  ?? [],
     }
   }, [])
 
@@ -3310,6 +3367,15 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
             onUpdate={handleTextUpdate}
             onSave={handleTextSave}
             onDelete={handleTextDelete}
+          />
+        )}
+
+        {/* Cadres Epic/Initiative (sous-chantier 6, point 2) — rendus avant les formes/post-its
+            pour rester visuellement en arrière-plan */}
+        {W > 0 && visibleFrames.length > 0 && (
+          <FrameLayer
+            frames={visibleFrames} hierarchyNodes={state.hierarchyNodes ?? []}
+            ox={ox} oy={oy} zoom={zoom} W={W} H={H}
           />
         )}
 

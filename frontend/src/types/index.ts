@@ -383,11 +383,11 @@ export interface NNLLayer {
  * Initiative).
  *
  * L'appartenance d'un `NNLItem` (post-it) à un cadre n'est volontairement PAS stockée ici :
- * elle se calcule par containment géométrique (x/y du post-it dans les limites x/y/w/h du
- * cadre) au moment du rendu et des synchronisations Backlog ↔ NNL. Un champ mémorisé sur le
- * post-it risquerait de diverger s'il est déplacé sans que ce champ suive — le même genre de
- * divergence que le bug de calcul SP déjà rencontré et corrigé une fois dans ce projet (voir
- * `docs/corrections.md`, sous-chantier 2).
+ * elle se calcule par containment géométrique (centre x/y du post-it dans les limites du
+ * cadre, voir `utils/nnlFrames.ts`) au moment du rendu et des synchronisations Backlog ↔ NNL.
+ * Un champ mémorisé sur le post-it risquerait de diverger s'il est déplacé sans que ce champ
+ * suive — le même genre de divergence que le bug de calcul SP déjà rencontré et corrigé une
+ * fois dans ce projet (voir `docs/corrections.md`, sous-chantier 2).
  *
  * Un cadre Epic dessiné à l'intérieur d'un cadre Initiative donne l'imbrication à 2 niveaux —
  * uniquement par containment géométrique elle aussi, `NNLFrame` n'a pas de `parentId` propre.
@@ -395,13 +395,21 @@ export interface NNLLayer {
  * Tout post-it peut rejoindre un cadre visuellement (containment), qu'il soit lié ou non à un
  * item du Backlog (décision Julien, 2026-07-29) — seul un post-it avec `linkedItemId` déclenche
  * la synchronisation réelle de l'`epicId` de l'item lié.
+ *
+ * `x`/`y` et `x2`/`y2` : deux coins opposés en coordonnées monde, comme `NNLShape` (pas
+ * garanti "haut-gauche"/"bas-droite" — un redimensionnement peut inverser les coins ; les
+ * bornes réelles se recalculent via `Math.min`/`Math.max`, voir `frameBounds()` dans
+ * `utils/nnlFrames.ts`) — revu ainsi (2026-07-29, pendant l'implémentation du rendu) plutôt que
+ * le `x`/`y`/`w`/`h` du tout premier passage, pour rester cohérent avec la convention déjà en
+ * place sur les formes et éviter toute ambiguïté "haut-gauche" alors que l'axe Y du monde est
+ * inversé par rapport à l'écran.
  */
 export interface NNLFrame {
   id:              string
   level:           HierarchyLevel
   hierarchyNodeId: string   // id du HierarchyNode (Epic ou Initiative) lié
-  x: number; y: number      // coin haut-gauche, coords monde
-  w: number; h: number
+  x: number; y: number      // premier coin, coords monde
+  x2: number; y2: number    // coin opposé, coords monde
   layerId?: string
 }
 
