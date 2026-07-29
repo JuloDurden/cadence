@@ -376,6 +376,35 @@ export interface NNLLayer {
   shapeType?:   string      // type de forme associé (pour le regroupement par type)
 }
 
+/**
+ * Cadre de regroupement Epic/Initiative sur le canevas NNL (Phase 1, sous-chantier 6,
+ * 2026-07-29 — décisions prises avec Julien) : objet libre façon Frame Miro/FigJam, dessiné,
+ * déplacé et redimensionné comme une forme, lié à un `HierarchyNode` existant (Epic ou
+ * Initiative).
+ *
+ * L'appartenance d'un `NNLItem` (post-it) à un cadre n'est volontairement PAS stockée ici :
+ * elle se calcule par containment géométrique (x/y du post-it dans les limites x/y/w/h du
+ * cadre) au moment du rendu et des synchronisations Backlog ↔ NNL. Un champ mémorisé sur le
+ * post-it risquerait de diverger s'il est déplacé sans que ce champ suive — le même genre de
+ * divergence que le bug de calcul SP déjà rencontré et corrigé une fois dans ce projet (voir
+ * `docs/corrections.md`, sous-chantier 2).
+ *
+ * Un cadre Epic dessiné à l'intérieur d'un cadre Initiative donne l'imbrication à 2 niveaux —
+ * uniquement par containment géométrique elle aussi, `NNLFrame` n'a pas de `parentId` propre.
+ *
+ * Tout post-it peut rejoindre un cadre visuellement (containment), qu'il soit lié ou non à un
+ * item du Backlog (décision Julien, 2026-07-29) — seul un post-it avec `linkedItemId` déclenche
+ * la synchronisation réelle de l'`epicId` de l'item lié.
+ */
+export interface NNLFrame {
+  id:              string
+  level:           HierarchyLevel
+  hierarchyNodeId: string   // id du HierarchyNode (Epic ou Initiative) lié
+  x: number; y: number      // coin haut-gauche, coords monde
+  w: number; h: number
+  layerId?: string
+}
+
 export interface VisionBoard {
   productName:   string
   vision:        string
@@ -401,6 +430,7 @@ export interface CadenceState {
   nnlTexts:   NNLText[]
   nnlStrokes: NNLStroke[]
   nnlLayers:  NNLLayer[]
+  nnlFrames:  NNLFrame[]  // cadres de regroupement Epic/Initiative (Phase 1, sous-chantier 6)
   sprintReviewSessions: SprintReviewSession[]
   sprintReviewArchives: SprintReviewArchive[]
   /** Dernier numéro attribué par préfixe de clé d'item — ne redescend jamais, même après suppression. */

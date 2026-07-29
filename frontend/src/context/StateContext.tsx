@@ -74,6 +74,10 @@ type Action =
   | { type: 'DELETE_NNL_STROKE'; payload: string }
   // Layers
   | { type: 'SET_NNL_LAYERS'; payload: import('../types').NNLLayer[] }
+  // Cadres Epic/Initiative (Phase 1, sous-chantier 6, 2026-07-29 — voir NNLFrame, types/index.ts)
+  | { type: 'ADD_NNL_FRAME';    payload: import('../types').NNLFrame }
+  | { type: 'UPDATE_NNL_FRAME'; payload: import('../types').NNLFrame }
+  | { type: 'DELETE_NNL_FRAME'; payload: string }
   // Sprint Review
   | { type: 'UPSERT_SR_SESSION'; payload: import('../types').SprintReviewSession }
   | { type: 'DELETE_SR_SESSION'; payload: string }
@@ -177,6 +181,14 @@ function reducer(state: CadenceState, action: Action): CadenceState {
       ...action.payload,
       sprints: sortSprints(action.payload.sprints),
       sprintReviewSessions: dedupeSrSessions(action.payload.sprintReviewSessions ?? []),
+      // `nnlFrames` (Phase 1, sous-chantier 6, 2026-07-29) n'existe pas encore dans les blobs
+      // déjà persistés côté serveur (créés avant l'ajout de ce champ) — sans ce défaut, la clé
+      // est carrément absente de `state` après chargement (constaté par Julien : absente de
+      // l'export JSON, alors que `nnlShapes`/`nnlTexts`/etc. y sont bien présents, ajoutés lors
+      // de migrations antérieures). `?? []` ici, au point d'entrée unique des données chargées
+      // (`SET_STATE`, utilisé par `loadFromServer` et par l'undo/redo), plutôt que de compter sur
+      // chaque composant consommateur pour le faire défensivement au moment de la lecture.
+      nnlFrames: action.payload.nnlFrames ?? [],
     })
     case 'ADD_ITEM': return {
       ...state,
@@ -234,6 +246,9 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'UPDATE_NNL_STROKE': return { ...state, nnlStrokes: (state.nnlStrokes ?? []).map(s => s.id === action.payload.id ? action.payload : s) }
     case 'DELETE_NNL_STROKE': return { ...state, nnlStrokes: (state.nnlStrokes ?? []).filter(s => s.id !== action.payload) }
     case 'SET_NNL_LAYERS':  return { ...state, nnlLayers: action.payload }
+    case 'ADD_NNL_FRAME':    return { ...state, nnlFrames: [...(state.nnlFrames ?? []), action.payload] }
+    case 'UPDATE_NNL_FRAME': return { ...state, nnlFrames: (state.nnlFrames ?? []).map(f => f.id === action.payload.id ? action.payload : f) }
+    case 'DELETE_NNL_FRAME': return { ...state, nnlFrames: (state.nnlFrames ?? []).filter(f => f.id !== action.payload) }
     case 'UPSERT_RETRO_SESSION': {
       const sessions = state.retroSessions.filter(s => s.id !== action.payload.id)
       return { ...state, retroSessions: [...sessions, action.payload] }

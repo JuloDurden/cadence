@@ -351,6 +351,7 @@ export const DEMO_STATE: CadenceState = {
   nnlShapes:  [],
   nnlTexts:   [],
   nnlStrokes: [],
+  nnlFrames:  [], // cadres Epic/Initiative (Phase 1, sous-chantier 6) — aucun par défaut dans la démo
   nnlItems: [
     // NOW — distance < 400 depuis l'origine (cercle Now)
     { id: 'nnl1', type: 'feature', text: 'OCR & Scoring fraude',     body: 'OCR pièces justificatives\nScoring fraude v1\nWorkflow sinistre configurable', x: 110, y: 280, zone: 'now'  },

@@ -15,7 +15,12 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.6',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Backlog — header simplifié : Trier / Filtrer / Grouper en 3 boutons',current:true,changes:[
+  {version:'v0.92.7',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — NNL : modèle de données des cadres Epic/Initiative',current:true,changes:[
+    {tag:'refactor', text:'Premier pas du sous-chantier 6 (NNL) : nouveau type `NNLFrame` (`types/index.ts`) représentant un cadre de regroupement Epic ou Initiative sur le canevas — objet libre façon Frame Miro/FigJam (position/taille propres), lié à un `HierarchyNode` existant via `hierarchyNodeId`'},
+    {tag:'chore', text:'L\'appartenance d\'un post-it (`NNLItem`) à un cadre n\'est volontairement pas stockée sur le post-it : elle se calculera par containment géométrique au moment du rendu, pas via un champ mémorisé qui risquerait de diverger (même principe que le bug de calcul SP déjà rencontré au sous-chantier 2)'},
+    {tag:'chore', text:'Nouveau tableau `nnlFrames` sur `CadenceState`, actions reducer `ADD_NNL_FRAME`/`UPDATE_NNL_FRAME`/`DELETE_NNL_FRAME` (même schéma que les formes/textes/traits NNL existants), tableau vide par défaut dans les données de démo — aucune UI ni rendu sur le canevas dans cette version, uniquement le modèle de données'},
+  ]},
+  {version:'v0.92.6',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Backlog — header simplifié : Trier / Filtrer / Grouper en 3 boutons',current:false,changes:[
     {tag:'ux', text:'Le header du Backlog comptait 8 contrôles (7 listes déroulantes + le bouton "Prêt") : ramené à 3 boutons "unibody" (un seul contour, séparateurs internes) — Trier, Filtrer, Grouper — chacun ouvrant son propre menu déroulant'},
     {tag:'feat', text:'Le menu "Filtrer" réunit les 6 axes (Client, Sprint, Epic, Initiative, Tag, Statut) et la case "Prêt (DoR complète)", avec un lien "Réinitialiser les filtres" dès qu\'un filtre est actif ; le bouton affiche le nombre de filtres actifs'},
     {tag:'feat', text:'Nouveau filtre "Epic" (rattachement direct, sans passer par l\'Initiative parente) — il manquait à côté du filtre "Initiative" existant'},
