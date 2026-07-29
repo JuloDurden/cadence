@@ -414,6 +414,31 @@ textarea { resize: vertical; min-height: 72px; }
 .epic-group-compact .epic-group-header { padding: 6px 8px; }
 .epic-group-compact .epic-group-stories { padding: 4px; gap: 4px; }
 
+/* ─── Backlog — cards de regroupement (retour Julien, 2026-07-29) ───────────
+ * Tous les modes de regroupement du Backlog (Sprint/Client/Type/Statut/Epic/Initiative)
+ * rendent leur groupe comme une card repliable plutôt qu'une ligne d'en-tête de tableau.
+ * Composant dédié (BacklogGroupCard.tsx), volontairement distinct de .epic-group
+ * (Planning) — voir sa JSDoc pour la raison de ne pas les fusionner. */
+.backlog-group-cards { display: flex; flex-direction: column; gap: 10px; }
+.backlog-group-card { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow); }
+.backlog-group-card + .backlog-group-card { margin-top: 0; }
+.backlog-group-card-nested { margin: 8px 10px; box-shadow: none; }
+.backlog-group-card-header { display: flex; align-items: center; gap: 7px; padding: 9px 12px; cursor: pointer; background: var(--surface2); border-bottom: 1px solid var(--border); user-select: none; }
+.backlog-group-card-collapsed .backlog-group-card-header { border-bottom: none; }
+.backlog-group-card-toggle { background: none; border: none; padding: 2px; margin: -2px 0; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; flex-shrink: 0; border-radius: 4px; }
+.backlog-group-card-toggle:hover { background: var(--surface); color: var(--text); }
+.backlog-group-card-label { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.backlog-group-card-sublabel { font-size: 11px; font-weight: 400; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.backlog-group-card-badge { font-size: 11px; color: var(--text-muted); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.backlog-group-card-actions { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.backlog-group-card-body { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.backlog-group-card-body > .backlog-table { box-shadow: none; }
+/* Badges de niveau (Epic/Initiative) — mêmes couleurs que .epic-type-tag, décliné pour
+   l'Initiative (teinte différente pour distinguer les deux niveaux d'un coup d'œil). */
+.hier-badge { font-size: 9px; font-weight: 700; letter-spacing: .08em; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; }
+.hier-badge-epic { color: #6366f1; background: #eef2ff; }
+.hier-badge-initiative { color: #b45309; background: #fef3c7; }
+
 /* ─── Sprint Planning ────────────────────────────────────────────────────── */
 /* Layout principal : panneau gauche (non-attribués) + grille membres */
 .sp-view { display: flex; gap: 14px; height: calc(100vh - var(--header-h) - 24px); overflow: hidden; }

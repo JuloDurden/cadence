@@ -15,7 +15,19 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.2',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Un Epic peut de nouveau porter sa propre deadline',current:true,changes:[
+  {version:'v0.92.4',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — Backlog : niveau Initiative, regroupement en cards',current:true,changes:[
+    {tag:'feat', text:'Le Backlog gagne le niveau Initiative (au-dessus de l\'Epic) : nouveau mode "Grouper par Initiative", filtre "Initiatives", bouton "Nouvelle Initiative" ; un item peut être rattaché directement à une Initiative (sans passer par un Epic) via son sélecteur "EPIC / INITIATIVE"'},
+    {tag:'feat', text:'Tous les modes de regroupement du Backlog (Sprint, Client, Type, Statut, Epic, Initiative) s\'affichent désormais en cards repliables plutôt qu\'en lignes d\'en-tête de tableau — une Initiative est une card qui contient des cards Epic imbriquées et des items rattachés directement'},
+    {tag:'feat', text:'La modale Epic/Initiative propose un champ "Initiative parente" (pour un Epic) et masque "Sprint assigné" (pour une Initiative, qui couvre par nature plusieurs sprints)'},
+    {tag:'ux', text:'Les cards de regroupement restent soumises aux mêmes filtres et tri que le tableau plat (mode "Grouper : aucun") — aucune règle spécifique introduite pour l\'affichage en cards'},
+    {tag:'chore', text:'Le drag-and-drop d\'un item dans une card Epic/Initiative, évoqué comme piste future, est explicitement hors périmètre de cette version — voir BACKLOG_FEATURES.md'},
+    {tag:'test', text:'Nouveaux tests Playwright (tests/backlog.spec.js) : cards affichées pour un mode de regroupement, repli/dépli d\'une card, création d\'Initiative, rattachement d\'un Epic existant à une Initiative (imbrication vérifiée), suppression d\'une Initiative (Epics enfants détachés et conservés)'},
+  ]},
+  {version:'v0.92.3',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Backlog — la configuration d\'affichage (groupement, tri, filtres) est mémorisée',current:false,changes:[
+    {tag:'feat', text:'Le Backlog retrouve désormais sa configuration d\'affichage (groupement "Grouper par...", tri "Trier par...", filtres Client/Sprint/Tags/Statut/Prêt) au retour sur la page, plutôt que de revenir systématiquement à la vue par défaut — même principe que la persistance du mode d\'affichage de la modale Item'},
+    {tag:'test', text:'Nouveau test Playwright (tests/backlog.spec.js) : le groupement "Grouper par Epic" reste actif après une navigation vers une autre page puis le retour sur le Backlog'},
+  ]},
+  {version:'v0.92.2',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Un Epic peut de nouveau porter sa propre deadline',current:false,changes:[
     {tag:'fix', text:'Le champ deadline avait disparu des Epics lors du passage à HierarchyNode (Phase 1, sous-chantier 1) — un Epic ne pouvait plus porter sa propre date de livraison, contrairement à avant. Restauré : `HierarchyNode` a de nouveau un champ `deadline` (même structure que sur un Item), éditable dans la modale Epic/Initiative'},
     {tag:'fix', text:'Le badge "deadline dépassée" du header de sprint (Release Planning) ne regardait que les US ; il inclut désormais aussi les Epics du sprint portant une deadline dépassée'},
     {tag:'test', text:'3 tests Playwright existants (tests/planning-v080.spec.js) qui vérifiaient ce badge sur l\'Epic FAX-013 sont de nouveau valides sans modification, la donnée démo ayant retrouvé sa deadline'},

@@ -278,6 +278,10 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
   }
 
   const epicOptions = state.hierarchyNodes.filter(n => n.level === 'epic')
+  // Sous-chantier 4 (2026-07-29) : un item peut être rattaché directement à une Initiative
+  // (sans passer par un Epic), "comme un regroupement par plusieurs Sprints" — voir
+  // docs/corrections.md. `epicId` (nom conservé) pointe donc vers l'un ou l'autre.
+  const initiativeOptions = state.hierarchyNodes.filter(n => n.level === 'initiative')
   const depResults = depSearch.length >= 2
     ? state.items.filter(i => i.id !== item?.id && !deps.includes(i.id) &&
         (i.key.toLowerCase().includes(depSearch.toLowerCase()) || i.desc.toLowerCase().includes(depSearch.toLowerCase()))
@@ -472,10 +476,19 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
             </div>
           ) : (
             <div className="form-group">
-              <label className="form-label">EPIC PARENT</label>
+              <label className="form-label">EPIC / INITIATIVE</label>
               <select className="form-input" value={epicId} onChange={e => setEpicId(e.target.value)}>
-                <option value="">Rechercher un Epic...</option>
-                {epicOptions.map(e => <option key={e.id} value={e.id}>{e.key} – {e.desc}</option>)}
+                <option value="">Rechercher un Epic ou une Initiative...</option>
+                {epicOptions.length > 0 && (
+                  <optgroup label="Epics">
+                    {epicOptions.map(e => <option key={e.id} value={e.id}>{e.key} – {e.desc}</option>)}
+                  </optgroup>
+                )}
+                {initiativeOptions.length > 0 && (
+                  <optgroup label="Initiatives">
+                    {initiativeOptions.map(i => <option key={i.id} value={i.id}>{i.key} – {i.desc}</option>)}
+                  </optgroup>
+                )}
               </select>
             </div>
           )}

@@ -109,3 +109,67 @@ export function attachItemsToEpics<T extends { epicId?: string | null }>(
   const orphans = items.filter(i => !i.epicId || !epicIds.has(i.epicId))
   return { groups, orphans }
 }
+
+/* ─── Niveau Initiative (Phase 1, sous-chantier 4 — redémarré 2026-07-29) ───────────────
+ * `Item.epicId` (nom conservé) pointe vers n'importe quel HierarchyNode : un Epic comme
+ * avant, ou directement une Initiative — "comme un regroupement par plusieurs Sprints"
+ * (Julien). Une Initiative a donc deux types d'enfants : des Epics (via `Epic.parentId`)
+ * et des items rattachés directement à elle (via `item.epicId === initiative.id`, sans
+ * passer par un Epic).
+ */
+
+export interface InitiativeSection<T> {
+  initiativeId: string | null   // null = section "Sans Initiative"
+  initiative: HierarchyNode | null
+  epics: EpicGroup<T>[]         // Epics rattachés (ou, pour null, Epics sans Initiative)
+  directItems: T[]              // items rattachés directement à l'Initiative (jamais pour null)
+}
+
+/**
+ * Construit les sections d'affichage du mode "Grouper par Initiative" : une section par
+ * Initiative connue (ses Epics enfants via `attachItemsToEpics()`, ses items directs), plus
+ * une section finale `initiativeId: null` ("Sans Initiative") regroupant les Epics sans
+ * parent (ou parent supprimé) et les items vraiment orphelins (epicId absent, ou ne
+ * correspondant à aucun Epic ni Initiative connu — jamais un item déjà compté dans une
+ * section ci-dessus).
+ */
+export function buildInitiativeSections<T extends { epicId?: string | null }>(
+  items: T[],
+  hierarchyNodes: HierarchyNode[],
+): InitiativeSection<T>[] {
+  const initiatives = hierarchyNodes.filter(n => n.level === 'initiative')
+  const allEpics = hierarchyNodes.filter(n => n.level === 'epic')
+  const initiativeIds = new Set(initiatives.map(i => i.id))
+  const allEpicIds = new Set(allEpics.map(e => e.id))
+
+  const sections: InitiativeSection<T>[] = initiatives.map(initiative => {
+    const epicsHere = allEpics.filter(e => e.parentId === initiative.id)
+    const { groups: epics } = attachItemsToEpics(epicsHere, items)
+    const directItems = items.filter(i => i.epicId === initiative.id)
+    return { initiativeId: initiative.id, initiative, epics, directItems }
+  })
+
+  const epicsWithoutInitiative = allEpics.filter(e => !e.parentId || !initiativeIds.has(e.parentId))
+  const { groups: noInitEpics } = attachItemsToEpics(epicsWithoutInitiative, items)
+  const trueOrphans = items.filter(i => !i.epicId || (!allEpicIds.has(i.epicId) && !initiativeIds.has(i.epicId)))
+  sections.push({ initiativeId: null, initiative: null, epics: noInitEpics, directItems: trueOrphans })
+
+  return sections
+}
+
+/**
+ * Initiative effective d'un item : directe si `epicId` pointe vers une Initiative, transitive
+ * via l'Epic parent sinon. `undefined` si l'item n'est rattaché à rien d'exploitable.
+ * Utilisée par le filtre "Initiatives" du Backlog.
+ */
+export function getItemInitiativeId(
+  item: { epicId?: string | null },
+  hierarchyNodes: HierarchyNode[],
+): string | undefined {
+  if (!item.epicId) return undefined
+  const node = hierarchyNodes.find(n => n.id === item.epicId)
+  if (!node) return undefined
+  if (node.level === 'initiative') return node.id
+  if (node.level === 'epic' && node.parentId) return node.parentId
+  return undefined
+}

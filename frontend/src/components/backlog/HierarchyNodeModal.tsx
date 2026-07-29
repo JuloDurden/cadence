@@ -13,6 +13,8 @@ interface Props {
 }
 
 const LEVEL_LABEL: Record<HierarchyLevel, string> = { epic: 'Epic', initiative: 'Initiative' }
+// "Nouvel Epic" (masculin) / "Nouvelle Initiative" (féminin) — accord de genre, sous-chantier 4.
+const NEW_LABEL: Record<HierarchyLevel, string> = { epic: 'Nouvel Epic', initiative: 'Nouvelle Initiative' }
 
 /**
  * Modal minimale de création/édition d'un HierarchyNode (Epic pour l'instant, Initiative plus
@@ -28,6 +30,10 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
   const [sp,       setSp]       = useState(node?.sp ?? 0)
   const [status,   setStatus]   = useState(node?.status ?? 'backlog')
   const [deadline, setDeadline] = useState<Deadline>(node?.deadline ?? { date: '', type: 'none' })
+  // Initiative parente d'un Epic (sous-chantier 4, 2026-07-29) — sans objet pour une
+  // Initiative elle-même (pas de niveau au-dessus pour l'instant).
+  const [parentId, setParentId] = useState(node?.parentId ?? '')
+  const initiatives = state.hierarchyNodes.filter(n => n.level === 'initiative')
 
   const statusOptions = statusOptionsForItemModal(state.kanbanCols)
 
@@ -55,7 +61,7 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
       id:       node?.id ?? uid(),
       key:      finalKey,
       level,
-      parentId: node?.parentId ?? null,
+      parentId: level === 'epic' ? (parentId || null) : null,
       desc,
       clientId: clientId || undefined,
       sprintId: sprintId || null,
@@ -73,7 +79,7 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
       <div className="modal">
         <div className="modal-header">
           <h2 style={{ fontSize: 16, fontWeight: 700 }}>
-            {node ? `Modifier ${node.key}` : `Nouvel ${LEVEL_LABEL[level]}`}
+            {node ? `Modifier ${node.key}` : NEW_LABEL[level]}
           </h2>
           <button className="btn-icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
@@ -97,13 +103,20 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
             </div>
           </div>
           <div className="form-row">
-            <div className="form-group">
-              <label>Sprint assigné</label>
-              <select value={sprintId} onChange={e => setSprintId(e.target.value)}>
-                <option value="">Non assigné</option>
-                {state.sprints.map(s => <option key={s.id} value={s.id}>Sprint {s.number}{s.goal ? ` – ${s.goal}` : ''}</option>)}
-              </select>
-            </div>
+            {level === 'epic' ? (
+              <div className="form-group">
+                <label>Initiative parente</label>
+                <select value={parentId} onChange={e => setParentId(e.target.value)}>
+                  <option value="">Aucune</option>
+                  {initiatives.map(i => <option key={i.id} value={i.id}>{i.key} – {i.desc}</option>)}
+                </select>
+              </div>
+            ) : (
+              // Une Initiative couvre plusieurs sprints par nature — contrairement à un Epic,
+              // qui peut être "affiché sous" un sprint sur la Roadmap, l'assigner à un sprint
+              // unique n'aurait pas de sens (sous-chantier 4, 2026-07-29).
+              <div className="form-group" />
+            )}
             <div className="form-group">
               <label>Statut</label>
               <select value={status} onChange={e => setStatus(e.target.value)}>
@@ -111,6 +124,18 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
               </select>
             </div>
           </div>
+          {level === 'epic' && (
+            <div className="form-row">
+              <div className="form-group">
+                <label>Sprint assigné</label>
+                <select value={sprintId} onChange={e => setSprintId(e.target.value)}>
+                  <option value="">Non assigné</option>
+                  {state.sprints.map(s => <option key={s.id} value={s.id}>Sprint {s.number}{s.goal ? ` – ${s.goal}` : ''}</option>)}
+                </select>
+              </div>
+              <div className="form-group" />
+            </div>
+          )}
           <div className="form-row">
             <div className="form-group">
               <label>Date de livraison</label>
