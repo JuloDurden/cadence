@@ -15,17 +15,21 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.4',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — Backlog : niveau Initiative, regroupement en cards',current:true,changes:[
+  {version:'v0.92.5',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — Sprint Review : "Incrément livré" regroupé par Epic/Initiative',current:true,changes:[
+    {tag:'feat', text:'La section "Incrément livré" de la Sprint Review affiche désormais un en-tête de groupe (badge EPIC ou INITIATIVE, nombre d\'items, SP) au-dessus des items livrés rattachés à un même Epic ou une même Initiative ; les Epics d\'une Initiative apparaissent imbriqués sous son en-tête, comme au Backlog'},
+    {tag:'refactor', text:'Nouvel utilitaire partagé `buildItemsFirstHierarchy()` (utils/hierarchyScore.ts) : version à 2 niveaux (Epic puis Initiative) de `groupItemsByEpic()`, pour les scopes déjà limités par l\'appelant (ici : les items livrés d\'un sprint) — jamais de groupe vide, contrairement à `buildInitiativeSections()` du Backlog qui affiche toute la hiérarchie connue'},
+    {tag:'ux', text:'Les en-têtes de groupe de la Sprint Review sont volontairement de simples séparateurs (non repliables, pas de card) — le scope d\'un sprint livré est déjà réduit par nature, contrairement au Backlog qui liste toute la hiérarchie'},
+    {tag:'chore', text:'Les items sans Epic ni Initiative restent affichés normalement, sans en-tête "Sans Epic" si c\'est le seul cas de figure sur le sprint (pas de hiérarchie utilisée) — le libellé n\'apparaît que pour distinguer d\'un ou plusieurs groupes affichés au-dessus'},
+    {tag:'test', text:'Nouveau test Playwright (tests/sprint-review.spec.js) : un item livré rattaché à un Epic existant (FAX-002) affiche bien l\'en-tête de groupe correspondant dans "Incrément livré"'},
+  ]},
+  {version:'v0.92.4',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Phase 1 (roadmap v1) — Backlog : configuration d\'affichage mémorisée, niveau Initiative, regroupement en cards',current:false,changes:[
+    {tag:'feat', text:'Le Backlog retrouve désormais sa configuration d\'affichage (groupement "Grouper par...", tri "Trier par...", filtres Client/Sprint/Tags/Statut/Prêt/Initiatives) au retour sur la page, plutôt que de revenir systématiquement à la vue par défaut — même principe que la persistance du mode d\'affichage de la modale Item'},
     {tag:'feat', text:'Le Backlog gagne le niveau Initiative (au-dessus de l\'Epic) : nouveau mode "Grouper par Initiative", filtre "Initiatives", bouton "Nouvelle Initiative" ; un item peut être rattaché directement à une Initiative (sans passer par un Epic) via son sélecteur "EPIC / INITIATIVE"'},
     {tag:'feat', text:'Tous les modes de regroupement du Backlog (Sprint, Client, Type, Statut, Epic, Initiative) s\'affichent désormais en cards repliables plutôt qu\'en lignes d\'en-tête de tableau — une Initiative est une card qui contient des cards Epic imbriquées et des items rattachés directement'},
     {tag:'feat', text:'La modale Epic/Initiative propose un champ "Initiative parente" (pour un Epic) et masque "Sprint assigné" (pour une Initiative, qui couvre par nature plusieurs sprints)'},
     {tag:'ux', text:'Les cards de regroupement restent soumises aux mêmes filtres et tri que le tableau plat (mode "Grouper : aucun") — aucune règle spécifique introduite pour l\'affichage en cards'},
     {tag:'chore', text:'Le drag-and-drop d\'un item dans une card Epic/Initiative, évoqué comme piste future, est explicitement hors périmètre de cette version — voir BACKLOG_FEATURES.md'},
-    {tag:'test', text:'Nouveaux tests Playwright (tests/backlog.spec.js) : cards affichées pour un mode de regroupement, repli/dépli d\'une card, création d\'Initiative, rattachement d\'un Epic existant à une Initiative (imbrication vérifiée), suppression d\'une Initiative (Epics enfants détachés et conservés)'},
-  ]},
-  {version:'v0.92.3',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Backlog — la configuration d\'affichage (groupement, tri, filtres) est mémorisée',current:false,changes:[
-    {tag:'feat', text:'Le Backlog retrouve désormais sa configuration d\'affichage (groupement "Grouper par...", tri "Trier par...", filtres Client/Sprint/Tags/Statut/Prêt) au retour sur la page, plutôt que de revenir systématiquement à la vue par défaut — même principe que la persistance du mode d\'affichage de la modale Item'},
-    {tag:'test', text:'Nouveau test Playwright (tests/backlog.spec.js) : le groupement "Grouper par Epic" reste actif après une navigation vers une autre page puis le retour sur le Backlog'},
+    {tag:'test', text:'Nouveaux tests Playwright (tests/backlog.spec.js) : persistance du groupement après navigation, cards affichées pour un mode de regroupement, repli/dépli d\'une card, création d\'Initiative, rattachement d\'un Epic existant à une Initiative (imbrication vérifiée), suppression d\'une Initiative (Epics enfants détachés et conservés)'},
   ]},
   {version:'v0.92.2',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'Un Epic peut de nouveau porter sa propre deadline',current:false,changes:[
     {tag:'fix', text:'Le champ deadline avait disparu des Epics lors du passage à HierarchyNode (Phase 1, sous-chantier 1) — un Epic ne pouvait plus porter sa propre date de livraison, contrairement à avant. Restauré : `HierarchyNode` a de nouveau un champ `deadline` (même structure que sur un Item), éditable dans la modale Epic/Initiative'},

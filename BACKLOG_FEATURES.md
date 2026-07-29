@@ -16,9 +16,8 @@
 
 ### 🏗 Initiative > Epic > Items — hiérarchie complète
 
-Sous-chantiers 1, 2 et 4/6 faits (2026-07-28/29, v0.92–v0.92.4, voir `docs/roadmap-v1.md` Phase 1 et `docs/corrections.md`) : Epic n'est plus un `Item` (`type: 'epic'`) mais un `HierarchyNode` dédié (`level: 'epic' | 'initiative'`) ; utilitaire de regroupement partagé (`utils/hierarchyScore.ts`) ; niveau Initiative dans le Backlog, rendu en cards repliables imbriquées (Initiative > Epic > Items), tous les modes de regroupement du Backlog étant passés en cards à cette occasion. Restent à faire (sous-chantiers 5 et 6) :
+Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/roadmap-v1.md` Phase 1 et `docs/corrections.md`) : Epic n'est plus un `Item` (`type: 'epic'`) mais un `HierarchyNode` dédié (`level: 'epic' | 'initiative'`) ; utilitaire de regroupement partagé (`utils/hierarchyScore.ts`) ; niveau Initiative dans le Backlog, rendu en cards repliables imbriquées (Initiative > Epic > Items), tous les modes de regroupement du Backlog étant passés en cards à cette occasion ; Sprint Review ("Incrément livré") regroupé par Epic/Initiative via en-têtes non repliables. Reste à faire (sous-chantier 6) :
 
-- Sprint Review : regroupement par Epic/Initiative dans "Incrément livré"
 - **Piste NNL (idée utilisateur, 2026-07-20)** : sur le canevas Now/Next/Later (Vision), permettre de regrouper visuellement plusieurs post-its/items dans un cadre représentant un Epic, et plusieurs Epics dans un cadre représentant une Initiative — ce regroupement visuel se synchroniserait avec la vraie hiérarchie Initiative → Epic → Items du Backlog. Suppose au minimum : un mécanisme de groupement/cadre sur le canevas NNL (au-delà des calques actuels), et une synchronisation bidirectionnelle avec le Backlog. À concevoir une fois cette hiérarchie posée côté Backlog.
 - **Drag-and-drop dans les cards du Backlog** (idée Julien, 2026-07-29, explicitement hors périmètre du sous-chantier 4) : glisser un item directement dans une card Epic ou Initiative pour le rattacher, plutôt que de passer par le sélecteur "EPIC / INITIATIVE" de sa modale. Le choix de faire passer *tous* les modes de regroupement du Backlog en cards (plutôt que seulement Epic/Initiative) a été fait en pensant à cette évolution — la structure est prête à l'accueillir, mais aucun handler de drag n'est câblé pour l'instant.
 
@@ -68,7 +67,7 @@ Route dédiée `/sprint-review` — entrée dans la sidebar. Conçue comme une *
 - Badge "À démontrer" par item (toggle on/off — à décider : simple toggle ou checkbox multi-sélection + mode présentation séquencé)
 - Badge PO **local à la Sprint Review** : `Accepté` / `Refusé` / `En attente` — 3 états, clic pour cycler. *Non stocké sur l'Item — DoR/DoD restent sur la page Backlog.*
 - Note PO inline par item (champ texte)
-- Groupement par Epic prévu lors de l'intégration Initiative > Epic > Item
+- ✅ Groupement par Epic/Initiative fait (2026-07-29, v0.92.5, voir `docs/roadmap-v1.md` Phase 1 sous-chantier 5)
 
 **Section 2 — Non terminé**
 - Items du sprint non livrés, avec raison (champ texte)

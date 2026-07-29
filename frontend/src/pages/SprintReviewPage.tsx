@@ -6,10 +6,11 @@ import type {
   SprintReviewSession, SprintReviewArchive,
   SRItemRecord, SRUnfinishedRecord, SRDecision, SRNote, SROtherParticipant,
   SRBadge, SRUnfinishedDecision,
-  Item, Sprint, TeamMember, Client, Contact, HistoryEntry, Note,
+  Item, Sprint, TeamMember, Client, Contact, HistoryEntry, Note, HierarchyNode,
 } from '../types'
 import { archiveAndReset } from '../utils/session'
 import { getCurrentSprint, reportableSprintsExcluding, nextReportableSprint, lastSprintBeforeDeadline } from '../utils/sprints'
+import { buildItemsFirstHierarchy, getHierarchyNodeSP } from '../utils/hierarchyScore'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 
@@ -486,6 +487,31 @@ export function SprintReviewPage() {
   const srArchives = [...(state.sprintReviewArchives ?? [])].sort((a, b) => b.date.localeCompare(a.date))
   const displayedDelivered = filterToDemo ? deliveredItems.filter(i => getRecord(i.id).toDemo) : deliveredItems
 
+  // Phase 1, sous-chantier 5 (2026-07-29) : "Incrément livré" regroupé par Epic/Initiative —
+  // voir buildItemsFirstHierarchy() (utils/hierarchyScore.ts) pour le détail (items-first,
+  // jamais de groupe vide, un item peut être rattaché directement à une Initiative).
+  const deliveredHierarchy = useMemo(
+    () => buildItemsFirstHierarchy(displayedDelivered, state.hierarchyNodes),
+    [displayedDelivered, state.hierarchyNodes]
+  )
+
+  function renderDeliveredRow(item: Item, indent: number) {
+    const rec = getRecord(item.id)
+    const row = (
+      <DeliveredItemRow
+        key={item.id}
+        item={item}
+        record={rec}
+        onToggleBadge={() => updateItemRecord({ itemId: item.id, badge: nextBadge(rec.badge) })}
+        onToggleDemo={() => updateItemRecord({ itemId: item.id, toDemo: !rec.toDemo })}
+        onNoteChange={note => updateItemRecord({ itemId: item.id, note })}
+      />
+    )
+    return indent === 0 ? row : (
+      <div key={item.id} style={{ paddingLeft: indent * 20 }}>{row}</div>
+    )
+  }
+
   return (
     <>
       <Header title="Sprint Review">
@@ -590,19 +616,54 @@ export function SprintReviewPage() {
                   {filterToDemo ? 'Aucun item marqué "À démontrer"' : 'Aucun item livré pour ce sprint.'}
                 </p>
               )}
-              {displayedDelivered.map(item => {
-                const rec = getRecord(item.id)
+              {/* Initiatives (avec leurs Epics imbriqués + items directs) — SP d'un nœud
+                  calculé via getHierarchyNodeSP, en respectant la règle "arbitraire prime sur
+                  la somme des enfants" (même principe que le Backlog, cf. hierarchyScore.ts) */}
+              {deliveredHierarchy.initiativeSections.map(section => {
+                const epicsWithSP = section.epics.map(eg => ({
+                  ...eg, sp: getHierarchyNodeSP(eg.epic, eg.items.map(effectiveSP)),
+                }))
+                const initiativeSP = getHierarchyNodeSP(
+                  section.initiative,
+                  [...epicsWithSP.map(eg => eg.sp), ...section.directItems.map(effectiveSP)]
+                )
+                const initiativeCount = epicsWithSP.reduce((n, eg) => n + eg.items.length, 0) + section.directItems.length
                 return (
-                  <DeliveredItemRow
-                    key={item.id}
-                    item={item}
-                    record={rec}
-                    onToggleBadge={() => updateItemRecord({ itemId: item.id, badge: nextBadge(rec.badge) })}
-                    onToggleDemo={() => updateItemRecord({ itemId: item.id, toDemo: !rec.toDemo })}
-                    onNoteChange={note => updateItemRecord({ itemId: item.id, note })}
-                  />
+                  <div key={section.initiative.id}>
+                    <DeliveredGroupHeader node={section.initiative} typeTag="INITIATIVE" sp={initiativeSP} count={initiativeCount} />
+                    {epicsWithSP.map(epicGroup => (
+                      <div key={epicGroup.epicId}>
+                        <DeliveredGroupHeader node={epicGroup.epic} typeTag="EPIC" sp={epicGroup.sp} count={epicGroup.items.length} indent={1} />
+                        {epicGroup.items.map(item => renderDeliveredRow(item, 2))}
+                      </div>
+                    ))}
+                    {section.directItems.map(item => renderDeliveredRow(item, 1))}
+                  </div>
                 )
               })}
+              {/* Epics sans Initiative */}
+              {deliveredHierarchy.standaloneEpics.map(epicGroup => {
+                const sp = getHierarchyNodeSP(epicGroup.epic, epicGroup.items.map(effectiveSP))
+                return (
+                  <div key={epicGroup.epicId}>
+                    <DeliveredGroupHeader node={epicGroup.epic} typeTag="EPIC" sp={sp} count={epicGroup.items.length} />
+                    {epicGroup.items.map(item => renderDeliveredRow(item, 1))}
+                  </div>
+                )
+              })}
+              {/* Items sans Epic ni Initiative — pas d'en-tête si c'est le seul cas (pas de
+                  hiérarchie utilisée sur ce sprint), sinon libellé "Sans Epic" pour distinguer
+                  des groupes ci-dessus. */}
+              {deliveredHierarchy.orphans.length > 0 && (
+                <>
+                  {(deliveredHierarchy.initiativeSections.length > 0 || deliveredHierarchy.standaloneEpics.length > 0) && (
+                    <div style={{ padding: '6px 16px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.03em' }}>
+                      Sans Epic
+                    </div>
+                  )}
+                  {deliveredHierarchy.orphans.map(item => renderDeliveredRow(item, 0))}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1253,6 +1314,34 @@ function useDebouncedInput(value: string, onCommit: (v: string) => void, delay =
   }
 
   return [local, onChange, onBlur] as const
+}
+
+/** En-tête de groupe Epic/Initiative pour "Incrément livré" (sous-chantier 5, 2026-07-29) —
+ *  simple séparateur, volontairement non repliable ni "card" : le scope (un sprint livré)
+ *  est déjà réduit par nature, contrairement au Backlog qui liste toute la hiérarchie. */
+function DeliveredGroupHeader({ node, typeTag, sp, count, indent = 0 }: {
+  node: HierarchyNode
+  typeTag: 'EPIC' | 'INITIATIVE'
+  sp: number
+  count: number
+  indent?: number
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: `6px 16px 6px ${16 + indent * 20}px`,
+      background: 'var(--surface)', borderBottom: '1px solid var(--border)',
+    }}>
+      <span className={`hier-badge hier-badge-${typeTag.toLowerCase()}`}>{typeTag}</span>
+      <span style={{ fontSize: 12, fontWeight: 600 }}>{node.key}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{node.desc}</span>
+      <div style={{ flex: 1 }} />
+      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+        {count} item{count > 1 ? 's' : ''}
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 600 }}>{sp} SP</span>
+    </div>
+  )
 }
 
 function DeliveredItemRow({ item, record, onToggleBadge, onToggleDemo, onNoteChange }: {

@@ -66,6 +66,31 @@ test.describe('Sprint Review — /sprint-review', () => {
       await expect(page.locator('.page-content')).toBeVisible();
     });
 
+    test('un item livré rattaché à un Epic affiche un en-tête de groupe (sous-chantier 5, 2026-07-29)', async ({ page }) => {
+      // SOC-010 est "done" sur le Sprint 2 (sprint sélectionné par défaut dans le jeu de démo)
+      // mais sans Epic — on le rattache à l'Epic existant FAX-002 (id "i2") pour vérifier que
+      // "Incrément livré" affiche désormais un en-tête de groupe au-dessus de sa ligne.
+      await goTo(page, '/backlog');
+      await page.locator('tr', { hasText: 'SOC-010' }).first().dblclick();
+      const itemModal = page.locator('[data-testid="item-modal"]');
+      await expect(itemModal).toBeVisible();
+      await itemModal.locator('.form-group').filter({ hasText: 'EPIC / INITIATIVE' }).locator('select').selectOption('i2');
+      await itemModal.getByRole('button', { name: 'Enregistrer' }).click();
+      await expect(itemModal).not.toBeVisible();
+
+      // Navigation via le lien de la sidebar (pas goTo()) : goTo() fait un rechargement
+      // complet de page, et l'API étant mockée en lecture seule dans ces tests (voir
+      // helpers.js), un rechargement repartirait de DEMO_STATE — perdant le rattachement
+      // fait ci-dessus, qui n'existe qu'en mémoire (state React), pas côté serveur.
+      await page.getByRole('link', { name: 'Sprint Review' }).click();
+      await expect(page).toHaveURL(/sprint-review/);
+      const delivered = page.locator('.page-content');
+      await expect(delivered).toContainText('FAX-002');
+      // L'en-tête EPIC précède bien la ligne SOC-010 (regroupement, pas juste une mention)
+      const epicHeader = delivered.locator('.hier-badge-epic').first();
+      await expect(epicHeader).toBeVisible();
+    });
+
   });
 
   // ── Suite 3 : Section Non terminé ─────────────────────────────────────────

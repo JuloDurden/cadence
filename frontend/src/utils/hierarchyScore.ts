@@ -157,6 +157,98 @@ export function buildInitiativeSections<T extends { epicId?: string | null }>(
   return sections
 }
 
+/* ─── Regroupement items-first, tous niveaux (Phase 1, sous-chantier 5 — 2026-07-29) ────
+ * `buildInitiativeSections()` ci-dessus est epics-first (voir `attachItemsToEpics()`) : elle
+ * affiche toujours toutes les Initiatives et tous les Epics connus, même sans item, adapté au
+ * Backlog qui liste la hiérarchie elle-même. La section "Incrément livré" de la Sprint Review
+ * a le même besoin que `groupItemsByEpic()` (scope déjà limité par l'appelant, un sprint livré
+ * ici) mais sur 2 niveaux : jamais de card Epic/Initiative vide, seuls les groupes ayant au
+ * moins un item (direct ou via un Epic enfant) apparaissent. Pas de fonction équivalente pour
+ * 2 niveaux avant ce sous-chantier — ajoutée ici plutôt que dans SprintReviewPage.tsx pour
+ * rester cohérent avec la centralisation de la logique de calcul (voir plus haut).
+ */
+
+export interface ItemsFirstInitiativeSection<T> {
+  initiative: HierarchyNode
+  epics: EpicGroup<T>[]   // seulement les Epics de cette Initiative ayant au moins un item ici
+  directItems: T[]        // items rattachés directement à l'Initiative (jamais via un Epic)
+}
+
+export interface ItemsFirstHierarchy<T> {
+  initiativeSections: ItemsFirstInitiativeSection<T>[]  // Initiatives avec au moins 1 item (direct ou via Epic), ordre de première apparition
+  standaloneEpics: EpicGroup<T>[]                       // Epics sans Initiative (ou Initiative supprimée) ayant au moins 1 item, ordre de première apparition
+  orphans: T[]                                          // items sans epicId, ou dont l'Epic/Initiative n'existe plus
+}
+
+/**
+ * Version "2 niveaux" de `groupItemsByEpic()` : regroupe `items` (scope déjà limité par
+ * l'appelant) par Epic puis Initiative, sans jamais afficher un groupe vide. Un item peut
+ * être rattaché directement à une Initiative (`item.epicId === initiative.id`, sans Epic) —
+ * voir `getItemInitiativeId()`. Premier usage : SprintReviewPage.tsx, section "Incrément
+ * livré", regroupement par Epic/Initiative.
+ */
+export function buildItemsFirstHierarchy<T extends { epicId?: string | null }>(
+  items: T[],
+  hierarchyNodes: HierarchyNode[],
+): ItemsFirstHierarchy<T> {
+  const epicById = new Map(hierarchyNodes.filter(n => n.level === 'epic').map(n => [n.id, n]))
+  const initiativeById = new Map(hierarchyNodes.filter(n => n.level === 'initiative').map(n => [n.id, n]))
+
+  const itemsByEpicId = new Map<string, T[]>()
+  const directItemsByInitiativeId = new Map<string, T[]>()
+  const orphans: T[] = []
+
+  for (const item of items) {
+    const eid = item.epicId
+    const epic = eid ? epicById.get(eid) : undefined
+    const initiative = eid ? initiativeById.get(eid) : undefined
+    if (epic) {
+      if (!itemsByEpicId.has(epic.id)) itemsByEpicId.set(epic.id, [])
+      itemsByEpicId.get(epic.id)!.push(item)
+    } else if (initiative) {
+      if (!directItemsByInitiativeId.has(initiative.id)) directItemsByInitiativeId.set(initiative.id, [])
+      directItemsByInitiativeId.get(initiative.id)!.push(item)
+    } else {
+      orphans.push(item)
+    }
+  }
+
+  // Ordre de première apparition (parcours de `items`), une seule fois par groupe.
+  const initiativeOrder: string[] = []
+  const standaloneEpicOrder: string[] = []
+  const handledEpicIds = new Set<string>()
+  for (const item of items) {
+    const eid = item.epicId
+    if (!eid) continue
+    const epic = epicById.get(eid)
+    if (epic) {
+      const parentInitiative = epic.parentId ? initiativeById.get(epic.parentId) : undefined
+      if (parentInitiative) {
+        if (!initiativeOrder.includes(parentInitiative.id)) initiativeOrder.push(parentInitiative.id)
+      } else if (!standaloneEpicOrder.includes(epic.id) && !handledEpicIds.has(epic.id)) {
+        standaloneEpicOrder.push(epic.id)
+      }
+    } else if (initiativeById.has(eid) && !initiativeOrder.includes(eid)) {
+      initiativeOrder.push(eid)
+    }
+  }
+
+  const initiativeSections: ItemsFirstInitiativeSection<T>[] = initiativeOrder.map(initId => {
+    const initiative = initiativeById.get(initId)!
+    const epicsHere = [...epicById.values()]
+      .filter(e => e.parentId === initId && itemsByEpicId.has(e.id))
+    epicsHere.forEach(e => handledEpicIds.add(e.id))
+    const epics = epicsHere.map(e => ({ epicId: e.id, epic: e, items: itemsByEpicId.get(e.id)! }))
+    return { initiative, epics, directItems: directItemsByInitiativeId.get(initId) ?? [] }
+  })
+
+  const standaloneEpics: EpicGroup<T>[] = standaloneEpicOrder
+    .filter(eid => !handledEpicIds.has(eid))
+    .map(eid => ({ epicId: eid, epic: epicById.get(eid)!, items: itemsByEpicId.get(eid)! }))
+
+  return { initiativeSections, standaloneEpics, orphans }
+}
+
 /**
  * Initiative effective d'un item : directe si `epicId` pointe vers une Initiative, transitive
  * via l'Epic parent sinon. `undefined` si l'item n'est rattaché à rien d'exploitable.
