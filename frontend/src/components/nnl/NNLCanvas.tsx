@@ -11,11 +11,10 @@ import { NNLFrameLinkModal } from './NNLFrameLinkModal'
 import { NNLToolbar, PALETTE } from './NNLToolbar'
 import { NNLLayersPanel } from './NNLLayersPanel'
 import { frameBounds, frameAtBorder, isItemInFrame, mostSpecificFrameForItem } from '../../utils/nnlFrames'
+import { R1_DEFAULT, R2_DEFAULT, zoneFromWorld } from '../../utils/nnlZones'
 import polygonClipping from 'polygon-clipping'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
-const R1_DEFAULT = 400
-const R2_DEFAULT = 800
 const ZOOM_MIN   = 0.15
 const ZOOM_MAX   = 4.0
 const MM_W = 160, MM_H = 100
@@ -27,11 +26,6 @@ const TYPE_COLORS: Record<NNLItemType, string> = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2, 9) }
-
-function zoneFromWorld(wx: number, wy: number, r1: number, r2: number): NNLZone {
-  const d = Math.sqrt(wx * wx + wy * wy)
-  return d < r1 ? 'now' : d < r2 ? 'next' : 'later'
-}
 
 function newPosForZone(zone: NNLZone, r1: number, r2: number) {
   const a = (20 + Math.random() * 50) * (Math.PI / 180)

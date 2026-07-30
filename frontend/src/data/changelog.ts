@@ -15,7 +15,16 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.13',date:'30 Juillet 2026',dateISO:'2026-07-30',title:'Phase 1 (roadmap v1) — NNL : synchronisation NNL → Backlog (cadre → Epic)',current:true,changes:[
+  {version:'v0.92.15',date:'30 Juillet 2026',dateISO:'2026-07-30',title:'Phase 1 (roadmap v1) — NNL : éjection du post-it hors cadre à la désassociation d\'Epic',current:true,changes:[
+    {tag:'fix', text:'Vider l\'Epic d\'un item lié (désassociation manuelle via ItemModal, ou cascade de suppression de l\'Epic depuis le Backlog) éjecte désormais son post-it NNL hors du cadre qui le contenait — auparavant il y restait visuellement, y compris quand le cadre devenait orphelin "(introuvable)" après suppression du nœud'},
+    {tag:'ux', text:'Le post-it est repositionné juste à l\'extérieur du bord le plus proche du cadre, en restant dans la même zone Now/Next/Later qu\'avant l\'éjection — il ne change pas de zone du seul fait de sortir d\'un cadre'},
+  ]},
+  {version:'v0.92.14',date:'30 Juillet 2026',dateISO:'2026-07-30',title:'Phase 1 (roadmap v1) — NNL : synchronisation Backlog → NNL (Epic → cadre)',current:false,changes:[
+    {tag:'feat', text:'Cinquième pas du sous-chantier 6 (NNL) : changer l\'Epic d\'un item (ItemModal, ou une cascade comme la suppression d\'un Epic) déplace automatiquement son post-it NNL lié dans le cadre Epic correspondant, si ce cadre existe déjà sur le canevas'},
+    {tag:'chore', text:'Fonctionne depuis n\'importe quelle page (Backlog, Kanban, Planning...), pas seulement quand le canevas NNL est affiché — la synchronisation vit désormais dans le fournisseur d\'état global plutôt que dans le composant du canevas'},
+    {tag:'chore', text:'Désassocier un item de son Epic (epicId vidé) ne déplace pas son post-it : il n\'existe pas de "cadre vide" vers lequel le faire visuellement sortir (comportement revu en v0.92.15, voir ci-dessus)'},
+  ]},
+  {version:'v0.92.13',date:'30 Juillet 2026',dateISO:'2026-07-30',title:'Phase 1 (roadmap v1) — NNL : synchronisation NNL → Backlog (cadre → Epic)',current:false,changes:[
     {tag:'feat', text:'Quatrième pas du sous-chantier 6 (NNL) : déplacer un post-it lié à un item du Backlog met à jour l\'`epicId` de cet item au relâchement, selon le cadre Epic qui le contient désormais'},
     {tag:'feat', text:'Sortir un post-it lié de tout cadre Epic détache l\'item lié (epicId vidé) — la synchronisation reste fidèle à la position visuelle sur le canevas, dans les deux sens'},
     {tag:'chore', text:'Nouveau type d\'historique `item_epic_change`, journalisé comme les autres changements de rattachement (rattachement/détachement/déplacement entre Epics), visible dans l\'Historique'},

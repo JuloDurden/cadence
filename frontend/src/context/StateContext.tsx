@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import type { CadenceState, Item, Sprint, RoadmapGoal } from '../types'
 import { DEMO_STATE } from '../data/demo'
 import { api } from '../services/api'
+import { isItemInFrame, frameBounds, ejectPointFromFrame } from '../utils/nnlFrames'
+import { R1_DEFAULT, R2_DEFAULT, zoneFromWorld, clampDistanceToZone } from '../utils/nnlZones'
 
 const UNDOABLE = new Set([
   'ADD_ITEM','UPDATE_ITEM','DELETE_ITEM',
@@ -349,6 +351,83 @@ export function StateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', state.settings?.theme ?? 'light')
   }, [state.settings?.theme])
+
+  // ── Sync Backlog → NNL (Phase 1, sous-chantier 6, point 5, 2026-07-30) ─────
+  // Quand l'`epicId` d'un item change (ItemModal, cascade de suppression d'Epic, ou la sync
+  // inverse du point 4 elle-même), le post-it NNL lié (`linkedItemId`) est déplacé dans le cadre
+  // Epic correspondant, SI ce cadre existe déjà sur le canevas (spec initiale : "si un cadre
+  // correspondant existe déjà" — sinon, rien à faire, le post-it reste où il est). Volontairement
+  // placé ici (StateProvider, toujours monté) plutôt que dans NNLCanvas.tsx : le changement
+  // d'epicId peut arriver depuis n'importe quelle page (Backlog, Kanban, Planning...), pas
+  // seulement quand le canevas NNL est affiché.
+  //
+  // epicId vidé (désassociation manuelle via ItemModal OU suppression en cascade de l'Epic —
+  // corrigé le 2026-07-30, voir docs/corrections.md) : si le post-it lié se trouve actuellement
+  // dans un cadre Epic (y compris un cadre devenu orphelin "(introuvable)" suite à la suppression
+  // du nœud), il en est éjecté — repositionné juste à l'extérieur du bord le plus proche
+  // (`ejectPointFromFrame`), en restant dans la même zone Now/Next/Later qu'avant l'éjection
+  // (`clampDistanceToZone` — décision explicite de Julien : ne pas faire changer de zone un
+  // post-it seulement parce qu'il sort d'un cadre). Si le post-it n'est dans aucun cadre Epic,
+  // rien à faire.
+  const nnlEpicSyncPrevItemsRef = useRef<Item[] | null>(null)
+  useEffect(() => {
+    // Ne rien comparer tant que le chargement initial (démo ou serveur) n'est pas terminé, sinon
+    // la transition DEMO_STATE → données serveur ferait apparaître tous les items comme "changés"
+    // et déclencherait un déplacement de post-its en masse au premier chargement.
+    if (!stateLoaded) return
+    const prev = nnlEpicSyncPrevItemsRef.current
+    nnlEpicSyncPrevItemsRef.current = state.items
+    if (!prev) return // première exécution après stateLoaded=true : établir la référence seulement
+
+    const prevEpicById = new Map(prev.map(i => [i.id, i.epicId ?? null]))
+    const changed = state.items.filter(it => {
+      const prevEpicId = prevEpicById.get(it.id)
+      return prevEpicId !== undefined && prevEpicId !== (it.epicId ?? null)
+    })
+    if (changed.length === 0) return
+
+    let nnlItems = state.nnlItems ?? []
+    const frames = state.nnlFrames ?? []
+    let didChange = false
+    for (const item of changed) {
+      const nnlItem = nnlItems.find(n => n.linkedItemId === item.id)
+      if (!nnlItem) continue
+
+      if (!item.epicId) {
+        // Désassociation (manuelle ou cascade de suppression d'Epic) : éjecter le post-it de
+        // tout cadre Epic qui le contiendrait encore visuellement (voir commentaire ci-dessus).
+        const containingFrame = frames.find(f => f.level === 'epic' && isItemInFrame(nnlItem, f))
+        if (!containingFrame) continue // pas dans un cadre : rien à faire
+        const currentZone = nnlItem.zone ?? zoneFromWorld(nnlItem.x, nnlItem.y, R1_DEFAULT, R2_DEFAULT)
+        const ejected = ejectPointFromFrame(nnlItem.x, nnlItem.y, containingFrame)
+        const { x: nx, y: ny } = clampDistanceToZone(ejected.x, ejected.y, currentZone, R1_DEFAULT, R2_DEFAULT)
+        nnlItems = nnlItems.map(n => n.id === nnlItem.id ? { ...n, x: nx, y: ny, zone: currentZone } : n)
+        didChange = true
+        continue
+      }
+
+      const targetFrame = frames.find(f => f.level === 'epic' && f.hierarchyNodeId === item.epicId)
+      if (!targetFrame) continue // pas de cadre correspondant sur le canevas : rien à faire
+      if (isItemInFrame(nnlItem, targetFrame)) continue // déjà dans le bon cadre
+
+      const b = frameBounds(targetFrame)
+      const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2
+      // Léger jitter (±15% max des dimensions du cadre) pour éviter un empilement parfait si
+      // plusieurs post-its rejoignent le même cadre à la suite (ex. cascade de rattachement).
+      const nx = cx + (Math.random() - 0.5) * Math.min(60, (b.maxX - b.minX) * 0.3)
+      const ny = cy + (Math.random() - 0.5) * Math.min(60, (b.maxY - b.minY) * 0.3)
+      nnlItems = nnlItems.map(n => n.id === nnlItem.id
+        ? { ...n, x: nx, y: ny, zone: zoneFromWorld(nx, ny, R1_DEFAULT, R2_DEFAULT) }
+        : n)
+      didChange = true
+    }
+    if (didChange) {
+      const newState = { ...state, nnlItems }
+      dispatch({ type: 'SET_STATE', payload: newState })
+      saveToServer(newState)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.items, stateLoaded])
 
   // File d'attente : deux appels à saveToServer proches dans le temps envoient chacun leur propre
   // requête PUT en parallèle, sans garantie que la requête envoyée en premier arrive au serveur

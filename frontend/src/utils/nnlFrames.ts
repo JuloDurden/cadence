@@ -71,3 +71,23 @@ export function frameAtBorder(point: { x: number; y: number }, frames: NNLFrame[
     .filter(f => isPointNearFrameBorder(point, f, thresh))
     .sort((a, b) => frameArea(a) - frameArea(b))[0]
 }
+
+/**
+ * Point de sortie d'un cadre (sous-chantier 6, point 5 bis — désassociation d'Epic, 2026-07-30) :
+ * repousse un point contenu dans `frame` juste au-delà du bord le plus proche (marge `margin`,
+ * coordonnées monde). Utilisé quand l'`epicId` d'un item lié est vidé (désassociation manuelle ou
+ * suppression en cascade de l'Epic) — le post-it ne doit plus rester visuellement à l'intérieur
+ * d'un cadre auquel l'item n'est plus rattaché côté Backlog.
+ */
+export function ejectPointFromFrame(x: number, y: number, frame: NNLFrame, margin = 40): { x: number; y: number } {
+  const b = frameBounds(frame)
+  const distLeft = x - b.minX
+  const distRight = b.maxX - x
+  const distTop = y - b.minY
+  const distBottom = b.maxY - y
+  const minDist = Math.min(distLeft, distRight, distTop, distBottom)
+  if (minDist === distLeft) return { x: b.minX - margin, y }
+  if (minDist === distRight) return { x: b.maxX + margin, y }
+  if (minDist === distTop) return { x, y: b.minY - margin }
+  return { x, y: b.maxY + margin }
+}
