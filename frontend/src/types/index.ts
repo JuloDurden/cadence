@@ -499,6 +499,11 @@ export type HistoryEventType =
   | 'sprint_delete'
   // CRUD d'un nœud de regroupement (Epic/Initiative) — Phase 1, 2026-07-28 (voir HierarchyNode)
   | 'hierarchy_node_create' | 'hierarchy_node_edit' | 'hierarchy_node_delete'
+  // Changement d'epicId d'un item déclenché par le déplacement de son post-it lié dans/hors
+  // d'un cadre NNL — Phase 1, sous-chantier 6, point 4 (2026-07-30). Un seul type couvrant
+  // rattachement/ré-attachement/détachement, `detail` précise le cas — même principe que
+  // `item_sprint_change` pour un changement de rattachement analogue.
+  | 'item_epic_change'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string

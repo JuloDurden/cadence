@@ -15,7 +15,12 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.92.12',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'NNL — cadre : déplacement solidaire des post-its + palette de couleur harmonisée',current:true,changes:[
+  {version:'v0.92.13',date:'30 Juillet 2026',dateISO:'2026-07-30',title:'Phase 1 (roadmap v1) — NNL : synchronisation NNL → Backlog (cadre → Epic)',current:true,changes:[
+    {tag:'feat', text:'Quatrième pas du sous-chantier 6 (NNL) : déplacer un post-it lié à un item du Backlog met à jour l\'`epicId` de cet item au relâchement, selon le cadre Epic qui le contient désormais'},
+    {tag:'feat', text:'Sortir un post-it lié de tout cadre Epic détache l\'item lié (epicId vidé) — la synchronisation reste fidèle à la position visuelle sur le canevas, dans les deux sens'},
+    {tag:'chore', text:'Nouveau type d\'historique `item_epic_change`, journalisé comme les autres changements de rattachement (rattachement/détachement/déplacement entre Epics), visible dans l\'Historique'},
+  ]},
+  {version:'v0.92.12',date:'29 Juillet 2026',dateISO:'2026-07-29',title:'NNL — cadre : déplacement solidaire des post-its + palette de couleur harmonisée',current:false,changes:[
     {tag:'fix', text:'Déplacer un cadre déplace désormais aussi les post-its qu\'il contient au moment du drag (glisser le contour du cadre les entraîne avec lui) — auparavant seul le contour bougeait, laissant les post-its en dehors du cadre déplacé'},
     {tag:'ux', text:'Palette de couleur du panneau de propriétés du cadre remplacée par celle des autres outils NNL (Rectangle/Ellipse/Flèche/Texte) : 11 couleurs + noir, au lieu d\'une palette différente à 7 couleurs'},
   ]},

@@ -10,7 +10,7 @@ import { HierarchyNodeModal } from '../backlog/HierarchyNodeModal'
 import { NNLFrameLinkModal } from './NNLFrameLinkModal'
 import { NNLToolbar, PALETTE } from './NNLToolbar'
 import { NNLLayersPanel } from './NNLLayersPanel'
-import { frameBounds, frameAtBorder, isItemInFrame } from '../../utils/nnlFrames'
+import { frameBounds, frameAtBorder, isItemInFrame, mostSpecificFrameForItem } from '../../utils/nnlFrames'
 import polygonClipping from 'polygon-clipping'
 
 // ── Constantes ──────────────────────────────────────────────────────────────
@@ -2916,6 +2916,10 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     function onUp() {
       if (!dragRef.current) return
       const id = dragRef.current.id; dragRef.current = null
+      // Sync NNL → Backlog (point 4) avant la sauvegarde NNL : peut dispatcher UPDATE_ITEM sur
+      // l'item lié, dont stateRef.current reflète déjà le résultat par la suite (dispatch est
+      // synchrone sur le reducer même si le re-render React est différé).
+      syncItemEpicFromFrameRef.current(id)
       const st = stateRef.current
       const item = (st.nnlItems ?? []).find(n => n.id === id)
       if (item) saveNNLRef.current({ ...st, nnlItems: (st.nnlItems ?? []).map(n => n.id === id ? item : n) })
@@ -3486,6 +3490,59 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     onModalClose()
     justCreatedLinkedItemIdRef.current = null
   }
+
+  // ── Sync NNL → Backlog (sous-chantier 6, point 4, 2026-07-30) ──────────────
+  // Au relâchement d'un post-it lié (`linkedItemId`) après un déplacement, met à jour l'`epicId`
+  // de l'item Backlog lié pour refléter le cadre Epic qui le contient désormais (ou le vide s'il
+  // n'est plus dans aucun cadre Epic — décision Julien, 2026-07-30 : sync fidèle à la position
+  // visuelle plutôt que de ne synchroniser qu'à l'entrée dans un cadre, pour éviter une
+  // divergence silencieuse entre le canevas et le Backlog).
+  // Un post-it atterrissant dans un cadre Initiative sans Epic imbriqué est traité comme "hors
+  // de tout cadre Epic" : `Item` n'a pas de champ pour un rattachement direct à une Initiative
+  // (voir HierarchyNode — un item pointe uniquement vers un Epic via `epicId`, jamais vers une
+  // Initiative directement).
+  // Ne concerne QUE le drag d'un post-it (ce point). Le redimensionnement d'un cadre peut aussi
+  // faire entrer/sortir des post-its de son périmètre sans qu'aucun post-it ne soit déplacé —
+  // hors périmètre de ce point (spec initiale : "au relâchement d'un post-it dans un cadre").
+  function syncItemEpicFromFrame(nnlItemId: string) {
+    const st = stateRef.current
+    const nnlItem = (st.nnlItems ?? []).find(n => n.id === nnlItemId)
+    if (!nnlItem?.linkedItemId) return
+    const linkedItem = st.items.find(i => i.id === nnlItem.linkedItemId)
+    if (!linkedItem) return
+
+    const frame = mostSpecificFrameForItem(nnlItem, st.nnlFrames ?? [])
+    const newEpicId: string | null = frame && frame.level === 'epic' ? frame.hierarchyNodeId : null
+    const oldEpicId: string | null = linkedItem.epicId ?? null
+    if (newEpicId === oldEpicId) return
+
+    const nodes = st.hierarchyNodes ?? []
+    const newNode = newEpicId ? nodes.find(n => n.id === newEpicId) : undefined
+    const oldNode = oldEpicId ? nodes.find(n => n.id === oldEpicId) : undefined
+    const detail = newEpicId && !oldEpicId
+      ? `Rattaché à l'Epic ${newNode?.key ?? newEpicId} (glissé dans son cadre sur le canevas NNL)`
+      : !newEpicId && oldEpicId
+        ? `Détaché de l'Epic ${oldNode?.key ?? oldEpicId} (sorti de son cadre sur le canevas NNL)`
+        : `Déplacé de l'Epic ${oldNode?.key ?? oldEpicId} vers l'Epic ${newNode?.key ?? newEpicId} (déplacé entre cadres sur le canevas NNL)`
+
+    const updatedItem: Item = { ...linkedItem, epicId: newEpicId }
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(), type: 'item_epic_change', timestamp: new Date().toISOString(),
+      itemKey: linkedItem.key, itemDesc: linkedItem.desc, detail, author: userName,
+    }
+    dispatch({ type: 'UPDATE_ITEM', payload: updatedItem })
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
+      ...st,
+      items: st.items.map(i => i.id === updatedItem.id ? updatedItem : i),
+    }, historyEntry))
+    showToast(newEpicId ? `Rattaché à ${newNode?.key ?? 'l\'Epic'}` : `Détaché de l'Epic ${oldNode?.key ?? ''}`)
+  }
+  // Ref pour appel depuis le useEffect à dépendance `[dispatch]` ci-dessus (drag post-it) — même
+  // raison que `saveNNLRef`/`handleNNLUndoRef` : cet effet ne se ré-exécute pas à chaque render,
+  // un appel direct à `syncItemEpicFromFrame` figerait sa fermeture sur le tout premier rendu.
+  const syncItemEpicFromFrameRef = useRef(syncItemEpicFromFrame)
+  syncItemEpicFromFrameRef.current = syncItemEpicFromFrame
 
   // Journalise dans l'Historique un rattachement/dissociation de post-it à un item réel du
   // Backlog (Chantier B, tranche Vision/NNL) via les types dédiés `item_link`/`item_unlink`.
