@@ -13,8 +13,12 @@ const BASE_URL = 'http://localhost:4321';
  * Charge une route React avec auth injectee.
  * @param {import('@playwright/test').Page} page
  * @param {string} route  ex: '/backlog', '/kanban', '/'
+ * @param {{ role?: string, name?: string }} [opts]  Phase 2 (roadmap v1) — simule un compte
+ *   connecte avec un role/nom donnes (cadence_user_role/cadence_user, lus par useAuth.ts). Sans
+ *   `role`, le comportement est identique a avant (userRole reste vide, comme au login normal
+ *   sans injection) — a utiliser uniquement pour les tests qui dependent du role du compte.
  */
-async function goTo(page, route = '/backlog') {
+async function goTo(page, route = '/backlog', opts = {}) {
   // Intercepter les appels API pour eviter les erreurs reseau
   await page.route('**/api/**', r =>
     r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: null }) })
@@ -25,7 +29,11 @@ async function goTo(page, route = '/backlog') {
   await page.waitForLoadState('domcontentloaded');
 
   // Injecter le token d'auth (bypass ProtectedRoute)
-  await page.evaluate(() => localStorage.setItem('cadence_token', 'test-token-e2e'));
+  await page.evaluate(({ role, name }) => {
+    localStorage.setItem('cadence_token', 'test-token-e2e');
+    if (role) localStorage.setItem('cadence_user_role', role);
+    if (name) localStorage.setItem('cadence_user', name);
+  }, opts);
 
   // Naviguer vers la route cible
   await page.goto(BASE_URL + route);

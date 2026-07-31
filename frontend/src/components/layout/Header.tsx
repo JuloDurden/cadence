@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useCadence } from '../../context/StateContext'
+import { USER_ROLE_LABELS } from '../../types'
 
 /* ── Tiny inline SVG helper ─────────────────────────────────────── */
 function Svg({ d, size = 16 }: { d: string; size?: number }) {
@@ -131,7 +132,12 @@ function SearchModal({ onClose }: { onClose: () => void }) {
 }
 
 export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
-  const { logout } = useAuth()
+  const { logout, userName, userRole } = useAuth()
+  // Phase 2 (roadmap v1), sous-chantier 1 : userName/userRole étaient déjà capturés au login
+  // (useAuth.ts) mais jamais consommés ici — le panneau profil affichait "Admin" en dur, déconnecté
+  // du compte réellement connecté.
+  const initial = (userName || 'A').trim().charAt(0).toUpperCase() || 'A'
+  const roleLabel = userRole ? USER_ROLE_LABELS[userRole] : null
   const { state, dispatch, saveToServer, undo, redo, canUndo, canRedo } = useCadence()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
@@ -250,11 +256,18 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
         <div style={{ position: 'relative' }} ref={profileRef}>
           <button className="hdr-profile-btn" title="Mon profil"
             onClick={() => { setProfileOpen(o => !o); setNotifOpen(false) }}>
-            A
+            {initial}
           </button>
           {profileOpen && (
             <div className="hdr-dropdown hdr-profile-panel">
-              <div className="hdr-profile-user">Admin</div>
+              <div className="hdr-profile-user">
+                {userName || 'Admin'}
+                {roleLabel && (
+                  <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: 'var(--text-muted)' }}>
+                    · {roleLabel}
+                  </span>
+                )}
+              </div>
               <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />
               <button className="hdr-profile-action" onClick={() => { setProfileOpen(false); navigate('/team') }}>
                 <Svg d={SVG.editUser} size={13} /> Editer le profil

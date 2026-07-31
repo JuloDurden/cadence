@@ -8,12 +8,15 @@ import { BASE_TAGS } from '../data/baseTags'
 import { cascadeSprintDates } from '../utils/dates'
 import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../hooks/useAuth'
+import { UsersSettingsSection } from '../components/settings/UsersSettingsSection'
 import type { KanbanCol, Settings } from '../types'
 
 export function SettingsPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const navigate = useNavigate()
   const { showToast } = useToast()
+  const { userRole } = useAuth()
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
@@ -184,6 +187,9 @@ export function SettingsPage() {
             )}
           </div>
         </section>
+
+        {/* Utilisateurs (Phase 2, sous-chantier 1) — reserve au role Admin */}
+        {userRole === 'ADMIN' && <UsersSettingsSection />}
 
         {/* Import / Export */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20 }}>

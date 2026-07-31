@@ -1,6 +1,17 @@
 export type Priority = 'critical' | 'high' | 'medium' | 'low'
 export type RAG = 'R' | 'A' | 'G'
-export type UserRole = 'ADMIN' | 'MEMBER' | 'VIEWER'
+// Phase 2 (roadmap v1), sous-chantier 1 : roles specifiques Cadence, remplace l'ancien trio
+// generique ADMIN/MEMBER/VIEWER — doit rester synchronise avec l'enum Prisma `Role`
+// (backend/prisma/schema.prisma).
+export type UserRole = 'ADMIN' | 'PO' | 'SCRUM_MASTER' | 'DEV' | 'STAKEHOLDER'
+export const USER_ROLES: UserRole[] = ['ADMIN', 'PO', 'SCRUM_MASTER', 'DEV', 'STAKEHOLDER']
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  ADMIN: 'Admin',
+  PO: 'Product Owner',
+  SCRUM_MASTER: 'Scrum Master',
+  DEV: 'Développeur',
+  STAKEHOLDER: 'Stakeholder',
+}
 export type ItemType = 'story' | 'bug' | 'task' | 'spike'
 
 /**
@@ -513,6 +524,12 @@ export interface HistoryEntry {
 
 export interface AuthUser {
   id: string; email: string; name: string; role: UserRole
+}
+
+// Phase 2 (roadmap v1), sous-chantier 1 : compte tel que renvoyé par /api/users (gestion des
+// utilisateurs, réservée Admin) — même forme qu'AuthUser, plus la date de création.
+export interface ManagedUser extends AuthUser {
+  createdAt: string
 }
 
 // ── Sprint Review ─────────────────────────────────────────────────────────────

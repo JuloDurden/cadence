@@ -1,4 +1,4 @@
-import type { AuthUser } from '../types'
+import type { AuthUser, ManagedUser, UserRole } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -31,4 +31,11 @@ export const api = {
   getState: () => request<{ data: unknown }>('/api/state'),
   putState: (data: unknown) =>
     request<void>('/api/state', { method: 'PUT', body: JSON.stringify({ data }) }),
+  // Phase 2 (roadmap v1), sous-chantier 1 : gestion des comptes, réservée au rôle Admin côté
+  // backend (403 sinon — voir backend/src/routes/users.ts).
+  listUsers: () => request<{ users: ManagedUser[] }>('/api/users'),
+  createUser: (input: { email: string; password: string; name: string; role: UserRole }) =>
+    request<{ user: ManagedUser }>('/api/users', { method: 'POST', body: JSON.stringify(input) }),
+  updateUser: (id: string, input: { role?: UserRole; name?: string }) =>
+    request<{ user: ManagedUser }>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(input) }),
 }

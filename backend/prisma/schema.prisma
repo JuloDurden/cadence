@@ -12,7 +12,7 @@ model User {
   email        String   @unique
   passwordHash String
   name         String
-  role         Role     @default(MEMBER)
+  role         Role     @default(DEV)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -39,8 +39,14 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
+// ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
+// STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste
+// un role a part, superviseur (gestion des comptes, tags de base, etc.).
 enum Role {
   ADMIN
-  MEMBER
-  VIEWER
+  PO
+  SCRUM_MASTER
+  DEV
+  STAKEHOLDER
 }
