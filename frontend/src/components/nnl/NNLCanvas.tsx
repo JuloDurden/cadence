@@ -1694,7 +1694,7 @@ type NNLSnapshot = {
 export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onModalClose: () => void }) {
   const { state, dispatch, saveToServer } = useCadence()
   const { showToast } = useToast()
-  const { userName } = useAuth()
+  const { userName, userId } = useAuth()
 
   // ── Canvas state ─────────────────────────────────────────────────────────
   const canvasRef  = useRef<HTMLDivElement>(null)
@@ -4048,6 +4048,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
           state={state}
           onSave={handleLinkedItemSave}
           onClose={() => setLinkingCallback(null)}
+          currentUserId={userId}
         />
       )}
 

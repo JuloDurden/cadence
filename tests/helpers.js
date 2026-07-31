@@ -13,10 +13,12 @@ const BASE_URL = 'http://localhost:4321';
  * Charge une route React avec auth injectee.
  * @param {import('@playwright/test').Page} page
  * @param {string} route  ex: '/backlog', '/kanban', '/'
- * @param {{ role?: string, name?: string }} [opts]  Phase 2 (roadmap v1) — simule un compte
- *   connecte avec un role/nom donnes (cadence_user_role/cadence_user, lus par useAuth.ts). Sans
- *   `role`, le comportement est identique a avant (userRole reste vide, comme au login normal
- *   sans injection) — a utiliser uniquement pour les tests qui dependent du role du compte.
+ * @param {{ role?: string, name?: string, userId?: string }} [opts]  Phase 2 (roadmap v1) —
+ *   simule un compte connecte avec un role/nom/id donnes (cadence_user_role/cadence_user/
+ *   cadence_user_id, lus par useAuth.ts). Sans ces options, le comportement est identique a avant
+ *   (valeurs vides, comme au login normal sans injection) — a utiliser uniquement pour les tests
+ *   qui en dependent. `userId` ajoute au sous-chantier 5 (interactions nominatives) : necessaire
+ *   pour tester l'attribution reelle des notes d'item (Note.authorId = currentUserId).
  */
 async function goTo(page, route = '/backlog', opts = {}) {
   // Intercepter les appels API pour eviter les erreurs reseau
@@ -29,10 +31,11 @@ async function goTo(page, route = '/backlog', opts = {}) {
   await page.waitForLoadState('domcontentloaded');
 
   // Injecter le token d'auth (bypass ProtectedRoute)
-  await page.evaluate(({ role, name }) => {
+  await page.evaluate(({ role, name, userId }) => {
     localStorage.setItem('cadence_token', 'test-token-e2e');
     if (role) localStorage.setItem('cadence_user_role', role);
     if (name) localStorage.setItem('cadence_user', name);
+    if (userId) localStorage.setItem('cadence_user_id', userId);
   }, opts);
 
   // Naviguer vers la route cible

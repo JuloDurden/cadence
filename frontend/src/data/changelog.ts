@@ -15,7 +15,12 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93.7',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Profil utilisateur : création de compte → fiche Équipe automatique, permissions Équipe/Absences',current:true,changes:[
+  {version:'v0.93.8',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Interactions nominatives : attribution réelle des notes, @mentions (sous-chantier 5/6, dernier de la Phase 2)',current:true,changes:[
+    {tag:'fix', text:'Écrire une note ou une réponse sur un item affichait toujours "Invité" : l\'auteur n\'était en réalité jamais enregistré. Corrigé — la note est désormais attribuée au compte connecté, nom et avatar réels affichés dès que ce compte est lié à une fiche Équipe (voir Profil utilisateur, v0.93.7)'},
+    {tag:'feat', text:'@mentions dans le texte d\'une note ou d\'une réponse : taper "@" ouvre une liste (membres de l\'équipe, + "Toute l\'équipe" et "Devs" pour mentionner un groupe) ; la mention choisie s\'affiche en chip dans le texte. Purement visuel — aucune notification, aucun filtre "notes qui me mentionnent" (pas d\'infrastructure de notification dans ce prototype)'},
+    {tag:'test', text:'Nouveau `tests/notes-mentions.spec.js` : attribution par défaut ("Invité" si compte non lié), ouverture/filtrage de l\'autocomplete "@", insertion et affichage d\'une mention (membre, "Toute l\'équipe", "Devs"), fonctionnement identique dans le formulaire de réponse'},
+  ]},
+  {version:'v0.93.7',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Profil utilisateur : création de compte → fiche Équipe automatique, permissions Équipe/Absences',current:false,changes:[
     {tag:'feat', text:'Créer un compte (Réglages > Utilisateurs) crée désormais automatiquement la fiche Équipe correspondante, déjà liée à ce compte — poste par défaut dérivé du rôle, éditable ensuite comme n\'importe quelle fiche. Plus besoin de créer la fiche puis d\'aller la relier manuellement depuis Team'},
     {tag:'feat', text:'SP/jour à 0, champ désactivé, pour les postes Product Owner et Scrum Master (ne développent pas les fonctionnalités à proprement parler) — s\'applique dès le choix du poste, y compris sur les fiches déjà existantes'},
     {tag:'feat', text:'Une fiche Équipe (nom, poste, photo, compétences) n\'est modifiable que par son propriétaire (compte lié) ou un Admin. Le SP/jour reste une exception plus large, modifiable par le PO, le Scrum Master ou le Dev concerné'},

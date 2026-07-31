@@ -1647,6 +1647,16 @@ tr:hover .ca-toggle { opacity: 1; }
   gap: 6px;
   margin-top: 8px;
 }
+/* Phase 2 (roadmap v1), sous-chantier 5 (2026-07-31) : chip de @mention dans le texte d'une
+   note/réponse (voir renderNoteText, ItemModal.tsx). Un seul style, indépendant du mode d'affichage
+   de la modale (contrairement à .note-item/.note-text redéfinis 3 fois ci-dessus). */
+.note-mention {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 0 5px;
+  border-radius: 8px;
+  font-weight: 600;
+}
 
 /* ── NNL v0.90.5 — Grille magnétique toggle ─────────────────────────────── */
 .nnl-snap-toggle {

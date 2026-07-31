@@ -57,7 +57,7 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 
 export function PlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName } = useAuth()
+  const { userName, userId } = useAuth()
   const { confirm, alert } = useDialog()
   const [view, setView] = useState<View>('grid')
   const [highlightClient, setHighlightClient] = useState('')
@@ -443,6 +443,7 @@ export function PlanningPage() {
           state={state}
           onSave={handleSave}
           onClose={() => setModalItem(undefined)}
+          currentUserId={userId}
         />
       )}
     </>

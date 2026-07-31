@@ -298,7 +298,7 @@ function AutoAssignModal({
 export function SprintPlanningPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
   const { confirm } = useDialog()
-  const { userName } = useAuth()
+  const { userName, userId } = useAuth()
   const [modalItem,     setModalItem]     = useState<Item | null | undefined>(undefined)
   const [showAutoModal, setShowAutoModal] = useState(false)
   const [maxCoAssign,   setMaxCoAssign]   = useState(2)
@@ -543,6 +543,7 @@ export function SprintPlanningPage() {
           state={state}
           onSave={handleSave}
           onClose={() => setModalItem(undefined)}
+          currentUserId={userId}
         />
       )}
     </>

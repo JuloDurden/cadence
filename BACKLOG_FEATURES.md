@@ -40,7 +40,7 @@ Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/
 - ✅ **Profil utilisateur** (fait 2026-07-31, v0.93.7) : créer un compte (Réglages > Utilisateurs) crée désormais automatiquement la fiche Équipe liée (avatar, poste, SP/jour déjà sur la fiche — pas de profil de compte séparé). Décisions de Julien : pas de préférences de thème (pas prévu dans l'outil), support de l'anglais pas encore tranché, notification digest gardée en idée future ci-dessous (pas d'infrastructure d'envoi d'email dans ce prototype).
 - **Notification digest** (idée future, pas encore construite — Julien, 2026-07-31) : régularité et contenu à définir ; suppose une vraie infrastructure d'envoi d'email (aucune aujourd'hui, ce prototype n'a que `PUT /api/state` et `/api/users`, aucun service mail).
 - **Support de l'anglais** (idée en suspens, pas tranchée — Julien, 2026-07-31) : pas de préférence de thème prévue en revanche (décision ferme).
-- **Interactions nominatives** : commentaires, @mentions dans les notes d'item, attributions visibles avec avatar
+- ✅ **Interactions nominatives** (fait 2026-07-31, v0.93.8) : les notes/réponses d'item sont désormais attribuées au compte connecté (nom + avatar réels si lié à une fiche Équipe, "Invité" sinon — même bug corrigé qu'avant, l'auteur n'était jamais enregistré). @mentions dans le texte (membres + groupes "Toute l'équipe"/"Devs"), purement visuel, voir `docs/corrections.md`.
 
 ---
 

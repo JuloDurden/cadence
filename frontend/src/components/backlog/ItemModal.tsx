@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
-import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore } from '../../types'
+import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore, TeamMember } from '../../types'
 import { useCadence } from '../../context/StateContext'
 import { visibleBaseTags } from '../../data/baseTags'
 import { statusOptionsForItemModal } from '../../utils/kanbanStages'
@@ -63,6 +63,112 @@ function Svg({ d, size = 13, cls }: { d: string; size?: number; cls?: string }) 
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
     className={cls} dangerouslySetInnerHTML={{ __html: d }} />
+}
+
+/* ─── @mentions (Phase 2, sous-chantier 5, 2026-07-31) ──────────────────────
+ * Portée actée avec Julien (AskUserQuestion) : uniquement dans les notes/réponses d'item
+ * (pas Retro/Sprint Review). Une mention est un token littéral `@[Label]` inséré dans le texte
+ * via l'autocomplete (jamais tapé à la main), reconnu et stylé en chip à l'affichage — pas de
+ * donnée structurée séparée (pas de liste de "qui est mentionné" stockée), car la mention est
+ * purement visuelle : "rien de plus" que l'affichage, décision explicite de Julien (pas de
+ * notification, pas de filtre "notes qui me mentionnent" — pas d'infra de notification dans ce
+ * prototype de toute façon). Deux mentions de groupe en plus des membres individuels : "Toute
+ * l'équipe" et "Devs" (Dev Front/Dev Back/Dev Full-stack uniquement, portée choisie par Julien
+ * plutôt que toute l'équipe de delivery Designer/QA/DevOps/Data Scientist inclus). */
+const MENTION_DEV_POSTES = ['Dev Front', 'Dev Back', 'Dev Full-stack']
+const MENTION_REGEX = /@\[([^\]]+)\]/g
+
+interface MentionCandidate { key: string; label: string; sub?: string }
+
+function mentionCandidates(team: TeamMember[]): MentionCandidate[] {
+  return [
+    { key: '__team__', label: 'Toute l\'équipe', sub: `${team.length} membre${team.length > 1 ? 's' : ''}` },
+    { key: '__devs__', label: 'Devs', sub: MENTION_DEV_POSTES.join(', ') },
+    ...team.map(m => ({ key: m.id, label: m.name, sub: m.role })),
+  ]
+}
+
+/** Transforme le texte brut d'une note/réponse en JSX, en stylant les tokens `@[Label]` en chip. */
+function renderNoteText(text: string) {
+  const parts: React.ReactNode[] = []
+  let last = 0, i = 0
+  MENTION_REGEX.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = MENTION_REGEX.exec(text))) {
+    if (m.index > last) parts.push(text.slice(last, m.index))
+    parts.push(<span key={`mention-${i++}`} className="note-mention">@{m[1]}</span>)
+    last = m.index + m[0].length
+  }
+  if (last < text.length) parts.push(text.slice(last))
+  return parts
+}
+
+/** Textarea avec autocomplete "@" — utilisée pour la composition d'une note et d'une réponse. */
+function MentionTextarea({ value, onChange, team, testId, rows = 3, fontSize, placeholder }: {
+  value: string
+  onChange: (v: string) => void
+  team: TeamMember[]
+  testId?: string
+  rows?: number
+  fontSize?: number
+  placeholder?: string
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const [query, setQuery] = useState<string | null>(null)
+  const [start, setStart] = useState(0)
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const v = e.target.value
+    onChange(v)
+    const cursor = e.target.selectionStart ?? v.length
+    const upTo = v.slice(0, cursor)
+    const m = /(?:^|\s)@([^\s@]*)$/.exec(upTo)
+    if (m) { setQuery(m[1]); setStart(cursor - m[1].length - 1) } else { setQuery(null) }
+  }
+
+  const candidates = query !== null
+    ? mentionCandidates(team).filter(c => c.label.toLowerCase().includes(query.toLowerCase())).slice(0, 6)
+    : []
+
+  function pick(label: string) {
+    const q = query ?? ''
+    const before = value.slice(0, start)
+    const after = value.slice(start + 1 + q.length)
+    const next = `${before}@[${label}] ${after}`
+    onChange(next)
+    setQuery(null)
+    requestAnimationFrame(() => {
+      const pos = before.length + label.length + 4
+      ref.current?.focus()
+      ref.current?.setSelectionRange(pos, pos)
+    })
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <textarea ref={ref} className="form-input" data-testid={testId} rows={rows} value={value}
+        onChange={handleChange} placeholder={placeholder} style={{ resize: 'vertical', fontSize }} />
+      {query !== null && candidates.length > 0 && (
+        <div data-testid="mention-dropdown" style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+          background: 'var(--surface)', border: '1px solid var(--border-strong)',
+          borderRadius: 'var(--r-sm)', boxShadow: 'var(--shadow-md)',
+          marginTop: 2, overflow: 'hidden',
+        }}>
+          {candidates.map(c => (
+            <div key={c.key} data-testid={`mention-option-${c.key}`}
+              onMouseDown={e => { e.preventDefault(); pick(c.label) }}
+              style={{ padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text)', borderBottom: '1px solid var(--border)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--primary-light)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              <div style={{ fontWeight: 600 }}>{c.label}</div>
+              {c.sub && <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{c.sub}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /* ─── SVG icons (monochrome) ─────────────────────────────────────── */
@@ -311,11 +417,21 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
   const suggestedMembers = state.team.filter(m => !assignees.includes(m.id) && m.tags.some(t => tags.includes(t)))
 
   /* ── Note helpers ── */
+  // Phase 2 (roadmap v1), sous-chantier 5 : attribution réelle des notes/réponses au compte
+  // connecté (submitNote/submitReply posent désormais authorId = currentUserId, l'id du compte,
+  // pas d'un TeamMember). Résolution donc via `linkedUserId`, pas `TeamMember.id` — cohérent avec
+  // canEditTeamMember/canEditDailyCard (sous-chantiers 3-4). Toujours "Invité" si le compte n'est
+  // relié à aucune fiche Équipe (ex. compte seedé avant l'auto-liaison du sous-chantier 4).
   function getAuthorName(authorId?: string) {
-    return state.team.find(m => m.id === authorId)?.name ?? 'Invité'
+    if (!authorId) return 'Invité'
+    return state.team.find(m => m.linkedUserId === authorId)?.name ?? 'Invité'
   }
   function getAuthorInitials(authorId?: string) {
     return getAuthorName(authorId).split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+  }
+  function getAuthorPhoto(authorId?: string) {
+    if (!authorId) return undefined
+    return state.team.find(m => m.linkedUserId === authorId)?.photo
   }
   function formatNoteDate(iso: string) {
     return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -341,7 +457,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
 
   function submitNote() {
     if (!noteText.trim() && pendingAtts.length === 0) return
-    setNotes(n => [...n, { id: uid(), text: noteText.trim(), createdAt: new Date().toISOString(), attachments: pendingAtts, replies: [] }])
+    setNotes(n => [...n, { id: uid(), text: noteText.trim(), authorId: currentUserId || undefined, createdAt: new Date().toISOString(), attachments: pendingAtts, replies: [] }])
     setNoteText(''); setPendingAtts([]); setAddingLink(false)
   }
 
@@ -351,7 +467,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
     if (!replyText.trim() && replyAtts.length === 0) return
     setNotes(n => n.map(note => note.id !== noteId ? note : {
       ...note,
-      replies: [...note.replies, { id: uid(), text: replyText.trim(), createdAt: new Date().toISOString(), attachments: replyAtts }]
+      replies: [...note.replies, { id: uid(), text: replyText.trim(), authorId: currentUserId || undefined, createdAt: new Date().toISOString(), attachments: replyAtts }]
     }))
     setReplyingTo(null); setReplyText(''); setReplyAtts([]); setReplyAddingLink(false)
   }
@@ -979,9 +1095,12 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
           <div key={note.id} className="note-item">
             <div className="note-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="avatar" style={{ background: 'var(--primary)', flexShrink: 0, width: 26, height: 26, fontSize: 10 }}>
-                  {getAuthorInitials(note.authorId)}
-                </span>
+                {getAuthorPhoto(note.authorId)
+                  ? <img className="avatar" src={getAuthorPhoto(note.authorId)} alt="" style={{ width: 26, height: 26, fontSize: 10, objectFit: 'cover' }} />
+                  : <span className="avatar" style={{ background: 'var(--primary)', flexShrink: 0, width: 26, height: 26, fontSize: 10 }}>
+                      {getAuthorInitials(note.authorId)}
+                    </span>
+                }
                 <div>
                   <span style={{ fontSize: 12, fontWeight: 600 }}>{getAuthorName(note.authorId)}</span>
                   <span className="note-date">{formatNoteDate(note.createdAt)}</span>
@@ -989,7 +1108,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
               </div>
               {canEditOps && <button className="btn-icon danger" onClick={() => deleteNote(note.id)}><Svg d={ICO_TRASH} size={12} /></button>}
             </div>
-            {note.text && <div className="note-text">{note.text}</div>}
+            {note.text && <div className="note-text">{renderNoteText(note.text)}</div>}
             {(note.attachments?.length ?? 0) > 0 && (
               <div className="note-attachments">
                 {note.attachments.map(att => renderAttachment(att))}
@@ -1001,9 +1120,12 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
                   <div key={reply.id} className="note-reply">
                     <div className="note-header">
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="avatar" style={{ background: 'var(--success)', width: 22, height: 22, fontSize: 9, flexShrink: 0 }}>
-                          {getAuthorInitials(reply.authorId)}
-                        </span>
+                        {getAuthorPhoto(reply.authorId)
+                          ? <img className="avatar" src={getAuthorPhoto(reply.authorId)} alt="" style={{ width: 22, height: 22, fontSize: 9, objectFit: 'cover' }} />
+                          : <span className="avatar" style={{ background: 'var(--success)', width: 22, height: 22, fontSize: 9, flexShrink: 0 }}>
+                              {getAuthorInitials(reply.authorId)}
+                            </span>
+                        }
                         <div>
                           <span style={{ fontSize: 11, fontWeight: 600 }}>{getAuthorName(reply.authorId)}</span>
                           <span className="note-date">{formatNoteDate(reply.createdAt)}</span>
@@ -1011,7 +1133,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
                       </div>
                       {canEditOps && <button className="btn-icon danger" onClick={() => deleteReply(note.id, reply.id)}><Svg d={ICO_TRASH} size={11} /></button>}
                     </div>
-                    {reply.text && <div className="note-text" style={{ fontSize: 11 }}>{reply.text}</div>}
+                    {reply.text && <div className="note-text" style={{ fontSize: 11 }}>{renderNoteText(reply.text)}</div>}
                     {(reply.attachments?.length ?? 0) > 0 && (
                       <div className="note-attachments">
                         {reply.attachments.map(att => renderAttachment(att))}
@@ -1023,9 +1145,8 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
             )}
             {canEditOps && (replyingTo === note.id ? (
               <div className="note-reply-form">
-                <textarea className="form-input" rows={2} value={replyText}
-                  onChange={e => setReplyText(e.target.value)}
-                  placeholder="Votre réponse..." style={{ fontSize: 11 }} />
+                <MentionTextarea value={replyText} onChange={setReplyText} team={state.team}
+                  rows={2} fontSize={11} placeholder="Votre réponse... (@ pour mentionner)" />
                 {replyAtts.length > 0 && (
                   <div className="note-attachments" style={{ marginTop: 6 }}>
                     {replyAtts.map(att => renderAttachment(att, true, () => setReplyAtts(a => a.filter(x => x.id !== att.id))))}
@@ -1065,9 +1186,8 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
         ))}
         {canEditOps && (
         <div className="note-compose">
-          <textarea className="form-input" data-testid="item-note-input" rows={3} value={noteText}
-            onChange={e => setNoteText(e.target.value)}
-            placeholder="Écrire une note... (texte libre)" style={{ resize: 'vertical' }} />
+          <MentionTextarea value={noteText} onChange={setNoteText} team={state.team}
+            testId="item-note-input" rows={3} placeholder="Écrire une note... (@ pour mentionner)" />
           {pendingAtts.length > 0 && (
             <div className="note-attachments" style={{ marginTop: 8 }}>
               {pendingAtts.map(att => renderAttachment(att, true, () => setPendingAtts(a => a.filter(x => x.id !== att.id))))}

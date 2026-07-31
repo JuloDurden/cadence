@@ -67,7 +67,7 @@ function sprintTheme(label: string): string {
 // ── Component ─────────────────────────────────────────────────────────────
 export function KanbanPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
-  const { userName } = useAuth()
+  const { userName, userId } = useAuth()
   const { confirm } = useDialog()
 
   const [sprintId, setSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
@@ -469,7 +469,7 @@ export function KanbanPage() {
       </div>
 
       {modalItem !== undefined && (
-        <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} />
+        <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} currentUserId={userId} />
       )}
     </>
   )
