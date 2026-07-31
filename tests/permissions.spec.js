@@ -338,3 +338,172 @@ test.describe('Phase 2 — permissions : Backlog (fiche item — sous-ensemble o
     await expect(page.locator('[data-testid="item-save-btn"]')).toHaveCount(0);
   });
 });
+
+// Phase 2 (roadmap v1) — Profil utilisateur / Équipe : une fiche (nom, poste, photo, compétences)
+// n'est modifiable que par son propriétaire (compte lié via TeamMember.linkedUserId) ou Admin
+// (canEditTeamMember). SP/jour est une exception plus large, ouverte en plus au PO et au Scrum
+// Master (canEditVelocity), et verrouillé à 0 pour les postes Product Owner/Scrum Master
+// (posteHasNoVelocity — "ne développent pas les fonctionnalités à proprement parler"). "+ Membre"
+// et "Supprimer" un membre restent Admin ; les absences PO/Scrum Master (+ Admin), pas de rôle RH
+// dédié. Aldo Raines (m1) n'est lié à aucun compte dans DEMO_STATE (même limite que les tests
+// Daily/Backlog page 1 et 4) — ces tests couvrent donc le cas "non lié" pour chaque rôle ; le cas
+// "lié à son propre compte" est à vérifier manuellement par Julien (lier un membre depuis Team,
+// puis se connecter avec ce compte).
+test.describe('Phase 2 — permissions : Équipe ("+ Membre"/"Supprimer" réservés Admin)', () => {
+
+  test('Admin voit "+ Membre" et "Supprimer" sur une fiche', async ({ page }) => {
+    await goTo(page, '/team', { role: 'ADMIN' });
+    await expect(page.locator('button:has-text("+ Membre")')).toBeVisible();
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await expect(card.locator('button[title="Supprimer"]')).toBeVisible();
+  });
+
+  test('un PO ne voit ni "+ Membre" ni "Supprimer"', async ({ page }) => {
+    await goTo(page, '/team', { role: 'PO' });
+    await expect(page.locator('button:has-text("+ Membre")')).toHaveCount(0);
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await expect(card.locator('button[title="Supprimer"]')).toHaveCount(0);
+  });
+
+  test('un Dev ne voit ni "+ Membre" ni "Supprimer"', async ({ page }) => {
+    await goTo(page, '/team', { role: 'DEV' });
+    await expect(page.locator('button:has-text("+ Membre")')).toHaveCount(0);
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await expect(card.locator('button[title="Supprimer"]')).toHaveCount(0);
+  });
+});
+
+test.describe('Phase 2 — permissions : Équipe (fiche modifiable par son propriétaire ou Admin uniquement)', () => {
+
+  test('Admin peut éditer n\'importe quelle fiche (superuser)', async ({ page }) => {
+    await goTo(page, '/team', { role: 'ADMIN' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await expect(page.locator('input[placeholder="Prénom Nom"]')).toBeEnabled();
+    await expect(page.locator('[data-testid="member-role-select"]')).toBeEnabled();
+  });
+
+  test('un Dev non lié ne peut pas éditer une fiche (nom/poste désactivés)', async ({ page }) => {
+    await goTo(page, '/team', { role: 'DEV' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await expect(page.locator('input[placeholder="Prénom Nom"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="member-role-select"]')).toBeDisabled();
+  });
+
+  test('un PO ne peut pas éditer le nom/poste d\'une fiche qui n\'est pas la sienne', async ({ page }) => {
+    await goTo(page, '/team', { role: 'PO' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await expect(page.locator('input[placeholder="Prénom Nom"]')).toBeDisabled();
+  });
+});
+
+test.describe('Phase 2 — permissions : Équipe (SP/jour éditable par PO/Scrum Master/Dev concerné, verrouillé pour PO/SM)', () => {
+
+  test('un PO peut éditer le SP/jour d\'un membre qui n\'est pas le sien', async ({ page }) => {
+    await goTo(page, '/team', { role: 'PO' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await expect(page.locator('[data-testid="member-sp-input"]')).toBeEnabled();
+  });
+
+  test('un Scrum Master peut éditer le SP/jour d\'un membre qui n\'est pas le sien', async ({ page }) => {
+    await goTo(page, '/team', { role: 'SCRUM_MASTER' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await expect(page.locator('[data-testid="member-sp-input"]')).toBeEnabled();
+  });
+
+  test('un Dev non lié ne peut pas éditer le SP/jour d\'un membre qui n\'est pas le sien', async ({ page }) => {
+    await goTo(page, '/team', { role: 'DEV' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await expect(page.locator('[data-testid="member-sp-input"]')).toBeDisabled();
+  });
+
+  test('choisir le poste Product Owner verrouille SP/jour à 0', async ({ page }) => {
+    await goTo(page, '/team', { role: 'ADMIN' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await page.locator('[data-testid="member-role-select"]').selectOption('Product Owner');
+    await expect(page.locator('[data-testid="member-sp-input"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="member-sp-input"]')).toHaveValue('0');
+  });
+
+  test('choisir le poste Scrum Master verrouille SP/jour à 0', async ({ page }) => {
+    await goTo(page, '/team', { role: 'ADMIN' });
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
+    await card.locator('button[title="Modifier"]').click();
+    await page.locator('[data-testid="member-role-select"]').selectOption('Scrum Master');
+    await expect(page.locator('[data-testid="member-sp-input"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="member-sp-input"]')).toHaveValue('0');
+  });
+});
+
+test.describe('Phase 2 — permissions : Absences (créer/modifier/supprimer réservé PO/Scrum Master)', () => {
+
+  test('le PO voit "+ Absence" et les actions sur une absence existante', async ({ page }) => {
+    await goTo(page, '/team', { role: 'PO' });
+    await expect(page.locator('button:has-text("+ Absence")')).toBeVisible();
+  });
+
+  test('le Scrum Master voit "+ Absence"', async ({ page }) => {
+    await goTo(page, '/team', { role: 'SCRUM_MASTER' });
+    await expect(page.locator('button:has-text("+ Absence")')).toBeVisible();
+  });
+
+  test('Admin voit aussi "+ Absence" (superuser)', async ({ page }) => {
+    await goTo(page, '/team', { role: 'ADMIN' });
+    await expect(page.locator('button:has-text("+ Absence")')).toBeVisible();
+  });
+
+  test('un Dev ne voit pas "+ Absence"', async ({ page }) => {
+    await goTo(page, '/team', { role: 'DEV' });
+    await expect(page.locator('button:has-text("+ Absence")')).toHaveCount(0);
+  });
+
+  test('un Stakeholder ne voit pas "+ Absence"', async ({ page }) => {
+    await goTo(page, '/team', { role: 'STAKEHOLDER' });
+    await expect(page.locator('button:has-text("+ Absence")')).toHaveCount(0);
+  });
+});
+
+// Phase 2 (roadmap v1) — création de compte (Réglages > Utilisateurs) crée automatiquement la
+// fiche Équipe liée. Réutilise le mock /api/users de tests/users-roles.spec.js.
+test.describe('Phase 2 — permissions : création de compte crée automatiquement la fiche Équipe', () => {
+
+  test('créer un compte PO ajoute une fiche Équipe "Product Owner" sans SP/jour', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+    await page.route('**/api/users', async r => {
+      if (r.request().method() === 'POST') {
+        const body = JSON.parse(r.request().postData() || '{}');
+        const created = { id: 'u-new-po', email: body.email, name: body.name, role: body.role, createdAt: '2026-07-31T00:00:00.000Z' };
+        return r.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ user: created }) });
+      }
+      if (r.request().method() === 'GET') {
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ users: [] }) });
+      }
+      return r.continue();
+    });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    await page.locator('[data-testid="new-user-name"]').fill('Nouvelle PO');
+    await page.locator('[data-testid="new-user-email"]').fill('nouvelle-po@cadence.local');
+    await page.locator('[data-testid="new-user-password"]').fill('motdepasse123');
+    await page.locator('[data-testid="new-user-role"]').selectOption('PO');
+    await page.locator('[data-testid="create-user-submit"]').click();
+    await expect(page.locator('[data-testid="user-row-u-new-po"]')).toContainText('Nouvelle PO');
+
+    await page.locator('a[href="/team"]').click();
+    await page.waitForURL('**/team');
+    const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Nouvelle PO' });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('Product Owner');
+    // Ne pas utiliser getByText('0') seul : "En cours"/"Terminées" valent aussi 0 pour un
+    // nouveau membre sans item assigné (3 correspondances, échec en mode strict) — d'où le
+    // data-testid dédié sur la valeur SP/jour (TeamPage.tsx).
+    await expect(card.locator('[data-testid="member-card-sp-value"]')).toHaveText('0');
+  });
+});

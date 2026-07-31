@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { useToast } from '../../context/ToastContext'
+import { useCadence } from '../../context/StateContext'
+import { defaultPosteForRole, posteHasNoVelocity } from '../../utils/permissions'
 import { USER_ROLES, USER_ROLE_LABELS } from '../../types'
 import type { ManagedUser, UserRole } from '../../types'
 
@@ -10,6 +12,7 @@ import type { ManagedUser, UserRole } from '../../types'
 // le seul rempart, juste le reflet de la permission réelle côté serveur.
 export function UsersSettingsSection() {
   const { showToast } = useToast()
+  const { state, dispatch, saveToServer } = useCadence()
   const [users, setUsers] = useState<ManagedUser[] | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -35,8 +38,25 @@ export function UsersSettingsSection() {
     api.createUser({ ...form, name: form.name.trim(), email: form.email.trim() })
       .then(({ user }) => {
         setUsers(u => [...(u ?? []), user])
+        // Crée automatiquement la fiche Équipe correspondante, déjà liée à ce compte
+        // (linkedUserId) — évite le détour manuel "créer le compte, puis aller sur Team lier la
+        // fiche" d'avant. Poste par défaut dérivé du rôle (defaultPosteForRole), SP/jour à 0
+        // d'emblée si ce poste n'a pas de vélocité propre (PO/Scrum Master, posteHasNoVelocity)
+        // — tout reste éditable ensuite depuis la page Équipe par le compte concerné. Décision
+        // actée avec Julien le 2026-07-31.
+        const poste = defaultPosteForRole(user.role)
+        const member = {
+          id: crypto.randomUUID(),
+          name: user.name,
+          role: poste,
+          spPerDay: posteHasNoVelocity(poste) ? 0 : 2,
+          tags: [] as string[],
+          linkedUserId: user.id,
+        }
+        dispatch({ type: 'ADD_MEMBER', payload: member })
+        saveToServer({ ...state, team: [...state.team, member] })
         setForm({ name: '', email: '', password: '', role: 'DEV' })
-        showToast('Utilisateur créé.')
+        showToast('Utilisateur créé (fiche Équipe ajoutée automatiquement).')
       })
       .catch(() => showToast('Impossible de créer cet utilisateur (email déjà utilisé ?).', 'error'))
       .finally(() => setCreating(false))

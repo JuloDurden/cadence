@@ -32,11 +32,14 @@ Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/
   - ✅ Rétrospective : votes anonymisables, export réservé au SM (fait 2026-07-31, v0.93.4 — "anonymisable" clarifié avec Julien : masque le highlight "vous avez déjà voté", pas l'auteur du post-it ni le compteur, voir `docs/corrections.md`)
   - ✅ Auto-planning / What-if : Appliquer réservé PO, exploration ouverte à PO/SM/Dev, Stakeholder en lecture seule (fait 2026-07-31, v0.93.5 — scénarios en localStorage, jamais partagés, retour Julien pour ouvrir l'exploration à tous sauf Stakeholder, voir `docs/corrections.md`)
   - ✅ Backlog : PO full CRUD, Dev sous-ensemble opérationnel (statut, SP, notes/commentaires, DoD, dépendances, auto-assignation), Scrum Master/Stakeholder en lecture seule (fait 2026-07-31, v0.93.6 — DoR et contenu produit (description, US, critères, priorité, epic/client, tags) restent PO uniquement, voir `docs/corrections.md`)
+  - ✅ Équipe : une fiche n'est modifiable que par son propriétaire (compte lié) ou Admin ; SP/jour modifiable en plus par PO/Scrum Master ; "+ Membre"/"Supprimer" un membre réservés Admin ; absences réservées PO/Scrum Master (fait 2026-07-31, v0.93.7, voir `docs/corrections.md`)
 - **Daily — idées futures** (notées par Julien le 2026-07-31, pas encore de sous-chantier prévu) :
   - Support du vocal avec transcription dans les champs Hier/Aujourd'hui/Blocages
   - Champ dédié pour le Scrum Master (déroulement de la Daily)
   - Champ dédié pour le PO (précisions sur les éléments abordés par les devs)
-- **Profil utilisateur** : avatar, préférences (thème, langue), notification digest
+- ✅ **Profil utilisateur** (fait 2026-07-31, v0.93.7) : créer un compte (Réglages > Utilisateurs) crée désormais automatiquement la fiche Équipe liée (avatar, poste, SP/jour déjà sur la fiche — pas de profil de compte séparé). Décisions de Julien : pas de préférences de thème (pas prévu dans l'outil), support de l'anglais pas encore tranché, notification digest gardée en idée future ci-dessous (pas d'infrastructure d'envoi d'email dans ce prototype).
+- **Notification digest** (idée future, pas encore construite — Julien, 2026-07-31) : régularité et contenu à définir ; suppose une vraie infrastructure d'envoi d'email (aucune aujourd'hui, ce prototype n'a que `PUT /api/state` et `/api/users`, aucun service mail).
+- **Support de l'anglais** (idée en suspens, pas tranchée — Julien, 2026-07-31) : pas de préférence de thème prévue en revanche (décision ferme).
 - **Interactions nominatives** : commentaires, @mentions dans les notes d'item, attributions visibles avec avatar
 
 ---

@@ -78,3 +78,55 @@ export function canToggleBacklogAssignee(
   if (role !== 'DEV' || !userId) return false
   return !!member.linkedUserId && member.linkedUserId === userId
 }
+
+// Équipe : le PO et le Scrum Master n'ont pas de vélocité propre — ils ne développent pas les
+// fonctionnalités à proprement parler (retour Julien, 2026-07-31). SP/jour reste à 0, champ
+// désactivé, quel que soit qui édite la fiche. Basé sur le champ "Poste" de la fiche (pas sur le
+// rôle du compte lié) : reste la seule source de vérité fiable même pour un membre non lié à un
+// compte (le cas par défaut), et /api/users n'est de toute façon consultable que par un Admin —
+// se baser dessus rendrait la règle invérifiable pour tout autre rôle éditant SP/jour.
+export const posteHasNoVelocity = (poste: string) => poste === 'Product Owner' || poste === 'Scrum Master'
+
+// Équipe : poste par défaut attribué à la fiche créée automatiquement à la création d'un compte
+// (Réglages > Utilisateurs, voir UsersSettingsSection.tsx) — éditable ensuite comme n'importe
+// quel autre poste depuis la page Équipe.
+export function defaultPosteForRole(role: UserRole): string {
+  switch (role) {
+    case 'PO': return 'Product Owner'
+    case 'SCRUM_MASTER': return 'Scrum Master'
+    case 'DEV': return 'Dev Full-stack'
+    default: return 'Autre'
+  }
+}
+
+// Équipe : une fiche (nom, poste, photo, compétences) n'est modifiable que par son propriétaire —
+// le compte lié via TeamMember.linkedUserId, désormais renseigné automatiquement à la création du
+// compte (voir defaultPosteForRole). Décision actée avec Julien le 2026-07-31 ("à terme" devenu
+// "maintenant", dans le même chantier que la création de compte → fiche automatique). Admin passe
+// toujours ; "Compte utilisateur lié" reste un champ à part, toujours réservé Admin (TeamPage.tsx).
+export function canEditTeamMember(
+  role: UserRole | '' | undefined,
+  userId: string | undefined,
+  member: Pick<TeamMember, 'linkedUserId'>
+): boolean {
+  if (role === 'ADMIN') return true
+  if (!userId) return false
+  return !!member.linkedUserId && member.linkedUserId === userId
+}
+
+// Équipe : le SP/jour est une exception plus large que le reste de la fiche — éditable par le PO,
+// le Scrum Master, ou le Dev concerné lui-même (en plus d'Admin), pas seulement le propriétaire
+// de la fiche. Julien : "la vélocité peut être modifiée par le PO, le SM ou le dev en question".
+// Reste de toute façon désactivé si le poste de la fiche n'a pas de vélocité (posteHasNoVelocity).
+export function canEditVelocity(
+  role: UserRole | '' | undefined,
+  userId: string | undefined,
+  member: Pick<TeamMember, 'linkedUserId'>
+): boolean {
+  if (hasRole(role, 'PO', 'SCRUM_MASTER')) return true
+  return canEditTeamMember(role, userId, member)
+}
+
+// Équipe : gestion des absences (créer/modifier/supprimer) réservée PO/Scrum Master (+ Admin) —
+// décision actée avec Julien le 2026-07-31 (pas de rôle RH dédié : SM/PO/Admin suffisent).
+export const canManageAbsences = (role: UserRole | '' | undefined) => hasRole(role, 'PO', 'SCRUM_MASTER')

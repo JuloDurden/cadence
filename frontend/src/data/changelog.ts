@@ -15,7 +15,15 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93.6',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Backlog : PO full CRUD, Dev sous-ensemble opérationnel (sous-chantier 3/6, page 4/4)',current:true,changes:[
+  {version:'v0.93.7',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Profil utilisateur : création de compte → fiche Équipe automatique, permissions Équipe/Absences',current:true,changes:[
+    {tag:'feat', text:'Créer un compte (Réglages > Utilisateurs) crée désormais automatiquement la fiche Équipe correspondante, déjà liée à ce compte — poste par défaut dérivé du rôle, éditable ensuite comme n\'importe quelle fiche. Plus besoin de créer la fiche puis d\'aller la relier manuellement depuis Team'},
+    {tag:'feat', text:'SP/jour à 0, champ désactivé, pour les postes Product Owner et Scrum Master (ne développent pas les fonctionnalités à proprement parler) — s\'applique dès le choix du poste, y compris sur les fiches déjà existantes'},
+    {tag:'feat', text:'Une fiche Équipe (nom, poste, photo, compétences) n\'est modifiable que par son propriétaire (compte lié) ou un Admin. Le SP/jour reste une exception plus large, modifiable par le PO, le Scrum Master ou le Dev concerné'},
+    {tag:'feat', text:'Créer/supprimer une fiche manuellement ("+ Membre", "Supprimer") reste réservé Admin — le flux normal passe désormais par la création de compte. Ajouter/modifier/supprimer une absence réservé PO/Scrum Master (+ Admin)'},
+    {tag:'chore', text:'Pas de nouveau rôle "RH" : PO/Scrum Master/Admin suffisent pour gérer les absences. Préférences de thème écartées (pas prévues dans l\'outil) ; support de l\'anglais pas encore tranché ; notification digest laissée en idée future (voir BACKLOG_FEATURES.md) — pas d\'infrastructure d\'envoi d\'email dans ce prototype'},
+    {tag:'test', text:'`tests/permissions.spec.js` complété : "+ Membre"/"Supprimer" réservés Admin, "+ Absence" réservé PO/Scrum Master, édition d\'une fiche réservée à son propriétaire, SP/jour verrouillé à 0 pour Product Owner/Scrum Master'},
+  ]},
+  {version:'v0.93.6',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Backlog : PO full CRUD, Dev sous-ensemble opérationnel (sous-chantier 3/6, page 4/4)',current:false,changes:[
     {tag:'feat', text:'Le PO (+ Admin) garde un accès complet au Backlog : créer/modifier/supprimer des items, Epics et Initiatives, et tous les champs de la fiche'},
     {tag:'feat', text:'Le Dev peut désormais éditer un sous-ensemble opérationnel d\'un item : statut, Story Points, notes/commentaires, Definition of Done, dépendances — les champs qu\'il renseigne en travaillant l\'item. Le contenu produit (description, User Story, critères, priorité/scoring, epic/client, tags, DoR) reste réservé au PO'},
     {tag:'feat', text:'Auto-assignation : un Dev peut s\'ajouter ou se retirer lui-même des assignés d\'un item (compte lié via la page Team), sans pouvoir gérer les assignations des autres membres'},

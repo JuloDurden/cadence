@@ -16,15 +16,19 @@ test.describe('Equipe (Team)', () => {
     await expect(page.locator('[data-testid="member-card"]').first()).toBeVisible();
   });
 
+  // Phase 2 (roadmap v1) : "+ Membre" et "Supprimer" un membre réservés Admin, "+ Absence"
+  // réservé PO/Scrum Master (+ Admin) depuis cette session (canManageAbsences,
+  // canEditTeamMember, utils/permissions.ts) — role explicite pour ces tests antérieurs au
+  // système de rôles.
   test('ouvre la modale Nouveau membre', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     await page.click('button:has-text("+ Membre")');
     await expect(page.locator('.modal-title:has-text("Nouveau membre")')).toBeVisible();
     await expect(page.locator('input[placeholder="Prénom Nom"]')).toBeVisible();
   });
 
   test('crée un nouveau membre', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     await page.click('button:has-text("+ Membre")');
     await page.fill('input[placeholder="Prénom Nom"]', 'Alice Durand');
     await page.click('button:has-text("Créer")');
@@ -33,7 +37,7 @@ test.describe('Equipe (Team)', () => {
   });
 
   test('modifie un membre existant', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     // Utilise le premier membre demo (Aldo Raines)
     const card = page.locator('[data-testid="member-card"]').filter({ hasText: 'Aldo Raines' });
     await card.locator('button[title="Modifier"]').click();
@@ -44,7 +48,7 @@ test.describe('Equipe (Team)', () => {
   });
 
   test('supprime un membre créé', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     await page.click('button:has-text("+ Membre")');
     await page.fill('input[placeholder="Prénom Nom"]', 'Charlie Temp');
     await page.click('button:has-text("Créer")');
@@ -56,7 +60,7 @@ test.describe('Equipe (Team)', () => {
   });
 
   test('ferme la modale avec Annuler', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     await page.click('button:has-text("+ Membre")');
     await expect(page.locator('.modal-title:has-text("Nouveau membre")')).toBeVisible();
     await page.click('button:has-text("Annuler")');
@@ -64,13 +68,13 @@ test.describe('Equipe (Team)', () => {
   });
 
   test('ouvre la modale Ajouter une absence', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'PO' });
     await page.click('button:has-text("+ Absence")');
     await expect(page.locator('.modal-title').filter({ hasText: 'Ajouter une absence' })).toBeVisible();
   });
 
   test('crée une absence et l\'affiche dans le tableau', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'PO' });
     await page.click('button:has-text("+ Absence")');
     await expect(page.locator('.modal-title').filter({ hasText: 'Ajouter une absence' })).toBeVisible();
     await page.fill('input[placeholder="Congés été…"]', 'Vacances juillet');

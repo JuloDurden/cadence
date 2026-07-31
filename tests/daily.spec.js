@@ -73,8 +73,10 @@ test.describe('Daily Standup', () => {
     await expect(card.getByText('Blocages', { exact: true })).toBeVisible();
   });
 
+  // "+ Absence" réservé PO/Scrum Master (+ Admin) depuis la Phase 2 (canManageAbsences,
+  // utils/permissions.ts) — role explicite pour ce test antérieur au système de rôles.
   test('les membres absents apparaissent dans l\'encadré et pas dans les cartes', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'PO' });
     const today = new Date().toISOString().slice(0, 10);
     // Crée une absence pour Aldo Raines couvrant aujourd'hui
     await page.click('button:has-text("+ Absence")');

@@ -6,11 +6,13 @@ const { goTo } = require('./helpers');
 // scénarios de confirmation "Confirmer" sont déjà couverts par les tests métier existants
 // (team.spec.js, roadmap.spec.js, planning.spec.js) — ce fichier couvre le comportement générique
 // de la boîte elle-même : titre, style danger, annulation.
+// role: 'ADMIN' sur les goTo('/team') : "+ Membre" et "Supprimer" un membre réservés Admin
+// depuis la Phase 2 (canEditTeamMember, utils/permissions.ts).
 
 test.describe('DialogContext — boîte de dialogue propre à l\'outil', () => {
 
   test('la confirmation de suppression affiche un titre et un bouton de confirmation en rouge (danger)', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     await page.click('button:has-text("+ Membre")');
     await page.fill('input[placeholder="Prénom Nom"]', 'Dialog Test');
     await page.click('button:has-text("Créer")');
@@ -30,7 +32,7 @@ test.describe('DialogContext — boîte de dialogue propre à l\'outil', () => {
   });
 
   test('cliquer sur Annuler referme la boîte sans effectuer l\'action', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     await page.click('button:has-text("+ Membre")');
     await page.fill('input[placeholder="Prénom Nom"]', 'Dialog Cancel Test');
     await page.click('button:has-text("Créer")');
@@ -47,7 +49,7 @@ test.describe('DialogContext — boîte de dialogue propre à l\'outil', () => {
   });
 
   test('cliquer en dehors de la boîte équivaut à Annuler', async ({ page }) => {
-    await goTo(page, '/team');
+    await goTo(page, '/team', { role: 'ADMIN' });
     await page.click('button:has-text("+ Membre")');
     await page.fill('input[placeholder="Prénom Nom"]', 'Dialog Overlay Test');
     await page.click('button:has-text("Créer")');

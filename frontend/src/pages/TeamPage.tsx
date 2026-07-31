@@ -9,6 +9,7 @@ import { findMemberAssignedItems, detachMemberReferences } from '../utils/cascad
 import { useDialog } from '../context/DialogContext'
 import { useAuth } from '../hooks/useAuth'
 import { api } from '../services/api'
+import { canEditTeamMember, canEditVelocity, canManageAbsences, posteHasNoVelocity } from '../utils/permissions'
 import type { TeamMember, Absence, AbsenceType, Sprint, ManagedUser } from '../types'
 
 function Svg({ d, size = 14 }: { d: string; size?: number }) {
@@ -178,13 +179,21 @@ interface MemberModalProps { member: TeamMember | null; onSave: (m: TeamMember) 
 
 function MemberModal({ member, onSave, onClose }: MemberModalProps) {
   const { state } = useCadence()
-  const { userRole } = useAuth()
+  const { userRole, userId } = useAuth()
   const isAdmin = userRole === 'ADMIN'
   const allTags = useMemo(() => [...new Set([...visibleBaseTags(state.removedBaseTags), ...(state.customTags ?? [])])], [state.customTags, state.removedBaseTags])
 
   const [form, setForm] = useState<TeamMember>(
     member ?? { id: uid(), name: '', role: 'Dev Full-stack', spPerDay: 2, tags: [] }
   )
+
+  // Phase 2 (roadmap v1) : une fiche n'est modifiable (nom, poste, photo, compétences) que par
+  // son propriétaire (compte lié) ou Admin — la création manuelle ("+ Membre", `member === null`)
+  // reste réservée Admin au niveau du bouton (TeamPage.tsx), d'où `isAdmin` en repli ici. Le
+  // SP/jour a une règle plus large (PO/SM/Dev concerné) — voir utils/permissions.ts.
+  const canEdit     = member ? canEditTeamMember(userRole, userId, member) : isAdmin
+  const canVelocity = member ? canEditVelocity(userRole, userId, member) : isAdmin
+  const velocityLocked = posteHasNoVelocity(form.role)
 
   // Phase 2 (roadmap v1), sous-chantier 3 : lier ce membre à un compte utilisateur (réservé
   // Admin), pour que la Daily sache que "cette carte, c'est la sienne" (voir MemberCard.tsx /
@@ -273,15 +282,18 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
                 {/* Cercle aperçu — cliquable uniquement en mode upload */}
                 <div
                   className="avatar-upload"
-                  style={{ background: form.photo ? 'transparent' : memberColor(form.id), cursor: photoMode === 'upload' ? 'pointer' : 'default' }}
-                  onClick={() => { if (photoMode === 'upload') fileRef.current?.click() }}
-                  title={photoMode === 'upload' ? 'Cliquer pour choisir une image' : ''}
+                  style={{ background: form.photo ? 'transparent' : memberColor(form.id), cursor: canEdit && photoMode === 'upload' ? 'pointer' : 'default' }}
+                  onClick={() => { if (canEdit && photoMode === 'upload') fileRef.current?.click() }}
+                  title={canEdit && photoMode === 'upload' ? 'Cliquer pour choisir une image' : ''}
                 >
                   {form.photo
                     ? <img src={form.photo} alt="avatar" />
                     : <span style={{ color: '#fff', fontWeight: 800, fontSize: 22 }}>{initials(form.name) || '?'}</span>
                   }
                 </div>
+                {/* Phase 2 (roadmap v1) : une fiche n'est modifiable que par son propriétaire
+                    (compte lié) ou Admin — canEditTeamMember, utils/permissions.ts. */}
+                {canEdit && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     <button className={photoMode === 'upload' ? 'hdr-btn primary' : 'hdr-ctx-btn'} style={{ fontSize: 11 }}
@@ -313,21 +325,27 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
                     JPG · PNG · GIF · WebP · Redimensionné automatiquement (max 500 px, WebP)
                   </span>
                 </div>
+                )}
               </div>
             </div>
 
             {/* Nom */}
             <div className="form-group">
               <label className="form-label">Nom *</label>
-              <input className="form-input" value={form.name} autoFocus
+              <input className="form-input" value={form.name} autoFocus disabled={!canEdit}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Prénom Nom" />
             </div>
 
-            {/* Rôle */}
+            {/* Rôle (poste) — changer vers Product Owner/Scrum Master remet SP/jour à 0
+                immédiatement (posteHasNoVelocity), plutôt que de laisser une valeur non nulle
+                figée derrière un champ désactivé. */}
             <div className="form-group">
               <label className="form-label">Rôle</label>
-              <select className="form-input form-select" value={form.role}
-                onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+              <select className="form-input form-select" data-testid="member-role-select" value={form.role} disabled={!canEdit}
+                onChange={e => {
+                  const role = e.target.value
+                  setForm(f => ({ ...f, role, spPerDay: posteHasNoVelocity(role) ? 0 : f.spPerDay }))
+                }}>
                 {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
@@ -347,15 +365,24 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
               </div>
             )}
 
-            {/* SP/jour */}
+            {/* SP/jour — exception plus large que le reste de la fiche : PO/SM/Dev concerné
+                (canEditVelocity), mais toujours à 0 et désactivé si le poste n'a pas de vélocité
+                (Product Owner / Scrum Master, posteHasNoVelocity) — voir utils/permissions.ts. */}
             <div className="form-group">
               <label className="form-label">SP / jour</label>
-              <input className="form-input" type="number" min={0.5} max={10} step={0.5}
-                value={form.spPerDay} onChange={e => setForm(f => ({ ...f, spPerDay: +e.target.value }))}
+              <input className="form-input" data-testid="member-sp-input" type="number" min={0.5} max={10} step={0.5}
+                disabled={!canVelocity || velocityLocked}
+                value={velocityLocked ? 0 : form.spPerDay} onChange={e => setForm(f => ({ ...f, spPerDay: +e.target.value }))}
                 style={{ width: 100 }} />
+              {velocityLocked && (
+                <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+                  Pas de vélocité propre pour ce poste (ne développe pas les fonctionnalités à proprement parler).
+                </p>
+              )}
             </div>
 
             {/* Compétences */}
+            {canEdit && (
             <div className="form-group">
               <label className="form-label">Compétences</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
@@ -393,14 +420,23 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
                 )}
               </div>
             </div>
+            )}
           </div>
 
           <div className="modal-footer">
-            <button className="btn-secondary" onClick={onClose}>Annuler</button>
-            <button className="btn-primary" disabled={!form.name.trim()}
-              onClick={() => { if (form.name.trim()) onSave({ ...form, name: form.name.trim() }) }}>
-              {member ? 'Enregistrer' : 'Créer'}
-            </button>
+            {/* Ni la fiche ni le SP/jour ne sont éditables pour ce rôle : lecture seule totale,
+                un seul bouton "Fermer" (même filet de sécurité que Backlog/ItemModal). */}
+            {!canEdit && !canVelocity ? (
+              <button className="btn-primary" onClick={onClose}>Fermer</button>
+            ) : (
+              <>
+                <button className="btn-secondary" onClick={onClose}>Annuler</button>
+                <button className="btn-primary" disabled={!form.name.trim()}
+                  onClick={() => { if (form.name.trim()) onSave({ ...form, name: form.name.trim(), spPerDay: velocityLocked ? 0 : form.spPerDay }) }}>
+                  {member ? 'Enregistrer' : 'Créer'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -550,6 +586,12 @@ function AbsenceModal({ absence, onSave, onClose }: AbsenceModalProps) {
 export function TeamPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { confirm } = useDialog()
+  const { userRole } = useAuth()
+  const isAdmin = userRole === 'ADMIN'
+  // Absences (créer/modifier/supprimer) réservées PO/Scrum Master (+ Admin) — canManageAbsences,
+  // utils/permissions.ts. "Supprimer" une fiche membre reste réservé Admin, comme le lien de
+  // compte : gestion d'appartenance à l'équipe, plus sensible qu'une simple édition de fiche.
+  const canAbsences = canManageAbsences(userRole)
   const [memberModal,  setMemberModal]  = useState<TeamMember | null | undefined>(undefined)
   const [absenceModal, setAbsenceModal] = useState<Absence | null | undefined>(undefined)
 
@@ -627,8 +669,11 @@ export function TeamPage() {
           {state.team.length} membres · {totalCap} SP/jour
         </span>
         <div className="hdr-sep" />
-        <button className="hdr-ctx-btn" onClick={() => setAbsenceModal(null)}>+ Absence</button>
-        <button className="hdr-btn primary" onClick={() => setMemberModal(null)}>+ Membre</button>
+        {/* Création manuelle réservée Admin : le flux normal est désormais la création de compte
+            (Réglages > Utilisateurs), qui crée automatiquement la fiche Équipe correspondante
+            (voir UsersSettingsSection.tsx). */}
+        {canAbsences && <button className="hdr-ctx-btn" onClick={() => setAbsenceModal(null)}>+ Absence</button>}
+        {isAdmin && <button className="hdr-btn primary" onClick={() => setMemberModal(null)}>+ Membre</button>}
       </Header>
 
       <div className="page-content">
@@ -651,7 +696,7 @@ export function TeamPage() {
                   }
                   <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 4 }}>
                     <button className="btn-icon" onClick={() => setMemberModal(m)} title="Modifier"><Svg d={ICO_PENCIL} size={13} /></button>
-                    <button className="btn-icon danger" onClick={() => handleDeleteMember(m.id)} title="Supprimer"><Svg d={ICO_TRASH} size={13} /></button>
+                    {isAdmin && <button className="btn-icon danger" onClick={() => handleDeleteMember(m.id)} title="Supprimer"><Svg d={ICO_TRASH} size={13} /></button>}
                   </div>
                 </div>
 
@@ -666,12 +711,12 @@ export function TeamPage() {
 
                   <div style={{ display: 'flex', gap: 8 }}>
                     {[
-                      { val: m.spPerDay, label: 'SP/jour', color: 'var(--primary)' },
+                      { val: m.spPerDay, label: 'SP/jour', color: 'var(--primary)', testId: 'member-card-sp-value' },
                       { val: inProgress.length, label: 'En cours', color: 'var(--warning)' },
                       { val: done.length, label: 'Terminées', color: 'var(--success)' },
-                    ].map(({ val, label, color: c }) => (
+                    ].map(({ val, label, color: c, testId }) => (
                       <div key={label} style={{ flex: 1, background: 'var(--surface2)', borderRadius: 8, padding: '6px 0', textAlign: 'center' }}>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: c }}>{val}</div>
+                        <div data-testid={testId} style={{ fontSize: 16, fontWeight: 800, color: c }}>{val}</div>
                         <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{label}</div>
                       </div>
                     ))}
@@ -694,8 +739,10 @@ export function TeamPage() {
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Svg d={ICO_PARASOL} size={15} /> Absences planifiées
             </span>
-            <button className="hdr-ctx-btn" style={{ fontSize: 11, padding: '4px 10px' }}
-              onClick={() => setAbsenceModal(null)}>+ Ajouter</button>
+            {canAbsences && (
+              <button className="hdr-ctx-btn" style={{ fontSize: 11, padding: '4px 10px' }}
+                onClick={() => setAbsenceModal(null)}>+ Ajouter</button>
+            )}
           </div>
           {sortedAbsences.length === 0 ? (
             <p style={{ padding: '14px 16px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
@@ -756,8 +803,12 @@ export function TeamPage() {
                           </span>
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>
-                          <button className="btn-icon" onClick={() => setAbsenceModal(a)} title="Modifier"><Svg d={ICO_PENCIL} size={12} /></button>
-                          <button className="btn-icon danger" onClick={() => handleDeleteAbsence(a.id)} title="Supprimer"><Svg d={ICO_TRASH} size={12} /></button>
+                          {canAbsences && (
+                            <>
+                              <button className="btn-icon" onClick={() => setAbsenceModal(a)} title="Modifier"><Svg d={ICO_PENCIL} size={12} /></button>
+                              <button className="btn-icon danger" onClick={() => handleDeleteAbsence(a.id)} title="Supprimer"><Svg d={ICO_TRASH} size={12} /></button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     )
