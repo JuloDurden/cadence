@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from 'react'
 import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore } from '../../types'
 import { useCadence } from '../../context/StateContext'
-import { BASE_TAGS } from '../../data/baseTags'
+import { visibleBaseTags } from '../../data/baseTags'
 import { statusOptionsForItemModal } from '../../utils/kanbanStages'
 
 /* ─── Constants ──────────────────────────────────────────────────── */
@@ -258,7 +258,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     setCriteria(cs => cs.map(x => x.id === id ? { ...x, [field]: x[field] + (x[field] ? '\n' : '') } : x))
   }
 
-  const allKnownTags = [...BASE_TAGS, ...(state.customTags ?? [])]
+  const allKnownTags = [...visibleBaseTags(state.removedBaseTags), ...(state.customTags ?? [])]
   const tagSuggestions = tagInput.trim()
     ? allKnownTags
         .filter(t => t.toLowerCase().includes(tagInput.trim().toLowerCase()) && !tags.includes(t))

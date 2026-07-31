@@ -92,3 +92,25 @@ test.describe('Phase 2 — rôles & gestion des utilisateurs', () => {
     await expect(page.locator('.hdr-profile-user')).toContainText('Product Owner');
   });
 });
+
+// Phase 2 (roadmap v1), sous-chantier 2 : suppression d'un tag de base (des suggestions
+// uniquement, un item qui l'a déjà n'est pas affecté) réintroduite, réservée au rôle Admin —
+// voir docs/corrections.md, Chantier M pour le pourquoi de la réintroduction tardive.
+test.describe('Phase 2 — suppression d\'un tag de base (rôle Admin)', () => {
+
+  test('le bouton de retrait d\'un tag de base est visible pour Admin, absent sinon', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+    await expect(page.locator('[data-testid="remove-base-tag-Sécurité"]')).toBeVisible();
+
+    await goTo(page, '/settings', { role: 'DEV' });
+    await expect(page.locator('[data-testid="remove-base-tag-Sécurité"]')).toHaveCount(0);
+  });
+
+  test('retirer un tag de base le fait disparaître de la liste', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+    await expect(page.locator('[data-testid="remove-base-tag-Sécurité"]')).toBeVisible();
+
+    await page.locator('[data-testid="remove-base-tag-Sécurité"]').click();
+    await expect(page.locator('[data-testid="remove-base-tag-Sécurité"]')).toHaveCount(0);
+  });
+});

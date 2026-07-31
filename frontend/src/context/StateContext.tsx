@@ -46,6 +46,7 @@ type Action =
   | { type: 'UPDATE_ROADMAP_GOAL'; payload: RoadmapGoal }
   | { type: 'DELETE_ROADMAP_GOAL'; payload: string }
   | { type: 'SET_CUSTOM_TAGS'; payload: string[] }
+  | { type: 'SET_REMOVED_BASE_TAGS'; payload: string[] }
   | { type: 'ADD_ABSENCE'; payload: import('../types').Absence }
   | { type: 'UPDATE_ABSENCE'; payload: import('../types').Absence }
   | { type: 'DELETE_ABSENCE'; payload: string }
@@ -222,6 +223,7 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     case 'UPDATE_ROADMAP_GOAL': return { ...state, roadmap: (state.roadmap || []).map(g => g.id === action.payload.id ? action.payload : g) }
     case 'DELETE_ROADMAP_GOAL': return { ...state, roadmap: (state.roadmap || []).filter(g => g.id !== action.payload) }
     case 'SET_CUSTOM_TAGS': return { ...state, customTags: action.payload }
+    case 'SET_REMOVED_BASE_TAGS': return { ...state, removedBaseTags: action.payload }
     case 'ADD_ABSENCE': return { ...state, absences: [...(state.absences || []), action.payload] }
     case 'UPDATE_ABSENCE': return { ...state, absences: (state.absences || []).map(a => a.id === action.payload.id ? action.payload : a) }
     case 'DELETE_ABSENCE': return { ...state, absences: (state.absences || []).filter(a => a.id !== action.payload) }

@@ -324,6 +324,7 @@ export const DEMO_STATE: CadenceState = {
 
   dailyEntries: [],
   customTags: [],
+  removedBaseTags: [],
   absences: [],
   dailyArchives: [],
   retroArchives: [],

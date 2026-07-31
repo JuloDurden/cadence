@@ -442,6 +442,10 @@ export interface CadenceState {
   dailyEntries: DailyEntry[]; retroSessions: RetroSession[]
   history: HistoryEntry[]; roadmap: RoadmapGoal[]
   customTags: string[]   // tags créés par les utilisateurs (hors BASE_TAGS)
+  // Phase 2 (roadmap v1), sous-chantier 2 : tags de base retirés des suggestions (Réglages,
+  // ItemModal, TeamPage) par un Admin — ne supprime pas le tag des items qui l'ont déjà, même
+  // logique que la suppression d'un tag personnalisé (SET_CUSTOM_TAGS) aujourd'hui.
+  removedBaseTags?: string[]
   absences: Absence[]
   dailyArchives: DailyArchive[]
   retroArchives: RetroArchive[]

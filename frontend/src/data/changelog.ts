@@ -15,7 +15,12 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Gestion des utilisateurs : modèle de rôles + comptes (sous-chantier 1/6)',current:true,changes:[
+  {version:'v0.93.1',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Réintroduction de la suppression d\'un tag de base (sous-chantier 2/6)',current:true,changes:[
+    {tag:'feat', text:'Un tag de base (ex. "Sécurité", "API") peut de nouveau être retiré des suggestions, réservé au rôle Admin — retiré au Chantier M (2026-07-20) faute de vrai système de rôle pour le protéger, réintroduit maintenant que `userRole` reflète un vrai rôle backend'},
+    {tag:'chore', text:'Retirer un tag de base ne le supprime pas des items qui l\'ont déjà, seulement des suggestions (Réglages, création/édition d\'item, profil membre) — même logique que la suppression d\'un tag personnalisé, déjà en place'},
+    {tag:'test', text:'`tests/users-roles.spec.js` complété : visibilité du bouton de retrait selon le rôle, retrait effectif d\'un tag de base'},
+  ]},
+  {version:'v0.93',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Gestion des utilisateurs : modèle de rôles + comptes (sous-chantier 1/6)',current:false,changes:[
     {tag:'feat', text:'Nouveaux rôles Cadence (Admin, Product Owner, Scrum Master, Développeur, Stakeholder), qui remplacent l\'ancien trio générique Admin/Membre/Lecteur — jusqu\'ici présent côté backend et récupéré au login, mais jamais exploité ensuite (`userRole` capturé puis jeté)'},
     {tag:'feat', text:'Écran "Utilisateurs" dans les Réglages, réservé au rôle Admin : liste des comptes, création (nom/email/mot de passe/rôle), changement de rôle. Le backend refuse aussi ces actions avec un 403 pour tout autre rôle — l\'écran reflète la permission réelle, il n\'est pas la seule protection'},
     {tag:'fix', text:'Corrigé au passage : le panneau du menu profil (icône en haut à droite) affichait "Admin" en dur, quel que soit le compte réellement connecté — affiche désormais le vrai nom et le rôle du compte'},

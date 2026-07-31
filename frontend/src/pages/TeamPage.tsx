@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
-import { BASE_TAGS } from '../data/baseTags'
+import { visibleBaseTags } from '../data/baseTags'
 import { frenchHolidays, countWorkdays } from '../data/holidays'
 import { fmtDate } from '../utils/fmt'
 import { isItemDone } from '../utils/status'
@@ -176,7 +176,7 @@ interface MemberModalProps { member: TeamMember | null; onSave: (m: TeamMember) 
 
 function MemberModal({ member, onSave, onClose }: MemberModalProps) {
   const { state } = useCadence()
-  const allTags = useMemo(() => [...new Set([...BASE_TAGS, ...(state.customTags ?? [])])], [state.customTags])
+  const allTags = useMemo(() => [...new Set([...visibleBaseTags(state.removedBaseTags), ...(state.customTags ?? [])])], [state.customTags, state.removedBaseTags])
 
   const [form, setForm] = useState<TeamMember>(
     member ?? { id: uid(), name: '', role: 'Dev Full-stack', spPerDay: 2, tags: [] }

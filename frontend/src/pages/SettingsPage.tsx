@@ -4,7 +4,7 @@ import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { ColorPicker } from '../components/ui/ColorPicker'
 import { STATUS_COLOR_PALETTE } from '../utils/kanbanStages'
-import { BASE_TAGS } from '../data/baseTags'
+import { visibleBaseTags } from '../data/baseTags'
 import { cascadeSprintDates } from '../utils/dates'
 import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { useToast } from '../context/ToastContext'
@@ -17,6 +17,9 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const { userRole } = useAuth()
+  // Phase 2 (roadmap v1), sous-chantier 2 : gate sur le vrai role backend, pas sur userName
+  // (voir docs/corrections.md, Chantier M — c'etait explicitement l'erreur a ne pas refaire).
+  const isAdmin = userRole === 'ADMIN'
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
@@ -150,16 +153,28 @@ export function SettingsPage() {
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Tags</h3>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
-            Les tags de base ne peuvent pas etre supprimes. Les tags personnalises peuvent etre supprimes par tous les utilisateurs.
+            {isAdmin
+              ? 'Les tags de base ne peuvent être retirés des suggestions que par le rôle Admin (un tag déjà utilisé sur un item n\'est pas affecté). Les tags personnalisés peuvent être supprimés par tous les utilisateurs.'
+              : 'Les tags de base ne peuvent être retirés des suggestions que par le rôle Admin. Les tags personnalisés peuvent être supprimés par tous les utilisateurs.'}
           </p>
 
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Tags de base</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {BASE_TAGS.map(tag => (
+              {visibleBaseTags(state.removedBaseTags).map(tag => (
                 <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 99, fontSize: 11, fontWeight: 500, background: 'var(--primary-light)', color: 'var(--primary)', border: '1px solid var(--primary)' }}>
-                  <span style={{ fontSize: 10, opacity: .6 }}>🔒</span>
+                  {!isAdmin && <span style={{ fontSize: 10, opacity: .6 }}>🔒</span>}
                   {tag}
+                  {isAdmin && (
+                    <span
+                      data-testid={`remove-base-tag-${tag}`}
+                      title="Retirer ce tag des suggestions (rôle Admin)"
+                      style={{ cursor: 'pointer', opacity: .6, marginLeft: 2, fontSize: 13, lineHeight: 1 }}
+                      onClick={() => {
+                        dispatch({ type: 'SET_REMOVED_BASE_TAGS', payload: [...(state.removedBaseTags ?? []), tag] })
+                      }}
+                    >×</span>
+                  )}
                 </span>
               ))}
             </div>
@@ -189,7 +204,7 @@ export function SettingsPage() {
         </section>
 
         {/* Utilisateurs (Phase 2, sous-chantier 1) — reserve au role Admin */}
-        {userRole === 'ADMIN' && <UsersSettingsSection />}
+        {isAdmin && <UsersSettingsSection />}
 
         {/* Import / Export */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20 }}>
