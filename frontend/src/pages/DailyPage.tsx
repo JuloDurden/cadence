@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { useToast } from '../context/ToastContext'
 import { useDialog } from '../context/DialogContext'
+import { canArchiveDaily } from '../utils/permissions'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
@@ -59,9 +60,13 @@ function today() { return new Date().toISOString().slice(0, 10) }
 
 export function DailyPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName } = useAuth()
+  const { userName, userRole } = useAuth()
   const { showToast } = useToast()
   const { confirm } = useDialog()
+  // Phase 2 (roadmap v1), sous-chantier 3 : archivage (créer/supprimer une archive) réservé au
+  // Scrum Master (+ Admin, convention actée avec Julien) — copier/exporter reste ouvert à tous,
+  // ce n'est pas une action d'archivage à proprement parler.
+  const canArchive = canArchiveDaily(userRole)
   const { duration, seconds, running, done, setDuration, toggle, reset } = useTimer()
   const date = useMemo(() => today(), [])
   const [todayOpen, setTodayOpen] = useState(true)
@@ -271,9 +276,11 @@ export function DailyPage() {
         <button className="hdr-btn" onClick={copyResume} title="Copier le résumé du jour">
           <Svg d={ICO.copy} size={14} />
         </button>
-        <button className="hdr-btn" onClick={archiveDaily} title="Archiver ce daily (et vider les saisies du jour)">
-          <Svg d={ICO.archive} size={14} />
-        </button>
+        {canArchive && (
+          <button className="hdr-btn" data-testid="btn-archive-daily" onClick={archiveDaily} title="Archiver ce daily (et vider les saisies du jour)">
+            <Svg d={ICO.archive} size={14} />
+          </button>
+        )}
 
         <div className="hdr-sep" />
       </Header>
@@ -406,10 +413,12 @@ export function DailyPage() {
                             <button className="hdr-btn" onClick={() => exportPDF(archive)} title="Exporter en PDF">
                               <Svg d={ICO.printer} size={13} />
                             </button>
-                            <button className="hdr-btn" onClick={() => deleteArchive(archive.id)} title="Supprimer l'archive"
-                              style={{ color: 'var(--danger)' }}>
-                              <Svg d={ICO.trash} size={13} />
-                            </button>
+                            {canArchive && (
+                              <button className="hdr-btn" data-testid={`btn-delete-archive-${archive.id}`} onClick={() => deleteArchive(archive.id)} title="Supprimer l'archive"
+                                style={{ color: 'var(--danger)' }}>
+                                <Svg d={ICO.trash} size={13} />
+                              </button>
+                            )}
                           </div>
                         </div>
 

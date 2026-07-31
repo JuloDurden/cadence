@@ -15,7 +15,13 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93.1',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Réintroduction de la suppression d\'un tag de base (sous-chantier 2/6)',current:true,changes:[
+  {version:'v0.93.2',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Daily : archivage réservé Scrum Master (sous-chantier 3/6, page 1/4)',current:true,changes:[
+    {tag:'feat', text:'Archiver le daily du jour et supprimer une archive existante sont désormais réservés au rôle Scrum Master (+ Admin, qui passe toujours). Copier le résumé et exporter (Markdown/PDF) restent ouverts à tous les rôles'},
+    {tag:'chore', text:'Nouveau `utils/permissions.ts` (`hasRole()`), point d\'entrée unique pour toutes les permissions par page de ce sous-chantier — la règle "Admin passe toujours" n\'est écrite qu\'à cet endroit'},
+    {tag:'chore', text:'Ces permissions sont uniquement côté client (l\'état applicatif transite par un blob JSON générique, sans contrôle serveur action par action) — à traiter comme un garde-fou d\'UI, pas une vraie sécurité, contrairement aux routes `/api/users` du sous-chantier 1'},
+    {tag:'test', text:'`tests/permissions.spec.js` (nouveau fichier, complété page par page pour ce sous-chantier) : visibilité du bouton d\'archivage selon le rôle'},
+  ]},
+  {version:'v0.93.1',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Réintroduction de la suppression d\'un tag de base (sous-chantier 2/6)',current:false,changes:[
     {tag:'feat', text:'Un tag de base (ex. "Sécurité", "API") peut de nouveau être retiré des suggestions, réservé au rôle Admin — retiré au Chantier M (2026-07-20) faute de vrai système de rôle pour le protéger, réintroduit maintenant que `userRole` reflète un vrai rôle backend'},
     {tag:'chore', text:'Retirer un tag de base ne le supprime pas des items qui l\'ont déjà, seulement des suggestions (Réglages, création/édition d\'item, profil membre) — même logique que la suppression d\'un tag personnalisé, déjà en place'},
     {tag:'test', text:'`tests/users-roles.spec.js` complété : visibilité du bouton de retrait selon le rôle, retrait effectif d\'un tag de base'},
