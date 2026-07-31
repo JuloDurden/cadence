@@ -7,7 +7,9 @@ import { fmtDate } from '../utils/fmt'
 import { isItemDone } from '../utils/status'
 import { findMemberAssignedItems, detachMemberReferences } from '../utils/cascadeDelete'
 import { useDialog } from '../context/DialogContext'
-import type { TeamMember, Absence, AbsenceType, Sprint } from '../types'
+import { useAuth } from '../hooks/useAuth'
+import { api } from '../services/api'
+import type { TeamMember, Absence, AbsenceType, Sprint, ManagedUser } from '../types'
 
 function Svg({ d, size = 14 }: { d: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: d }} />
@@ -176,11 +178,23 @@ interface MemberModalProps { member: TeamMember | null; onSave: (m: TeamMember) 
 
 function MemberModal({ member, onSave, onClose }: MemberModalProps) {
   const { state } = useCadence()
+  const { userRole } = useAuth()
+  const isAdmin = userRole === 'ADMIN'
   const allTags = useMemo(() => [...new Set([...visibleBaseTags(state.removedBaseTags), ...(state.customTags ?? [])])], [state.customTags, state.removedBaseTags])
 
   const [form, setForm] = useState<TeamMember>(
     member ?? { id: uid(), name: '', role: 'Dev Full-stack', spPerDay: 2, tags: [] }
   )
+
+  // Phase 2 (roadmap v1), sous-chantier 3 : lier ce membre à un compte utilisateur (réservé
+  // Admin), pour que la Daily sache que "cette carte, c'est la sienne" (voir MemberCard.tsx /
+  // DailyPage.tsx). Liste chargée uniquement pour Admin — /api/users refuse sinon (403).
+  const [users, setUsers] = useState<ManagedUser[] | null>(null)
+  useEffect(() => {
+    if (!isAdmin) return
+    api.listUsers().then(({ users }) => setUsers(users)).catch(() => setUsers([]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [tagInput, setTagInput]     = useState('')
   const [showTagSug, setShowTagSug] = useState(false)
   const [photoMode, setPhotoMode]   = useState<'upload' | 'url'>('upload')
@@ -317,6 +331,21 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
                 {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
+
+            {/* Compte utilisateur lié (Phase 2, sous-chantier 3) — réservé Admin */}
+            {isAdmin && (
+              <div className="form-group">
+                <label className="form-label">Compte utilisateur lié</label>
+                <select className="form-input form-select" value={form.linkedUserId ?? ''}
+                  onChange={e => setForm(f => ({ ...f, linkedUserId: e.target.value || undefined }))}>
+                  <option value="">Aucun</option>
+                  {(users ?? []).map(u => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
+                </select>
+                <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                  Permet à ce membre de remplir sa propre carte Daily (Hier/Aujourd'hui/Blocages) une fois connecté avec ce compte.
+                </p>
+              </div>
+            )}
 
             {/* SP/jour */}
             <div className="form-group">

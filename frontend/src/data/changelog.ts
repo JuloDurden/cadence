@@ -15,7 +15,13 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93.2',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Daily : archivage réservé Scrum Master (sous-chantier 3/6, page 1/4)',current:true,changes:[
+  {version:'v0.93.3',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Daily : chaque Dev ne remplit que sa propre carte (sous-chantier 3/6, page 1/4 suite)',current:true,changes:[
+    {tag:'feat', text:'Les champs Hier/Aujourd\'hui/Blocages d\'une carte Daily ne sont modifiables que par le Dev lié à ce membre (+ Admin) — les autres rôles (SM, PO, Stakeholder) restent en lecture seule sur toutes les cartes, en attendant d\'éventuels champs dédiés SM/PO (idée future, voir `BACKLOG_FEATURES.md`)'},
+    {tag:'feat', text:'Nouveau champ "Compte utilisateur lié" sur la fiche d\'un membre (page Team), réservé Admin : associe un compte de connexion à ce membre, condition pour qu\'il puisse remplir sa propre carte Daily'},
+    {tag:'chore', text:'Tant qu\'un membre n\'est pas lié à un compte, sa carte reste en lecture seule pour tout le monde (Admin excepté) — comportement par défaut volontairement restrictif (fail-closed), aucun membre de la démo n\'est lié à ce jour'},
+    {tag:'test', text:'`tests/permissions.spec.js` complété : lecture seule par défaut pour Dev/PO/SM, édition libre pour Admin, visibilité du champ "Compte utilisateur lié" réservée Admin sur la page Team'},
+  ]},
+  {version:'v0.93.2',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Daily : archivage réservé Scrum Master (sous-chantier 3/6, page 1/4)',current:false,changes:[
     {tag:'feat', text:'Archiver le daily du jour et supprimer une archive existante sont désormais réservés au rôle Scrum Master (+ Admin, qui passe toujours). Copier le résumé et exporter (Markdown/PDF) restent ouverts à tous les rôles'},
     {tag:'chore', text:'Nouveau `utils/permissions.ts` (`hasRole()`), point d\'entrée unique pour toutes les permissions par page de ce sous-chantier — la règle "Admin passe toujours" n\'est écrite qu\'à cet endroit'},
     {tag:'chore', text:'Ces permissions sont uniquement côté client (l\'état applicatif transite par un blob JSON générique, sans contrôle serveur action par action) — à traiter comme un garde-fou d\'UI, pas une vraie sécurité, contrairement aux routes `/api/users` du sous-chantier 1'},

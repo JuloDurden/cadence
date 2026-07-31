@@ -6,6 +6,11 @@ interface Props {
   entry: DailyEntry
   onChange: (entry: DailyEntry) => void
   absence?: Absence
+  // Phase 2 (roadmap v1), sous-chantier 3 : seul le Dev lié à ce membre (+ Admin) peut remplir sa
+  // carte — voir utils/permissions.ts, canEditDailyCard(). Par défaut `false` (fail-closed) :
+  // un futur appelant qui oublierait de passer cette prop obtient le comportement restrictif,
+  // pas l'inverse.
+  canEdit?: boolean
 }
 
 const MEMBER_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#ec4899','#14b8a6']
@@ -26,7 +31,7 @@ const ICO = {
   umbrella: '<path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/>',
 }
 
-export function MemberCard({ member, entry, onChange, absence }: Props) {
+export function MemberCard({ member, entry, onChange, absence, canEdit = false }: Props) {
   const [local, setLocal] = useState(entry)
   const hasBlocker = local.blockers.trim().length > 0
   const isAbsent = !!absence
@@ -89,16 +94,16 @@ export function MemberCard({ member, entry, onChange, absence }: Props) {
             Absent(e) · {absence.type}
           </div>
         )}
-        <Section icon={ICO.sun}    label="Hier"         value={local.yesterday} onChange={v => update('yesterday', v)} />
-        <Section icon={ICO.target} label="Aujourd'hui"  value={local.today}     onChange={v => update('today', v)} />
-        <Section icon={ICO.alert}  label="Blocages"     value={local.blockers}  onChange={v => update('blockers', v)} placeholder="Aucun blocage..." />
+        <Section icon={ICO.sun}    label="Hier"         value={local.yesterday} onChange={v => update('yesterday', v)} readOnly={!canEdit} testId={`daily-field-yesterday-${member.id}`} />
+        <Section icon={ICO.target} label="Aujourd'hui"  value={local.today}     onChange={v => update('today', v)} readOnly={!canEdit} testId={`daily-field-today-${member.id}`} />
+        <Section icon={ICO.alert}  label="Blocages"     value={local.blockers}  onChange={v => update('blockers', v)} placeholder="Aucun blocage..." readOnly={!canEdit} testId={`daily-field-blockers-${member.id}`} />
       </div>
     </div>
   )
 }
 
-function Section({ icon, label, value, onChange, placeholder }: {
-  icon: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string
+function Section({ icon, label, value, onChange, placeholder, readOnly, testId }: {
+  icon: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string; readOnly?: boolean; testId?: string
 }) {
   return (
     <div>
@@ -109,11 +114,14 @@ function Section({ icon, label, value, onChange, placeholder }: {
         {label}
       </div>
       <textarea
+        data-testid={testId}
         value={value}
         onChange={e => onChange(e.target.value)}
-        placeholder={placeholder ?? 'Saisir...'}
+        placeholder={readOnly ? '' : (placeholder ?? 'Saisir...')}
         rows={2}
-        style={{ width: '100%', resize: 'vertical', fontSize: 12, minHeight: 52 }}
+        readOnly={readOnly}
+        title={readOnly ? 'Réservé au membre concerné (ou à un Admin)' : undefined}
+        style={{ width: '100%', resize: 'vertical', fontSize: 12, minHeight: 52, opacity: readOnly ? .65 : 1, cursor: readOnly ? 'default' : 'text', background: readOnly ? 'var(--surface2)' : undefined }}
       />
     </div>
   )

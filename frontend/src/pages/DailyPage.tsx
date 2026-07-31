@@ -9,7 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { useToast } from '../context/ToastContext'
 import { useDialog } from '../context/DialogContext'
-import { canArchiveDaily } from '../utils/permissions'
+import { canArchiveDaily, canEditDailyCard } from '../utils/permissions'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
@@ -60,7 +60,7 @@ function today() { return new Date().toISOString().slice(0, 10) }
 
 export function DailyPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName, userRole } = useAuth()
+  const { userName, userRole, userId } = useAuth()
   const { showToast } = useToast()
   const { confirm } = useDialog()
   // Phase 2 (roadmap v1), sous-chantier 3 : archivage (créer/supprimer une archive) réservé au
@@ -331,6 +331,7 @@ export function DailyPage() {
                     member={member}
                     entry={getEntry(member.id)}
                     onChange={handleChange}
+                    canEdit={canEditDailyCard(userRole, userId, member)}
                   />
                 ))}
               </div>

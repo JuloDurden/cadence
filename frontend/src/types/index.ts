@@ -159,6 +159,12 @@ export interface Sprint {
 export interface TeamMember {
   id: string; name: string; role: string; spPerDay: number; tags: string[]
   photo?: string  // base64 data URL ou URL externe
+  // Phase 2 (roadmap v1), sous-chantier 3 : compte utilisateur (User, réservé Admin de le lier
+  // depuis la page Team) correspondant à ce membre — permet de savoir que "cette carte Daily
+  // c'est la sienne" et de n'en autoriser l'édition qu'au compte concerné. Absent par défaut :
+  // tant qu'un membre n'est pas lié, sa carte reste en lecture seule pour tout le monde (Admin
+  // excepté), y compris pour lui-même une fois connecté.
+  linkedUserId?: string
 }
 
 export type AbsenceType = 'Congés payés' | 'Formation' | 'Urgence' | 'Maladie' | 'Autre'
