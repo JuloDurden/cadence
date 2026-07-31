@@ -12,8 +12,10 @@ test.describe('Daily Standup', () => {
     await expect(page.getByText(/^\d{2}:\d{2}$/).first()).toBeVisible();
   });
 
+  // Bouton Archiver réservé Scrum Master (+ Admin) depuis v0.93.2 (canArchiveDaily,
+  // utils/permissions.ts) — role explicite pour ce test antérieur au système de rôles.
   test('affiche les boutons de contrôle du timer et les actions', async ({ page }) => {
-    await goTo(page, '/daily');
+    await goTo(page, '/daily', { role: 'SCRUM_MASTER' });
     // Barre de progression timer
     await expect(page.locator('.timer-bar-wrap')).toBeVisible();
     // Bouton play/pause (title Démarrer au départ)
@@ -53,8 +55,11 @@ test.describe('Daily Standup', () => {
     await expect(page.locator('text=Aucune archive')).toBeVisible();
   });
 
+  // Remplir la carte d'un membre est réservé au Dev lié (TeamMember.linkedUserId) depuis v0.93.3
+  // (canEditDailyCard) — DEMO_STATE ne lie aucun membre par défaut, donc seul Admin (qui passe
+  // toujours, quel que soit le lien) peut éditer n'importe quelle carte sans setup supplémentaire.
   test('peut saisir une entrée daily pour un membre', async ({ page }) => {
-    await goTo(page, '/daily');
+    await goTo(page, '/daily', { role: 'ADMIN' });
     const card = page.locator('[data-testid="daily-member-card"]').filter({ hasText: 'Aldo Raines' });
     await card.locator('textarea').first().fill('Travail sur la feature X');
     await expect(card.locator('textarea').first()).toHaveValue('Travail sur la feature X');

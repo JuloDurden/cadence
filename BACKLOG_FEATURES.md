@@ -31,7 +31,7 @@ Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/
   - ✅ Daily : seul le Scrum Master peut archiver ; chaque Dev renseigne uniquement ses propres entrées (fait 2026-07-31, v0.93.2/v0.93.3 — lien TeamMember↔User à assigner par un Admin depuis la page Team, voir `docs/corrections.md`)
   - ✅ Rétrospective : votes anonymisables, export réservé au SM (fait 2026-07-31, v0.93.4 — "anonymisable" clarifié avec Julien : masque le highlight "vous avez déjà voté", pas l'auteur du post-it ni le compteur, voir `docs/corrections.md`)
   - ✅ Auto-planning / What-if : Appliquer réservé PO, exploration ouverte à PO/SM/Dev, Stakeholder en lecture seule (fait 2026-07-31, v0.93.5 — scénarios en localStorage, jamais partagés, retour Julien pour ouvrir l'exploration à tous sauf Stakeholder, voir `docs/corrections.md`)
-  - Backlog : PO full CRUD, Dev lecture + changement de statut
+  - ✅ Backlog : PO full CRUD, Dev sous-ensemble opérationnel (statut, SP, notes/commentaires, DoD, dépendances, auto-assignation), Scrum Master/Stakeholder en lecture seule (fait 2026-07-31, v0.93.6 — DoR et contenu produit (description, US, critères, priorité, epic/client, tags) restent PO uniquement, voir `docs/corrections.md`)
 - **Daily — idées futures** (notées par Julien le 2026-07-31, pas encore de sous-chantier prévu) :
   - Support du vocal avec transcription dans les champs Hier/Aujourd'hui/Blocages
   - Champ dédié pour le Scrum Master (déroulement de la Daily)

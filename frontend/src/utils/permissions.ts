@@ -50,3 +50,31 @@ export const canExploreWhatIf = (role: UserRole | '' | undefined) => hasRole(rol
 // partagé (déplace des items dans des sprints réels) — réservé au PO (+ Admin), contrairement au
 // reste de la page qui est un bac à sable local sans impact.
 export const canApplyScenario = (role: UserRole | '' | undefined) => hasRole(role, 'PO')
+
+// Backlog : le PO (+ Admin) a un accès complet — création/suppression d'items, Epics et
+// Initiatives, et tous les champs de la fiche (contenu produit : description, User Story,
+// critères, priorité/scoring, epic/client, tags, DoR...). Le Scrum Master reste en lecture
+// seule sur cette page — la matrice de rôles d'origine (BACKLOG_FEATURES.md) ne mentionne que
+// PO et Dev en écriture, confirmé avec Julien le 2026-07-31 (même statut que Stakeholder ici).
+export const canManageBacklog = (role: UserRole | '' | undefined) => hasRole(role, 'PO')
+
+// Backlog : sous-ensemble opérationnel ouvert au Dev (+ PO/Admin, qui l'ont de toute façon via
+// canManageBacklog ci-dessus) — statut, SP, notes/commentaires, DoD, dépendances. Ce sont les
+// champs qu'un Dev renseigne en travaillant l'item, sans toucher au contenu produit qui reste
+// la responsabilité du PO. Choix acté avec Julien le 2026-07-31 (DoR exclu : c'est une
+// préparation en amont, pas un champ qu'un Dev remplit pendant le développement).
+export const canEditBacklogOperational = (role: UserRole | '' | undefined) => hasRole(role, 'PO', 'DEV')
+
+// Backlog : auto-assignation — un Dev peut s'ajouter/se retirer lui-même des assignés d'un item
+// (le compte Dev lié à ce membre, TeamMember.linkedUserId — même mécanisme que
+// canEditDailyCard), mais ne peut pas gérer les assignations des autres membres. PO/Admin
+// gèrent tous les assignés sans restriction.
+export function canToggleBacklogAssignee(
+  role: UserRole | '' | undefined,
+  userId: string | undefined,
+  member: Pick<TeamMember, 'linkedUserId'>
+): boolean {
+  if (role === 'ADMIN' || role === 'PO') return true
+  if (role !== 'DEV' || !userId) return false
+  return !!member.linkedUserId && member.linkedUserId === userId
+}

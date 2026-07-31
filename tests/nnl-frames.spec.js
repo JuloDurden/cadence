@@ -15,9 +15,11 @@ const { goTo } = require('./helpers')
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Charge /vision et bascule en vue NNL (rechargement complet — repart de DEMO_STATE). */
-async function goToNNL(page) {
-  await goTo(page, '/vision')
+/** Charge /vision et bascule en vue NNL (rechargement complet — repart de DEMO_STATE).
+ *  `role` optionnel : nécessaire pour les tests qui éditent un item depuis le Backlog ensuite
+ *  (EPIC/INITIATIVE + Enregistrer réservés PO/Admin depuis la Phase 2, canManageBacklog). */
+async function goToNNL(page, opts = {}) {
+  await goTo(page, '/vision', opts)
   await page.locator('[data-testid="btn-toggle-nnl"]').click()
   await page.waitForTimeout(300)
 }
@@ -284,7 +286,7 @@ test.describe('NNL — Cadres : synchronisation NNL → Backlog (point 4)', () =
 test.describe('NNL — Cadres : synchronisation Backlog → NNL + éjection à la désassociation (points 5/5bis)', () => {
 
   test('changer l\'Epic d\'un item lié depuis le Backlog déplace son post-it dans le cadre correspondant', async ({ page }) => {
-    await goToNNL(page)
+    await goToNNL(page, { role: 'PO' })
     // nnl3 est hors des bornes de frame1 (x=0..340) — voir demo.ts (nnl3.x = 380)
     await linkPostitToItem(page, 'nnl3', 'FAX-019')
 
@@ -308,7 +310,7 @@ test.describe('NNL — Cadres : synchronisation Backlog → NNL + éjection à l
   })
 
   test('désassocier ensuite l\'Epic de cet item éjecte son post-it du cadre (correctif v0.92.15)', async ({ page }) => {
-    await goToNNL(page)
+    await goToNNL(page, { role: 'PO' })
     await linkPostitToItem(page, 'nnl3', 'FAX-019')
 
     // Rattacher d'abord à FAX-002 (fait entrer le post-it dans frame1)

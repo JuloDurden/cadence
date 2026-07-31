@@ -1,10 +1,12 @@
 const { test, expect } = require('@playwright/test');
 const { goTo } = require('./helpers');
 
+// "+ Ajouter" est réservé PO/Admin (Phase 2, canManageBacklog) — role: 'PO' pour retrouver le
+// plein accès que ces tests (antérieurs au système de rôles) supposaient implicitement.
 test.describe('Modal item - User Story', () => {
 
   test("la modale Nouvel Item contient l'onglet User Story par defaut (type Story)", async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
     const modal = page.locator('[data-testid="item-modal"]');
@@ -12,7 +14,7 @@ test.describe('Modal item - User Story', () => {
   });
 
   test("changer le type en Bug remplace l'onglet User Story par Criteres", async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
     const modal = page.locator('[data-testid="item-modal"]');
@@ -21,7 +23,7 @@ test.describe('Modal item - User Story', () => {
   });
 
   test("changer le type en Tache masque les onglets Priorite et DoD/DoR", async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
     const modal = page.locator('[data-testid="item-modal"]');

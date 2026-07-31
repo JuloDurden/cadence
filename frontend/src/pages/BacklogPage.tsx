@@ -9,6 +9,7 @@ import { HierarchyNodeModal } from '../components/backlog/HierarchyNodeModal'
 import { BacklogGroupCard } from '../components/backlog/BacklogGroupCard'
 import { findEpicChildren, detachEpicChildren, findHierarchyChildren, detachHierarchyChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
 import { withHistoryEntry } from '../utils/history'
+import { canManageBacklog, canEditBacklogOperational } from '../utils/permissions'
 import { useDialog } from '../context/DialogContext'
 import { attachItemsToEpics, getHierarchyNodeSP, buildInitiativeSections, getItemInitiativeId, type InitiativeSection, type EpicGroup } from '../utils/hierarchyScore'
 import type { Item, ItemType, BugSeverity, HistoryEntry, HierarchyNode, HierarchyLevel } from '../types'
@@ -263,8 +264,13 @@ function BacklogTableHead() {
 /* ─── Component ─────────────────────────────────────────────────── */
 export function BacklogPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName } = useAuth()
+  const { userName, userId, userRole } = useAuth()
   const { confirm } = useDialog()
+  // Phase 2 (roadmap v1), sous-chantier 3/6, page 4/4 : PO (+ Admin) accès complet, Dev
+  // sous-ensemble opérationnel (statut/SP/notes/DoD/dépendances/auto-assignation), Scrum Master
+  // et Stakeholder en lecture seule — voir utils/permissions.ts.
+  const canManage  = canManageBacklog(userRole)
+  const canOperate = canEditBacklogOperational(userRole)
   const [modalItem, setModalItem] = useState<Item | null | undefined>(undefined)
   // Modale Epic/Initiative unifiée (sous-chantier 4, 2026-07-29) : remplace `modalEpic`
   // (epic-only) — `level` distingue une création d'Epic d'une création d'Initiative (les
@@ -740,10 +746,15 @@ export function BacklogPage() {
             <DorDodBadge stat={dorDodStat(item.dod)} label="DoD" />
           </td>
 
-          {/* Actions */}
+          {/* Actions — Modifier : PO/Admin (accès complet) ou Dev (sous-ensemble opérationnel).
+              Supprimer : PO/Admin uniquement (voir utils/permissions.ts). */}
           <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-            <button className="btn-icon" onClick={() => setModalItem(item)} title="Modifier"><Svg d={SVG_EDIT} /></button>
-            <button className="btn-icon danger" onClick={() => handleDelete(item.id)} title="Supprimer"><Svg d={SVG_DEL} /></button>
+            {(canManage || canOperate) && (
+              <button className="btn-icon" onClick={() => setModalItem(item)} title="Modifier"><Svg d={SVG_EDIT} /></button>
+            )}
+            {canManage && (
+              <button className="btn-icon danger" onClick={() => handleDelete(item.id)} title="Supprimer"><Svg d={SVG_DEL} /></button>
+            )}
           </td>
         </tr>
 
@@ -818,6 +829,9 @@ export function BacklogPage() {
    *  désormais partagés entre les deux niveaux (généralisation `handleSaveHierarchyNode`/
    *  `handleDeleteHierarchyNode`, sous-chantier 4). */
   function renderGroupActions(node: HierarchyNode): ReactNode {
+    // Epics/Initiatives : contenu produit, comme les champs "généraux" d'un item — réservé au
+    // PO/Admin (voir canManageBacklog, utils/permissions.ts).
+    if (!canManage) return null
     const label = node.level === 'initiative' ? "l'Initiative" : "l'Epic"
     return (
       <>
@@ -947,11 +961,13 @@ export function BacklogPage() {
           </button>
         </div>
 
-        <div className="hdr-ctx-sep" />
-        <button ref={addBtnRef} className="hdr-btn primary" data-testid="btn-add-menu" onClick={openAddMenu}
-          style={{ gap: 5, display: 'flex', alignItems: 'center' }}>
-          <Svg d={ICO_PLUS} size={11} /> Ajouter <Svg d={SVG_CHEV_D} size={11} />
-        </button>
+        {canManage && <div className="hdr-ctx-sep" />}
+        {canManage && (
+          <button ref={addBtnRef} className="hdr-btn primary" data-testid="btn-add-menu" onClick={openAddMenu}
+            style={{ gap: 5, display: 'flex', alignItems: 'center' }}>
+            <Svg d={ICO_PLUS} size={11} /> Ajouter <Svg d={SVG_CHEV_D} size={11} />
+          </button>
+        )}
       </Header>
 
       {/* Rendu hors du Header pour échapper à son overflow, même principe que ClientsPage.tsx */}
@@ -1062,7 +1078,8 @@ export function BacklogPage() {
 
       {modalItem !== undefined && (
         <ModalErrorBoundary key={modalItem?.id ?? 'new'} onClose={() => setModalItem(undefined)}>
-          <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} />
+          <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)}
+            canManage={canManage} canOperate={canOperate} currentUserId={userId} currentUserRole={userRole} />
         </ModalErrorBoundary>
       )}
 

@@ -201,3 +201,140 @@ test.describe('Phase 2 — permissions : Auto-planning/What-if (Appliquer réser
     await expect(page.locator('[data-testid^="btn-apply-"]')).toHaveCount(0);
   });
 });
+
+// Sous-chantier 3, page 4/4 : Backlog. PO (+ Admin) accès complet (CRUD items/Epics/Initiatives,
+// tous les champs). Dev sous-ensemble opérationnel : statut, SP, notes/commentaires, DoD,
+// dépendances, auto-assignation — le contenu produit (description, US, critères, priorité,
+// epic/client, tags, DoR) reste PO uniquement. Scrum Master et Stakeholder en lecture seule
+// (seuls PO et Dev sont mentionnés en écriture dans la matrice de rôles d'origine, confirmé avec
+// Julien le 2026-07-31 via AskUserQuestion). BUG-001 est le premier item du DEMO_STATE.
+test.describe('Phase 2 — permissions : Backlog ("+ Ajouter" et actions de ligne réservées PO/Dev)', () => {
+
+  test('le PO voit "+ Ajouter"', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await expect(page.locator('[data-testid="btn-add-menu"]')).toBeVisible();
+  });
+
+  test('Admin voit aussi "+ Ajouter" (superuser)', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'ADMIN' });
+    await expect(page.locator('[data-testid="btn-add-menu"]')).toBeVisible();
+  });
+
+  test('un Dev ne voit pas "+ Ajouter"', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    await expect(page.locator('[data-testid="btn-add-menu"]')).toHaveCount(0);
+  });
+
+  test('un Scrum Master ne voit pas "+ Ajouter"', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'SCRUM_MASTER' });
+    await expect(page.locator('[data-testid="btn-add-menu"]')).toHaveCount(0);
+  });
+
+  test('un Stakeholder ne voit pas "+ Ajouter"', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'STAKEHOLDER' });
+    await expect(page.locator('[data-testid="btn-add-menu"]')).toHaveCount(0);
+  });
+
+  test('le PO voit Modifier et Supprimer sur une ligne', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await expect(row.locator('button[title="Modifier"]')).toBeVisible();
+    await expect(row.locator('button[title="Supprimer"]')).toBeVisible();
+  });
+
+  test('un Dev voit Modifier mais pas Supprimer sur une ligne', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await expect(row.locator('button[title="Modifier"]')).toBeVisible();
+    await expect(row.locator('button[title="Supprimer"]')).toHaveCount(0);
+  });
+
+  test('un Scrum Master ne voit ni Modifier ni Supprimer', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'SCRUM_MASTER' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await expect(row.locator('button[title="Modifier"]')).toHaveCount(0);
+    await expect(row.locator('button[title="Supprimer"]')).toHaveCount(0);
+  });
+
+  test('un Stakeholder ne voit ni Modifier ni Supprimer', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'STAKEHOLDER' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await expect(row.locator('button[title="Modifier"]')).toHaveCount(0);
+    await expect(row.locator('button[title="Supprimer"]')).toHaveCount(0);
+  });
+});
+
+test.describe('Phase 2 — permissions : Backlog (fiche item — sous-ensemble opérationnel du Dev)', () => {
+
+  test('un Dev peut éditer Statut et SP, mais pas la Description (contenu produit)', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await expect(page.locator('[data-testid="item-status-select"]')).toBeEnabled();
+    await expect(page.locator('[data-testid="item-sp-input"]')).toBeEnabled();
+    await expect(page.locator('[data-testid="item-desc-input"]')).toBeDisabled();
+  });
+
+  test('le PO peut éditer tous les champs, y compris la Description', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await expect(page.locator('[data-testid="item-desc-input"]')).toBeEnabled();
+    await expect(page.locator('[data-testid="item-status-select"]')).toBeEnabled();
+  });
+
+  test('un Dev peut renseigner le DoD mais pas le DoR', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await page.locator('.modal-tab-btn', { hasText: 'DoD / DoR' }).click();
+    await expect(page.locator('[data-testid="dod-add-input"]')).toBeVisible();
+    await expect(page.locator('[data-testid="dor-add-input"]')).toHaveCount(0);
+  });
+
+  test('un Dev peut ajouter une dépendance', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await page.locator('.modal-tab-btn', { hasText: 'Dépendances' }).click();
+    await expect(page.locator('[data-testid="dep-search-input"]')).toBeVisible();
+  });
+
+  test('un Dev peut écrire une note/commentaire', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await page.locator('.modal-tab-btn', { hasText: 'Notes' }).click();
+    await expect(page.locator('[data-testid="item-note-input"]')).toBeVisible();
+  });
+
+  // DEMO_STATE ne définit aucun TeamMember.linkedUserId par défaut (même limite que les tests
+  // Daily, sous-chantier 3 page 1/4) : ce cas couvre donc "non lié" pour chaque rôle. Le cas
+  // "lié à son propre compte, donc togglable" demande d'injecter un état personnalisé — à
+  // vérifier manuellement par Julien (lier un membre depuis Team, puis se connecter avec ce
+  // compte).
+  test('un Dev ne peut pas (dé)assigner un membre non lié à son compte', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await page.locator('.modal-tab-btn', { hasText: 'Équipe' }).click();
+    await expect(page.locator('[data-testid="assignee-chip-m1"]')).toBeDisabled();
+  });
+
+  test('le PO peut assigner/désassigner n\'importe quel membre', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await page.locator('.modal-tab-btn', { hasText: 'Équipe' }).click();
+    await expect(page.locator('[data-testid="assignee-chip-m1"]')).toBeEnabled();
+  });
+
+  test('un Scrum Master, en lecture seule totale, ne voit que "Fermer" (pas d\'enregistrement)', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'SCRUM_MASTER' });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.dblclick();
+    await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
+    await expect(page.locator('[data-testid="item-status-select"]')).toBeDisabled();
+    await expect(page.locator('[data-testid="item-save-btn"]')).toHaveCount(0);
+  });
+});

@@ -3,8 +3,11 @@ const { goTo } = require('./helpers');
 
 test.describe('Auto-planning — ProposalPanel v0.84.0', () => {
 
+  // "Nouveau scénario" est réservé PO/Scrum Master/Dev (+ Admin) depuis v0.93.5
+  // (canExploreWhatIf, utils/permissions.ts) — role: 'PO' pour ce helper antérieur au système
+  // de rôles.
   async function generateScenario(page) {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await page.getByRole('button', { name: 'Générer' }).first().click();
     await expect(page.locator('.page-content').getByText(/\d+\/\d+ SP/).first()).toBeVisible();

@@ -15,21 +15,23 @@ test.describe('What-if — Scénarios', () => {
     await expect(page.locator('.page-content')).not.toContainText('Scénario A');
   });
 
+  // "Nouveau scénario" réservé PO/Scrum Master/Dev (+ Admin) depuis v0.93.5 (canExploreWhatIf) —
+  // role explicite pour ces tests antérieurs au système de rôles.
   test('le bouton "Nouveau scénario" crée le Scénario A', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await expect(page.locator('.page-content')).toContainText('Scénario A');
   });
 
   test('un second "Nouveau scénario" crée le Scénario B', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await expect(page.locator('.page-content')).toContainText('Scénario B');
   });
 
   test('générer le Scénario A affiche une proposition', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await page.getByRole('button', { name: 'Générer' }).first().click();
     // /\d+\/\d+ SP/ est unique aux en-têtes de slots, évite les <title> SVG cachés
@@ -37,7 +39,7 @@ test.describe('What-if — Scénarios', () => {
   });
 
   test('le facteur de vélocité est réglable (slider)', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await expect(page.locator('input[type="range"]')).toBeVisible();
   });
@@ -55,7 +57,7 @@ test.describe('What-if — Scénarios', () => {
   });
 
   test('les 4 critères sont présents dans un scénario', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     // .first() car État actuel a aussi un label "Priorité" dans son panneau de filtres
     await expect(page.getByText('Priorité', { exact: true }).first()).toBeVisible();
@@ -65,21 +67,21 @@ test.describe('What-if — Scénarios', () => {
   });
 
   test('le panneau de capacités par sprint est accessible', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await page.getByRole('button', { name: 'Capacités par sprint' }).click();
     await expect(page.locator('.page-content')).toContainText('Capacités');
   });
 
   test('générer affiche le bouton Appliquer', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await page.getByRole('button', { name: 'Générer' }).first().click();
     await expect(page.getByRole('button', { name: 'Appliquer' }).first()).toBeVisible();
   });
 
   test('ajouter un item fictif via le bouton "+" dans un slot', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await page.getByRole('button', { name: 'Générer' }).first().click();
     // Cliquer sur le bouton + dans le premier slot
@@ -88,7 +90,7 @@ test.describe('What-if — Scénarios', () => {
   });
 
   test('la modal item fictif contient les champs Description, Type, SP, Priorité, Client', async ({ page }) => {
-    await goTo(page, '/auto');
+    await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     await page.getByRole('button', { name: 'Générer' }).first().click();
     await page.locator('button[title="Ajouter un item fictif"]').first().click();
@@ -103,7 +105,7 @@ test.describe('What-if — Scénarios', () => {
     // Duplique la vérification de tests/changelog.spec.js — volontaire, pour un
     // repère rapide depuis ce fichier ; garder les deux synchronisées à chaque bump.
     await goTo(page, '/changelog');
-    await expect(page.locator('.cl-card.current')).toContainText('v0.93.5');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.93.6');
   });
 
 });

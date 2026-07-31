@@ -32,10 +32,13 @@ test.describe('Backlog', () => {
     await expect(table).toContainText('AGA-021');
   });
 
+  // Phase 2 (roadmap v1), sous-chantier 3/6, page 4/4 : "+ Ajouter" et les actions d'édition
+  // sont désormais réservées PO/Admin (voir utils/permissions.ts, canManageBacklog) — ces tests
+  // prédatent le système de rôles et testent le plein accès, d'où `role: 'PO'` explicite.
   test('le bouton Nouvel Item ouvre la modale', async ({ page }) => {
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
     await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
@@ -43,7 +46,7 @@ test.describe('Backlog', () => {
   });
 
   test('la modale contient les onglets Général et Dépendances', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
     await expect(page.locator('[data-testid="item-modal"]')).toContainText('Général');
@@ -51,7 +54,7 @@ test.describe('Backlog', () => {
   });
 
   test('fermer la modale la masque', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
     await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
@@ -63,8 +66,9 @@ test.describe('Backlog', () => {
 
 test.describe('Backlog — Epic (HierarchyNode, Phase 1 sous-chantier 1, 2026-07-28)', () => {
 
+  // Actions Epic/Initiative réservées PO/Admin (canManageBacklog) — voir la note plus haut.
   test('le bouton Nouvel Epic ouvre la modale dédiée (pas ItemModal)', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-epic"]');
     await expect(page.locator('[data-testid="hierarchy-node-modal"]')).toBeVisible();
@@ -72,7 +76,7 @@ test.describe('Backlog — Epic (HierarchyNode, Phase 1 sous-chantier 1, 2026-07
   });
 
   test('créer un Epic l\'affiche dans le mode "Grouper par Epic"', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-epic"]');
     const modal = page.locator('[data-testid="hierarchy-node-modal"]');
@@ -84,7 +88,7 @@ test.describe('Backlog — Epic (HierarchyNode, Phase 1 sous-chantier 1, 2026-07
   });
 
   test('modifier un Epic existant (FAX-002) depuis son en-tête de groupe', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await setBacklogGroupBy(page, 'epic');
     const group = page.locator('.backlog-group-card').filter({ hasText: 'FAX-002' });
     await group.locator('button[title="Modifier l\'Epic"]').click();
@@ -97,7 +101,7 @@ test.describe('Backlog — Epic (HierarchyNode, Phase 1 sous-chantier 1, 2026-07
   });
 
   test('supprimer un Epic détache ses US (conservées, sans epicId)', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await setBacklogGroupBy(page, 'epic');
     // AGA-009 (i9) n'a aucune US rattachée dans le jeu de démo → suppression simple, sans US à vérifier détachée
     const group = page.locator('.backlog-group-card').filter({ hasText: 'AGA-009' });
@@ -144,7 +148,7 @@ test.describe('Backlog — regroupement en cards (retour Julien, 2026-07-29)', (
 test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-07-29)', () => {
 
   test('le bouton Nouvelle Initiative ouvre la modale dédiée', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-initiative"]');
     const modal = page.locator('[data-testid="hierarchy-node-modal"]');
@@ -155,7 +159,7 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
   });
 
   test('créer une Initiative l\'affiche dans le mode "Grouper par Initiative"', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-initiative"]');
     const modal = page.locator('[data-testid="hierarchy-node-modal"]');
@@ -167,7 +171,7 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
   });
 
   test('rattacher un Epic existant à une Initiative l\'affiche imbriqué dans sa card', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     // Créer l'Initiative
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-initiative"]');
@@ -197,7 +201,7 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
   });
 
   test('supprimer une Initiative détache ses Epics enfants (conservés)', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-initiative"]');
     const initModal = page.locator('[data-testid="hierarchy-node-modal"]');

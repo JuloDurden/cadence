@@ -15,7 +15,15 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93.5',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Auto-planning/What-if : Appliquer réservé PO, Stakeholder en lecture seule (sous-chantier 3/6, page 3/4)',current:true,changes:[
+  {version:'v0.93.6',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Backlog : PO full CRUD, Dev sous-ensemble opérationnel (sous-chantier 3/6, page 4/4)',current:true,changes:[
+    {tag:'feat', text:'Le PO (+ Admin) garde un accès complet au Backlog : créer/modifier/supprimer des items, Epics et Initiatives, et tous les champs de la fiche'},
+    {tag:'feat', text:'Le Dev peut désormais éditer un sous-ensemble opérationnel d\'un item : statut, Story Points, notes/commentaires, Definition of Done, dépendances — les champs qu\'il renseigne en travaillant l\'item. Le contenu produit (description, User Story, critères, priorité/scoring, epic/client, tags, DoR) reste réservé au PO'},
+    {tag:'feat', text:'Auto-assignation : un Dev peut s\'ajouter ou se retirer lui-même des assignés d\'un item (compte lié via la page Team), sans pouvoir gérer les assignations des autres membres'},
+    {tag:'feat', text:'Le Scrum Master reste en lecture seule sur cette page (comme le Stakeholder) — seuls PO et Dev sont mentionnés en écriture dans la matrice de rôles d\'origine, confirmé avec Julien le 2026-07-31'},
+    {tag:'chore', text:'"+ Ajouter" (Item/Epic/Initiative) et la suppression d\'un item/Epic/Initiative restent réservés au PO (+ Admin) ; le bouton "Modifier" reste visible pour PO et Dev, masqué pour Scrum Master/Stakeholder'},
+    {tag:'test', text:'`tests/permissions.spec.js` complété : accès PO/Dev/Scrum Master/Stakeholder sur "+ Ajouter", "Modifier"/"Supprimer", et les champs de la fiche item (statut, SP, DoD, dépendances, notes, priorité)'},
+  ]},
+  {version:'v0.93.5',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Auto-planning/What-if : Appliquer réservé PO, Stakeholder en lecture seule (sous-chantier 3/6, page 3/4)',current:false,changes:[
     {tag:'feat', text:'Les scénarios What-if (vélocité, capacités par sprint, critères, items fictifs, overrides) restent ouverts à explorer pour PO/Scrum Master/Dev (+ Admin) — utile pour argumenter en direct lors d\'un sprint planning. Seul "Appliquer" (qui écrit réellement dans le planning partagé) reste réservé PO (+ Admin)'},
     {tag:'feat', text:'Le rôle Stakeholder reste en lecture seule sur cette page : il voit l\'État actuel et les scénarios déjà générés, mais ne peut pas en créer ni les modifier (bouton "Nouveau scénario" masqué, sliders/critères/items fictifs désactivés)'},
     {tag:'chore', text:'Les scénarios sont un brouillon personnel en localStorage (jamais partagé entre utilisateurs, voir `docs/corrections.md`) — la restriction Stakeholder porte donc sur la capacité à explorer, pas sur la confidentialité d\'un scénario d\'un autre compte'},

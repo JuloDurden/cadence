@@ -70,7 +70,10 @@ test.describe('Sprint Review — /sprint-review', () => {
       // SOC-010 est "done" sur le Sprint 2 (sprint sélectionné par défaut dans le jeu de démo)
       // mais sans Epic — on le rattache à l'Epic existant FAX-002 (id "i2") pour vérifier que
       // "Incrément livré" affiche désormais un en-tête de groupe au-dessus de sa ligne.
-      await goTo(page, '/backlog');
+      // Édite le champ EPIC/INITIATIVE puis Enregistre — réservé PO/Admin depuis la Phase 2
+      // (canManageBacklog, utils/permissions.ts) : role: 'PO' pour ce test antérieur au système
+      // de rôles.
+      await goTo(page, '/backlog', { role: 'PO' });
       await page.locator('tr', { hasText: 'SOC-010' }).first().dblclick();
       const itemModal = page.locator('[data-testid="item-modal"]');
       await expect(itemModal).toBeVisible();

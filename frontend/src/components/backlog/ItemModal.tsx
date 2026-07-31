@@ -3,6 +3,8 @@ import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity
 import { useCadence } from '../../context/StateContext'
 import { visibleBaseTags } from '../../data/baseTags'
 import { statusOptionsForItemModal } from '../../utils/kanbanStages'
+import type { UserRole } from '../../types'
+import { canToggleBacklogAssignee } from '../../utils/permissions'
 
 /* ─── Constants ──────────────────────────────────────────────────── */
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
@@ -123,13 +125,27 @@ interface Props {
   state: CadenceState
   onSave: (item: Item, keyCounters?: Record<string, number>) => void
   onClose: () => void
+  // Phase 2 (roadmap v1), sous-chantier 3/6, page 4/4 : permissions Backlog (voir
+  // utils/permissions.ts). Par défaut à `true` (comportement inchangé) pour les autres appelants
+  // de cette modale (Kanban, Planning, Sprint Planning, Sprint Review, Vision NNL) — seule
+  // BacklogPage.tsx passe des valeurs calculées depuis le rôle courant, hors périmètre ici.
+  canManage?: boolean
+  canOperate?: boolean
+  currentUserId?: string
+  currentUserRole?: UserRole | ''
 }
 
 /* ─── Component ─────────────────────────────────────────────────── */
-export function ItemModal({ item, state, onSave, onClose }: Props) {
+export function ItemModal({ item, state, onSave, onClose, canManage = true, canOperate = true, currentUserId, currentUserRole }: Props) {
   const { dispatch } = useCadence()
   const isNew = !item
   const defaultStatus = state.kanbanCols.find(c => c.isDefault)?.id ?? state.kanbanCols[0]?.id ?? 'todo'
+  // `canManage` = accès complet (contenu produit : description, US, critères, priorité,
+  // epic/client, tags, DoR...). `canOperate` = sous-ensemble opérationnel Dev (statut, SP,
+  // notes, DoD, dépendances) — PO/Admin l'ont de toute façon via `canManage`, d'où l'union
+  // ci-dessous pour les champs partagés. Aucun des deux → lecture seule totale (SM/Stakeholder).
+  const canEditOps = canManage || canOperate
+  const isReadOnly = !canEditOps
 
   const [tab, setTab] = useState<Tab>('general')
 
@@ -457,7 +473,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">TYPE D'ITEM</label>
-            <select className="form-input" value={iType} onChange={e => {
+            <select className="form-input" disabled={!canManage} value={iType} onChange={e => {
               const t = e.target.value as ItemType
               setIType(t)
               if (!getVisibleTabs(t).includes(tab)) setTab('general')
@@ -468,7 +484,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           {iType === 'bug' ? (
             <div className="form-group">
               <label className="form-label">SÉVÉRITÉ</label>
-              <select className="form-input" value={severity} onChange={e => setSeverity(e.target.value as BugSeverity)}>
+              <select className="form-input" disabled={!canManage} value={severity} onChange={e => setSeverity(e.target.value as BugSeverity)}>
                 <option value="">— choisir —</option>
                 {SEV_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -477,7 +493,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           ) : (
             <div className="form-group">
               <label className="form-label">EPIC / INITIATIVE</label>
-              <select className="form-input" value={epicId} onChange={e => setEpicId(e.target.value)}>
+              <select className="form-input" disabled={!canManage} value={epicId} onChange={e => setEpicId(e.target.value)}>
                 <option value="">Rechercher un Epic ou une Initiative...</option>
                 {epicOptions.length > 0 && (
                   <optgroup label="Epics">
@@ -495,25 +511,25 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
         </div>
         <div className="form-group" style={{ marginBottom: 14 }}>
           <label className="form-label">DESCRIPTION</label>
-          <input className="form-input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description de l'item..." />
+          <input className="form-input" data-testid="item-desc-input" disabled={!canManage} value={desc} onChange={e => setDesc(e.target.value)} placeholder="Description de l'item..." />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">CLIENT / TYPE</label>
-            <select className="form-input" value={clientId} onChange={e => setClientId(e.target.value)}>
+            <select className="form-input" disabled={!canManage} value={clientId} onChange={e => setClientId(e.target.value)}>
               <option value="">Sélectionner...</option>
               {state.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div className="form-group">
             <label className="form-label">STORY POINTS</label>
-            <input className="form-input" type="number" min={0} max={100} value={sp} onChange={e => setSp(+e.target.value)} />
+            <input className="form-input" data-testid="item-sp-input" disabled={!canEditOps} type="number" min={0} max={100} value={sp} onChange={e => setSp(+e.target.value)} />
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: iType === 'task' || iType === 'spike' ? '1fr 1fr' : '1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">SPRINT ASSIGNÉ</label>
-            <select className="form-input" value={sprintId} onChange={e => handleSprintChange(e.target.value)}>
+            <select className="form-input" disabled={!canManage} value={sprintId} onChange={e => handleSprintChange(e.target.value)}>
               <option value="">Non assigné</option>
               {state.sprints.map(s => <option key={s.id} value={s.id}>Sprint {s.number}{s.goal ? ` – ${s.goal}` : ''}</option>)}
             </select>
@@ -521,7 +537,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           {(iType === 'task' || iType === 'spike') && (
             <div className="form-group">
               <label className="form-label">PRIORITÉ</label>
-              <select className="form-input" value={priority} onChange={e => setPriority(e.target.value as import('../../types').Priority)}>
+              <select className="form-input" disabled={!canManage} value={priority} onChange={e => setPriority(e.target.value as import('../../types').Priority)}>
                 {PRIO_OPTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
               </select>
             </div>
@@ -529,18 +545,18 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
         </div>
         <div className="form-group" style={{ marginBottom: 14 }}>
           <label className="form-label">STATUT</label>
-          <select className="form-input" value={status} onChange={e => setStatus(e.target.value)}>
+          <select className="form-input" data-testid="item-status-select" disabled={!canEditOps} value={status} onChange={e => setStatus(e.target.value)}>
             {statusOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Svg d={ICO_CAL} size={11} /> DATE DE LIVRAISON</label>
-            <input className="form-input" type="date" value={deadline.date} onChange={e => setDeadline(d => ({ ...d, date: e.target.value }))} />
+            <input className="form-input" disabled={!canManage} type="date" value={deadline.date} onChange={e => setDeadline(d => ({ ...d, date: e.target.value }))} />
           </div>
           <div className="form-group">
             <label className="form-label">TYPE</label>
-            <select className="form-input" value={deadline.type} onChange={e => setDeadline(d => ({ ...d, type: e.target.value as Deadline['type'] }))}>
+            <select className="form-input" disabled={!canManage} value={deadline.type} onChange={e => setDeadline(d => ({ ...d, type: e.target.value as Deadline['type'] }))}>
               <option value="none">Aucune</option>
               <option value="imposed">Imposée</option>
               <option value="negotiable">Négociable</option>
@@ -552,10 +568,11 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
             {tags.map(t => (
               <span key={t} className="tag">
-                {t} <span style={{ cursor: 'pointer', opacity: .7, marginLeft: 3 }} onClick={() => setTags(ts => ts.filter(x => x !== t))}>×</span>
+                {t} {canManage && <span style={{ cursor: 'pointer', opacity: .7, marginLeft: 3 }} onClick={() => setTags(ts => ts.filter(x => x !== t))}>×</span>}
               </span>
             ))}
           </div>
+          {canManage && (
           <div ref={tagWrapRef} style={{ position: 'relative' }}>
             <input className="form-input" placeholder="Ajouter un tag..." value={tagInput}
               onChange={e => { setTagInput(e.target.value); setShowTagSug(true) }}
@@ -588,6 +605,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     )
@@ -607,60 +625,73 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               ].map(row => (
                 <div key={row.label} className="us-row">
                   <span className="us-prefix">{row.label}</span>
-                  <input className="form-input" value={row.value} onChange={e => row.setter(e.target.value)} />
+                  <input className="form-input" disabled={!canManage} value={row.value} onChange={e => row.setter(e.target.value)} />
                 </div>
               ))}
             </div>
           </>
         )}
 
-        {/* Bloc Critères d'acceptation — Story, Bug */}
+        {/* Bloc Critères d'acceptation — Story, Bug. Contenu produit : PO/Admin uniquement
+            (voir utils/permissions.ts, canManageBacklog) — lecture seule pour les autres rôles. */}
         {(iType === 'story' || iType === 'bug') && (
         <div style={{ marginTop: iType === 'bug' ? 0 : 24 }}>
           <div className="us-section-label">{iType === 'bug' ? 'CRITÈRES DE RÉSOLUTION (GHERKIN)' : 'CRITÈRES D\'ACCEPTATION (GHERKIN)'}</div>
           {criteria.map(c => (
             <div key={c.id} className="bdd-block" style={{ position: 'relative' }}>
-              <button className="bdd-remove-btn" onClick={() => removeCriterion(c.id)} title="Supprimer ce critère">
-                <Svg d={ICO_CLOSE} size={14} />
-              </button>
+              {canManage && (
+                <button className="bdd-remove-btn" onClick={() => removeCriterion(c.id)} title="Supprimer ce critère">
+                  <Svg d={ICO_CLOSE} size={14} />
+                </button>
+              )}
               {/* Given */}
               <div className="bdd-row">
                 <span className="bdd-label given">Étant donné que</span>
-                <textarea className="form-input bdd-area" rows={2} value={c.given}
+                <textarea className="form-input bdd-area" rows={2} value={c.given} disabled={!canManage}
                   onChange={e => updateCriterion(c.id, 'given', e.target.value)} />
               </div>
-              <div className="bdd-add-btn-wrap">
-                <button className="bdd-add-inline" onClick={() => appendToField(c.id, 'given')}>+ Et que</button>
-              </div>
+              {canManage && (
+                <div className="bdd-add-btn-wrap">
+                  <button className="bdd-add-inline" onClick={() => appendToField(c.id, 'given')}>+ Et que</button>
+                </div>
+              )}
               {/* When */}
               <div className="bdd-row">
                 <span className="bdd-label when">Quand</span>
-                <textarea className="form-input bdd-area" rows={2} value={c.when}
+                <textarea className="form-input bdd-area" rows={2} value={c.when} disabled={!canManage}
                   onChange={e => updateCriterion(c.id, 'when', e.target.value)} />
               </div>
-              <div className="bdd-add-btn-wrap">
-                <button className="bdd-add-inline" onClick={() => appendToField(c.id, 'when')}>+ Et que</button>
-              </div>
+              {canManage && (
+                <div className="bdd-add-btn-wrap">
+                  <button className="bdd-add-inline" onClick={() => appendToField(c.id, 'when')}>+ Et que</button>
+                </div>
+              )}
               {/* Then */}
               <div className="bdd-row">
                 <span className="bdd-label then">Alors</span>
-                <textarea className="form-input bdd-area" rows={2} value={c.then}
+                <textarea className="form-input bdd-area" rows={2} value={c.then} disabled={!canManage}
                   onChange={e => updateCriterion(c.id, 'then', e.target.value)} />
               </div>
-              <div className="bdd-add-btn-wrap">
-                <button className="bdd-add-inline" onClick={() => appendToField(c.id, 'then')}>+ Et</button>
-              </div>
+              {canManage && (
+                <div className="bdd-add-btn-wrap">
+                  <button className="bdd-add-inline" onClick={() => appendToField(c.id, 'then')}>+ Et</button>
+                </div>
+              )}
             </div>
           ))}
-          <button className="hdr-ctx-btn" onClick={addCriterion} style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Svg d={ICO_PLUS} size={11} /> Ajouter un critère
-          </button>
+          {canManage && (
+            <button className="hdr-ctx-btn" onClick={addCriterion} style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Svg d={ICO_PLUS} size={11} /> Ajouter un critère
+            </button>
+          )}
         </div>
         )}
       </div>
     )
 
     /* ── DÉPENDANCES ── */
+    // Ouvert au Dev (+ PO/Admin) : un Dev identifie souvent une dépendance technique en cours
+    // de travail, pas seulement le PO en amont (canEditBacklogOperational, utils/permissions.ts).
     if (tab === 'deps') return (
       <div className="modal-tab-body">
         <div className="us-section-label">CETTE US NÉCESSITE QUE CES US SOIENT DANS UN SPRINT PRÉCÉDENT</div>
@@ -672,13 +703,14 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               <span key={id} className="dep-badge">
                 <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{dep.key}</span>
                 {' '}<span style={{ color: 'var(--text-muted)' }}>{dep.desc.slice(0, 40)}</span>
-                <button className="dep-badge-remove" onClick={() => removeDep(id)}>×</button>
+                {canEditOps && <button className="dep-badge-remove" onClick={() => removeDep(id)}>×</button>}
               </span>
             ) : null
           })}
         </div>
+        {canEditOps && (
         <div style={{ position: 'relative', marginTop: 14 }}>
-          <input className="form-input" placeholder={`Rechercher par clé (${state.clients[0]?.prefix ?? '...'})`}
+          <input className="form-input" data-testid="dep-search-input" placeholder={`Rechercher par clé (${state.clients[0]?.prefix ?? '...'})`}
             value={depSearch} onChange={e => setDepSearch(e.target.value)} />
           {depResults.length > 0 && (
             <div className="dep-search-results">
@@ -691,6 +723,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
             </div>
           )}
         </div>
+        )}
         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 12, lineHeight: 1.6 }}>
           Ex. : déclarer "e-commerce 2/3" avec dep sur "e-commerce 1/3" — jamais l'inverse.
         </p>
@@ -698,12 +731,14 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     )
 
     /* ── PRIORITÉ / SCORING ── */
+    // Contenu produit : PO/Admin uniquement (canManageBacklog, utils/permissions.ts) — lecture
+    // seule pour les autres rôles (Dev inclus, pas dans son sous-ensemble opérationnel).
     if (tab === 'priority') return (
       <div className="modal-tab-body">
         <div className="moscow-prio-row">
           <span style={{ fontWeight: 600, fontSize: 13 }}>Priorité :</span>
           {(() => { const opt = PRIO_OPTS.find(p => p.value === priority); return opt ? <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 5, fontSize: 11, fontWeight: 800, background: opt.color, color: opt.textColor }}>{opt.label.split(' - ')[0]}</span> : null })()}
-          <select className="form-input" style={{ width: 'auto', minWidth: 160 }} value={priority} onChange={e => setPriority(e.target.value as import('../../types').Priority)}>
+          <select className="form-input" style={{ width: 'auto', minWidth: 160 }} disabled={!canManage} value={priority} onChange={e => setPriority(e.target.value as import('../../types').Priority)}>
             {PRIO_OPTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
           {(moscow || framework !== 'manual') && (
@@ -716,7 +751,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
         <div className="us-section-label" style={{ marginTop: 20 }}>FRAMEWORK DE SCORING</div>
         <div className="scoring-tabs">
           {(['wsjf', 'rice', 'moscow', 'manual'] as ScoringFramework[]).map(f => (
-            <button key={f} className={`scoring-tab-btn${framework === f ? ' active' : ''}`} onClick={() => setFramework(f)}>
+            <button key={f} className={`scoring-tab-btn${framework === f ? ' active' : ''}`} disabled={!canManage} onClick={() => setFramework(f)}>
               {f === 'moscow' ? 'MoSCoW' : f.toUpperCase()}
             </button>
           ))}
@@ -727,7 +762,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
           <div style={{ marginTop: 16 }}>
             <div className="moscow-grid">
               {MOSCOW_OPTS.map(opt => (
-                <button key={opt.value}
+                <button key={opt.value} disabled={!canManage}
                   className={`moscow-btn${moscow === opt.value ? ' selected' : ''}`}
                   style={{ borderColor: moscow === opt.value ? opt.color : 'var(--border)',
                     background: moscow === opt.value ? opt.color : 'var(--surface)',
@@ -759,7 +794,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               ].map(row => (
                 <div key={row.key} className="wsjf-row">
                   <span className="wsjf-label">{row.label}</span>
-                  <input type="range" min={1} max={10} value={row.value} className="wsjf-range"
+                  <input type="range" min={1} max={10} value={row.value} className="wsjf-range" disabled={!canManage}
                     onChange={e => row.setter(+e.target.value)} />
                   <span className="wsjf-val">{row.value}</span>
                 </div>
@@ -771,7 +806,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               <div className="moscow-summary" style={{ marginTop: 12 }}>
                 WSJF = ({wBV} + {wTC} + {wRR}) / {sp || 1} = <strong>{score}</strong>
                 → <strong>{PRIO_OPTS.find(p => p.value === prio)?.label}</strong>
-                <button className="hdr-ctx-btn" style={{ marginLeft: 10, fontSize: 11 }} onClick={() => setPriority(prio as import('../../types').Priority)}>Appliquer</button>
+                <button className="hdr-ctx-btn" style={{ marginLeft: 10, fontSize: 11 }} disabled={!canManage} onClick={() => setPriority(prio as import('../../types').Priority)}>Appliquer</button>
               </div>
             </div>
           )
@@ -785,29 +820,29 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div className="form-group">
                   <label className="form-label">REACH (utilisateurs/trimestre)</label>
-                  <input className="form-input" type="number" min={0} value={rReach} onChange={e => setRReach(+e.target.value)} />
+                  <input className="form-input" type="number" min={0} disabled={!canManage} value={rReach} onChange={e => setRReach(+e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">IMPACT</label>
-                  <select className="form-input" value={rImpact} onChange={e => setRImpact(+e.target.value)}>
+                  <select className="form-input" disabled={!canManage} value={rImpact} onChange={e => setRImpact(+e.target.value)}>
                     {RICE_IMPACT_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">CONFIDENCE</label>
-                  <select className="form-input" value={rConf} onChange={e => setRConf(+e.target.value)}>
+                  <select className="form-input" disabled={!canManage} value={rConf} onChange={e => setRConf(+e.target.value)}>
                     {RICE_CONF_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">EFFORT (semaines)</label>
-                  <input className="form-input" type="number" min={0.5} step={0.5} value={rEffort} onChange={e => setREffort(+e.target.value)} />
+                  <input className="form-input" type="number" min={0.5} step={0.5} disabled={!canManage} value={rEffort} onChange={e => setREffort(+e.target.value)} />
                 </div>
               </div>
               <div className="moscow-summary" style={{ marginTop: 12 }}>
                 RICE = ({rReach} × {rImpact} × {rConf}) / {rEffort} = <strong>{score}</strong>
                 → <strong>{PRIO_OPTS.find(p => p.value === prio)?.label}</strong>
-                <button className="hdr-ctx-btn" style={{ marginLeft: 10, fontSize: 11 }} onClick={() => setPriority(prio as import('../../types').Priority)}>Appliquer</button>
+                <button className="hdr-ctx-btn" style={{ marginLeft: 10, fontSize: 11 }} disabled={!canManage} onClick={() => setPriority(prio as import('../../types').Priority)}>Appliquer</button>
               </div>
             </div>
           )
@@ -822,15 +857,21 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     )
 
     /* ── ÉQUIPE ── */
+    // Auto-assignation (Dev) : un Dev peut s'ajouter/se retirer lui-même (le compte lié à ce
+    // membre via TeamMember.linkedUserId), mais ne gère pas les assignations des autres —
+    // canToggleBacklogAssignee (utils/permissions.ts), même mécanisme que canEditDailyCard.
     if (tab === 'team') return (
       <div className="modal-tab-body">
         <div className="us-section-label">ASSIGNÉ(S)</div>
         <div className="assignee-chips-grid">
           {state.team.map(m => {
             const sel = assignees.includes(m.id)
+            const canToggle = canManage || canToggleBacklogAssignee(currentUserRole, currentUserId, m)
             const initials = m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
             return (
-              <button key={m.id} className={`assignee-member-chip${sel ? ' selected' : ''}`}
+              <button key={m.id} data-testid={`assignee-chip-${m.id}`}
+                className={`assignee-member-chip${sel ? ' selected' : ''}`}
+                disabled={!canToggle}
                 onClick={() => toggleAssignee(m.id)}>
                 <span className="avatar" style={{ background: sel ? 'var(--primary)' : undefined, flexShrink: 0 }}>{initials}</span>
                 <span style={{ fontSize: 12 }}>{m.name.split(' ')[0]}</span>
@@ -844,10 +885,11 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
             <div className="us-section-label">MEMBRES SUGGÉRÉS (PAR TAG COMMUN)</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
               {suggestedMembers.map(m => {
+                const canToggle = canManage || canToggleBacklogAssignee(currentUserRole, currentUserId, m)
                 const initials = m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
                 const commonTags = m.tags.filter(t => tags.includes(t))
                 return (
-                  <button key={m.id} className="assignee-member-chip suggested" onClick={() => toggleAssignee(m.id)}>
+                  <button key={m.id} className="assignee-member-chip suggested" disabled={!canToggle} onClick={() => toggleAssignee(m.id)}>
                     <span className="avatar" style={{ background: 'var(--success)', flexShrink: 0 }}>{initials}</span>
                     <span style={{ fontSize: 12 }}>{m.name.split(' ')[0]}</span>
                     {commonTags.map(t => <span key={t} style={{ fontSize: 10, background: 'var(--surface2)', borderRadius: 4, padding: '1px 5px', color: 'var(--text-muted)' }}>{t}</span>)}
@@ -861,17 +903,20 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     )
 
     /* ── DoR / DoD ── */
+    // DoR : préparation en amont, contenu produit — PO/Admin uniquement (canManage). DoD : le
+    // Dev est celui qui fait le travail qu'elle décrit (tests, code review, déploiement...) —
+    // ouvert au sous-ensemble opérationnel (canEditOps, utils/permissions.ts).
     if (tab === 'dordod') return (
       <div className="modal-tab-body">
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
           {([
-            { label: 'Definition of Ready', items: dor, done: dorDone,
+            { label: 'Definition of Ready', items: dor, done: dorDone, editable: canManage,
               toggle: (id: string) => setDor(dor.map(x => x.id === id ? { ...x, done: !x.done } : x)),
               remove: (id: string) => setDor(dor.filter(x => x.id !== id)),
               input: dorInput, setInput: setDorInput,
               add: () => { if (!dorInput.trim()) return; setDor([...dor, { id: uid(), text: dorInput.trim(), done: false }]); setDorInput('') }
             },
-            { label: 'Definition of Done', items: dod, done: dodDone,
+            { label: 'Definition of Done', items: dod, done: dodDone, editable: canEditOps,
               toggle: (id: string) => setDod(dod.map(x => x.id === id ? { ...x, done: !x.done } : x)),
               remove: (id: string) => setDod(dod.filter(x => x.id !== id)),
               input: dodInput, setInput: setDodInput,
@@ -893,24 +938,28 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               </div>
               <div className="checklist">
                 {section.items.map(x => (
-                  <div key={x.id} className="checklist-item" onClick={() => section.toggle(x.id)}>
-                    <input type="checkbox" checked={x.done} onChange={() => section.toggle(x.id)}
+                  <div key={x.id} className="checklist-item" onClick={() => section.editable && section.toggle(x.id)}>
+                    <input type="checkbox" checked={x.done} disabled={!section.editable} onChange={() => section.toggle(x.id)}
                       onClick={e => e.stopPropagation()} />
                     <span style={{ flex: 1, textDecoration: x.done ? 'line-through' : 'none',
                       color: x.done ? 'var(--text-muted)' : 'var(--text)' }}>{x.text}</span>
-                    <button onClick={e => { e.stopPropagation(); section.remove(x.id) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--text-faint)', fontSize: 12, padding: '0 2px', flexShrink: 0 }}>✕</button>
+                    {section.editable && (
+                      <button onClick={e => { e.stopPropagation(); section.remove(x.id) }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer',
+                          color: 'var(--text-faint)', fontSize: 12, padding: '0 2px', flexShrink: 0 }}>✕</button>
+                    )}
                   </div>
                 ))}
               </div>
+              {section.editable && (
               <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                <input className="form-input" value={section.input}
+                <input className="form-input" data-testid={section.label === 'Definition of Done' ? 'dod-add-input' : 'dor-add-input'} value={section.input}
                   onChange={e => section.setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && section.add()}
                   placeholder="Nouveau critère..." style={{ fontSize: 11 }} />
                 <button className="btn btn-secondary" onClick={section.add} style={{ flexShrink: 0 }}>+</button>
               </div>
+              )}
             </div>
           ))}
         </div>
@@ -918,6 +967,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
     )
 
     /* ── NOTES ── */
+    // Notes/commentaires : ouverts au Dev (+ PO/Admin) — canEditOps, utils/permissions.ts.
     if (tab === 'notes') return (
       <div className="modal-tab-body">
         {notes.length === 0 && (
@@ -937,7 +987,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
                   <span className="note-date">{formatNoteDate(note.createdAt)}</span>
                 </div>
               </div>
-              <button className="btn-icon danger" onClick={() => deleteNote(note.id)}><Svg d={ICO_TRASH} size={12} /></button>
+              {canEditOps && <button className="btn-icon danger" onClick={() => deleteNote(note.id)}><Svg d={ICO_TRASH} size={12} /></button>}
             </div>
             {note.text && <div className="note-text">{note.text}</div>}
             {(note.attachments?.length ?? 0) > 0 && (
@@ -959,7 +1009,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
                           <span className="note-date">{formatNoteDate(reply.createdAt)}</span>
                         </div>
                       </div>
-                      <button className="btn-icon danger" onClick={() => deleteReply(note.id, reply.id)}><Svg d={ICO_TRASH} size={11} /></button>
+                      {canEditOps && <button className="btn-icon danger" onClick={() => deleteReply(note.id, reply.id)}><Svg d={ICO_TRASH} size={11} /></button>}
                     </div>
                     {reply.text && <div className="note-text" style={{ fontSize: 11 }}>{reply.text}</div>}
                     {(reply.attachments?.length ?? 0) > 0 && (
@@ -971,7 +1021,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
                 ))}
               </div>
             )}
-            {replyingTo === note.id ? (
+            {canEditOps && (replyingTo === note.id ? (
               <div className="note-reply-form">
                 <textarea className="form-input" rows={2} value={replyText}
                   onChange={e => setReplyText(e.target.value)}
@@ -1010,11 +1060,12 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
               <button className="note-reply-btn" onClick={() => { setReplyingTo(note.id); setReplyText('') }}>
                 Répondre
               </button>
-            )}
+            ))}
           </div>
         ))}
+        {canEditOps && (
         <div className="note-compose">
-          <textarea className="form-input" rows={3} value={noteText}
+          <textarea className="form-input" data-testid="item-note-input" rows={3} value={noteText}
             onChange={e => setNoteText(e.target.value)}
             placeholder="Écrire une note... (texte libre)" style={{ resize: 'vertical' }} />
           {pendingAtts.length > 0 && (
@@ -1048,6 +1099,7 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
             </button>
           </div>
         </div>
+        )}
       </div>
     )
 
@@ -1139,10 +1191,18 @@ export function ItemModal({ item, state, onSave, onClose }: Props) {
         {renderTab()}
       </div>
       <div className="modal-footer">
-        <button className="hdr-ctx-btn" onClick={onClose}>Annuler</button>
-        <button className="hdr-btn primary" onClick={handleSave}>
-          {isNew ? 'Créer' : 'Enregistrer'}
-        </button>
+        {/* Lecture seule totale (SM/Stakeholder, ni canManage ni canOperate) : uniquement
+            "Fermer", pas de bouton d'enregistrement — voir utils/permissions.ts. */}
+        {isReadOnly || (isNew && !canManage) ? (
+          <button className="hdr-btn primary" onClick={onClose}>Fermer</button>
+        ) : (
+          <>
+            <button className="hdr-ctx-btn" onClick={onClose}>Annuler</button>
+            <button className="hdr-btn primary" data-testid="item-save-btn" onClick={handleSave}>
+              {isNew ? 'Créer' : 'Enregistrer'}
+            </button>
+          </>
+        )}
       </div>
     </>
   )

@@ -3,8 +3,11 @@ const { goTo } = require('./helpers');
 
 test.describe('ItemModal — modes d\'affichage', () => {
 
+  // Phase 2 (roadmap v1), sous-chantier 3/6, page 4/4 : "+ Ajouter" est réservé PO/Admin (voir
+  // utils/permissions.ts, canManageBacklog) — role: 'PO' pour retrouver le plein accès que ces
+  // tests (antérieurs au système de rôles) supposaient implicitement.
   const openModal = async (page) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
     await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
@@ -24,7 +27,7 @@ test.describe('ItemModal — modes d\'affichage', () => {
   });
 
   test('le mode par défaut est fenêtre centrée (.modal-overlay)', async ({ page }) => {
-    await goTo(page, '/backlog');
+    await goTo(page, '/backlog', { role: 'PO' });
     await page.evaluate(() => localStorage.removeItem('modal-view'));
     await page.click('[data-testid="btn-add-menu"]');
     await page.click('[data-testid="menu-new-item"]');
