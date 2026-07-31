@@ -15,7 +15,13 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93.4',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Rétrospective : export SM + votes anonymisables (sous-chantier 3/6, page 2/4)',current:true,changes:[
+  {version:'v0.93.5',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Auto-planning/What-if : Appliquer réservé PO, Stakeholder en lecture seule (sous-chantier 3/6, page 3/4)',current:true,changes:[
+    {tag:'feat', text:'Les scénarios What-if (vélocité, capacités par sprint, critères, items fictifs, overrides) restent ouverts à explorer pour PO/Scrum Master/Dev (+ Admin) — utile pour argumenter en direct lors d\'un sprint planning. Seul "Appliquer" (qui écrit réellement dans le planning partagé) reste réservé PO (+ Admin)'},
+    {tag:'feat', text:'Le rôle Stakeholder reste en lecture seule sur cette page : il voit l\'État actuel et les scénarios déjà générés, mais ne peut pas en créer ni les modifier (bouton "Nouveau scénario" masqué, sliders/critères/items fictifs désactivés)'},
+    {tag:'chore', text:'Les scénarios sont un brouillon personnel en localStorage (jamais partagé entre utilisateurs, voir `docs/corrections.md`) — la restriction Stakeholder porte donc sur la capacité à explorer, pas sur la confidentialité d\'un scénario d\'un autre compte'},
+    {tag:'test', text:'`tests/permissions.spec.js` complété : visibilité de "Nouveau scénario" selon le rôle, visibilité d\'"Appliquer" réservée PO/Admin après génération d\'un scénario'},
+  ]},
+  {version:'v0.93.4',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Rétrospective : export SM + votes anonymisables (sous-chantier 3/6, page 2/4)',current:false,changes:[
     {tag:'feat', text:'Exporter une archive de rétrospective (Markdown/PDF) réservé au rôle Scrum Master (+ Admin). Copier le résumé et archiver restent ouverts à tous'},
     {tag:'feat', text:'Nouveau réglage de session "Votes anonymes" (bouton dans l\'en-tête, réservé Scrum Master) : masque le highlight "vous avez déjà voté" sur J\'aime/Je n\'aime pas pour tout le monde, sans jamais bloquer le vote lui-même'},
     {tag:'test', text:'`tests/permissions.spec.js` complété : visibilité des boutons d\'export selon le rôle, visibilité du bouton "Votes anonymes", effet du réglage sur le highlight de vote'},

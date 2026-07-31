@@ -135,3 +135,69 @@ test.describe('Phase 2 — permissions : Rétrospective (votes anonymisables, r�
     await expect(voteBtn).toHaveAttribute('data-liked', 'false');
   });
 });
+
+// Sous-chantier 3, page 3/4 : Auto-planning/What-if. Les scénarios sont un brouillon personnel en
+// localStorage (jamais partagé entre utilisateurs, voir utils/permissions.ts) — donc ouverts à
+// PO/Scrum Master/Dev (+ Admin) pour explorer/argumenter en sprint planning. Seul "Appliquer"
+// (qui écrit réellement dans le planning partagé) est réservé PO (+ Admin). Le Stakeholder reste
+// en lecture seule : il voit l'État actuel mais ne peut pas créer de scénario — décision actée
+// avec Julien le 2026-07-31.
+test.describe('Phase 2 — permissions : Auto-planning/What-if (exploration réservée PO/Scrum Master/Dev, lecture seule Stakeholder)', () => {
+
+  test('le PO peut créer un scénario', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'PO' });
+    await expect(page.locator('[data-testid="btn-new-scenario"]')).toBeVisible();
+  });
+
+  test('le Scrum Master peut créer un scénario', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'SCRUM_MASTER' });
+    await expect(page.locator('[data-testid="btn-new-scenario"]')).toBeVisible();
+  });
+
+  test('un Dev peut créer un scénario', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'DEV' });
+    await expect(page.locator('[data-testid="btn-new-scenario"]')).toBeVisible();
+  });
+
+  test('Admin peut aussi créer un scénario (superuser)', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'ADMIN' });
+    await expect(page.locator('[data-testid="btn-new-scenario"]')).toBeVisible();
+  });
+
+  test('le Stakeholder ne peut pas créer de scénario, mais voit l\'État actuel', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'STAKEHOLDER' });
+    await expect(page.locator('[data-testid="btn-new-scenario"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="btn-generate-current"]')).toBeVisible();
+  });
+});
+
+test.describe('Phase 2 — permissions : Auto-planning/What-if (Appliquer réservé PO)', () => {
+
+  test('le PO voit le bouton Appliquer après avoir généré un scénario', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'PO' });
+    await page.locator('[data-testid="btn-new-scenario"]').click();
+    await page.locator('[data-testid^="btn-generate-"]').click();
+    await expect(page.locator('[data-testid^="btn-apply-"]')).toBeVisible();
+  });
+
+  test('Admin voit aussi le bouton Appliquer (superuser)', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'ADMIN' });
+    await page.locator('[data-testid="btn-new-scenario"]').click();
+    await page.locator('[data-testid^="btn-generate-"]').click();
+    await expect(page.locator('[data-testid^="btn-apply-"]')).toBeVisible();
+  });
+
+  test('un Scrum Master peut générer un scénario mais ne voit pas Appliquer', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'SCRUM_MASTER' });
+    await page.locator('[data-testid="btn-new-scenario"]').click();
+    await page.locator('[data-testid^="btn-generate-"]').click();
+    await expect(page.locator('[data-testid^="btn-apply-"]')).toHaveCount(0);
+  });
+
+  test('un Dev peut générer un scénario mais ne voit pas Appliquer', async ({ page }) => {
+    await goTo(page, '/auto', { role: 'DEV' });
+    await page.locator('[data-testid="btn-new-scenario"]').click();
+    await page.locator('[data-testid^="btn-generate-"]').click();
+    await expect(page.locator('[data-testid^="btn-apply-"]')).toHaveCount(0);
+  });
+});

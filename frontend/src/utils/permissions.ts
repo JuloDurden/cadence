@@ -37,3 +37,16 @@ export const canExportRetro = (role: UserRole | '' | undefined) => hasRole(role,
 // déjà voté" pour tout le monde, réglage de session) réservé au Scrum Master (+ Admin) — décision
 // actée avec Julien le 2026-07-31.
 export const canToggleRetroAnonymous = (role: UserRole | '' | undefined) => hasRole(role, 'SCRUM_MASTER')
+
+// Auto-planning/What-if : les scénarios (velocité, capacités, critères, items fictifs, overrides)
+// sont un brouillon personnel en localStorage, jamais partagé entre utilisateurs — donc sans risque
+// à laisser explorer à PO/Scrum Master/Dev (+ Admin). Seul le Stakeholder reste en lecture seule
+// (voit l'État actuel et les scénarios existants, sans pouvoir en créer ni les modifier) — décision
+// actée avec Julien le 2026-07-31 : l'outil aide à argumenter en sprint planning, donc ouvert par
+// défaut plutôt que masqué.
+export const canExploreWhatIf = (role: UserRole | '' | undefined) => hasRole(role, 'PO', 'SCRUM_MASTER', 'DEV')
+
+// Auto-planning/What-if : "Appliquer" est la seule action qui écrit réellement dans le planning
+// partagé (déplace des items dans des sprints réels) — réservé au PO (+ Admin), contrairement au
+// reste de la page qui est un bac à sable local sans impact.
+export const canApplyScenario = (role: UserRole | '' | undefined) => hasRole(role, 'PO')

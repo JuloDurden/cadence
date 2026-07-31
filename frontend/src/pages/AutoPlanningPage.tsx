@@ -8,6 +8,7 @@ import { fmtDate, fmtDateShort, localIso } from '../utils/dates'
 import { topoSort, computeMoveBadge, isItemHighlighted, nextScenarioIdx, isSlotNonEmpty } from '../utils/autoPlanning'
 import { withHistoryEntry } from '../utils/history'
 import { groupItemsByEpic } from '../utils/hierarchyScore'
+import { canExploreWhatIf, canApplyScenario } from '../utils/permissions'
 import type { Item, Sprint, Scenario, ScenarioSlot, ScenarioViolation, VirtualItem, ScenarioItemOverride, HistoryEntry, HierarchyNode } from '../types'
 
 // ── Icons ─────────────────────────────────────────────────────────────────
@@ -125,7 +126,9 @@ function estimateEndDate(slotIdx: number, existing: ScenarioSlot[], weeks: numbe
 // ── Component ─────────────────────────────────────────────────────────────
 export function AutoPlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName } = useAuth()
+  const { userName, userRole } = useAuth()
+  const canExplore = canExploreWhatIf(userRole)
+  const canApply   = canApplyScenario(userRole)
 
   if (_scenarios.length === 0) {
     const current = makeCurrentScenario()
@@ -573,9 +576,11 @@ export function AutoPlanningPage() {
           onClick={() => setShowCompare(v => !v)}>
           <Ico d={ICO.eye} size={12} /> Comparer
         </button>
-        <button style={CTRL_PRIMARY} onClick={addScenario}>
-          <Ico d={ICO.plus} size={12} stroke="#fff" /> Nouveau scénario
-        </button>
+        {canExplore && (
+          <button style={CTRL_PRIMARY} onClick={addScenario} data-testid="btn-new-scenario">
+            <Ico d={ICO.plus} size={12} stroke="#fff" /> Nouveau scénario
+          </button>
+        )}
         <div className="hdr-sep" />
       </Header>
 
@@ -632,22 +637,24 @@ export function AutoPlanningPage() {
 
                 {/* Mini metro graph */}
                 <div style={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
-                  <ScenarioMiniGraph scenario={sc} allScenarios={_scenarios} sprintCount={graphSprintCount} onFork={forkScenario} />
+                  <ScenarioMiniGraph scenario={sc} allScenarios={_scenarios} sprintCount={graphSprintCount} onFork={canExplore ? forkScenario : undefined} />
                 </div>
 
                 {/* Action buttons (active) or chevron (inactive) */}
                 {isActive ? (
                   <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                    <button style={CTRL_PRIMARY} onClick={e => { e.stopPropagation(); generateScenario(sc) }}>
-                      <Ico d={ICO.zap} size={12} stroke="#fff" />
-                      {sc.type === 'current' ? 'Actualiser' : sc.generated ? 'Regénérer' : 'Générer'}
-                    </button>
-                    {sc.generated && sc.type !== 'current' && (
-                      <button style={CTRL_SUCCESS} onClick={e => { e.stopPropagation(); applyScenario(sc) }}>
+                    {(sc.type === 'current' || canExplore) && (
+                      <button style={CTRL_PRIMARY} onClick={e => { e.stopPropagation(); generateScenario(sc) }} data-testid={`btn-generate-${sc.id}`}>
+                        <Ico d={ICO.zap} size={12} stroke="#fff" />
+                        {sc.type === 'current' ? 'Actualiser' : sc.generated ? 'Regénérer' : 'Générer'}
+                      </button>
+                    )}
+                    {sc.generated && sc.type !== 'current' && canApply && (
+                      <button style={CTRL_SUCCESS} onClick={e => { e.stopPropagation(); applyScenario(sc) }} data-testid={`btn-apply-${sc.id}`}>
                         <Ico d={ICO.check} size={12} stroke="#fff" /> Appliquer
                       </button>
                     )}
-                    {sc.type !== 'current' && (
+                    {sc.type !== 'current' && canExplore && (
                       <button style={{ ...CTRL, padding: '0 8px', color: 'var(--danger)', borderColor: 'var(--danger)' }}
                         onClick={e => { e.stopPropagation(); removeScenario(sc.id) }}>
                         <Ico d={ICO.trash} size={11} stroke="var(--danger)" />
@@ -732,6 +739,7 @@ export function AutoPlanningPage() {
                           onAddVirtual={sprintId => setVirtTarget({ scenarioId: sc.id, sprintId })}
                           onRemoveVirtual={virtId => removeVirtualItem(sc.id, virtId)}
                           highlightClients={hlClients} highlightTypes={hlTypes} highlightPriority={hlPriority}
+                          readOnly={!canExplore}
                         />
                       </div>
                     ) : (
@@ -748,8 +756,9 @@ export function AutoPlanningPage() {
                             <div style={{ padding: '12px 14px' }}>
                               <input type="range" min={40} max={120} step={5}
                                 value={Math.round(sc.velocityFactor * 100)}
+                                disabled={!canExplore}
                                 onChange={e => updateScenario(activeId, { velocityFactor: Number(e.target.value) / 100, generated: false })}
-                                style={{ width: '100%', accentColor: sc.color }} />
+                                style={{ width: '100%', accentColor: sc.color, opacity: canExplore ? 1 : .6, cursor: canExplore ? 'pointer' : 'not-allowed' }} />
                               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--text-muted)', marginTop: 2 }}>
                                 <span>40%</span><span>Normal</span><span>120%</span>
                               </div>
@@ -767,18 +776,19 @@ export function AutoPlanningPage() {
                                   <div key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                                     <span style={{ fontSize: 11, width: 52, flexShrink: 0 }}>S{sp.number}</span>
                                     <input type="number" min={0} max={200} step={1} value={ov ? ov.capacity : base}
+                                      disabled={!canExplore}
                                       onChange={e => {
                                         const cap = Number(e.target.value)
                                         updateScenario(activeId, { capacityOverrides: ov ? sc.capacityOverrides.map(o => o.sprintId === sp.id ? { ...o, capacity: cap } : o) : [...sc.capacityOverrides, { sprintId: sp.id, capacity: cap }], generated: false })
                                       }}
                                       style={{ width: 52, height: 26, fontSize: 11, textAlign: 'center', border: '1px solid var(--border)', borderRadius: 5, background: 'transparent', color: ov ? 'var(--warning, #d97706)' : 'var(--text)' }} />
-                                    <input placeholder="Note" style={{ flex: 1, height: 26, fontSize: 10, border: '1px solid var(--border)', borderRadius: 5, padding: '0 6px', background: 'transparent', color: 'var(--text)' }}
+                                    <input placeholder="Note" disabled={!canExplore} style={{ flex: 1, height: 26, fontSize: 10, border: '1px solid var(--border)', borderRadius: 5, padding: '0 6px', background: 'transparent', color: 'var(--text)' }}
                                       value={ov?.note ?? ''}
                                       onChange={e => {
                                         const note = e.target.value
                                         updateScenario(activeId, { capacityOverrides: ov ? sc.capacityOverrides.map(o => o.sprintId === sp.id ? { ...o, note } : o) : [...sc.capacityOverrides, { sprintId: sp.id, capacity: base, note }] })
                                       }} />
-                                    {ov && <button style={{ ...CTRL, padding: '0 6px', height: 22, color: 'var(--danger)' }}
+                                    {ov && canExplore && <button style={{ ...CTRL, padding: '0 6px', height: 22, color: 'var(--danger)' }}
                                       onClick={() => updateScenario(activeId, { capacityOverrides: sc.capacityOverrides.filter(o => o.sprintId !== sp.id), generated: false })}>
                                       <Ico d={ICO.x} size={9} stroke="var(--danger)" />
                                     </button>}
@@ -798,21 +808,21 @@ export function AutoPlanningPage() {
                                 const rank        = sc.criteriaOrder.slice(0, i + 1).filter(id => sc.criteriaActive[id]).length
                                 const isDropTarget = dragOverCritIdx === i && dragCritIdx !== null && dragCritIdx !== i
                                 return (
-                                  <div key={critId} draggable
-                                    onDragStart={() => { setDragCritIdx(i); setDragOverCritIdx(null) }}
-                                    onDragOver={e => { e.preventDefault(); setDragOverCritIdx(i) }}
+                                  <div key={critId} draggable={canExplore}
+                                    onDragStart={() => { if (canExplore) { setDragCritIdx(i); setDragOverCritIdx(null) } }}
+                                    onDragOver={e => { if (canExplore) { e.preventDefault(); setDragOverCritIdx(i) } }}
                                     onDragLeave={() => setDragOverCritIdx(null)}
-                                    onDrop={() => critDrop(activeId, i)}
+                                    onDrop={() => canExplore && critDrop(activeId, i)}
                                     onDragEnd={() => { setDragCritIdx(null); setDragOverCritIdx(null) }}
-                                    style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '7px 9px', marginBottom: 5, borderRadius: 7, cursor: 'grab', background: isActiveCrit ? 'var(--primary-light)' : 'var(--surface2)', border: `1.5px solid ${isActiveCrit ? 'var(--primary)' : 'var(--border)'}`, outline: isDropTarget ? '2px solid var(--primary)' : 'none', outlineOffset: 2, opacity: dragCritIdx === i ? 0.5 : 1, transition: 'outline .1s, opacity .15s' }}>
+                                    style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '7px 9px', marginBottom: 5, borderRadius: 7, cursor: canExplore ? 'grab' : 'default', background: isActiveCrit ? 'var(--primary-light)' : 'var(--surface2)', border: `1.5px solid ${isActiveCrit ? 'var(--primary)' : 'var(--border)'}`, outline: isDropTarget ? '2px solid var(--primary)' : 'none', outlineOffset: 2, opacity: dragCritIdx === i ? 0.5 : 1, transition: 'outline .1s, opacity .15s' }}>
                                     <div style={{ width: 20, height: 20, borderRadius: '50%', background: isActiveCrit ? 'var(--primary)' : 'var(--border)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>
                                       {isActiveCrit ? rank : '–'}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
                                         <span style={{ fontWeight: 400, fontSize: 11, textTransform: 'none', letterSpacing: 'normal' }}>{def.title}</span>
-                                        <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: 'pointer' }}>
-                                          <input type="checkbox" checked={isActiveCrit} onChange={e => toggleCrit(activeId, critId, e.target.checked)} />
+                                        <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, cursor: canExplore ? 'pointer' : 'default' }}>
+                                          <input type="checkbox" checked={isActiveCrit} disabled={!canExplore} onChange={e => toggleCrit(activeId, critId, e.target.checked)} />
                                           Activer
                                         </label>
                                       </div>
@@ -830,13 +840,13 @@ export function AutoPlanningPage() {
                                     const origIdx  = sc.clientOrder.indexOf(cid)
                                     const isClientDrop = dragOverClientIdx === origIdx && dragClientIdx !== null && dragClientIdx !== origIdx
                                     return (
-                                      <div key={cid} draggable
-                                        onDragStart={() => { setDragClientIdx(origIdx); setDragOverClientIdx(null) }}
-                                        onDragOver={e => { e.preventDefault(); setDragOverClientIdx(origIdx) }}
+                                      <div key={cid} draggable={canExplore}
+                                        onDragStart={() => { if (canExplore) { setDragClientIdx(origIdx); setDragOverClientIdx(null) } }}
+                                        onDragOver={e => { if (canExplore) { e.preventDefault(); setDragOverClientIdx(origIdx) } }}
                                         onDragLeave={() => setDragOverClientIdx(null)}
-                                        onDrop={() => clientDrop(activeId, origIdx)}
+                                        onDrop={() => canExplore && clientDrop(activeId, origIdx)}
                                         onDragEnd={() => { setDragClientIdx(null); setDragOverClientIdx(null) }}
-                                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 9px', marginBottom: 3, background: 'var(--surface2)', borderRadius: 5, cursor: 'grab', outline: isClientDrop ? '2px solid var(--primary)' : 'none', outlineOffset: 2, opacity: dragClientIdx === origIdx ? 0.5 : 1, transition: 'outline .1s, opacity .15s' }}>
+                                        style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 9px', marginBottom: 3, background: 'var(--surface2)', borderRadius: 5, cursor: canExplore ? 'grab' : 'default', outline: isClientDrop ? '2px solid var(--primary)' : 'none', outlineOffset: 2, opacity: dragClientIdx === origIdx ? 0.5 : 1, transition: 'outline .1s, opacity .15s' }}>
                                         <span style={{ fontSize: 10, color: 'var(--text-muted)', width: 14 }}>{i + 1}</span>
                                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: client.color }} />
                                         <span style={{ fontSize: 11, flex: 1 }}>{client.name}</span>
@@ -876,6 +886,7 @@ export function AutoPlanningPage() {
                                 onOverrideOpen={itemId => setOverrideTarget({ scenarioId: leftSc.id, itemId })}
                                 onAddVirtual={sprintId => setVirtTarget({ scenarioId: leftSc.id, sprintId })}
                                 onRemoveVirtual={virtId => removeVirtualItem(leftSc.id, virtId)}
+                                readOnly={!canExplore}
                               />
                               {rightSc && (
                                 <ProposalPanel
@@ -883,6 +894,7 @@ export function AutoPlanningPage() {
                                   onOverrideOpen={itemId => setOverrideTarget({ scenarioId: rightSc.id, itemId })}
                                   onAddVirtual={sprintId => setVirtTarget({ scenarioId: rightSc.id, sprintId })}
                                   onRemoveVirtual={virtId => removeVirtualItem(rightSc.id, virtId)}
+                                  readOnly={!canExplore}
                                 />
                               )}
                             </div>
@@ -950,10 +962,13 @@ function SectionHeader({ label, hint, badge, badgeColor, open, onToggle, firstIn
 }
 
 // ── ProposalPanel ──────────────────────────────────────────────────────────
-function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOverrideOpen, onAddVirtual, onRemoveVirtual, highlightClients, highlightTypes, highlightPriority }: {
+// `readOnly` : Stakeholder (voir utils/permissions.ts, canExploreWhatIf) — masque les actions
+// d'édition (item fictif, override) sans toucher à l'affichage de la proposition elle-même.
+function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOverrideOpen, onAddVirtual, onRemoveVirtual, highlightClients, highlightTypes, highlightPriority, readOnly }: {
   scenario: Scenario; allScenarios: Scenario[]; state: any; sprintsMeta: Sprint[]
   onOverrideOpen: (itemId: string) => void; onAddVirtual: (sprintId: string) => void; onRemoveVirtual: (virtId: string) => void
   highlightClients?: Set<string>; highlightTypes?: Set<string>; highlightPriority?: Set<string>
+  readOnly?: boolean
 }) {
   const ICO2 = {
     warn:  '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
@@ -1069,7 +1084,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                     <span style={{ marginLeft: 'auto', fontSize: 9, color: over ? 'var(--danger)' : 'var(--text-muted)', fontWeight: over ? 700 : 400, display: 'flex', alignItems: 'center', gap: 3 }}>
                       {total}/{slot.cap} SP {over && <Ico2 d={ICO2.warn} size={9} stroke="var(--danger)" />}
                     </span>
-                    {scenario.type !== 'current' && (
+                    {scenario.type !== 'current' && !readOnly && (
                       <button title="Ajouter un item fictif"
                         style={{ width: 20, height: 20, borderRadius: 4, border: '1px dashed var(--border)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}
                         onClick={() => onAddVirtual(slot.sprintId)}>
@@ -1163,7 +1178,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                         {isVirt
                           ? <span title="Item fictif"><Ico2 d={ICO2.ghost} size={10} stroke="#7F77DD" /></span>
                           : hasOv
-                            ? <span title="Override actif" style={{ cursor: 'pointer' }} onClick={() => realItem && onOverrideOpen(realItem.id)}><Ico2 d={ICO2.pencil} size={10} stroke="#D85A30" /></span>
+                            ? <span title="Override actif" style={{ cursor: readOnly ? 'default' : 'pointer' }} onClick={() => !readOnly && realItem && onOverrideOpen(realItem.id)}><Ico2 d={ICO2.pencil} size={10} stroke="#D85A30" /></span>
                             : <div style={{ width: 7, height: 7, borderRadius: '50%', background: client?.color ?? 'var(--border)', flexShrink: 0 }} />
                         }
                         <span style={{ fontFamily: 'monospace', fontSize: 9, color: isVirt ? '#7F77DD' : 'var(--primary)', flexShrink: 0, minWidth: 54 }}>
@@ -1190,7 +1205,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                           </span>
                         )}
                         <span style={{ color: 'var(--text-muted)', flexShrink: 0, fontSize: 9 }}>{item.sp} SP</span>
-                        {isVirt && (
+                        {isVirt && !readOnly && (
                           <button title="Supprimer l'item fictif"
                             style={{ width: 18, height: 18, borderRadius: 3, border: '1px solid #fca5a5', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             onClick={() => onRemoveVirtual(item.id)}>
