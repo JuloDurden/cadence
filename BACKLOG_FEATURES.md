@@ -29,7 +29,7 @@ Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/
 - **Onboarding** : parcours guidé à la première connexion (tooltips progressifs, checklist "premiers pas", démo interactable)
 - **Permissions fines** :
   - ✅ Daily : seul le Scrum Master peut archiver ; chaque Dev renseigne uniquement ses propres entrées (fait 2026-07-31, v0.93.2/v0.93.3 — lien TeamMember↔User à assigner par un Admin depuis la page Team, voir `docs/corrections.md`)
-  - Rétrospective : votes anonymisables, export réservé au SM
+  - ✅ Rétrospective : votes anonymisables, export réservé au SM (fait 2026-07-31, v0.93.4 — "anonymisable" clarifié avec Julien : masque le highlight "vous avez déjà voté", pas l'auteur du post-it ni le compteur, voir `docs/corrections.md`)
   - Auto-planning / What-if : PO uniquement
   - Backlog : PO full CRUD, Dev lecture + changement de statut
 - **Daily — idées futures** (notées par Julien le 2026-07-31, pas encore de sous-chantier prévu) :

@@ -13,6 +13,11 @@ interface Props {
   onVote: (itemId: string) => void
   onDislike: (itemId: string) => void
   onDelete: (itemId: string) => void
+  // Phase 2 (roadmap v1), sous-chantier 3 : réglage de session (RetroSession.anonymousVotes,
+  // activé par le Scrum Master) — masque le style "vous avez déjà voté" sur J'aime/Je n'aime pas
+  // pour tout le monde. Le vote continue de fonctionner normalement (le compteur change), seul
+  // l'indicateur visuel de son propre vote disparaît.
+  anonymousVotes?: boolean
 }
 
 function Ico({ d, size = 13, color = 'currentColor' }: { d: string; size?: number; color?: string }) {
@@ -28,7 +33,7 @@ const THUMB_UP = '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.9
 const THUMB_DOWN = '<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/>'
 const CLOSE = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
 
-export function RetroColumnCard({ label, color, icon, items, team, currentUserId, onAdd, onVote, onDislike, onDelete }: Props) {
+export function RetroColumnCard({ label, color, icon, items, team, currentUserId, onAdd, onVote, onDislike, onDelete, anonymousVotes = false }: Props) {
   const [input, setInput] = useState('')
 
   function handleAdd() {
@@ -51,8 +56,8 @@ export function RetroColumnCard({ label, color, icon, items, team, currentUserId
       </div>
       <div style={{ flex: 1, padding: 10, display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto' }}>
         {sorted.map(item => {
-          const liked = item.votes.includes(currentUserId)
-          const disliked = (item.dislikes ?? []).includes(currentUserId)
+          const liked = !anonymousVotes && item.votes.includes(currentUserId)
+          const disliked = !anonymousVotes && (item.dislikes ?? []).includes(currentUserId)
           // `authorName` est capturé à la création (compte réellement connecté, voir Chantier J) —
           // repli sur l'ancien lookup `state.team` pour des post-its créés avant ce correctif.
           const authorLabel = item.authorName ?? team.find(m => m.id === item.authorId)?.name
@@ -63,6 +68,8 @@ export function RetroColumnCard({ label, color, icon, items, team, currentUserId
                 <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{authorLabel?.split(' ')[0] ?? '?'}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <button
+                    data-testid={`retro-vote-${item.id}`}
+                    data-liked={liked}
                     title="J'aime"
                     onClick={() => onVote(item.id)}
                     style={{ background: liked ? color + '20' : 'transparent', border: `1px solid ${liked ? color : 'var(--border)'}`, borderRadius: 4, padding: '2px 6px', cursor: 'pointer', color: liked ? color : 'var(--text-muted)', fontWeight: liked ? 700 : 400, display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}

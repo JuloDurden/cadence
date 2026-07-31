@@ -8,6 +8,7 @@ import type { RetroSession, RetroItem, RetroAction, RetroFormat, RetroArchive, H
 import { archiveAndReset } from '../utils/session'
 import { getCurrentSprint } from '../utils/sprints'
 import { withHistoryEntry } from '../utils/history'
+import { canExportRetro, canToggleRetroAnonymous } from '../utils/permissions'
 
 // SVG icon paths — never inline in JSX, always via Ico component
 const ICO = {
@@ -32,6 +33,7 @@ const ICO = {
   circleCheckBig: '<path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/>',
   checkmark:      '<polyline points="20 6 9 17 4 12"/>',
   circleEmpty:    '<circle cx="12" cy="12" r="10"/>',
+  eyeOff:         '<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
 }
 
 type ColDef = { key: string; label: string; color: string; icon: string }
@@ -160,7 +162,11 @@ export function RetroPage() {
   const { state, dispatch, saveToServer } = useCadence()
   // Identité du compte réellement connecté (backend `User`, distinct d'un `TeamMember` de RH/Équipe) —
   // remplace l'ancien CURRENT_USER = 'm1' codé en dur (Chantier J, docs/corrections.md).
-  const { userId, userName } = useAuth()
+  const { userId, userName, userRole } = useAuth()
+  // Phase 2 (roadmap v1), sous-chantier 3 : export réservé SM, toggle "votes anonymes" réservé SM
+  // (Admin passe toujours, voir utils/permissions.ts).
+  const canExport = canExportRetro(userRole)
+  const canToggleAnonymous = canToggleRetroAnonymous(userRole)
   const [format, setFormat] = useState<RetroFormat>('start-stop-continue')
   const [showToday, setShowToday] = useState(true)
   const [showArchives, setShowArchives] = useState(true)
@@ -215,6 +221,12 @@ export function RetroPage() {
 
   function handleDelete(colKey: string, itemId: string) {
     save({ ...session, columns: { ...session.columns, [colKey]: session.columns[colKey].filter(i => i.id !== itemId) } })
+  }
+
+  // Phase 2 (roadmap v1), sous-chantier 3 : réglage de session, réservé Scrum Master (+ Admin) —
+  // masque le highlight "vous avez déjà voté" pour tout le monde, ne bloque jamais le vote lui-même.
+  function handleToggleAnonymous() {
+    save({ ...session, anonymousVotes: !session.anonymousVotes })
   }
 
   function handleAddAction(action: RetroAction) {
@@ -304,6 +316,16 @@ export function RetroPage() {
         <button className="hdr-btn" title="Copier le résumé" onClick={() => copyRetroText(session, sprint?.label ?? '', format)}>
           <Ico d={ICO.copy} />
         </button>
+        {canToggleAnonymous && (
+          <button
+            className="hdr-btn" data-testid="btn-toggle-anonymous-votes"
+            title={session.anonymousVotes ? 'Désactiver les votes anonymes' : 'Activer les votes anonymes (masque qui a déjà voté, pour tout le monde)'}
+            style={session.anonymousVotes ? { color: 'var(--primary)' } : undefined}
+            onClick={handleToggleAnonymous}
+          >
+            <Ico d={ICO.eyeOff} />
+          </button>
+        )}
         <button className="hdr-btn" title="Archiver cette rétrospective" onClick={handleArchive}>
           <Ico d={ICO.archive} />
         </button>
@@ -327,6 +349,7 @@ export function RetroPage() {
                   onVote={itemId => handleVote(col.key, itemId)}
                   onDislike={itemId => handleDislike(col.key, itemId)}
                   onDelete={itemId => handleDelete(col.key, itemId)}
+                  anonymousVotes={session.anonymousVotes}
                 />
               ))}
             </div>
@@ -357,6 +380,7 @@ export function RetroPage() {
                 onExportMd={() => exportMd(archive)}
                 onExportPdf={() => exportPdf(archive)}
                 onDelete={() => handleDeleteArchive(archive.id)}
+                canExport={canExport}
               />
             ))}
           </div>
@@ -371,7 +395,7 @@ export function RetroPage() {
 // ---------------------------------------------------------------------------
 
 function RetroArchiveCard({
-  archive, isOpen, onToggle, onCopy, onExportMd, onExportPdf, onDelete,
+  archive, isOpen, onToggle, onCopy, onExportMd, onExportPdf, onDelete, canExport,
 }: {
   archive: RetroArchive
   isOpen: boolean
@@ -380,6 +404,9 @@ function RetroArchiveCard({
   onExportMd: () => void
   onExportPdf: () => void
   onDelete: () => void
+  // Phase 2 (roadmap v1), sous-chantier 3 : export (Markdown/PDF) réservé Scrum Master (+ Admin).
+  // Défaut `false` (fail-closed), voir utils/permissions.ts, canExportRetro().
+  canExport?: boolean
 }) {
   const archiveCols = FORMATS[archive.format] ?? []
   const totalItems = archiveCols.reduce((s, c) => s + (archive.columns[c.key]?.length ?? 0), 0)
@@ -398,12 +425,16 @@ function RetroArchiveCard({
         <button style={ARCHIVE_BTN} title="Copier" onClick={e => { e.stopPropagation(); onCopy() }}>
           <Ico d={ICO.copy} size={13} />
         </button>
-        <button style={ARCHIVE_BTN} title="Exporter Markdown" onClick={e => { e.stopPropagation(); onExportMd() }}>
-          <Ico d={ICO.fileDown} size={13} />
-        </button>
-        <button style={ARCHIVE_BTN} title="Exporter PDF" onClick={e => { e.stopPropagation(); onExportPdf() }}>
-          <Ico d={ICO.printer} size={13} />
-        </button>
+        {canExport && (
+          <>
+            <button data-testid={`retro-export-md-${archive.id}`} style={ARCHIVE_BTN} title="Exporter Markdown" onClick={e => { e.stopPropagation(); onExportMd() }}>
+              <Ico d={ICO.fileDown} size={13} />
+            </button>
+            <button data-testid={`retro-export-pdf-${archive.id}`} style={ARCHIVE_BTN} title="Exporter PDF" onClick={e => { e.stopPropagation(); onExportPdf() }}>
+              <Ico d={ICO.printer} size={13} />
+            </button>
+          </>
+        )}
         <button style={{ ...ARCHIVE_BTN, color: 'var(--danger)' }} title="Supprimer" onClick={e => { e.stopPropagation(); onDelete() }}>
           <Ico d={ICO.trash} size={13} />
         </button>

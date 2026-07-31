@@ -501,6 +501,11 @@ export interface RetroAction {
 export interface RetroSession {
   id: string; sprintId: string; format: RetroFormat
   columns: Record<string, RetroItem[]>; actions: RetroAction[]; date: string
+  // Phase 2 (roadmap v1), sous-chantier 3 : masque le highlight "vous avez déjà voté" (J'aime/Je
+  // n'aime pas) pour tous les participants, réglage de session activable par le Scrum Master (+
+  // Admin) — voir RetroPage.tsx/RetroColumnCard.tsx. Le vote lui-même n'est jamais bloqué, seul
+  // l'indicateur visuel de son propre vote est masqué.
+  anonymousVotes?: boolean
 }
 
 export type HistoryEventType =

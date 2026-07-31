@@ -28,3 +28,12 @@ export function canEditDailyCard(
   if (role !== 'DEV' || !userId) return false
   return !!member.linkedUserId && member.linkedUserId === userId
 }
+
+// Rétrospective : exporter une archive (Markdown/PDF) réservé au Scrum Master (+ Admin) — copier
+// et archiver restent ouverts à tous.
+export const canExportRetro = (role: UserRole | '' | undefined) => hasRole(role, 'SCRUM_MASTER')
+
+// Rétrospective : activer/désactiver le mode "votes anonymes" (masque le highlight "vous avez
+// déjà voté" pour tout le monde, réglage de session) réservé au Scrum Master (+ Admin) — décision
+// actée avec Julien le 2026-07-31.
+export const canToggleRetroAnonymous = (role: UserRole | '' | undefined) => hasRole(role, 'SCRUM_MASTER')

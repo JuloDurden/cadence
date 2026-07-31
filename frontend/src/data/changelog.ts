@@ -15,7 +15,12 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.93.3',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Daily : chaque Dev ne remplit que sa propre carte (sous-chantier 3/6, page 1/4 suite)',current:true,changes:[
+  {version:'v0.93.4',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Permissions Rétrospective : export SM + votes anonymisables (sous-chantier 3/6, page 2/4)',current:true,changes:[
+    {tag:'feat', text:'Exporter une archive de rétrospective (Markdown/PDF) réservé au rôle Scrum Master (+ Admin). Copier le résumé et archiver restent ouverts à tous'},
+    {tag:'feat', text:'Nouveau réglage de session "Votes anonymes" (bouton dans l\'en-tête, réservé Scrum Master) : masque le highlight "vous avez déjà voté" sur J\'aime/Je n\'aime pas pour tout le monde, sans jamais bloquer le vote lui-même'},
+    {tag:'test', text:'`tests/permissions.spec.js` complété : visibilité des boutons d\'export selon le rôle, visibilité du bouton "Votes anonymes", effet du réglage sur le highlight de vote'},
+  ]},
+  {version:'v0.93.3',date:'31 Juillet 2026',dateISO:'2026-07-31',title:'Phase 2 (roadmap v1) — Daily : chaque Dev ne remplit que sa propre carte (sous-chantier 3/6, page 1/4 suite)',current:false,changes:[
     {tag:'feat', text:'Les champs Hier/Aujourd\'hui/Blocages d\'une carte Daily ne sont modifiables que par le Dev lié à ce membre (+ Admin) — les autres rôles (SM, PO, Stakeholder) restent en lecture seule sur toutes les cartes, en attendant d\'éventuels champs dédiés SM/PO (idée future, voir `BACKLOG_FEATURES.md`)'},
     {tag:'feat', text:'Nouveau champ "Compte utilisateur lié" sur la fiche d\'un membre (page Team), réservé Admin : associe un compte de connexion à ce membre, condition pour qu\'il puisse remplir sa propre carte Daily'},
     {tag:'chore', text:'Tant qu\'un membre n\'est pas lié à un compte, sa carte reste en lecture seule pour tout le monde (Admin excepté) — comportement par défaut volontairement restrictif (fail-closed), aucun membre de la démo n\'est lié à ce jour'},

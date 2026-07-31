@@ -78,3 +78,60 @@ test.describe('Phase 2 — permissions : Team (lien compte utilisateur, réserv�
     await expect(page.locator('text=Compte utilisateur lié')).toHaveCount(0);
   });
 });
+
+// Sous-chantier 3, page 2/4 : Rétrospective — export réservé Scrum Master, votes anonymisables
+// (réglage de session, réservé Scrum Master). DEMO_STATE n'a ni session ni archive de retro par
+// défaut : chaque test crée les siennes (archiver, ajouter un item) plutôt que de dépendre d'un
+// état pré-rempli.
+test.describe('Phase 2 — permissions : Rétrospective (export réservé Scrum Master)', () => {
+
+  test('le Scrum Master voit les boutons d\'export sur une archive', async ({ page }) => {
+    await goTo(page, '/retro', { role: 'SCRUM_MASTER' });
+    await page.locator('button[title="Archiver cette rétrospective"]').click();
+    await expect(page.locator('[data-testid^="retro-export-md-"]').first()).toBeVisible();
+  });
+
+  test('Admin voit aussi les boutons d\'export (superuser)', async ({ page }) => {
+    await goTo(page, '/retro', { role: 'ADMIN' });
+    await page.locator('button[title="Archiver cette rétrospective"]').click();
+    await expect(page.locator('[data-testid^="retro-export-md-"]').first()).toBeVisible();
+  });
+
+  test('un Dev ne voit pas les boutons d\'export', async ({ page }) => {
+    await goTo(page, '/retro', { role: 'DEV' });
+    await page.locator('button[title="Archiver cette rétrospective"]').click();
+    await expect(page.locator('[data-testid^="retro-export-md-"]')).toHaveCount(0);
+  });
+});
+
+test.describe('Phase 2 — permissions : Rétrospective (votes anonymisables, réservé Scrum Master)', () => {
+
+  test('le bouton "votes anonymes" est visible pour SM/Admin, absent pour Dev/PO', async ({ page }) => {
+    await goTo(page, '/retro', { role: 'SCRUM_MASTER' });
+    await expect(page.locator('[data-testid="btn-toggle-anonymous-votes"]')).toBeVisible();
+
+    await goTo(page, '/retro', { role: 'ADMIN' });
+    await expect(page.locator('[data-testid="btn-toggle-anonymous-votes"]')).toBeVisible();
+
+    await goTo(page, '/retro', { role: 'DEV' });
+    await expect(page.locator('[data-testid="btn-toggle-anonymous-votes"]')).toHaveCount(0);
+
+    await goTo(page, '/retro', { role: 'PO' });
+    await expect(page.locator('[data-testid="btn-toggle-anonymous-votes"]')).toHaveCount(0);
+  });
+
+  test('activer les votes anonymes masque le highlight "vous avez déjà voté"', async ({ page }) => {
+    await goTo(page, '/retro', { role: 'SCRUM_MASTER' });
+
+    const input = page.locator('input[placeholder="Ajouter..."]').first();
+    await input.fill('Item test anonymisation');
+    await input.press('Enter');
+
+    const voteBtn = page.locator('[data-testid^="retro-vote-"]').first();
+    await voteBtn.click();
+    await expect(voteBtn).toHaveAttribute('data-liked', 'true');
+
+    await page.locator('[data-testid="btn-toggle-anonymous-votes"]').click();
+    await expect(voteBtn).toHaveAttribute('data-liked', 'false');
+  });
+});
