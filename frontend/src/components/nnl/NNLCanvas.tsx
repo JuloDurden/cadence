@@ -2813,14 +2813,35 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         const el = canvasRef.current; if (!el) return
         const rect = el.getBoundingClientRect()
         const sx = e.clientX - rect.left, sy = e.clientY - rect.top
-        // Capturer et effacer IMMÉDIATEMENT pour éviter le tracé fantôme
+        // Capturer et effacer IMMÉDIATEMENT pour éviter le tracé fantôme — corrigé le 2026-07-30 :
+        // cette remise à `null` n'existait auparavant QUE dans la branche 'frame' ci-dessous (et
+        // pour les traits stylo/marqueur un peu plus bas). Pour rect/ellipse/arrow, `drawRef`
+        // restait donc positionné après un tracé complété, et le PROCHAIN `mouseup` n'importe où
+        // sur la page (ex. cliquer un bouton de la toolbar, qui bubble jusqu'à `window`) était
+        // réinterprété comme la fin d'un nouveau tracé — avec les coordonnées de départ figées de
+        // l'ancien tracé et celles d'arrivée du clic parasite, créant une forme fantôme dupliquant
+        // le même id (`drawId` inchangé) avec une géométrie aberrante. C'est cette forme fantôme,
+        // partageant sa clé React avec l'originale, qui rendait le rendu ultérieur imprévisible
+        // (voir tests/nnl-v091.spec.js : union qui ne retire pas les bonnes formes, opacité qui ne
+        // se propage pas — diagnostiqué via les logs ajoutés dans handleBooleanOp/handleShapeUpdate,
+        // voir docs/corrections.md).
         const startSx = drawRef.current.sx0, startSy = drawRef.current.sy0
         const drawId  = drawRef.current.id
+        drawRef.current = null
+        // Effacer l'aperçu immédiatement (2026-07-30, correctif forme fantôme) : pour rect/ellipse/
+        // arrow, `previewShape` n'était jamais remis à `null` une fois la forme réelle créée (contrairement
+        // au stylo/marqueur qui font `setPreviewStroke(null)` juste après dispatch). L'aperçu figé, qui
+        // partage le même id que la forme réelle mais reste une donnée locale jamais synchronisée, continuait
+        // à s'afficher indéfiniment en plus de la forme réelle — visible notamment après une opération
+        // booléenne qui supprime la forme réelle de l'état : l'aperçu fantôme, non référencé par aucune
+        // liste utilisée pour la sélection/le hit-test, restait affiché et impossible à sélectionner ou
+        // déplacer (voir docs/corrections.md).
+        setPreviewShape(null)
         // Outil Cadre (point 3) : le tracé ne crée pas directement un NNLFrame — les bornes sont
         // mises en attente (`pendingFrameBounds`) le temps de choisir/créer l'Epic ou l'Initiative
         // lié dans la modale qui s'ouvre juste après (voir NNLFrameLinkModal + handleFrameLinkNode).
         if (toolRef.current === 'frame') {
-          drawRef.current = null; setPreviewFrame(null)
+          setPreviewFrame(null)
           let fp1 = s2w(startSx, startSy, oxRef.current, oyRef.current, zoomRef.current)
           let fp2 = s2w(sx, sy, oxRef.current, oyRef.current, zoomRef.current)
           fp1 = { x: snapW(fp1.x), y: snapW(fp1.y) }
@@ -3244,8 +3265,15 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     let newShapes: NNLShape[] = []
     try {
       if (op === 'unite') {
+        // `multiPolyToNNLShapes` (pluriel), pas `multiPolyToNNLShape` (2026-07-30, correctif) :
+        // l'union de 2 formes qui ne se touchent pas produit un MultiPolygon à plusieurs pièces
+        // disjointes côté polygon-clipping — la version singulière ne lisait que `result[0][0]`
+        // (la première pièce), perdant silencieusement les autres. Pour une union qui fusionne
+        // réellement en une seule forme (cas courant, formes qui se chevauchent), le résultat est
+        // un MultiPolygon à une seule entrée : `multiPolyToNNLShapes` renvoie alors un tableau
+        // d'un seul élément, comportement identique à avant. Voir tests/nnl-v091.spec.js.
         const r = polygonClipping.union(polys[0], ...polys.slice(1))
-        const s = multiPolyToNNLShape(r, proto); if (s) newShapes = [s]
+        newShapes = multiPolyToNNLShapes(r, proto)
 
       } else if (op === 'subtract') {
         const r = polygonClipping.difference(polys[0], ...polys.slice(1))
@@ -3282,12 +3310,36 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
     if (newShapes.length === 0) return  // ex. intersection vide
 
-    // Supprimer les formes sources et ajouter les résultats
-    ids.forEach(id => dispatch({ type: 'DELETE_NNL_SHAPE', payload: id }))
-    newShapes.forEach(s => dispatch({ type: 'ADD_NNL_SHAPE', payload: s }))
+    // Supprimer les formes sources et ajouter les résultats, en purgeant au passage les calques
+    // auto-créés devenus vides (2026-07-30, correctif : cette purge existait déjà pour la suppression
+    // manuelle d'une forme — voir plus haut — mais pas ici, si bien qu'une opération booléenne
+    // laissait le calque "Rectangle"/"Ellipse"/"Flèche" auto-créé de chaque forme source, désormais
+    // vide, trainer indéfiniment dans le panneau des calques). La forme résultat reprend le calque
+    // de shapes[0] (voir `proto` ci-dessus) : on l'inclut dans le test `hasContent` pour ne pas
+    // purger par erreur un calque sur le point d'être réutilisé par le résultat.
     const st = stateRef.current
-    const filtered = (st.nnlShapes ?? []).filter(s => !ids.includes(s.id))
-    saveNNL({ ...st, nnlShapes: [...filtered, ...newShapes] })
+    let remainingShapes = st.nnlShapes ?? []
+    let newLayers = st.nnlLayers ?? []
+    for (const id of ids) {
+      const deletedShape = remainingShapes.find(s => s.id === id)
+      const layerId = deletedShape?.layerId
+      dispatch({ type: 'DELETE_NNL_SHAPE', payload: id })
+      remainingShapes = remainingShapes.filter(s => s.id !== id)
+      if (layerId) {
+        const layer = newLayers.find(l => l.id === layerId)
+        const hasContent = [...remainingShapes, ...newShapes, ...(st.nnlTexts ?? []), ...(st.nnlStrokes ?? [])].some(x => x.layerId === layerId)
+        if (layer?.autoCreated && !hasContent) {
+          newLayers = newLayers.filter(l => l.id !== layerId)
+          dispatch({ type: 'SET_NNL_LAYERS', payload: newLayers })
+          if (activeLayerRef.current === layerId) {
+            const fallback = newLayers.find(l => !l.isGroup)
+            if (fallback) setActiveLayerId(fallback.id)
+          }
+        }
+      }
+    }
+    newShapes.forEach(s => dispatch({ type: 'ADD_NNL_SHAPE', payload: s }))
+    saveNNL({ ...st, nnlShapes: [...remainingShapes, ...newShapes], nnlLayers: newLayers })
     setSelectedShapeId(newShapes[0].id)
     setSelectedShapeIds(newShapes.map(s => s.id))
   }

@@ -129,9 +129,11 @@ test.describe('NNL — Toolbar (v0.90)', () => {
     await expect(page.locator('[data-testid="nnl-toolbar"]')).toBeVisible()
   })
 
-  test('les 7 outils sont présents (Rectangle/Ellipse regroupés dans "Formes")', async ({ page }) => {
+  test('les 8 outils sont présents (Rectangle/Ellipse regroupés dans "Formes", + Cadre)', async ({ page }) => {
     await goToNNL(page)
-    for (const id of ['select', 'shapes', 'arrow', 'text', 'pen', 'marker', 'eraser']) {
+    // 'frame' (sous-chantier 6, point 3, v0.92.10) : outil "Cadre", ajouté après le regroupement
+    // Rectangle/Ellipse en "Formes" (v0.92.9) — d'où 8 boutons au total, pas 7.
+    for (const id of ['select', 'shapes', 'frame', 'arrow', 'text', 'pen', 'marker', 'eraser']) {
       await expect(page.locator(`[data-testid="nnl-tool-${id}"]`)).toBeVisible()
     }
   })

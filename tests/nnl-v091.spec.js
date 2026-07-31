@@ -178,8 +178,14 @@ test.describe('NNL v0.91 — Opérations booléennes', () => {
     await goToNNL(page)
     // Compter les formes SVG avant
     const before = await page.locator('[data-testid="nnl-canvas"] svg [data-shape-id]').count()
+    // Rectangles qui se CHEVAUCHENT (30px de recouvrement, 630 à 660) — contrairement aux 2
+    // autres tests de cette suite (qui ne vérifient que la présence de la toolbar, peu importe
+    // le résultat géométrique), celui-ci vérifie que l'union fusionne bien en UNE seule forme :
+    // avec des rectangles disjoints, l'union produit légitimement un MultiPolygon à 2 pièces
+    // séparées (2 formes, pas 1) — voir handleBooleanOp/multiPolyToNNLShapes dans NNLCanvas.tsx
+    // et docs/corrections.md.
     await drawRect(page, 550, 40, 660, 120)
-    await drawRect(page, 680, 40, 790, 120)
+    await drawRect(page, 630, 40, 790, 120)
     await rubberBand(page, 530, 20, 820, 145)
     await expect(page.locator('text=Opérations :')).toBeVisible({ timeout: 3000 })
     // Cliquer sur Union
@@ -240,9 +246,14 @@ test.describe('NNL v0.91 — Opacité globale des formes', () => {
       '[data-testid="nnl-canvas"] input[type="range"][min="0"][max="100"]'
     ).last()
     await expect(opacitySlider).toBeVisible({ timeout: 3000 })
-    // Mettre à 50%
-    await opacitySlider.fill('50')
+    // Mettre à 50% : ni `.fill()` ni un événement 'input' synthétique ne sont fiables sur un
+    // <input type="range"> — de vraies touches clavier (Home puis 50× ArrowRight, step=1 par
+    // défaut) sont l'interaction la plus fiable, sans dépendre d'un mécanisme synthétique.
+    await opacitySlider.focus()
+    await page.keyboard.press('Home')
+    for (let i = 0; i < 50; i++) await page.keyboard.press('ArrowRight')
     await page.waitForTimeout(150)
+    await expect(opacitySlider).toHaveValue('50')
     const opacity = await page.evaluate(() => {
       const gs = document.querySelectorAll('[data-testid="nnl-canvas"] svg [data-shape-id]')
       if (!gs.length) return null

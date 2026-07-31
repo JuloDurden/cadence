@@ -221,7 +221,9 @@ test.describe('v0.90 — NNL enrichissements', () => {
 
   test('les 8 outils de la barre NNL sont présents', async ({ page }) => {
     await goToNNL(page);
-    const tools = ['select', 'rect', 'ellipse', 'arrow', 'text', 'pen', 'marker', 'eraser'];
+    // Rectangle/Ellipse regroupés dans "Formes" (v0.92.9) et outil "Cadre" ajouté (v0.92.10,
+    // sous-chantier 6 point 3) — liste mise à jour en conséquence (voir aussi tests/nnl.spec.js).
+    const tools = ['select', 'shapes', 'frame', 'arrow', 'text', 'pen', 'marker', 'eraser'];
     for (const t of tools) {
       await expect(page.locator(`[data-testid="nnl-tool-${t}"]`)).toBeVisible();
     }

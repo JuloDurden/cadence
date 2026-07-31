@@ -103,7 +103,7 @@ test.describe('What-if — Scénarios', () => {
     // Duplique la vérification de tests/changelog.spec.js — volontaire, pour un
     // repère rapide depuis ce fichier ; garder les deux synchronisées à chaque bump.
     await goTo(page, '/changelog');
-    await expect(page.locator('.cl-card.current')).toContainText('v0.92.15');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.92.18');
   });
 
 });
