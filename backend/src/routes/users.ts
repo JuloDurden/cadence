@@ -52,6 +52,27 @@ export async function usersRoutes(fastify: FastifyInstance) {
     }
   )
 
+  // DELETE /api/users/:id — supprimer un compte (Admin uniquement). Retour Julien (2026-08-01) :
+  // supprimer la fiche Équipe ne supprimait jamais le compte applicatif associé (il restait
+  // capable de se connecter) — jusqu'ici aucun moyen de supprimer un compte du tout. Un compte
+  // Admin ne peut pas être ciblé (ni par un autre Admin, ni par lui-même) : pas de rôle de
+  // "super-admin" distinct dans ce prototype pour arbitrer ce cas, plus sûr de l'interdire
+  // catégoriquement. La fiche Équipe ou le Contact lié (`linkedUserId`) sont nettoyés côté client
+  // (`UsersSettingsSection.tsx`), pas ici : `WorkspaceState.data` est un blob JSON entièrement
+  // piloté par le frontend (voir routes/state.ts), cette route ne fait que supprimer le compte.
+  fastify.delete<{ Params: { id: string } }>(
+    '/api/users/:id',
+    { preHandler: adminOnly },
+    async (req, reply) => {
+      const { id } = req.params
+      const user = await fastify.prisma.user.findUnique({ where: { id } })
+      if (!user) return reply.code(404).send({ error: 'Compte introuvable' })
+      if (user.role === 'ADMIN') return reply.code(403).send({ error: 'Un compte Admin ne peut pas être supprimé' })
+      await fastify.prisma.user.delete({ where: { id } })
+      return reply.code(204).send()
+    }
+  )
+
   // PATCH /api/users/:id — changer le role et/ou le nom d'un compte (Admin uniquement)
   fastify.patch<{ Params: { id: string }; Body: { role?: Role; name?: string } }>(
     '/api/users/:id',

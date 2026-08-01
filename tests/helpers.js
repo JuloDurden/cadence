@@ -13,18 +13,37 @@ const BASE_URL = 'http://localhost:4321';
  * Charge une route React avec auth injectee.
  * @param {import('@playwright/test').Page} page
  * @param {string} route  ex: '/backlog', '/kanban', '/'
- * @param {{ role?: string, name?: string, userId?: string }} [opts]  Phase 2 (roadmap v1) —
- *   simule un compte connecte avec un role/nom/id donnes (cadence_user_role/cadence_user/
- *   cadence_user_id, lus par useAuth.ts). Sans ces options, le comportement est identique a avant
- *   (valeurs vides, comme au login normal sans injection) — a utiliser uniquement pour les tests
- *   qui en dependent. `userId` ajoute au sous-chantier 5 (interactions nominatives) : necessaire
- *   pour tester l'attribution reelle des notes d'item (Note.authorId = currentUserId).
+ * @param {{ role?: string, name?: string, userId?: string, onboardingSeenAt?: string|null, onboardingCompletedItems?: string[] }} [opts]
+ *   Phase 2 (roadmap v1) — simule un compte connecte avec un role/nom/id donnes
+ *   (cadence_user_role/cadence_user/cadence_user_id, lus par useAuth.ts). Sans ces options, le
+ *   comportement est identique a avant (valeurs vides, comme au login normal sans injection) — a
+ *   utiliser uniquement pour les tests qui en dependent. `userId` ajoute au sous-chantier 5
+ *   (interactions nominatives) : necessaire pour tester l'attribution reelle des notes d'item
+ *   (Note.authorId = currentUserId). `onboardingSeenAt`/`onboardingCompletedItems` ajoutes en
+ *   Phase 2.5, Onboarding, points 2-4 (v0.95) : reponse mockee de GET /api/onboarding. Par defaut
+ *   "deja vu" (compte existant, comme la tres grande majorite des tests qui n'ont rien a voir avec
+ *   l'Onboarding) — passer `onboardingSeenAt: null` pour simuler un compte reellement neuf, voir
+ *   tests/onboarding.spec.js.
  */
 async function goTo(page, route = '/backlog', opts = {}) {
   // Intercepter les appels API pour eviter les erreurs reseau
-  await page.route('**/api/**', r =>
-    r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: null }) })
-  );
+  await page.route('**/api/**', r => {
+    // Cas particulier de `/api/onboarding` : sans lui, le mock générique `{ data: null }`
+    // ci-dessous ferait lire `onboardingSeenAt` comme `undefined`, donc "compte neuf", et
+    // ouvrirait automatiquement le panneau "Guide de démarrage" (position fixe, recouvre le bord
+    // droit de l'écran) sur TOUS les tests qui passent par ce helper, sans lien avec ce qu'ils
+    // testent.
+    if (r.request().url().includes('/api/onboarding')) {
+      return r.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          onboardingSeenAt: opts.onboardingSeenAt !== undefined ? opts.onboardingSeenAt : '2026-01-01T00:00:00.000Z',
+          onboardingCompletedItems: opts.onboardingCompletedItems ?? [],
+        }),
+      });
+    }
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: null }) });
+  });
 
   // Charger la page login pour avoir acces au localStorage du bon domaine
   await page.goto(BASE_URL + '/login');

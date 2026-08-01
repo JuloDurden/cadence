@@ -15,7 +15,40 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.94.1',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Verrouillage Stakeholder : accès et lecture seule sur toutes les pages, identité rattachée au Client',current:true,changes:[
+  {version:'v0.95.4',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Invitation Stakeholder : poste et téléphone, lien révoqué détecté dès l\'arrivée sur la page',current:true,changes:[
+    {tag:'feat', text:'Le formulaire d\'invitation Stakeholder demande désormais le poste dans l\'entreprise (requis) et un numéro de téléphone (facultatif) — le poste remplit le champ "Rôle" du Contact créé sur la fiche Client, jusqu\'ici toujours vide'},
+    {tag:'feat', text:'Le numéro de téléphone est affichable et modifiable sur chaque Contact depuis la fiche Client (Réglages > Clients) — champ déjà présent dans le modèle de données mais jamais exposé dans l\'interface'},
+    {tag:'fix', text:'Un lien d\'invitation révoqué restait affiché et remplissable : l\'erreur n\'apparaissait qu\'à la soumission (410). Une vérification est désormais faite dès l\'arrivée sur la page, qui masque le formulaire si le lien n\'est plus valide'},
+    {tag:'test', text:'`tests/signup-invite.spec.js` complété : poste requis à l\'acceptation d\'une invitation, lien révoqué masquant le formulaire, formulaire toujours visible si la vérification amont échoue (fail-open). `tests/clients.spec.js` complété : ajout d\'un numéro de téléphone à un contact, persistance après réouverture de la fiche'},
+  ]},
+  {version:'v0.95.3',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2 (roadmap v1) — Gestion des utilisateurs : suppression d\'un compte',current:false,changes:[
+    {tag:'feat', text:'Un Admin peut désormais supprimer un compte utilisateur (Dev, PO, Scrum Master, Stakeholder) depuis Réglages > Utilisateurs — jusqu\'ici, seul le rôle d\'un compte pouvait être changé, jamais supprimé'},
+    {tag:'feat', text:'La fiche liée est supprimée avec le compte : la fiche Équipe pour un Dev/PO/Scrum Master (retiré des items assignés, absences supprimées, actions de rétro détachées — même nettoyage que "Supprimer un membre" depuis la page Équipe), ou le Contact pour un Stakeholder (retiré de la fiche Client correspondante)'},
+    {tag:'chore', text:'Un compte Admin ne peut jamais être supprimé, ni par un autre Admin ni par lui-même (bouton absent, refusé aussi côté serveur)'},
+    {tag:'test', text:'Nouveaux tests dans `tests/users-roles.spec.js` : absence du bouton pour un compte Admin, annulation, suppression effective, suppression en cascade de la fiche Équipe liée'},
+  ]},
+  {version:'v0.95.2',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Onboarding : panneau compact en bas à droite, bulle de tunnel repliée si la cible occupe tout l\'écran',current:false,changes:[
+    {tag:'chore', text:'Le panneau "Guide de démarrage" est repositionné en bas à droite (au lieu de plein hauteur sous le Header), pour prendre le moins de place possible pendant qu\'un tunnel est en cours'},
+    {tag:'fix', text:'Sur le Kanban, la 2e bulle du tunnel de découverte (ciblant le tableau, presque toute la hauteur de l\'écran) se plaçait au-dessus du cadre de surbrillance et débordait hors de l\'écran — repli désormais en bas à gauche, quitte à chevaucher le cadre, quand il n\'y a assez de place ni en dessous ni au-dessus de la cible'},
+  ]},
+  {version:'v0.95.1',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Onboarding : tunnels multi-étapes sur toutes les lignes, panneau persistant, réinitialisation',current:false,changes:[
+    {tag:'fix', text:'Le tunnel guidé "Créer votre première US" ne continuait pas sur le bouton "Ajouter" une fois lancé, quelle que soit la page de départ — un effet de nettoyage se déclenchait à tort pendant le double-appel des effets de React.StrictMode en développement et annulait le tunnel juste après son démarrage'},
+    {tag:'feat', text:'Chaque ligne de la checklist lance désormais son propre tunnel de plusieurs tooltips (Suivant/Précédent/Terminer), plus un seul tooltip par ligne — Dashboard (4 étapes), Roadmap et Kanban (2 étapes), Backlog (3 étapes)'},
+    {tag:'feat', text:'Le tunnel "Créer votre première US" détaille désormais aussi le type d\'item, le client, les Story Points, et pointe vers les onglets "User Story" (besoin, critères d\'acceptation) et "DoD / DoR" une fois la modale ouverte'},
+    {tag:'fix', text:'Coquille : le tunnel indiquait de cliquer sur "Enregistrer" pour créer un item, alors que le bouton affiche "Créer" pour un nouvel item'},
+    {tag:'feat', text:'Le panneau "Guide de démarrage" reste désormais ouvert entre chaque étape, tant qu\'il n\'est pas explicitement fermé (croix ou Echap) — il se refermait auparavant dès qu\'une ligne était cliquée, avant même d\'avoir pu suivre le tunnel'},
+    {tag:'feat', text:'Nouveau bouton "Réinitialiser le Guide de démarrage" en bas du panneau (avec confirmation) : remet la checklist à zéro pour la refaire depuis le début'},
+    {tag:'test', text:'`tests/onboarding.spec.js` réécrit pour les tunnels multi-étapes, le panneau persistant et la réinitialisation'},
+  ]},
+  {version:'v0.95',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Onboarding : tooltips progressifs, checklist et démo interactive',current:false,changes:[
+    {tag:'feat', text:'Nouveau bouton "Aide" dans le Header (icône point d\'interrogation), pour tous les rôles : ouvre à tout moment le panneau "Guide de démarrage"'},
+    {tag:'feat', text:'Le panneau "Guide de démarrage" s\'ouvre aussi automatiquement, une seule fois, à la 1re connexion d\'un compte réellement nouveau (jamais pour un compte déjà existant)'},
+    {tag:'feat', text:'Checklist de premières actions (Dashboard, Roadmap, Kanban, Backlog), adaptée au rôle connecté : chaque ligne cochée est mémorisée sur le compte, consultable à tout moment depuis le bouton Aide'},
+    {tag:'feat', text:'Cliquer une ligne de la checklist navigue vers la page concernée et affiche un tooltip ponctuel (spotlight) qui explique l\'élément d\'UI correspondant'},
+    {tag:'feat', text:'Démo interactive pour le Product Owner (+ Admin) : la ligne "Créer votre première US" lance un tunnel de tooltips qui accompagne pas à pas la création d\'un vrai item du Backlog (pas de bac à sable) — coche automatiquement la ligne une fois l\'item réellement créé'},
+    {tag:'test', text:'Nouveau `tests/onboarding.spec.js` : ouverture automatique à la 1re connexion, absence de réouverture pour un compte déjà vu, bouton Aide, contenu de la checklist selon le rôle, tooltip sur une ligne "découverte", tunnel guidé de création du premier item'},
+  ]},
+  {version:'v0.94.1',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Verrouillage Stakeholder : accès et lecture seule sur toutes les pages, identité rattachée au Client',current:false,changes:[
     {tag:'feat', text:'Le Stakeholder n\'a plus du tout accès à Historique, Daily Standup, Rétrospective, Clients, Équipe (RH) et Réglages — la page redirige vers le Dashboard et le lien disparaît du menu (nouveau mécanisme page-level, `canAccessRoute`, utils/permissions.ts)'},
     {tag:'feat', text:'Vision/NNL, Roadmap, Release Planning, Sprint Planning, Kanban et Sprint Review passent en lecture seule pour le Stakeholder : les pages restent consultables (items/post-its ouvrables, en lecture seule), mais toute action de mutation est masquée — créer/modifier/supprimer un sprint ou une colonne, glisser-déposer, auto-attribution, archiver, ajouter une décision/une note, dessiner ou déplacer une forme/un post-it sur le tableau NNL'},
     {tag:'feat', text:'Un Stakeholder invité n\'a plus de fiche Équipe : il devient un Contact de la fiche Client choisie par l\'Admin au moment de générer le lien d\'invitation (nouveau sélecteur "Inviter un Stakeholder" dans Réglages > Utilisateurs), plutôt que de lui demander de taper un nom d\'entreprise à l\'inscription (confidentialité)'},

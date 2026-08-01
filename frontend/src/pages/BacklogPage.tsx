@@ -11,6 +11,8 @@ import { findEpicChildren, detachEpicChildren, findHierarchyChildren, detachHier
 import { withHistoryEntry } from '../utils/history'
 import { canManageBacklog, canEditBacklogOperational } from '../utils/permissions'
 import { useDialog } from '../context/DialogContext'
+import { useOnboarding } from '../context/OnboardingContext'
+import { CREATE_ITEM_CHECKLIST_ID, CREATE_ITEM_MODAL_STEPS } from '../data/onboardingChecklist'
 import { attachItemsToEpics, getHierarchyNodeSP, buildInitiativeSections, getItemInitiativeId, type InitiativeSection, type EpicGroup } from '../utils/hierarchyScore'
 import type { Item, ItemType, BugSeverity, HistoryEntry, HierarchyNode, HierarchyLevel } from '../types'
 
@@ -317,6 +319,32 @@ export function BacklogPage() {
     return () => document.removeEventListener('mousedown', handle)
   }, [addMenuOpen])
 
+  // Phase 2.5 (roadmap v1), Onboarding, point 4 (démo interactive) — ligne "Créer votre première
+  // US" du Guide de démarrage (voir data/onboardingChecklist.ts). Avant l'ouverture de la modale,
+  // le tunnel est piloté par cette page elle-même selon son propre état d'UI réel (addMenuOpen) —
+  // pas de bouton Suivant, l'étape change quand une vraie action se produit. Une fois la modale
+  // ouverte, on bascule sur un tour manuel (CREATE_ITEM_MODAL_STEPS, Suivant/Précédent) : la
+  // plupart des champs qui suivent sont informatifs, pas une action binaire à détecter (retour
+  // Julien : couvrir aussi type d'item, client, SP, User Story, critères, DoR/DoD). La ligne se
+  // coche plus bas, dans handleSave, à la vraie création de l'item — jamais en atteignant la fin
+  // d'un tunnel. La navigation ailleurs pendant le tunnel est gérée par OnboardingContext.tsx
+  // (comparaison de route), pas par un effet de nettoyage ici — un effet de nettoyage basé sur le
+  // démontage se déclenchait à tort pendant le double-appel des effets de React.StrictMode en
+  // développement (bug remonté par Julien, voir docs/corrections.md).
+  const onboarding = useOnboarding()
+  const guidingCreateItem = onboarding.activeGuideId === CREATE_ITEM_CHECKLIST_ID
+  useEffect(() => {
+    if (!guidingCreateItem) return
+    if (modalItem === null) {
+      onboarding.showTour(CREATE_ITEM_MODAL_STEPS, { route: '/backlog' })
+    } else if (addMenuOpen) {
+      onboarding.showSpotlight('[data-testid="menu-new-item"]', 'Choisissez "Nouvel Item".')
+    } else {
+      onboarding.showSpotlight('[data-testid="btn-add-menu"]', 'Cliquez sur "Ajouter" pour créer un item.')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guidingCreateItem, modalItem, addMenuOpen])
+
   function openAddMenu() {
     if (addMenuOpen) { setAddMenuOpen(false); setAddMenuPos(null); return }
     const rect = addBtnRef.current?.getBoundingClientRect()
@@ -476,6 +504,13 @@ export function BacklogPage() {
 
     if (isNew) {
       dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
+      // Phase 2.5 (roadmap v1), Onboarding, point 4 (démo interactive) — la ligne "Créer votre
+      // première US" se complète ici, sur la vraie création, que l'item vienne du tunnel guidé
+      // ou d'une création spontanée pendant que le tunnel était affiché.
+      if (guidingCreateItem) {
+        onboarding.completeItem(CREATE_ITEM_CHECKLIST_ID)
+        onboarding.stopGuide()
+      }
     } else {
       dispatch({ type: 'UPDATE_ITEM', payload: item })
     }

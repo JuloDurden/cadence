@@ -40,7 +40,7 @@ export function DashboardPage() {
 
       <div className="page-content">
         {/* KPIs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
+        <div data-testid="dashboard-kpis" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14, marginBottom: 24 }}>
           <StatCard label="US terminées" value={doneItems.length} sub={`sur ${state.items.length} total`} icon="✅" />
           <StatCard label="Vélocité moy." value={avgVelocity > 0 ? `${avgVelocity} SP` : '—'} sub={`sur ${closedSprints.length} sprint${closedSprints.length > 1 ? 's' : ''}`} icon="⚡" color="#ff9500" />
           <StatCard
@@ -54,7 +54,7 @@ export function DashboardPage() {
         </div>
 
         {/* Charts ligne 1 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div data-testid="dashboard-charts" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
           <VelocityChart sprints={state.sprints} items={state.items} kanbanCols={state.kanbanCols} />
           {currentSprint
             ? <BurndownChart sprint={currentSprint} items={state.items} kanbanCols={state.kanbanCols} />
@@ -65,7 +65,7 @@ export function DashboardPage() {
         </div>
 
         {/* Ligne 2 */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
+        <div data-testid="dashboard-clients" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 16 }}>
           <ClientRAG clients={state.clients} items={state.items} kanbanCols={state.kanbanCols} />
 
           {/* Activité récente */}

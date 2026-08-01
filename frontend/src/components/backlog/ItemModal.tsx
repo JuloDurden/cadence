@@ -589,7 +589,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">TYPE D'ITEM</label>
-            <select className="form-input" disabled={!canManage} value={iType} onChange={e => {
+            <select className="form-input" data-testid="item-type-select" disabled={!canManage} value={iType} onChange={e => {
               const t = e.target.value as ItemType
               setIType(t)
               if (!getVisibleTabs(t).includes(tab)) setTab('general')
@@ -632,7 +632,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
           <div className="form-group">
             <label className="form-label">CLIENT / TYPE</label>
-            <select className="form-input" disabled={!canManage} value={clientId} onChange={e => setClientId(e.target.value)}>
+            <select className="form-input" data-testid="item-client-select" disabled={!canManage} value={clientId} onChange={e => setClientId(e.target.value)}>
               <option value="">Sélectionner...</option>
               {state.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
@@ -751,7 +751,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
         {/* Bloc Critères d'acceptation — Story, Bug. Contenu produit : PO/Admin uniquement
             (voir utils/permissions.ts, canManageBacklog) — lecture seule pour les autres rôles. */}
         {(iType === 'story' || iType === 'bug') && (
-        <div style={{ marginTop: iType === 'bug' ? 0 : 24 }}>
+        <div data-testid="item-criteria-section" style={{ marginTop: iType === 'bug' ? 0 : 24 }}>
           <div className="us-section-label">{iType === 'bug' ? 'CRITÈRES DE RÉSOLUTION (GHERKIN)' : 'CRITÈRES D\'ACCEPTATION (GHERKIN)'}</div>
           {criteria.map(c => (
             <div key={c.id} className="bdd-block" style={{ position: 'relative' }}>
@@ -1299,6 +1299,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
       <div className="modal-tabs">
         {TABS.map(t => (
           <button key={t.id}
+            data-testid={`modal-tab-${t.id}`}
             className={`modal-tab-btn${tab === t.id ? ' active' : ''}`}
             onClick={() => setTab(t.id as Tab)}>
             <Svg d={t.icon} size={12} />

@@ -29,8 +29,19 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<UserRole>('DEV')
+  // `poste`/`phone` (2026-08-01, retour Julien) : demandés à l'acceptation d'une invitation
+  // Stakeholder. `poste` remplit `Contact.role` côté client (backend), `phone` est facultatif.
+  const [poste, setPoste] = useState('')
+  const [phone, setPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Vérification amont de la validité du lien (2026-08-01, retour Julien : un lien révoqué
+  // restait affiché/remplissable, l'erreur n'apparaissait qu'à la soumission). Fail-open par
+  // défaut (`false`) : ne masque le formulaire que sur une réponse explicite `{valid:false}`,
+  // jamais sur une erreur réseau ou un backend non mocké (voir tests/signup-invite.spec.js, qui
+  // ne mockent pas systématiquement cette route) — pas de faux négatif qui bloquerait une vraie
+  // invitation valide.
+  const [inviteInvalid, setInviteInvalid] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -39,6 +50,15 @@ export function LoginPage() {
   useEffect(() => {
     document.title = 'Cadence - Connexion'
   }, [])
+
+  useEffect(() => {
+    if (!inviteToken) return
+    let cancelled = false
+    api.checkInvite(inviteToken)
+      .then(res => { if (!cancelled && res?.valid === false) setInviteInvalid(true) })
+      .catch(() => { /* fail-open : réseau indisponible, on laisse le formulaire visible */ })
+    return () => { cancelled = true }
+  }, [inviteToken])
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault()
@@ -74,7 +94,7 @@ export function LoginPage() {
     setError(null)
     setSubmitting(true)
     try {
-      const { token, user } = await api.acceptInvite({ token: inviteToken, email, password, name })
+      const { token, user } = await api.acceptInvite({ token: inviteToken, email, password, name, poste, phone: phone || undefined })
       login(token, user)
       navigate('/')
     } catch (err) {
@@ -100,19 +120,27 @@ export function LoginPage() {
         <h1 style={{ margin: 0 }}>Cadence</h1>
 
         {mode === 'invite' ? (
-          <>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted, #666)' }}>
-              Vous avez été invité(e) à rejoindre Cadence en tant que <strong>Stakeholder</strong>.
-              Complétez votre inscription ci-dessous.
+          inviteInvalid ? (
+            <p data-testid="invite-invalid" style={{ margin: 0, fontSize: 13, color: 'red' }}>
+              Ce lien d'invitation n'est plus valide. Demandez à votre Admin de vous en renvoyer un.
             </p>
-            <form data-testid="invite-form" onSubmit={handleAcceptInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <input data-testid="invite-name" type="text" placeholder="Nom" value={name} onChange={e => setName(e.target.value)} required />
-              <input data-testid="invite-email" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-              <input data-testid="invite-password" type="password" placeholder="Mot de passe (8 caractères min.)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
-              {error && <p data-testid="login-error" style={{ color: 'red', margin: 0 }}>{error}</p>}
-              <button data-testid="invite-submit" type="submit" disabled={submitting}>Rejoindre Cadence</button>
-            </form>
-          </>
+          ) : (
+            <>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted, #666)' }}>
+                Vous avez été invité(e) à rejoindre Cadence en tant que <strong>Stakeholder</strong>.
+                Complétez votre inscription ci-dessous.
+              </p>
+              <form data-testid="invite-form" onSubmit={handleAcceptInvite} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <input data-testid="invite-name" type="text" placeholder="Nom" value={name} onChange={e => setName(e.target.value)} required />
+                <input data-testid="invite-email" type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+                <input data-testid="invite-poste" type="text" placeholder="Poste dans l'entreprise" value={poste} onChange={e => setPoste(e.target.value)} required />
+                <input data-testid="invite-phone" type="tel" placeholder="Téléphone (facultatif)" value={phone} onChange={e => setPhone(e.target.value)} />
+                <input data-testid="invite-password" type="password" placeholder="Mot de passe (8 caractères min.)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+                {error && <p data-testid="login-error" style={{ color: 'red', margin: 0 }}>{error}</p>}
+                <button data-testid="invite-submit" type="submit" disabled={submitting}>Rejoindre Cadence</button>
+              </form>
+            </>
+          )
         ) : (
           <>
             <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #ddd' }}>

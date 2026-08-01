@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { useToast } from '../../context/ToastContext'
+import { useDialog } from '../../context/DialogContext'
 import { useCadence } from '../../context/StateContext'
 import { defaultPosteForRole, posteHasNoVelocity } from '../../utils/permissions'
+import { detachMemberReferences, findMemberAssignedItems } from '../../utils/cascadeDelete'
 import { USER_ROLES, USER_ROLE_LABELS } from '../../types'
 import type { Invitation, ManagedUser, UserRole } from '../../types'
 
@@ -12,12 +14,14 @@ import type { Invitation, ManagedUser, UserRole } from '../../types'
 // le seul rempart, juste le reflet de la permission réelle côté serveur.
 export function UsersSettingsSection() {
   const { showToast } = useToast()
+  const { confirm } = useDialog()
   const { state, dispatch, saveToServer } = useCadence()
   const [users, setUsers] = useState<ManagedUser[] | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'DEV' as UserRole })
   const [savingRoleId, setSavingRoleId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Phase 2.5 (roadmap v1), Onboarding — invitations Stakeholder (voir backend/src/routes/
   // invitations.ts). Pas d'infrastructure d'envoi d'email dans ce prototype : le lien est
@@ -126,6 +130,61 @@ export function UsersSettingsSection() {
       .finally(() => setSavingRoleId(null))
   }
 
+  // Retour Julien (2026-08-01) : "je pensais, inconsciemment, que supprimer la fiche Équipe
+  // supprimait aussi le compte utilisateur, mais ce n'est pas le cas" — jusqu'ici, aucun moyen de
+  // supprimer un compte du tout (le rôle "changer de rôle" existait, pas "supprimer"). Supprime le
+  // compte ET la fiche liée : la fiche Équipe (Dev/PO/Scrum Master, même cascade que "Supprimer un
+  // membre" sur la page Équipe — items désassignés, absences supprimées, actions de rétro
+  // détachées) ou le Contact (Stakeholder, simplement retiré des contacts de sa fiche Client,
+  // même niveau de nettoyage que "retirer un contact" depuis ClientModal.tsx — les références
+  // éventuelles dans les participants de Sprint Review se résolvent déjà gracieusement en "nom
+  // absent" sans planter, voir findContact dans SprintReviewPage.tsx). Réservé Admin, jamais un
+  // compte Admin (bouton absent pour ce rôle, voir rendu plus bas — 403 côté serveur de toute
+  // façon si contourné).
+  async function handleDeleteUser(u: ManagedUser) {
+    const linkedMember = state.team.find(t => t.linkedUserId === u.id)
+    const linkedClient = !linkedMember ? state.clients.find(c => (c.contacts ?? []).some(ct => ct.linkedUserId === u.id)) : undefined
+    const linkedContact = linkedClient?.contacts?.find(ct => ct.linkedUserId === u.id)
+
+    let extra = ' Cette action est irréversible.'
+    if (linkedMember) extra = ` Sa fiche Équipe sera aussi supprimée${findMemberAssignedItems(state.items, linkedMember.id).length > 0 ? ' (retiré des items assignés)' : ''}.`
+    else if (linkedContact) extra = ` Son contact sur la fiche Client "${linkedClient?.name}" sera aussi retiré.`
+
+    const ok = await confirm(`Le compte de ${u.name} (${USER_ROLE_LABELS[u.role]}) sera définitivement supprimé.${extra}`, {
+      title: 'Supprimer cet utilisateur ?', confirmLabel: 'Supprimer', danger: true,
+    })
+    if (!ok) return
+
+    setDeletingId(u.id)
+    try {
+      await api.deleteUser(u.id)
+      setUsers(list => (list ?? []).filter(x => x.id !== u.id))
+
+      if (linkedMember) {
+        const assignedItems = findMemberAssignedItems(state.items, linkedMember.id)
+        const cleaned = detachMemberReferences(linkedMember.id, state.items, state.absences, state.retroSessions)
+        dispatch({ type: 'DELETE_MEMBER', payload: linkedMember.id })
+        saveToServer({
+          ...state,
+          team: state.team.filter(t => t.id !== linkedMember.id),
+          items: cleaned.items,
+          absences: cleaned.absences,
+          retroSessions: cleaned.retroSessions,
+        })
+        if (assignedItems.length > 0) assignedItems.forEach(i => dispatch({ type: 'UPDATE_ITEM', payload: { ...i, assignees: i.assignees.filter(a => a !== linkedMember.id) } }))
+      } else if (linkedClient && linkedContact) {
+        const updatedClient = { ...linkedClient, contacts: (linkedClient.contacts ?? []).filter(ct => ct.id !== linkedContact.id) }
+        dispatch({ type: 'UPDATE_CLIENT', payload: updatedClient })
+        saveToServer({ ...state, clients: state.clients.map(c => c.id === updatedClient.id ? updatedClient : c) })
+      }
+      showToast('Utilisateur supprimé.')
+    } catch {
+      showToast('Impossible de supprimer cet utilisateur.', 'error')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   return (
     <>
     <section data-testid="users-section" style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
@@ -148,6 +207,15 @@ export function UsersSettingsSection() {
                 onChange={e => handleRoleChange(u.id, e.target.value as UserRole)}>
                 {USER_ROLES.map(r => <option key={r} value={r}>{USER_ROLE_LABELS[r]}</option>)}
               </select>
+              {/* Un compte Admin ne peut pas être supprimé (voir handleDeleteUser) — pas de
+                  bouton pour ce rôle plutôt qu'un bouton qui échouerait systématiquement. */}
+              {u.role !== 'ADMIN' && (
+                <button className="hdr-ctx-btn" style={{ fontSize: 11, color: 'var(--danger, #dc2626)' }}
+                  data-testid={`user-delete-${u.id}`} disabled={deletingId === u.id}
+                  onClick={() => handleDeleteUser(u)}>
+                  Supprimer
+                </button>
+              )}
             </div>
           ))}
         </div>

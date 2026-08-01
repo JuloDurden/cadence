@@ -111,10 +111,11 @@ export function ClientModal({ client, onSave, onClose }: Props) {
               <button className="btn btn-secondary" style={{ padding: '3px 10px', fontSize: 11 }} onClick={addContact}>+ Contact</button>
             </div>
             {(form.contacts ?? []).map(c => (
-              <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 6, marginBottom: 6 }}>
+              <div key={c.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: 6, marginBottom: 6 }}>
                 <input value={c.name} onChange={e => updateContact(c.id, 'name', e.target.value)} placeholder="Nom" style={{ fontSize: 12 }} />
                 <input value={c.role} onChange={e => updateContact(c.id, 'role', e.target.value)} placeholder="Rôle" style={{ fontSize: 12 }} />
                 <input value={c.email} onChange={e => updateContact(c.id, 'email', e.target.value)} placeholder="Email" style={{ fontSize: 12 }} />
+                <input value={c.phone ?? ''} onChange={e => updateContact(c.id, 'phone', e.target.value)} placeholder="Téléphone" style={{ fontSize: 12 }} />
                 <button className="btn-icon danger" onClick={() => removeContact(c.id)}>✕</button>
               </div>
             ))}

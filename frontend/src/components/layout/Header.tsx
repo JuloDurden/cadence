@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useCadence } from '../../context/StateContext'
 import { USER_ROLE_LABELS } from '../../types'
 import { canAccessRoute } from '../../utils/permissions'
+import { useOnboarding } from '../../context/OnboardingContext'
 
 /* ── Tiny inline SVG helper ─────────────────────────────────────── */
 function Svg({ d, size = 16 }: { d: string; size?: number }) {
@@ -27,6 +28,7 @@ const SVG = {
   editUser: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/>',
   logout:   '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
   close:    '<path d="M18 6 6 18M6 6l12 12"/>',
+  help:     '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
 }
 
 interface HeaderProps {
@@ -140,6 +142,7 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
   const initial = (userName || 'A').trim().charAt(0).toUpperCase() || 'A'
   const roleLabel = userRole ? USER_ROLE_LABELS[userRole] : null
   const { state, dispatch, saveToServer, undo, redo, canUndo, canRedo } = useCadence()
+  const { openPanel: openOnboarding } = useOnboarding()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -250,10 +253,19 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
             v1, verrouillage Stakeholder) : ce raccourci n'est pas un lien de la Sidebar
             (filtrée via canAccessRoute), il fallait la même garde ici. */}
         {canAccessRoute(userRole, '/settings') && (
-          <button className="hdr-btn" title="Reglages" onClick={() => navigate('/settings')}>
+          <button className="hdr-btn" title="Reglages" data-testid="settings-shortcut" onClick={() => navigate('/settings')}>
             <Svg d={SVG.settings} />
           </button>
         )}
+
+        {/* Aide — Phase 2.5 (roadmap v1), Onboarding, points 2-4 : rouvre à tout moment le
+            panneau "Guide de démarrage" (checklist, tooltips, démo interactive), ouvert
+            automatiquement une seule fois pour un compte réellement nouveau. Visible pour tous
+            les rôles, y compris Stakeholder — contrairement à Réglages, ce n'est pas une page de
+            gestion mais une aide à la prise en main. */}
+        <button className="hdr-btn" title="Aide" aria-label="Aide" onClick={openOnboarding}>
+          <Svg d={SVG.help} />
+        </button>
 
         <div className="hdr-sep" />
 

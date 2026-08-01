@@ -21,6 +21,9 @@ import { StateProvider, useCadence } from './context/StateContext'
 import { TimerProvider } from './context/TimerContext'
 import { ToastProvider } from './context/ToastContext'
 import { DialogProvider } from './context/DialogContext'
+import { OnboardingProvider } from './context/OnboardingContext'
+import { OnboardingPanel } from './components/onboarding/OnboardingPanel'
+import { SpotlightHost } from './components/onboarding/Spotlight'
 import { useAuth } from './hooks/useAuth'
 import { useGlobalUndoRedoShortcut } from './hooks/useGlobalUndoRedoShortcut'
 import { canAccessRoute } from './utils/permissions'
@@ -81,6 +84,8 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/backlog" replace />} />
         </Routes>
       </div>
+      <OnboardingPanel />
+      <SpotlightHost />
     </div>
   )
 }
@@ -91,7 +96,9 @@ function AppLayout() {
     <DialogProvider>
     <TimerProvider>
       <StateProvider>
-        <AppShell />
+        <OnboardingProvider>
+          <AppShell />
+        </OnboardingProvider>
       </StateProvider>
     </TimerProvider>
     </DialogProvider>

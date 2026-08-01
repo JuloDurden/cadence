@@ -62,28 +62,44 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
   )
 
+  // GET /api/auth/invite-status/:token — vérification amont de la validité d'un lien
+  // d'invitation (2026-08-01, retour Julien : "quand on révoque un lien... l'accès est toujours
+  // possible au lien"). Le backend refusait déjà correctement une invitation révoquée/utilisée à
+  // la soumission (410 sur POST /api/auth/accept-invite ci-dessous), mais `LoginPage.tsx` affiche
+  // le formulaire dès la présence de `?invite=TOKEN` dans l'URL, sans vérification préalable — le
+  // formulaire restait donc visible et remplissable même après révocation. Public comme
+  // accept-invite (le token fait office d'autorisation). Renvoie seulement `{valid}`, jamais de
+  // détail sur l'invitation (email du destinataire, client...), pour ne pas exposer d'information
+  // à quelqu'un qui aurait un token invalide ou périmé.
+  fastify.get<{ Params: { token: string } }>('/api/auth/invite-status/:token', async (req) => {
+    const invitation = await fastify.prisma.invitation.findUnique({ where: { token: req.params.token } })
+    return { valid: !!invitation && !invitation.usedAt }
+  })
+
   // POST /api/auth/accept-invite — complète une invitation (Phase 2.5, Onboarding). Public :
   // le token fait office d'autorisation (généré par un Admin, voir routes/invitations.ts). Rôle
   // toujours STAKEHOLDER, jamais transmis par le client — seul rôle accessible par ce chemin,
   // décision Julien ("les invitations sont pour les stakeholders").
-  fastify.post<{ Body: { token: string; email: string; password: string; name: string } }>(
+  fastify.post<{ Body: { token: string; email: string; password: string; name: string; poste: string; phone?: string } }>(
     '/api/auth/accept-invite',
     {
       schema: {
         body: {
           type: 'object',
-          required: ['token', 'email', 'password', 'name'],
+          required: ['token', 'email', 'password', 'name', 'poste'],
           properties: {
             token: { type: 'string' },
             email: { type: 'string' },
             password: { type: 'string', minLength: 8 },
             name: { type: 'string', minLength: 1 },
+            poste: { type: 'string', minLength: 1 },
+            phone: { type: 'string' },
           },
         },
       },
     },
     async (req, reply) => {
-      const { token, email, password, name } = req.body
+      const { token, email, password, name, poste, phone } = req.body
       const invitation = await fastify.prisma.invitation.findUnique({ where: { token } })
       if (!invitation || invitation.usedAt) {
         return reply.code(410).send({ error: 'Ce lien d\'invitation n\'est plus valide' })
@@ -100,7 +116,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       // changement (aucune en pratique, la seule existante est déjà utilisée) : dans ce cas on ne
       // crée aucun contact, même best-effort que si le Client avait été supprimé entre-temps.
       if (invitation.clientId) {
-        await createLinkedClientContact(fastify.prisma, invitation.clientId, user.id, user.name, user.email)
+        await createLinkedClientContact(fastify.prisma, invitation.clientId, user.id, user.name, user.email, poste, phone)
       }
 
       const authToken = fastify.jwt.sign({ id: user.id, email: user.email, role: user.role })

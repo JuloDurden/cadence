@@ -82,6 +82,8 @@ test.describe('Phase 2.5 — Onboarding : invitation Stakeholder', () => {
 
     await page.locator('[data-testid="invite-name"]').fill('Client Externe');
     await page.locator('[data-testid="invite-email"]').fill('client@dehors.com');
+    // Poste (requis) et téléphone (facultatif, laissé vide ici) — 2026-08-01, retour Julien.
+    await page.locator('[data-testid="invite-poste"]').fill('Directeur des opérations');
     await page.locator('[data-testid="invite-password"]').fill('motdepasse123');
     await page.locator('[data-testid="invite-submit"]').click();
 
@@ -96,10 +98,34 @@ test.describe('Phase 2.5 — Onboarding : invitation Stakeholder', () => {
 
     await page.locator('[data-testid="invite-name"]').fill('Client Externe');
     await page.locator('[data-testid="invite-email"]').fill('client@dehors.com');
+    await page.locator('[data-testid="invite-poste"]').fill('Directeur des opérations');
     await page.locator('[data-testid="invite-password"]').fill('motdepasse123');
     await page.locator('[data-testid="invite-submit"]').click();
 
     await expect(page.locator('[data-testid="login-error"]')).toContainText('n\'est plus valide');
+  });
+
+  // 2026-08-01, retour Julien : "quand on révoque un lien de création de compte Stakeholder,
+  // l'accès est toujours possible au lien". Le backend refusait déjà la soumission (410, testé
+  // ci-dessus), mais le formulaire restait affiché avant même de soumettre. Nouvelle vérification
+  // amont via GET /api/auth/invite-status/:token (voir LoginPage.tsx, api.ts, routes/auth.ts).
+  test('un lien révoqué masque le formulaire dès l\'arrivée sur la page', async ({ page }) => {
+    await gotoLogin(page, '?invite=tok-revoked');
+    await page.route('**/api/auth/invite-status/tok-revoked', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ valid: false }) }));
+    await page.reload();
+
+    await expect(page.locator('[data-testid="invite-invalid"]')).toBeVisible();
+    await expect(page.locator('[data-testid="invite-invalid"]')).toContainText('n\'est plus valide');
+    await expect(page.locator('[data-testid="invite-form"]')).toHaveCount(0);
+  });
+
+  // Fail-open : la vérification amont ne doit jamais masquer un formulaire à tort si la route
+  // n'est pas joignable ou mockée (comme dans la majorité des tests de ce fichier) — sinon toute
+  // la suite existante serait cassée par ce nouveau contrôle.
+  test('formulaire toujours visible si la vérification amont échoue ou n\'est pas mockée', async ({ page }) => {
+    await gotoLogin(page, '?invite=tok-abc123');
+    await expect(page.locator('[data-testid="invite-form"]')).toBeVisible();
+    await expect(page.locator('[data-testid="invite-invalid"]')).toHaveCount(0);
   });
 });
 

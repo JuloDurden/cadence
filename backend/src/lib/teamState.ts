@@ -46,7 +46,11 @@ export async function createLinkedTeamMember(prisma: PrismaClient, userId: strin
 // Best-effort comme ci-dessus : si le Client référencé a été supprimé entre la génération du lien
 // et son acceptation, on n'échoue pas la création du compte — le contact pourra être ajouté
 // manuellement ensuite depuis la fiche Client par un Admin/PO.
-export async function createLinkedClientContact(prisma: PrismaClient, clientId: string, userId: string, name: string, email: string) {
+// `poste`/`phone` ajoutés (2026-08-01, retour Julien) : le formulaire d'invitation demande
+// désormais le poste dans l'entreprise (remplit `Contact.role`, jusqu'ici toujours vide) et un
+// numéro de téléphone facultatif (`Contact.phone`, champ déjà présent dans `types/index.ts` mais
+// jamais renseigné ni affiché nulle part avant ce chantier).
+export async function createLinkedClientContact(prisma: PrismaClient, clientId: string, userId: string, name: string, email: string, poste: string, phone?: string) {
   const state = await prisma.workspaceState.findUnique({ where: { id: SINGLETON_ID } })
   if (!state) return
 
@@ -58,8 +62,9 @@ export async function createLinkedClientContact(prisma: PrismaClient, clientId: 
   const contact = {
     id: randomUUID(),
     name,
-    role: '',
+    role: poste,
     email,
+    ...(phone ? { phone } : {}),
     linkedUserId: userId,
   }
   const client = clients[clientIdx]

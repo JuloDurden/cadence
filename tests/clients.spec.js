@@ -34,4 +34,21 @@ test.describe('Clients', () => {
     await expect(page.getByText('Exclure du critère "Importance client" (Auto-planning)')).toBeVisible();
   });
 
+  // 2026-08-01, retour Julien : le champ Contact.phone existait déjà dans le type mais n'était
+  // affiché nulle part — ajouté ici en même temps que le champ "poste" du formulaire d'invitation
+  // Stakeholder (voir tests/signup-invite.spec.js), qui remplit Contact.role.
+  test('un numéro de téléphone peut être ajouté à un contact et persiste après réouverture', async ({ page }) => {
+    await goTo(page, '/clients');
+    await page.locator('[data-testid^="client-card-"] button[title="Modifier"]').first().click();
+    await page.getByRole('button', { name: '+ Contact' }).click();
+    await page.locator('input[placeholder="Nom"]').last().fill('Alex Contact');
+    await page.locator('input[placeholder="Rôle"]').last().fill('Directrice IT');
+    await page.locator('input[placeholder="Email"]').last().fill('alex@client.com');
+    await page.locator('input[placeholder="Téléphone"]').last().fill('0612345678');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+
+    await page.locator('[data-testid^="client-card-"] button[title="Modifier"]').first().click();
+    await expect(page.locator('input[placeholder="Téléphone"]').last()).toHaveValue('0612345678');
+  });
+
 });
