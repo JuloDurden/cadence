@@ -10,6 +10,8 @@ import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../hooks/useAuth'
 import { UsersSettingsSection } from '../components/settings/UsersSettingsSection'
+import { PresentationLinkSection } from '../components/settings/PresentationLinkSection'
+import { hasRole } from '../utils/permissions'
 import type { KanbanCol, Settings } from '../types'
 
 export function SettingsPage() {
@@ -20,6 +22,9 @@ export function SettingsPage() {
   // Phase 2 (roadmap v1), sous-chantier 2 : gate sur le vrai role backend, pas sur userName
   // (voir docs/corrections.md, Chantier M — c'etait explicitement l'erreur a ne pas refaire).
   const isAdmin = userRole === 'ADMIN'
+  // Phase 3 (roadmap v1), Mode présentation — génération/révocation du lien réservées Admin + PO
+  // (décision Julien, AskUserQuestion 2026-08-01 : le PO est souvent celui qui présente en externe).
+  const canManagePresentation = hasRole(userRole, 'PO')
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
@@ -205,6 +210,9 @@ export function SettingsPage() {
 
         {/* Utilisateurs (Phase 2, sous-chantier 1) — reserve au role Admin */}
         {isAdmin && <UsersSettingsSection />}
+
+        {/* Mode présentation (Phase 3) — réservé Admin + PO */}
+        {canManagePresentation && <PresentationLinkSection />}
 
         {/* Import / Export */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20 }}>

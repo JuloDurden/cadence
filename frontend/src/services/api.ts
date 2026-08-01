@@ -1,4 +1,4 @@
-import type { AuthUser, Invitation, ManagedUser, UserRole } from '../types'
+import type { AuthUser, Invitation, ManagedUser, PresentationLink, UserRole } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -99,4 +99,14 @@ export const api = {
   // zéro sans toucher `onboardingSeenAt` (ne redéclenche pas l'ouverture automatique, ce n'est pas
   // le même concept que "je n'ai encore rien vu").
   resetOnboarding: () => request<{ onboardingCompletedItems: string[] }>('/api/onboarding/reset', { method: 'POST' }),
+  // Phase 3 (roadmap v1), Mode présentation — lien de partage public réservé Admin + PO côté
+  // serveur (voir backend/src/routes/presentation.ts). Un seul lien actif à la fois : `create`
+  // régénère (invalide l'ancien), `revoke` supprime sans en recréer un.
+  getPresentationLink: () => request<{ link: PresentationLink | null }>('/api/presentation-link'),
+  createPresentationLink: () => request<{ link: PresentationLink }>('/api/presentation-link', { method: 'POST' }),
+  revokePresentationLink: () => request<void>('/api/presentation-link', { method: 'DELETE' }),
+  // Public, pas d'authentification (le token fait office d'autorisation) — utilisé par
+  // PresentationPublicPage.tsx via StateContext (prop `publicToken`) pour charger l'état du
+  // workspace en lecture seule, à la place de `getState` (qui exige un JWT).
+  getPresentationState: (token: string) => request<{ data: unknown }>(`/api/presentation/state/${token}`),
 }

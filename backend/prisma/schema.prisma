@@ -70,6 +70,22 @@ model Invitation {
   @@map("invitations")
 }
 
+// Phase 3 (roadmap v1), Mode présentation — lien de partage public (sans authentification) qui
+// ouvre directement le mode présentation (Dashboard, Roadmap, Vision/NNL, Sprint Review, sidebar
+// masquée, navigation clavier ←/→ — voir routes/presentation.ts). Contrairement à Invitation, pas
+// de `usedAt` : ce lien est réutilisable (ouvert plusieurs fois par plusieurs visiteurs), pas à
+// usage unique. Un seul lien actif à la fois dans ce prototype (routes/presentation.ts supprime
+// l'ancien avant d'en créer un nouveau) — plus simple qu'une vraie liste, cohérent avec le
+// singleton WorkspaceState : il n'y a qu'un seul workspace à présenter.
+model PresentationLink {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@map("presentation_links")
+}
+
 // Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
 // ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
 // STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste

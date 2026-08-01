@@ -52,11 +52,8 @@ Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/
 
 *Lié à la gestion des utilisateurs.*
 
-- **Mode lecture seule** : URL partageable (token) sans auth — Stakeholder ou client voit les données sans pouvoir les modifier ; boutons d'action masqués
-- **Mode présentation** : vue "slide-ready" adaptée aux comités, PI Planning, Sprint Review :
-  - Sidebar masquée, header simplifié, contenu plein écran
-  - Navigation clavier (←/→) entre les sections
-  - Applicable à : Dashboard, Roadmap, NNL, Sprint Review
+- ✅ **Mode présentation** (fait 2026-08-01, v0.96) : Dashboard, Roadmap, Vision/NNL, Sprint Review — sidebar masquée, navigation clavier ←/→. Accessible par un bouton "Présenter" du Header pour un compte connecté, ou par un lien public `/present/:token` sans authentification (réservé Admin + PO à la génération). Julien a fait remarquer, avant l'implémentation, que le compte Stakeholder couvre déjà un vrai mode lecture seule authentifié sur ces mêmes pages (verrouillage v0.94.1) : la brique "Mode lecture seule : URL partageable par token" ci-dessous n'apportait donc de plus-value que pour le partage ponctuel sans compte — fusionnée dans le lien de présentation plutôt que construite comme une brique séparée. Voir `docs/corrections.md`.
+- ~~**Mode lecture seule** : URL partageable (token) sans auth — Stakeholder ou client voit les données sans pouvoir les modifier~~ — abandonné en tant que brique séparée (voir ci-dessus), le compte Stakeholder remplit déjà ce rôle pour un usage récurrent.
 
 ---
 

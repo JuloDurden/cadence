@@ -91,6 +91,18 @@ body {
 .app-shell { display: flex; min-height: 100vh; }
 .main-area  { margin-left: var(--sidebar-w); padding-top: var(--header-h); flex: 1; min-width: 0; min-height: 100vh; }
 
+/* Phase 3 (roadmap v1), Mode présentation — pas de Sidebar affichée (ni sur la vue publique
+   PresentationPublicPage.tsx, ni pour un compte connecté qui a cliqué "Présenter", voir App.tsx),
+   `.app-header`/`.main-area` réservent pourtant sa largeur par défaut (`left`/
+   `margin-left: var(--sidebar-w)`) — sans ce correctif la page ne prend pas toute la largeur,
+   un bandeau vide reste à gauche là où la Sidebar était. Même logique que le correctif déjà en
+   place pour l'impression PDF de la Vision Board ci-dessous (@media print). Bug remonté par Julien
+   (capture d'écran, 2026-08-01) : cette règle n'existait qu'appliquée à la vue publique, pas au
+   mode présentation d'un compte connecté (App.tsx masquait la Sidebar mais oubliait cette classe).
+   Nom générique `.presentation-active` (pas `.presentation-public`) pour être partagée par les 2. */
+.presentation-active .app-header { left: 0; }
+.presentation-active .main-area { margin-left: 0; }
+
 /* ─── Sidebar ─── matches cadence.html exactly ─────────────────────────────── */
 .sidebar {
   width: var(--sidebar-w);

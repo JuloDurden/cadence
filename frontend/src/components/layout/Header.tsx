@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useCadence } from '../../context/StateContext'
 import { USER_ROLE_LABELS } from '../../types'
 import { canAccessRoute } from '../../utils/permissions'
 import { useOnboarding } from '../../context/OnboardingContext'
+import { usePresentationMode, PRESENTATION_PAGES, type PresentationPage } from '../../context/PresentationModeContext'
 
 /* ── Tiny inline SVG helper ─────────────────────────────────────── */
 function Svg({ d, size = 16 }: { d: string; size?: number }) {
@@ -29,6 +30,7 @@ const SVG = {
   logout:   '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
   close:    '<path d="M18 6 6 18M6 6l12 12"/>',
   help:     '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  present:  '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
 }
 
 interface HeaderProps {
@@ -142,6 +144,11 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
   const initial = (userName || 'A').trim().charAt(0).toUpperCase() || 'A'
   const roleLabel = userRole ? USER_ROLE_LABELS[userRole] : null
   const { state, dispatch, saveToServer, undo, redo, canUndo, canRedo } = useCadence()
+  // Phase 3 (roadmap v1), Mode présentation — bouton visible seulement sur les 4 pages
+  // présentables (voir PresentationModeContext.tsx), pour un compte déjà connecté.
+  const location = useLocation()
+  const presentation = usePresentationMode()
+  const canPresent = PRESENTATION_PAGES.includes(location.pathname as PresentationPage)
   const { openPanel: openOnboarding } = useOnboarding()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
@@ -255,6 +262,16 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
         {canAccessRoute(userRole, '/settings') && (
           <button className="hdr-btn" title="Reglages" data-testid="settings-shortcut" onClick={() => navigate('/settings')}>
             <Svg d={SVG.settings} />
+          </button>
+        )}
+
+        {/* Présenter — Phase 3 (roadmap v1), Mode présentation : visible seulement sur les 4
+            pages présentables (Dashboard/Roadmap/Vision/Sprint Review). Cache la Sidebar et
+            active la navigation clavier ←/→ entre ces 4 pages (voir PresentationModeContext.tsx,
+            AppShell dans App.tsx). */}
+        {canPresent && (
+          <button className="hdr-btn" title="Présenter" data-testid="presentation-enter" onClick={presentation.enter}>
+            <Svg d={SVG.present} />
           </button>
         )}
 

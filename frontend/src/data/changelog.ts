@@ -15,7 +15,20 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.95.4',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Invitation Stakeholder : poste et téléphone, lien révoqué détecté dès l\'arrivée sur la page',current:true,changes:[
+  {version:'v0.96.1',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 3 (roadmap v1) — Mode présentation : Backlog ajouté, page hors périmètre bloquée pendant le mode',current:true,changes:[
+    {tag:'feat', text:'Le Backlog rejoint la liste des pages présentables (Dashboard, Roadmap, Vision, Sprint Review, Backlog), sur demande de Julien après le 1er essai'},
+    {tag:'fix', text:'La Sidebar masquée ne suffisait pas à empêcher d\'atterrir sur une page non prévue pour le mode présentation (Réglages notamment) — une URL tapée directement, ou un lien resté cliquable ailleurs dans l\'interface, y menait quand même. Une navigation vers une page hors périmètre pendant le mode présentation redirige désormais vers la 1re page présentable, sans quitter le mode'},
+    {tag:'fix', text:'La page ne prenait pas toute la largeur de l\'écran en mode présentation depuis un compte connecté : un bandeau vide restait à gauche, là où la Sidebar était affichée (le correctif prévu n\'avait été appliqué qu\'à la vue du lien public)'},
+    {tag:'test', text:'`tests/presentation-mode.spec.js` complété : Backlog dans le périmètre, redirection hors périmètre pendant le mode présentation, bouclage de la navigation clavier mis à jour'},
+  ]},
+  {version:'v0.96',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 3 (roadmap v1) — Mode présentation : lien public sans compte, bouton "Présenter" pour un compte connecté',current:false,changes:[
+    {tag:'feat', text:'Nouveau mode présentation (Dashboard, Roadmap, Vision, Sprint Review) : sidebar masquée, navigation au clavier ← → entre ces 4 pages, sortie par Echap ou un bouton dédié'},
+    {tag:'feat', text:'Bouton "Présenter" dans le Header, visible sur ces 4 pages pour un compte déjà connecté — lance le mode présentation depuis son propre compte, par exemple pour animer une réunion'},
+    {tag:'feat', text:'Nouvelle section "Mode présentation" dans Réglages (réservée Admin + PO) : génère un lien public `/present/:token`, sans authentification, qui ouvre directement le mode présentation pour un visiteur externe ou un écran public. Un seul lien actif à la fois : régénérer invalide automatiquement le précédent'},
+    {tag:'chore', text:'Le lien public réutilise les vraies pages de l\'application (pas de vues "lecture seule" séparées à maintenir) : le visiteur y est traité comme un Stakeholder en lecture seule, exactement le même comportement que ce rôle a déjà partout ailleurs'},
+    {tag:'test', text:'Nouveau `tests/presentation-mode.spec.js` : génération/révocation du lien (Admin + PO, refusé aux autres rôles), accès public valide/invalide, navigation clavier (lien public et compte connecté), bouton "Présenter" limité aux 4 pages concernées'},
+  ]},
+  {version:'v0.95.4',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 2.5 (roadmap v1) — Invitation Stakeholder : poste et téléphone, lien révoqué détecté dès l\'arrivée sur la page',current:false,changes:[
     {tag:'feat', text:'Le formulaire d\'invitation Stakeholder demande désormais le poste dans l\'entreprise (requis) et un numéro de téléphone (facultatif) — le poste remplit le champ "Rôle" du Contact créé sur la fiche Client, jusqu\'ici toujours vide'},
     {tag:'feat', text:'Le numéro de téléphone est affichable et modifiable sur chaque Contact depuis la fiche Client (Réglages > Clients) — champ déjà présent dans le modèle de données mais jamais exposé dans l\'interface'},
     {tag:'fix', text:'Un lien d\'invitation révoqué restait affiché et remplissable : l\'erreur n\'apparaissait qu\'à la soumission (410). Une vérification est désormais faite dès l\'arrivée sur la page, qui masque le formulaire si le lien n\'est plus valide'},

@@ -339,15 +339,26 @@ interface StateContextValue {
    *  sans ce flag, ce choix se ferait sur les données de démo affichées le temps du chargement serveur,
    *  sans jamais se corriger ensuite (voir Chantier A, corrections.md). */
   stateLoaded: boolean
+  /** Phase 3 (roadmap v1), Mode présentation — true si `publicToken` a été fourni à `StateProvider`
+   *  et que le serveur l'a rejeté (404, lien jamais généré ou révoqué/régénéré depuis). Consulté par
+   *  `PresentationPublicPage.tsx` pour afficher "lien invalide" plutôt que le workspace de démo. */
+  presentationLinkInvalid: boolean
 }
 
 const StateContext = createContext<StateContextValue | null>(null)
 
-export function StateProvider({ children }: { children: ReactNode }) {
+// `publicToken` (Phase 3, Mode présentation) : quand fourni, ce Provider sert la vue publique du
+// lien de partage (PresentationPublicPage.tsx) plutôt qu'un compte connecté — chargement via la
+// route publique `GET /api/presentation/state/:token` (pas de JWT) au lieu de `GET /api/state`, et
+// aucune écriture possible (`saveToServer` devient un no-op : un visiteur du lien n'a de toute façon
+// aucune action de mutation exposée, `AuthOverrideProvider` lui impose le rôle STAKEHOLDER en lecture
+// seule, mais ce garde-fou reste utile en cas d'oubli d'un futur appelant).
+export function StateProvider({ children, publicToken }: { children: ReactNode; publicToken?: string }) {
   const [state, dispatch] = useReducer(reducer, DEMO_STATE)
   const [past, setPast] = useState<CadenceState[]>([])
   const [future, setFuture] = useState<CadenceState[]>([])
   const [stateLoaded, setStateLoaded] = useState(false)
+  const [presentationLinkInvalid, setPresentationLinkInvalid] = useState(false)
 
   // Apply theme on state change
   useEffect(() => {
@@ -442,28 +453,41 @@ export function StateProvider({ children }: { children: ReactNode }) {
   // d'appel (constaté 2026-07-22, voir docs/corrections.md).
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve())
   const saveToServer = useCallback((s: CadenceState) => {
+    // Mode présentation publique : aucune écriture possible pour un visiteur du lien (voir
+    // commentaire sur `StateProvider` ci-dessus) — no-op plutôt que d'appeler `putState` avec le
+    // token de présentation, qui ne serait de toute façon pas accepté par une route publique en
+    // lecture seule côté serveur.
+    if (publicToken) return Promise.resolve()
     const run = saveQueueRef.current
       .catch(() => { /* une sauvegarde précédente en échec ne doit pas bloquer les suivantes */ })
       .then(() => api.putState(s))
       .catch(() => { /* offline mode */ })
     saveQueueRef.current = run
     return run
-  }, [])
+  }, [publicToken])
 
   const loadFromServer = useCallback(async () => {
     try {
-      const { data } = await api.getState()
+      const { data } = publicToken ? await api.getPresentationState(publicToken) : await api.getState()
       if (data) dispatch({ type: 'SET_STATE', payload: data as CadenceState })
-    } catch { /* use demo data */ }
+    } catch {
+      // Phase 3, Mode présentation : un 404 (lien invalide/révoqué) doit être signalé, pas juste
+      // avalé comme le mode "offline" habituel (données de démo affichées silencieusement) — un
+      // visiteur externe qui ouvre un lien mort doit voir un message clair, pas le workspace de
+      // démonstration de quelqu'un d'autre.
+      if (publicToken) setPresentationLinkInvalid(true)
+      /* sinon, mode déconnecté normal : garder les données de démo */
+    }
     finally { setStateLoaded(true) }
-  }, [])
+  }, [publicToken])
 
-  // Charger depuis le serveur au démarrage si un token existe ; sinon, les données de
-  // démo sont déjà définitives — on peut considérer l'état chargé immédiatement.
+  // Charger depuis le serveur au démarrage : toujours en mode présentation publique (le token fait
+  // office d'autorisation, pas de JWT à vérifier) ; sinon seulement si un vrai token existe — sans
+  // token, les données de démo sont déjà définitives, l'état est considéré chargé immédiatement.
   useEffect(() => {
-    if (localStorage.getItem('cadence_token')) loadFromServer()
+    if (publicToken || localStorage.getItem('cadence_token')) loadFromServer()
     else setStateLoaded(true)
-  }, [loadFromServer])
+  }, [loadFromServer, publicToken])
 
   // Dispatch avec snapshot undo/redo
   const wrappedDispatch = useCallback((action: Action) => {
@@ -493,7 +517,8 @@ export function StateProvider({ children }: { children: ReactNode }) {
   return (
     <StateContext.Provider value={{
       state, dispatch: wrappedDispatch, saveToServer, loadFromServer,
-      undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, stateLoaded
+      undo, redo, canUndo: past.length > 0, canRedo: future.length > 0, stateLoaded,
+      presentationLinkInvalid,
     }}>
       {children}
     </StateContext.Provider>

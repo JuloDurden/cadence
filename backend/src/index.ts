@@ -7,6 +7,7 @@ import { stateRoutes } from './routes/state'
 import { usersRoutes } from './routes/users'
 import { invitationsRoutes } from './routes/invitations'
 import { onboardingRoutes } from './routes/onboarding'
+import { presentationRoutes } from './routes/presentation'
 
 const fastify = Fastify({ logger: true })
 
@@ -28,6 +29,7 @@ async function start() {
   await fastify.register(usersRoutes)
   await fastify.register(invitationsRoutes)
   await fastify.register(onboardingRoutes)
+  await fastify.register(presentationRoutes)
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 

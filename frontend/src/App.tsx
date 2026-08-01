@@ -24,6 +24,10 @@ import { DialogProvider } from './context/DialogContext'
 import { OnboardingProvider } from './context/OnboardingContext'
 import { OnboardingPanel } from './components/onboarding/OnboardingPanel'
 import { SpotlightHost } from './components/onboarding/Spotlight'
+import { PresentationModeProvider, usePresentationMode, PRESENTATION_PAGES } from './context/PresentationModeContext'
+import type { PresentationPage } from './context/PresentationModeContext'
+import { PresentationBar } from './components/presentation/PresentationBar'
+import { PresentationPublicPage } from './pages/PresentationPublicPage'
 import { useAuth } from './hooks/useAuth'
 import { useGlobalUndoRedoShortcut } from './hooks/useGlobalUndoRedoShortcut'
 import { canAccessRoute } from './utils/permissions'
@@ -39,6 +43,10 @@ function AppShell() {
   useGlobalUndoRedoShortcut({ undo, redo, canUndo, canRedo })
   const { userRole } = useAuth()
   const location = useLocation()
+  // Phase 3 (roadmap v1), Mode présentation — sidebar masquée tant que le mode est actif (bouton
+  // "Présenter" du Header, voir PresentationModeContext.tsx). Le contenu des pages reste identique,
+  // seule la navigation change (flèches clavier au lieu de la Sidebar, voir ce même contexte).
+  const { active: presentationActive } = usePresentationMode()
 
   // Phase 2.5 (roadmap v1) — verrouillage Stakeholder : certaines pages lui sont entièrement
   // interdites (voir `canAccessRoute`, utils/permissions.ts). Vérifié ici plutôt que route par
@@ -47,6 +55,15 @@ function AppShell() {
   // le reflet de cette règle, pas le seul rempart).
   if (!canAccessRoute(userRole, location.pathname)) {
     return <Navigate to="/dashboard" replace />
+  }
+
+  // Retour Julien (2026-08-01, capture d'écran à l'appui) : la Sidebar masquée ne suffit pas à
+  // empêcher d'atterrir sur une page non prévue pour le mode présentation (Réglages, Backlog avant
+  // son ajout à la liste, etc.) — une URL tapée directement, ou un lien resté cliquable ailleurs
+  // dans l'UI, y menait quand même. Redirige vers la 1re page présentable tant que le mode est
+  // actif, même logique que le garde-fou Stakeholder juste au-dessus.
+  if (presentationActive && !PRESENTATION_PAGES.includes(location.pathname as PresentationPage)) {
+    return <Navigate to={PRESENTATION_PAGES[0]} replace />
   }
 
   if (!stateLoaded) {
@@ -61,8 +78,8 @@ function AppShell() {
   }
 
   return (
-    <div className="app-shell">
-      <Sidebar />
+    <div className={`app-shell${presentationActive ? ' presentation-active' : ''}`}>
+      {!presentationActive && <Sidebar />}
       <div className="main-area">
         <Routes>
           <Route path="/backlog" element={<BacklogPage />} />
@@ -86,6 +103,7 @@ function AppShell() {
       </div>
       <OnboardingPanel />
       <SpotlightHost />
+      <PresentationBar />
     </div>
   )
 }
@@ -97,7 +115,9 @@ function AppLayout() {
     <TimerProvider>
       <StateProvider>
         <OnboardingProvider>
-          <AppShell />
+          <PresentationModeProvider>
+            <AppShell />
+          </PresentationModeProvider>
         </OnboardingProvider>
       </StateProvider>
     </TimerProvider>
@@ -116,6 +136,9 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Phase 3 (roadmap v1), Mode présentation — publique, hors ProtectedRoute : le token de
+            l'URL fait office d'autorisation (voir PresentationPublicPage.tsx), aucun compte requis. */}
+        <Route path="/present/:token" element={<PresentationPublicPage />} />
         <Route path="/*" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>

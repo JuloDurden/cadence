@@ -567,6 +567,16 @@ export interface Invitation {
   clientId: string | null
 }
 
+// Phase 3 (roadmap v1), Mode présentation — lien de partage public (sans authentification), voir
+// backend/src/routes/presentation.ts. Contrairement à Invitation, pas de `usedAt` : réutilisable,
+// pas à usage unique. Un seul lien actif à la fois dans ce prototype.
+export interface PresentationLink {
+  id: string
+  token: string
+  createdBy: string
+  createdAt: string
+}
+
 // ── Sprint Review ─────────────────────────────────────────────────────────────
 
 export type SRBadge = 'accepted' | 'refused' | 'pending'
