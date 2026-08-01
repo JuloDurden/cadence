@@ -67,7 +67,10 @@ test.describe('Phase 2 — rôles & gestion des utilisateurs', () => {
     await page.locator('[data-testid="new-user-name"]').fill('Nouvelle Recrue');
     await page.locator('[data-testid="new-user-email"]').fill('recrue@cadence.local');
     await page.locator('[data-testid="new-user-password"]').fill('motdepasse123');
-    await page.locator('[data-testid="new-user-role"]').selectOption('STAKEHOLDER');
+    // Verrouillage Stakeholder (2026-08-01) : STAKEHOLDER a été retiré de ce select (ce
+    // formulaire crée une fiche Équipe, jamais adaptée à un Stakeholder — voir
+    // UsersSettingsSection.tsx et tests/signup-invite.spec.js pour le chemin dédié).
+    await page.locator('[data-testid="new-user-role"]').selectOption('DEV');
     await page.locator('[data-testid="create-user-submit"]').click();
 
     await expect(page.locator('[data-testid="user-row-u-new"]')).toContainText('Nouvelle Recrue');

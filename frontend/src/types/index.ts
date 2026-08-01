@@ -180,6 +180,10 @@ export interface Absence {
 
 export interface Contact {
   id: string; name: string; role: string; email: string; phone?: string
+  // Phase 2.5 (roadmap v1), verrouillage Stakeholder — présent si ce contact est le pendant
+  // client d'un compte applicatif (Stakeholder invité, voir createLinkedClientContact côté
+  // backend), même principe que TeamMember.linkedUserId pour les rôles internes.
+  linkedUserId?: string
 }
 
 export interface Client {
@@ -545,6 +549,22 @@ export interface AuthUser {
 // utilisateurs, réservée Admin) — même forme qu'AuthUser, plus la date de création.
 export interface ManagedUser extends AuthUser {
   createdAt: string
+}
+
+// Phase 2.5 (roadmap v1), Onboarding — lien d'invitation Stakeholder généré par un Admin (voir
+// /api/invitations, UsersSettingsSection.tsx). `usedAt` null tant que le lien n'a pas été
+// complété (POST /api/auth/accept-invite).
+export interface Invitation {
+  id: string
+  token: string
+  createdBy: string
+  usedAt: string | null
+  createdAt: string
+  // Client auquel le futur Stakeholder sera rattaché comme Contact (voir accept-invite côté
+  // backend). Optionnel/nullable uniquement pour rester compatible avec une invitation créée
+  // avant ce champ (aucune en pratique, la seule existante est déjà utilisée) — toute nouvelle
+  // invitation en a toujours un (requis côté API, voir services/api.ts createInvitation).
+  clientId: string | null
 }
 
 // ── Sprint Review ─────────────────────────────────────────────────────────────

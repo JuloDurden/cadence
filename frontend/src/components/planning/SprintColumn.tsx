@@ -25,6 +25,11 @@ interface Props {
   onReopen: (sprintId: string) => void
   onDelete: (sprintId: string) => void
   onUpdateCapacity: (sprintId: string, capacity: number) => void
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Release Planning : masque le groupe
+  // de boutons de cycle de vie (Activer/Clôturer/Rouvrir/Supprimer) et rend dates/capacité non
+  // cliquables (simples valeurs affichées, plus d'édition inline). Les cartes restent consultables
+  // (lecture seule, voir PlanningCard/PlanningEpicGroup) et le drag est désactivé.
+  readOnly?: boolean
 }
 
 // ── Icônes Lucide inline ──────────────────────────────────────────────────
@@ -63,7 +68,7 @@ const BTN_DANGER_ICON: React.CSSProperties = {
 export function SprintColumn({
   sprint, items, state, isOver, isActive, highlightClient, highlightType,
   onDragStart, onDragGroup, onDragOver, onDrop, onEdit, onUpdateDates,
-  onActivate, onClose, onReopen, onDelete, onUpdateCapacity,
+  onActivate, onClose, onReopen, onDelete, onUpdateCapacity, readOnly = false,
 }: Props) {
   const [editDates, setEditDates] = useState(false)
   const [draftStart, setDraftStart] = useState(sprint.startDate)
@@ -165,7 +170,7 @@ export function SprintColumn({
           )}
         </div>
 
-        {/* Row 2 — status badge + action buttons */}
+        {/* Row 2 — status badge + action buttons (boutons masqués en lecture seule) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
           {sprint.closed ? (
             <>
@@ -174,7 +179,7 @@ export function SprintColumn({
                 padding: '1px 7px', borderRadius: 8, fontWeight: 700,
                 border: '1px solid #bbf7d0',
               }}>🔒 Clôturé</span>
-              <button style={BTN} onClick={() => onReopen(sprint.id)}>Rouvrir</button>
+              {!readOnly && <button style={BTN} onClick={() => onReopen(sprint.id)}>Rouvrir</button>}
             </>
           ) : isActive ? (
             <>
@@ -183,21 +188,23 @@ export function SprintColumn({
                 padding: '1px 7px', borderRadius: 8, fontWeight: 700,
                 border: '1px solid var(--primary)',
               }}>★ Actif</span>
-              <button style={BTN_DANGER} onClick={() => onClose(sprint.id)}>Clôturer</button>
+              {!readOnly && <button style={BTN_DANGER} onClick={() => onClose(sprint.id)}>Clôturer</button>}
             </>
           ) : (
             <>
-              <button style={BTN_PRIMARY} onClick={() => onActivate(sprint.id)}>▶ Activer</button>
-              <button style={BTN_DANGER_ICON} title="Supprimer le sprint" data-testid={`btn-delete-sprint-${sprint.id}`}
-                onClick={() => onDelete(sprint.id)}>
-                <Ico d={ICO_TRASH} size={11} />
-              </button>
+              {!readOnly && <button style={BTN_PRIMARY} onClick={() => onActivate(sprint.id)}>▶ Activer</button>}
+              {!readOnly && (
+                <button style={BTN_DANGER_ICON} title="Supprimer le sprint" data-testid={`btn-delete-sprint-${sprint.id}`}
+                  onClick={() => onDelete(sprint.id)}>
+                  <Ico d={ICO_TRASH} size={11} />
+                </button>
+              )}
             </>
           )}
         </div>
 
-        {/* Row 3 — dates */}
-        {editDates ? (
+        {/* Row 3 — dates (non éditables en lecture seule) */}
+        {editDates && !readOnly ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 5, flexWrap: 'wrap' }}>
             <input type="date" value={draftStart} onChange={e => handleStartChange(e.target.value)}
               style={{ fontSize: 11, border: '1px solid var(--border)', borderRadius: 4, padding: '2px 5px', background: 'var(--surface)', color: 'var(--text)' }} />
@@ -209,9 +216,9 @@ export function SprintColumn({
           </div>
         ) : (
           <span
-            onClick={openEditDates}
-            title="Cliquer pour modifier les dates"
-            style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            onClick={readOnly ? undefined : openEditDates}
+            title={readOnly ? undefined : 'Cliquer pour modifier les dates'}
+            style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, cursor: readOnly ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
           >
             <Ico d={ICO_CALENDAR} size={11} style={{ color: 'var(--text-muted)' }} />
             {sprint.startDate && sprint.endDate
@@ -223,14 +230,14 @@ export function SprintColumn({
                 -{holidays.length}j
               </span>
             )}
-            <Ico d={ICO_PENCIL} size={10} style={{ color: 'var(--text-faint)', marginLeft: 1 }} />
+            {!readOnly && <Ico d={ICO_PENCIL} size={10} style={{ color: 'var(--text-faint)', marginLeft: 1 }} />}
           </span>
         )}
 
         {/* Row 4 — capacity */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
           <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Cap. max :</span>
-          {editCap ? (
+          {editCap && !readOnly ? (
             <input
               type="number" min={0} step={5}
               value={draftCap}
@@ -246,9 +253,9 @@ export function SprintColumn({
             />
           ) : (
             <span
-              onClick={() => { setDraftCap(String(sprint.capacity)); setEditCap(true) }}
-              title="Cliquer pour modifier la capacité"
-              style={{ fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '1px 4px', borderRadius: 4, border: '1px solid transparent' }}
+              onClick={readOnly ? undefined : () => { setDraftCap(String(sprint.capacity)); setEditCap(true) }}
+              title={readOnly ? undefined : 'Cliquer pour modifier la capacité'}
+              style={{ fontSize: 11, fontWeight: 700, cursor: readOnly ? 'default' : 'pointer', padding: '1px 4px', borderRadius: 4, border: '1px solid transparent' }}
             >
               {sprint.capacity}
             </span>
@@ -347,6 +354,7 @@ export function SprintColumn({
                 onEdit={onEdit}
                 onDragGroup={ids => onDragGroup(ids)}
                 onDragItem={id  => onDragStart(id)}
+                readOnly={readOnly}
               />
             ))}
             {standalone.map(item => (
@@ -359,6 +367,7 @@ export function SprintColumn({
                 sprintEndDate={sprint.endDate}
                 onEdit={onEdit}
                 onDragStart={onDragStart}
+                readOnly={readOnly}
               />
             ))}
             {isEmpty && !sprint.closed && (

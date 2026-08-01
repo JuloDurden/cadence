@@ -7,6 +7,10 @@ interface Props {
   sprintId: string
   onEdit: (item: Item) => void
   onUpdateItem: (item: Item) => void
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Sprint Planning : les cartes
+  // restent cliquables (ouvrent l'item en lecture seule) mais ne sont plus draggables, et
+  // les colonnes ne réagissent plus au drop. Défaut `false` : comportement inchangé.
+  readOnly?: boolean
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
@@ -25,18 +29,18 @@ function initials(name: string) {
 
 // ── Carte item non-attribué ───────────────────────────────────────────────
 interface UItemProps {
-  item: Item; state: CadenceState; dragging: boolean
+  item: Item; state: CadenceState; dragging: boolean; readOnly?: boolean
   onDragStart: () => void; onDragEnd: () => void; onEdit: (i: Item) => void
 }
-function UnassignedCard({ item, state, dragging, onDragStart, onDragEnd, onEdit }: UItemProps) {
+function UnassignedCard({ item, state, dragging, readOnly = false, onDragStart, onDragEnd, onEdit }: UItemProps) {
   const client = state.clients.find(c => c.id === item.clientId)
   const pCol   = PRIORITY_COLOR[item.priority ?? 'low'] ?? '#6b7280'
 
   return (
     <div
       className="sp-uitem"
-      draggable
-      onDragStart={onDragStart}
+      draggable={!readOnly}
+      onDragStart={readOnly ? undefined : onDragStart}
       onDragEnd={onDragEnd}
       onClick={() => onEdit(item)}
       style={{
@@ -94,11 +98,11 @@ function UnassignedCard({ item, state, dragging, onDragStart, onDragEnd, onEdit 
 
 // ── Ligne item dans la card membre ────────────────────────────────────────
 interface MemberItemRowProps {
-  item: Item; mySP: number; over: boolean; co?: boolean; dragging: boolean
+  item: Item; mySP: number; over: boolean; co?: boolean; dragging: boolean; readOnly?: boolean
   team: TeamMember[]
   onDragStart: () => void; onDragEnd: () => void; onEdit: (i: Item) => void
 }
-function MemberItemRow({ item, mySP, over, co = false, dragging, team, onDragStart, onDragEnd, onEdit }: MemberItemRowProps) {
+function MemberItemRow({ item, mySP, over, co = false, dragging, readOnly = false, team, onDragStart, onDragEnd, onEdit }: MemberItemRowProps) {
   const pCol        = PRIORITY_COLOR[item.priority ?? 'low'] ?? '#6b7280'
   const coAssignees = !co && item.assignees.length > 1
     ? item.assignees.slice(1).map(id => team.find(m => m.id === id)).filter(Boolean) as TeamMember[]
@@ -107,8 +111,8 @@ function MemberItemRow({ item, mySP, over, co = false, dragging, team, onDragSta
   return (
     <div
       className={`sp-member-item${co ? ' sp-member-item-co' : ''}`}
-      draggable
-      onDragStart={onDragStart}
+      draggable={!readOnly}
+      onDragStart={readOnly ? undefined : onDragStart}
       onDragEnd={onDragEnd}
       onClick={() => onEdit(item)}
       style={{ opacity: dragging ? 0.35 : 1 }}
@@ -166,7 +170,7 @@ function MemberItemRow({ item, mySP, over, co = false, dragging, team, onDragSta
 }
 
 // ── Vue principale ────────────────────────────────────────────────────────
-export function GanttView({ state, sprintId, onEdit, onUpdateItem }: Props) {
+export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = false }: Props) {
   const [dragId,  setDragId]  = useState<string | null>(null)
   const [dropCol, setDropCol] = useState<string | null>(null)
 
@@ -175,6 +179,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem }: Props) {
   const unassigned  = sprintItems.filter(i => i.assignees.length === 0)
 
   function drop(colId: string) {
+    if (readOnly) return
     if (!dragId) return
     setDropCol(null)
     const item = state.items.find(i => i.id === dragId)
@@ -194,7 +199,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem }: Props) {
       {/* ── Panneau gauche : items non-attribués ─────────────────────────── */}
       <div
         className={`sp-left${dropCol === 'unassigned' ? ' sp-left-drop' : ''}`}
-        onDragOver={e => { e.preventDefault(); setDropCol('unassigned') }}
+        onDragOver={e => { e.preventDefault(); if (!readOnly) setDropCol('unassigned') }}
         onDragLeave={() => setDropCol(null)}
         onDrop={() => drop('unassigned')}
       >
@@ -209,6 +214,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem }: Props) {
             <UnassignedCard
               key={item.id} item={item} state={state}
               dragging={dragId === item.id}
+              readOnly={readOnly}
               onDragStart={() => setDragId(item.id)}
               onDragEnd={() => setDragId(null)}
               onEdit={onEdit}
@@ -238,7 +244,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem }: Props) {
               <div
                 key={member.id}
                 className={`sp-member-card${dropCol === member.id ? ' sp-col-drop' : ''}`}
-                onDragOver={e => { e.preventDefault(); setDropCol(member.id) }}
+                onDragOver={e => { e.preventDefault(); if (!readOnly) setDropCol(member.id) }}
                 onDragLeave={() => setDropCol(null)}
                 onDrop={() => drop(member.id)}
               >
@@ -291,6 +297,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem }: Props) {
                       mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
                       over={over} co={false} team={state.team}
                       dragging={dragId === item.id}
+                      readOnly={readOnly}
                       onDragStart={() => setDragId(item.id)}
                       onDragEnd={() => setDragId(null)}
                       onEdit={onEdit}
@@ -308,6 +315,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem }: Props) {
                           mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
                           over={over} co={true} team={state.team}
                           dragging={dragId === item.id}
+                          readOnly={readOnly}
                           onDragStart={() => setDragId(item.id)}
                           onDragEnd={() => setDragId(null)}
                           onEdit={onEdit}

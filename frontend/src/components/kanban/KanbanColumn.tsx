@@ -25,6 +25,8 @@ interface Props {
   onDeleteCol:        (colId: string)  => void
   onEdit:             (item: Item)     => void
   onRemoveFromSprint: (id: string)     => void
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Kanban. Défaut `false`.
+  readOnly?: boolean
 }
 
 function Ico({ d, size = 14, stroke = 'currentColor' }: { d: string; size?: number; stroke?: string }) {
@@ -43,7 +45,7 @@ const ICO = {
 export function KanbanColumn({
   col, items, state, isBase, reorgMode, isDragOver,
   onCardDragStart, onColDragStart, onDragOver, onDrop,
-  onDeleteCol, onEdit, onRemoveFromSprint,
+  onDeleteCol, onEdit, onRemoveFromSprint, readOnly = false,
 }: Props) {
   // Nombre de squelettes en mode Réorganiser : indépendant du nombre d'items réels de la
   // colonne (docs/corrections futures.md, Kanban — "pas juste celles existantes"), calé sur
@@ -64,15 +66,15 @@ export function KanbanColumn({
   return (
     <div
       className={`kanban-col${isDragOver ? ' kanban-col-over' : ''}`}
-      onDragOver={e => { e.preventDefault(); onDragOver(col.id) }}
-      onDrop={e => { e.preventDefault(); onDrop(col.id) }}
+      onDragOver={e => { e.preventDefault(); if (!readOnly) onDragOver(col.id) }}
+      onDrop={e => { e.preventDefault(); if (!readOnly) onDrop(col.id) }}
     >
       {/* Header */}
       <div
         className={`kanban-col-header${reorgMode ? ' reorg-active' : ''}`}
         style={{ background: col.color + '22', borderBottom: `2px solid ${col.color}44` }}
-        draggable={reorgMode}
-        onDragStart={e => { if (reorgMode) { e.stopPropagation(); onColDragStart(col.id) } }}
+        draggable={reorgMode && !readOnly}
+        onDragStart={e => { if (reorgMode && !readOnly) { e.stopPropagation(); onColDragStart(col.id) } }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {reorgMode && <Ico d={ICO.grip} size={13} stroke={col.color} />}
@@ -87,7 +89,7 @@ export function KanbanColumn({
           >
             {items.length}
           </span>
-          {reorgMode && !isBase && (
+          {reorgMode && !isBase && !readOnly && (
             <button
               onClick={() => onDeleteCol(col.id)}
               title="Supprimer la colonne"
@@ -116,10 +118,11 @@ export function KanbanColumn({
               item={item}
               state={state}
               colColor={col.color}
-              cardDraggable={!reorgMode}
+              cardDraggable={!reorgMode && !readOnly}
               onEdit={onEdit}
               onRemoveFromSprint={onRemoveFromSprint}
               onDragStart={onCardDragStart}
+              readOnly={readOnly}
             />
           ))}
         {!reorgMode && items.length === 0 && (

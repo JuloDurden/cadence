@@ -13,6 +13,7 @@ import { getCurrentSprint, reportableSprintsExcluding, nextReportableSprint, las
 import { buildItemsFirstHierarchy, getHierarchyNodeSP } from '../utils/hierarchyScore'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
+import { isReadOnlyForRole } from '../utils/permissions'
 
 // ── SVG icon paths ─────────────────────────────────────────────────────────────
 const ICO = {
@@ -114,7 +115,9 @@ function sprintDeliveredSP(sprint: Sprint, items: Item[], doneCols: string[]): n
 // ── Main page ──────────────────────────────────────────────────────────────────
 export function SprintReviewPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
-  const { userName, userId } = useAuth()
+  const { userName, userId, userRole } = useAuth()
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Sprint Review.
+  const readOnly = isReadOnlyForRole(userRole)
 
   // Chantier G (2026-07-23) : modale d'édition d'item, ouverte depuis une décision "Reprioriser"
   // (Décisions backlog) ou "Redimensionner" (Non terminé) — réutilise l'ItemModal existante du
@@ -217,6 +220,7 @@ export function SprintReviewPage() {
     : timebox + 'min'
 
   function save(updated: SprintReviewSession) {
+    if (readOnly) return
     dispatch({ type: 'UPSERT_SR_SESSION', payload: updated })
     saveToServer({ ...state, sprintReviewSessions: [...(state.sprintReviewSessions ?? []).filter(s => s.id !== updated.id), updated] })
   }
@@ -271,10 +275,12 @@ export function SprintReviewPage() {
   // (bug de perte de contenu constaté et corrigé le 2026-07-22, voir docs/corrections.md).
   // La persistance serveur est assurée par l'effet debouncé ci-dessous, pas ici.
   function updateItemRecord(patch: Partial<SRItemRecord> & { itemId: string }) {
+    if (readOnly) return
     const { itemId, ...rest } = patch
     dispatch({ type: 'UPDATE_SR_ITEM_RECORD', payload: { sessionDefaults: session, itemId, patch: rest } })
   }
   function updateUnfinished(patch: Partial<SRUnfinishedRecord> & { itemId: string }) {
+    if (readOnly) return
     const { itemId, ...rest } = patch
     dispatch({ type: 'UPDATE_SR_UNFINISHED_RECORD', payload: { sessionDefaults: session, itemId, patch: rest } })
   }
@@ -285,13 +291,16 @@ export function SprintReviewPage() {
   // (constaté 2026-07-22 : une décision ajoutée effaçait la précédente de l'affichage). La fusion
   // se fait maintenant dans le reducer, comme pour Note PO/Raison/Notes.
   function addDecision(d: SRDecision) {
+    if (readOnly) return
     dispatch({ type: 'ADD_SR_DECISION', payload: { sessionDefaults: session, decision: d } })
   }
   function removeDecision(id: string) {
+    if (readOnly) return
     dispatch({ type: 'DELETE_SR_DECISION', payload: { sessionDefaults: session, decisionId: id } })
   }
 
   function applyNewItem(decision: SRDecision) {
+    if (readOnly) return
     const item: Item = {
       id: uid(),
       key: 'SR-' + Date.now().toString(36).toUpperCase(),
@@ -312,6 +321,7 @@ export function SprintReviewPage() {
   // faire passer l'item en Epic pour le scinder en plusieurs items plus petits (déjà supporté
   // par l'ItemModal via son sélecteur de type + champ "Epic parent", aucun flux à recoder ici).
   function openReprioritizeModal(decision: SRDecision) {
+    if (readOnly) return
     const item = decision.itemId ? state.items.find(i => i.id === decision.itemId) : undefined
     if (!item) return
     setModalOrigin({ kind: 'decision', decisionId: decision.id })
@@ -320,6 +330,7 @@ export function SprintReviewPage() {
 
   // Chantier G : ouvre la même ItemModal pour la décision "Redimensionner" (Non terminé).
   function openResizeModal(item: Item) {
+    if (readOnly) return
     setModalOrigin({ kind: 'unfinished', itemId: item.id })
     setModalItem(item)
   }
@@ -327,6 +338,7 @@ export function SprintReviewPage() {
   // Sauvegarde depuis l'ItemModal (mêmes helpers que KanbanPage/BacklogPage) — en plus, si la
   // modale a été ouverte depuis une décision Sprint Review, la marque comme appliquée.
   function handleItemModalSave(item: Item, keyCounters?: Record<string, number>) {
+    if (readOnly) { setModalItem(undefined); setModalOrigin(null); return }
     const exists = !!state.items.find(i => i.id === item.id)
     dispatch(exists ? { type: 'UPDATE_ITEM', payload: item } : { type: 'ADD_ITEM', payload: item, keyCounters })
     const nextItems = exists ? state.items.map(i => i.id === item.id ? item : i) : [...state.items, item]
@@ -349,6 +361,7 @@ export function SprintReviewPage() {
   // marquer le SRUnfinishedRecord comme "appliqué" (garde-fou utilisé par closeSprint(), voir
   // utils/sprintLifecycle.ts). "Redimensionner" est géré séparément via l'ItemModal (openResizeModal).
   function applyCancel(item: Item) {
+    if (readOnly) return
     const record = getUnfinished(item.id)
     const reason = record.reason.trim()
     const updatedItem: Item = { ...item, status: 'cancelled', sprintId: null }
@@ -389,6 +402,7 @@ export function SprintReviewPage() {
   }
 
   function applyReport(item: Item, targetSprintId: string | null) {
+    if (readOnly) return
     const updatedItem: Item = { ...item, sprintId: targetSprintId }
     dispatch({ type: 'UPDATE_ITEM', payload: updatedItem })
     dispatch({
@@ -415,15 +429,18 @@ export function SprintReviewPage() {
   }
 
   function addNote() {
+    if (readOnly) return
     const note: SRNote = { id: uid(), text: '', createdAt: new Date().toISOString() }
     dispatch({ type: 'ADD_SR_NOTE', payload: { sessionDefaults: session, note } })
   }
   // Même piège que Note PO / Raison ci-dessus : le texte d'une note globale est édité frappe
   // par frappe, donc la fusion se fait dans le reducer (UPDATE_SR_NOTE), pas ici.
   function updateNote(id: string, patch: Partial<SRNote>) {
+    if (readOnly) return
     dispatch({ type: 'UPDATE_SR_NOTE', payload: { sessionDefaults: session, noteId: id, patch } })
   }
   function deleteNote(id: string) {
+    if (readOnly) return
     dispatch({ type: 'DELETE_SR_NOTE', payload: { sessionDefaults: session, noteId: id } })
   }
 
@@ -433,6 +450,7 @@ export function SprintReviewPage() {
   // été garantie persistée avant qu'une autre action ne déclenche un save à jour (même bug
   // de persistance que celui trouvé et corrigé sur la Rétrospective, voir corrections.md).
   function handleArchive() {
+    if (readOnly) return
     const arc: SprintReviewArchive = {
       id: uid(), date: new Date().toISOString().slice(0, 10),
       sprintId: sprint?.id, sprintLabel: sprint?.label,
@@ -468,6 +486,7 @@ export function SprintReviewPage() {
   }
 
   function handleDeleteArchive(id: string) {
+    if (readOnly) return
     const archive = state.sprintReviewArchives?.find(a => a.id === id)
     dispatch({ type: 'DELETE_SR_ARCHIVE', payload: id })
     const historyEntry: HistoryEntry = {
@@ -505,6 +524,7 @@ export function SprintReviewPage() {
         onToggleBadge={() => updateItemRecord({ itemId: item.id, badge: nextBadge(rec.badge) })}
         onToggleDemo={() => updateItemRecord({ itemId: item.id, toDemo: !rec.toDemo })}
         onNoteChange={note => updateItemRecord({ itemId: item.id, note })}
+        readOnly={readOnly}
       />
     )
     return indent === 0 ? row : (
@@ -552,9 +572,11 @@ export function SprintReviewPage() {
           </span>
         )}
 
-        <button className="hdr-btn" title="Archiver cette Sprint Review" onClick={handleArchive}>
-          <Ico d={ICO.archive} />
-        </button>
+        {!readOnly && (
+          <button className="hdr-btn" title="Archiver cette Sprint Review" onClick={handleArchive}>
+            <Ico d={ICO.archive} />
+          </button>
+        )}
       </Header>
 
       <div className="page-content">
@@ -571,6 +593,7 @@ export function SprintReviewPage() {
                 style={{ ...INPUT_STYLE, fontSize: 13 }}
                 value={session.date}
                 onChange={e => save({ ...session, date: e.target.value })}
+                disabled={readOnly}
               />
               {timebox > 0 && (
                 <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -589,6 +612,7 @@ export function SprintReviewPage() {
               team={state.team}
               clients={state.clients}
               onSave={save}
+              readOnly={readOnly}
             />
           </div>
         </div>
@@ -698,6 +722,7 @@ export function SprintReviewPage() {
                     onApplyCancel={() => applyCancel(item)}
                     onApplyReport={targetSprintId => applyReport(item, targetSprintId)}
                     onOpenResize={() => openResizeModal(item)}
+                    readOnly={readOnly}
                   />
                 )
               })}
@@ -753,7 +778,7 @@ export function SprintReviewPage() {
               <CountBadge n={session.decisions.length} />
             </div>
             {/* Bouton "Ajouter" dans le header */}
-            {!showDecisionForm && (
+            {!showDecisionForm && !readOnly && (
               <button
                 style={{ fontSize: 12, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--primary)', background: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0 }}
                 onClick={e => { e.stopPropagation(); setShowDecisionForm(true); setShowDecisions(true) }}
@@ -779,10 +804,11 @@ export function SprintReviewPage() {
                   onApplyNew={() => applyNewItem(d)}
                   onReprioritize={() => openReprioritizeModal(d)}
                   onDelete={() => removeDecision(d.id)}
+                  readOnly={readOnly}
                 />
               ))}
 
-              {showDecisionForm && (
+              {showDecisionForm && !readOnly && (
                 <DecisionForm
                   items={state.items}
                   doneCols={doneCols}
@@ -807,13 +833,15 @@ export function SprintReviewPage() {
               <span style={{ fontSize: 13, fontWeight: 600 }}>Notes globales</span>
               {(session.notes ?? []).length > 0 && <CountBadge n={(session.notes ?? []).length} />}
             </div>
-            <button
-              style={{ fontSize: 12, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0 }}
-              onClick={e => { e.stopPropagation(); addNote(); setShowNotes(true) }}
-            >
-              <Ico d={ICO.plus} size={12} />
-              Ajouter une note
-            </button>
+            {!readOnly && (
+              <button
+                style={{ fontSize: 12, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0 }}
+                onClick={e => { e.stopPropagation(); addNote(); setShowNotes(true) }}
+              >
+                <Ico d={ICO.plus} size={12} />
+                Ajouter une note
+              </button>
+            )}
           </div>
           {showNotes && (
             <div style={{ padding: '8px 0' }}>
@@ -829,6 +857,7 @@ export function SprintReviewPage() {
                   items={state.items}
                   onChange={patch => updateNote(note.id, patch)}
                   onDelete={() => deleteNote(note.id)}
+                  readOnly={readOnly}
                 />
               ))}
             </div>
@@ -860,6 +889,7 @@ export function SprintReviewPage() {
                 items={state.items}
                 team={state.team}
                 clients={state.clients}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -874,6 +904,8 @@ export function SprintReviewPage() {
           onSave={handleItemModalSave}
           onClose={() => { setModalItem(undefined); setModalOrigin(null) }}
           currentUserId={userId}
+          canManage={!readOnly}
+          canOperate={!readOnly}
         />
       )}
     </>
@@ -884,11 +916,12 @@ export function SprintReviewPage() {
 
 // ── ParticipantsPanel ─────────────────────────────────────────────────────────
 
-function ParticipantsPanel({ session, team, clients, onSave }: {
+function ParticipantsPanel({ session, team, clients, onSave, readOnly = false }: {
   session: SprintReviewSession
   team: TeamMember[]
   clients: Client[]
   onSave: (s: SprintReviewSession) => void
+  readOnly?: boolean
 }) {
   const [search, setSearch]         = useState('')
   const [showDrop, setShowDrop]     = useState(false)
@@ -995,6 +1028,7 @@ function ParticipantsPanel({ session, team, clients, onSave }: {
       </div>
 
       {/* ── Single search input ── */}
+      {!readOnly && (
       <div ref={dropRef} style={{ position: 'relative', marginBottom: hasSelected ? 12 : 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', border: `1px solid ${inputFocused ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 6, background: 'var(--surface)', boxShadow: inputFocused ? '0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent)' : 'none', transition: 'border-color 0.15s, box-shadow 0.15s' }}>
           <span style={{ padding: '0 8px', color: inputFocused ? 'var(--primary)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', flexShrink: 0, transition: 'color 0.15s' }}>
@@ -1084,6 +1118,7 @@ function ParticipantsPanel({ session, team, clients, onSave }: {
           </div>
         )}
       </div>
+      )}
 
       {/* ── 3 colonnes : Équipe | Contacts | Autres ── */}
       {hasSelected && (
@@ -1099,10 +1134,12 @@ function ParticipantsPanel({ session, team, clients, onSave }: {
                     <div style={{ width: 34, height: 34, borderRadius: '50%', border: '2px solid var(--primary)', background: 'color-mix(in srgb, var(--primary) 15%, var(--surface))', color: 'var(--primary)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                       {member.photo ? <img src={member.photo} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials(member.name)}
                     </div>
-                    <button onClick={() => removeTeam(member.id)} title={`Retirer ${member.name}`}
-                      style={{ position: 'absolute', top: -3, right: -3, width: 15, height: 15, borderRadius: '50%', background: 'var(--danger)', border: '1px solid var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                      <Ico d={ICO.x} size={8} stroke="#fff" />
-                    </button>
+                    {!readOnly && (
+                      <button onClick={() => removeTeam(member.id)} title={`Retirer ${member.name}`}
+                        style={{ position: 'absolute', top: -3, right: -3, width: 15, height: 15, borderRadius: '50%', background: 'var(--danger)', border: '1px solid var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                        <Ico d={ICO.x} size={8} stroke="#fff" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1128,9 +1165,11 @@ function ParticipantsPanel({ session, team, clients, onSave }: {
                     <div key={contact.id} style={{ display: 'flex', alignItems: 'center', gap: 5, paddingLeft: 14, marginBottom: 2 }}>
                       <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{contact.name}</span>
                       {contact.role && <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{contact.role}</span>}
-                      <button style={{ ...ICON_BTN, padding: '1px 3px', flexShrink: 0 }} onClick={() => removeContact(contact.id)} title="Retirer">
-                        <Ico d={ICO.x} size={10} />
-                      </button>
+                      {!readOnly && (
+                        <button style={{ ...ICON_BTN, padding: '1px 3px', flexShrink: 0 }} onClick={() => removeContact(contact.id)} title="Retirer">
+                          <Ico d={ICO.x} size={10} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1155,9 +1194,11 @@ function ParticipantsPanel({ session, team, clients, onSave }: {
                   <div key={other.id} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
                     <span style={{ fontSize: 12, color: 'var(--text)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
                     {role && <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{role}</span>}
-                    <button style={{ ...ICON_BTN, padding: '1px 3px', flexShrink: 0 }} onClick={() => removeOther(other.id)} title="Retirer">
-                      <Ico d={ICO.x} size={10} />
-                    </button>
+                    {!readOnly && (
+                      <button style={{ ...ICON_BTN, padding: '1px 3px', flexShrink: 0 }} onClick={() => removeOther(other.id)} title="Retirer">
+                        <Ico d={ICO.x} size={10} />
+                      </button>
+                    )}
                   </div>
                 )
               })}
@@ -1345,12 +1386,13 @@ function DeliveredGroupHeader({ node, typeTag, sp, count, indent = 0 }: {
   )
 }
 
-function DeliveredItemRow({ item, record, onToggleBadge, onToggleDemo, onNoteChange }: {
+function DeliveredItemRow({ item, record, onToggleBadge, onToggleDemo, onNoteChange, readOnly = false }: {
   item: Item
   record: SRItemRecord
   onToggleBadge: () => void
   onToggleDemo: () => void
   onNoteChange: (note: string) => void
+  readOnly?: boolean
 }) {
   const [note, setNote, onNoteBlur] = useDebouncedInput(record.note, onNoteChange)
   return (
@@ -1360,16 +1402,16 @@ function DeliveredItemRow({ item, record, onToggleBadge, onToggleDemo, onNoteCha
         <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 120 }}>{item.desc}</span>
         <ItemMetaBadges item={item} />
         <button
-          style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+          style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, border: 'none', cursor: readOnly ? 'default' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
             background: record.toDemo ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'var(--border)',
             color: record.toDemo ? 'var(--primary)' : 'var(--text-muted)',
             fontWeight: record.toDemo ? 600 : 400 }}
-          onClick={onToggleDemo}
+          onClick={readOnly ? undefined : onToggleDemo}
         >À démontrer</button>
         <button
-          style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+          style={{ fontSize: 11, padding: '2px 10px', borderRadius: 20, border: 'none', cursor: readOnly ? 'default' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
             background: BADGE_BG[record.badge], color: BADGE_COLOR[record.badge], fontWeight: 500 }}
-          onClick={onToggleBadge}
+          onClick={readOnly ? undefined : onToggleBadge}
         >{BADGE_LABEL[record.badge]}</button>
       </div>
       {/* Row 2: Note PO */}
@@ -1379,6 +1421,7 @@ function DeliveredItemRow({ item, record, onToggleBadge, onToggleDemo, onNoteCha
         value={note}
         onChange={e => setNote(e.target.value)}
         onBlur={onNoteBlur}
+        disabled={readOnly}
       />
     </div>
   )
@@ -1390,7 +1433,7 @@ const REPORT_LATER = '__later__'
 
 function UnfinishedItemRow({
   item, sprints, currentSprintId, record,
-  onReasonChange, onDecisionChange, onApplyCancel, onApplyReport, onOpenResize,
+  onReasonChange, onDecisionChange, onApplyCancel, onApplyReport, onOpenResize, readOnly = false,
 }: {
   item: Item
   sprints: Sprint[]
@@ -1401,6 +1444,7 @@ function UnfinishedItemRow({
   onApplyCancel: () => void
   onApplyReport: (targetSprintId: string | null) => void
   onOpenResize: () => void
+  readOnly?: boolean
 }) {
   const [reason, setReason, onReasonBlur] = useDebouncedInput(record.reason, onReasonChange)
 
@@ -1432,19 +1476,22 @@ function UnfinishedItemRow({
           value={reason}
           onChange={e => setReason(e.target.value)}
           onBlur={onReasonBlur}
+          disabled={readOnly}
         />
         <select
-          style={{ ...INPUT_STYLE, flexShrink: 0, cursor: 'pointer' }}
+          style={{ ...INPUT_STYLE, flexShrink: 0, cursor: readOnly ? 'default' : 'pointer' }}
           value={record.decision}
           onChange={e => onDecisionChange(e.target.value as SRUnfinishedDecision)}
+          disabled={readOnly}
         >
           <option value="report">Reporter</option>
           <option value="cancel">Annuler</option>
           <option value="resize">Redimensionner</option>
         </select>
       </div>
-      {/* Row 3 (Chantier G) : application réelle de la décision sur l'item */}
-      {!applied && record.decision === 'report' && (
+      {/* Row 3 (Chantier G) : application réelle de la décision sur l'item — masquée en
+          lecture seule (Stakeholder), voir readOnly plus haut. */}
+      {!readOnly && !applied && record.decision === 'report' && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
           <select
             style={{ ...INPUT_STYLE, flex: 1, minWidth: 0, cursor: 'pointer' }}
@@ -1469,12 +1516,12 @@ function UnfinishedItemRow({
           </button>
         </div>
       )}
-      {!applied && record.decision === 'cancel' && (
+      {!readOnly && !applied && record.decision === 'cancel' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
           <button className="btn-sm btn-primary" onClick={onApplyCancel}>Appliquer</button>
         </div>
       )}
-      {!applied && record.decision === 'resize' && (
+      {!readOnly && !applied && record.decision === 'resize' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
           <button className="btn-sm btn-primary" onClick={onOpenResize}>Modifier l'item…</button>
         </div>
@@ -1500,7 +1547,7 @@ const TYPE_TEXT: Record<string, string> = {
   reprioritize: 'var(--warning, #b45309)',
 }
 
-function DecisionRow({ decision, linkedItem, onApplyNew, onReprioritize, onDelete }: {
+function DecisionRow({ decision, linkedItem, onApplyNew, onReprioritize, onDelete, readOnly = false }: {
   decision: SRDecision
   // Chantier G (2026-07-23) : item réellement ciblé par une décision "Reprioriser" — affiché
   // pour que le PO puisse le retrouver dans le Backlog (clé jusqu'ici absente de cette ligne,
@@ -1509,6 +1556,7 @@ function DecisionRow({ decision, linkedItem, onApplyNew, onReprioritize, onDelet
   onApplyNew: () => void
   onReprioritize: () => void
   onDelete: () => void
+  readOnly?: boolean
 }) {
   return (
     <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1524,13 +1572,13 @@ function DecisionRow({ decision, linkedItem, onApplyNew, onReprioritize, onDelet
           {decision.sp} SP
         </span>
       )}
-      {!decision.applied && decision.type === 'new-item' && (
+      {!readOnly && !decision.applied && decision.type === 'new-item' && (
         <button
           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--primary)', background: 'none', color: 'var(--primary)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
           onClick={onApplyNew}
         >→ Backlog</button>
       )}
-      {!decision.applied && decision.type === 'reprioritize' && linkedItem && (
+      {!readOnly && !decision.applied && decision.type === 'reprioritize' && linkedItem && (
         <button
           style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--primary)', background: 'none', color: 'var(--primary)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
           onClick={onReprioritize}
@@ -1541,9 +1589,11 @@ function DecisionRow({ decision, linkedItem, onApplyNew, onReprioritize, onDelet
           <Ico d={ICO.check} size={12} stroke="var(--success)" /> {decision.type === 'new-item' ? 'Créé' : 'Modifié'}
         </span>
       )}
-      <button style={{ ...ICON_BTN, color: 'var(--danger)' }} onClick={onDelete} title="Supprimer">
-        <Ico d={ICO.trash} size={13} />
-      </button>
+      {!readOnly && (
+        <button style={{ ...ICON_BTN, color: 'var(--danger)' }} onClick={onDelete} title="Supprimer">
+          <Ico d={ICO.trash} size={13} />
+        </button>
+      )}
     </div>
   )
 }
@@ -1707,11 +1757,12 @@ function DecisionForm({ items, doneCols, sprintId, onAdd, onCancel }: {
   )
 }
 
-function NoteRow({ note, items, onChange, onDelete }: {
+function NoteRow({ note, items, onChange, onDelete, readOnly = false }: {
   note: SRNote
   items: Item[]
   onChange: (patch: Partial<SRNote>) => void
   onDelete: () => void
+  readOnly?: boolean
 }) {
   const [showLink, setShowLink] = useState(false)
   const [search, setSearch]     = useState('')
@@ -1742,6 +1793,7 @@ function NoteRow({ note, items, onChange, onDelete }: {
         value={text}
         onChange={e => setText(e.target.value)}
         onBlur={onTextBlur}
+        disabled={readOnly}
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
         {/* Linked item badge */}
@@ -1749,11 +1801,13 @@ function NoteRow({ note, items, onChange, onDelete }: {
           <span style={{ fontSize: 11, background: 'color-mix(in srgb, var(--primary) 12%, transparent)', color: 'var(--primary)', borderRadius: 4, padding: '1px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
             <Ico d={ICO.link} size={10} stroke="var(--primary)" />
             {linkedItem.key} · {linkedItem.desc.slice(0, 40)}{linkedItem.desc.length > 40 ? '…' : ''}
-            <button style={{ ...ICON_BTN, padding: '0 2px', color: 'var(--primary)' }} onClick={() => onChange({ linkedItemId: undefined })}>
-              <Ico d={ICO.x} size={10} />
-            </button>
+            {!readOnly && (
+              <button style={{ ...ICON_BTN, padding: '0 2px', color: 'var(--primary)' }} onClick={() => onChange({ linkedItemId: undefined })}>
+                <Ico d={ICO.x} size={10} />
+              </button>
+            )}
           </span>
-        ) : (
+        ) : !readOnly ? (
           <div ref={dropRef} style={{ position: 'relative' }}>
             <button
               style={{ fontSize: 11, color: 'var(--text-muted)', background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
@@ -1791,17 +1845,19 @@ function NoteRow({ note, items, onChange, onDelete }: {
               </div>
             )}
           </div>
-        )}
+        ) : null}
         <div style={{ flex: 1 }} />
-        <button style={{ ...ICON_BTN, color: 'var(--danger)' }} onClick={onDelete} title="Supprimer">
-          <Ico d={ICO.trash} size={13} />
-        </button>
+        {!readOnly && (
+          <button style={{ ...ICON_BTN, color: 'var(--danger)' }} onClick={onDelete} title="Supprimer">
+            <Ico d={ICO.trash} size={13} />
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
-function SRArchiveCard({ archive, isOpen, onToggle, onDelete, items, team, clients }: {
+function SRArchiveCard({ archive, isOpen, onToggle, onDelete, items, team, clients, readOnly = false }: {
   archive: SprintReviewArchive
   isOpen: boolean
   onToggle: () => void
@@ -1809,6 +1865,7 @@ function SRArchiveCard({ archive, isOpen, onToggle, onDelete, items, team, clien
   items: Item[]
   team: TeamMember[]
   clients: Client[]
+  readOnly?: boolean
 }) {
   const accepted = archive.itemRecords.filter(r => r.badge === 'accepted').length
   const refused  = archive.itemRecords.filter(r => r.badge === 'refused').length
@@ -1843,9 +1900,11 @@ function SRArchiveCard({ archive, isOpen, onToggle, onDelete, items, team, clien
           · {archive.decisions.length} décision{archive.decisions.length !== 1 ? 's' : ''}
         </span>
         <div style={{ flex: 1 }} />
-        <button style={{ ...ICON_BTN, color: 'var(--danger)' }} title="Supprimer" onClick={e => { e.stopPropagation(); onDelete() }}>
-          <Ico d={ICO.trash} size={13} />
-        </button>
+        {!readOnly && (
+          <button style={{ ...ICON_BTN, color: 'var(--danger)' }} title="Supprimer" onClick={e => { e.stopPropagation(); onDelete() }}>
+            <Ico d={ICO.trash} size={13} />
+          </button>
+        )}
       </div>
 
       {isOpen && (

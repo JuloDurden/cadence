@@ -54,11 +54,15 @@ interface NNLItemModalProps {
   onClose:    () => void
   /** Ouvrir la ItemModal Backlog pour créer un item lié */
   onCreateLinkedItem?: (onLinked: (itemId: string) => void) => void
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Vision/NNL : la modale reste
+  // consultable (tous les onglets), mais tous les champs/boutons de mutation sont désactivés
+  // ou masqués. Défaut `false` : comportement inchangé pour les autres rôles.
+  readOnly?: boolean
 }
 
 export function NNLItemModal({
   open, item, defaultZone = 'now', defaultType = 'feature',
-  onSave, onDelete, onClose, onCreateLinkedItem,
+  onSave, onDelete, onClose, onCreateLinkedItem, readOnly = false,
 }: NNLItemModalProps) {
   const { state } = useCadence()
 
@@ -202,10 +206,12 @@ export function NNLItemModal({
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             {new Date(note.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
           </span>
-          <button className="btn-icon danger" style={{ padding: 2 }}
-            onClick={() => setNotes(n => n.filter(x => x.id !== note.id))}>
-            <Svg d={ICO_TRASH} size={11} />
-          </button>
+          {!readOnly && (
+            <button className="btn-icon danger" style={{ padding: 2 }}
+              onClick={() => setNotes(n => n.filter(x => x.id !== note.id))}>
+              <Svg d={ICO_TRASH} size={11} />
+            </button>
+          )}
         </div>
         {note.text && <div className="note-text">{note.text}</div>}
         {(note.attachments?.length ?? 0) > 0 && (
@@ -247,7 +253,8 @@ export function NNLItemModal({
         <div>
           <label className="form-label">TITRE</label>
           <input className="form-input" value={title} onChange={e => setTitle(e.target.value)}
-            placeholder={itype === 'release' ? 'Release X.Y' : 'Titre du post-it'} autoFocus />
+            placeholder={itype === 'release' ? 'Release X.Y' : 'Titre du post-it'} autoFocus
+            disabled={readOnly} />
         </div>
 
         {/* Type + Couleur + Zone */}
@@ -258,6 +265,7 @@ export function NNLItemModal({
               {(['feature', 'release'] as NNLItemType[]).map((t, i) => (
                 <button key={t}
                   data-testid={`menu-add-${t}`}
+                  disabled={readOnly}
                   onClick={() => setItype(t)} style={{
                     flex: 1, padding: '8px 0', border: 'none',
                     borderLeft: i > 0 ? '1px solid var(--border)' : 'none',
@@ -274,17 +282,17 @@ export function NNLItemModal({
               {/* Palette rapide */}
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {POSTIT_PALETTE.map(c => (
-                  <button key={c} onClick={() => setColor(c)} style={{
+                  <button key={c} disabled={readOnly} onClick={() => setColor(c)} style={{
                     width: 20, height: 20, borderRadius: 4, border: c === color ? '2px solid var(--primary)' : '1px solid var(--border)',
-                    background: c, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
+                    background: c, padding: 0, cursor: readOnly ? 'default' : 'pointer', boxSizing: 'border-box',
                   }} />
                 ))}
               </div>
               {/* Sélecteur libre */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 5, background: color, border: '2px solid var(--border)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
-                  <input type="color" value={color} onChange={e => setColor(e.target.value)}
-                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }} />
+                <div style={{ width: 28, height: 28, borderRadius: 5, background: color, border: '2px solid var(--border)', cursor: readOnly ? 'default' : 'pointer', overflow: 'hidden', position: 'relative' }}>
+                  <input type="color" value={color} onChange={e => setColor(e.target.value)} disabled={readOnly}
+                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: readOnly ? 'default' : 'pointer', width: '100%', height: '100%' }} />
                 </div>
                 <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{color}</span>
               </div>
@@ -294,7 +302,7 @@ export function NNLItemModal({
             <label className="form-label">ZONE</label>
             <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 7, overflow: 'hidden' }}>
               {ZONES.map((z, i) => (
-                <button key={z} onClick={() => setZone(z)} style={{
+                <button key={z} disabled={readOnly} onClick={() => setZone(z)} style={{
                   flex: 1, padding: '8px 0', border: 'none',
                   borderLeft: i > 0 ? '1px solid var(--border)' : 'none',
                   background: zone === z ? 'var(--primary)' : 'transparent',
@@ -312,7 +320,7 @@ export function NNLItemModal({
           <textarea className="form-input" rows={4} value={body}
             onChange={e => setBody(e.target.value)}
             placeholder="Description, détails, points clés…"
-            style={{ resize: 'vertical', lineHeight: 1.5 }} />
+            style={{ resize: 'vertical', lineHeight: 1.5 }} disabled={readOnly} />
         </div>
 
         {/* Image */}
@@ -321,15 +329,19 @@ export function NNLItemModal({
           {image ? (
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <img src={image} alt="aperçu" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
-              <button className="btn-icon danger" style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,.5)', color: '#fff', borderRadius: 4 }}
-                onClick={() => setImage(undefined)}><Svg d={ICO_CLOSE} size={12} /></button>
+              {!readOnly && (
+                <button className="btn-icon danger" style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,.5)', color: '#fff', borderRadius: 4 }}
+                  onClick={() => setImage(undefined)}><Svg d={ICO_CLOSE} size={12} /></button>
+              )}
             </div>
-          ) : (
+          ) : !readOnly ? (
             <label className="nnl-dropzone" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '20px 0', borderRadius: 8, border: '2px dashed var(--border)', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12 }}>
               <Svg d={ICO_IMAGE} size={22} />
               <span>Glisser-déposer ou cliquer pour ajouter une image</span>
               <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageUpload} />
             </label>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucune image</div>
           )}
         </div>
 
@@ -340,9 +352,9 @@ export function NNLItemModal({
           </label>
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="form-input" style={{ flex: 2 }} value={linkUrl}
-              onChange={e => setLinkUrl(e.target.value)} placeholder="https://…" />
+              onChange={e => setLinkUrl(e.target.value)} placeholder="https://…" disabled={readOnly} />
             <input className="form-input" style={{ flex: 1 }} value={linkLabel}
-              onChange={e => setLinkLabel(e.target.value)} placeholder="Label (optionnel)" />
+              onChange={e => setLinkLabel(e.target.value)} placeholder="Label (optionnel)" disabled={readOnly} />
           </div>
         </div>
       </div>
@@ -359,43 +371,45 @@ export function NNLItemModal({
         )}
         {notes.map(renderNote)}
 
-        {/* Formulaire de nouvelle note */}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 8 }}>
-          <textarea className="form-input" rows={3} value={noteText}
-            onChange={e => setNoteText(e.target.value)}
-            placeholder="Ajouter une note…" style={{ resize: 'none', marginBottom: 6 }} />
-          {noteAtts.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-              {noteAtts.map(att => (
-                <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, padding: '2px 6px', background: 'var(--surface2)', borderRadius: 4 }}>
-                  <Svg d={att.type === 'link' ? ICO_LINK_ATT : ICO_IMAGE} size={10} />
-                  {att.name}
-                  <button onClick={() => setNoteAtts(a => a.filter(x => x.id !== att.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-muted)' }}>×</button>
-                </span>
-              ))}
+        {/* Formulaire de nouvelle note — masqué en lecture seule (Stakeholder) */}
+        {!readOnly && (
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 8 }}>
+            <textarea className="form-input" rows={3} value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              placeholder="Ajouter une note…" style={{ resize: 'none', marginBottom: 6 }} />
+            {noteAtts.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                {noteAtts.map(att => (
+                  <span key={att.id} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, padding: '2px 6px', background: 'var(--surface2)', borderRadius: 4 }}>
+                    <Svg d={att.type === 'link' ? ICO_LINK_ATT : ICO_IMAGE} size={10} />
+                    {att.name}
+                    <button onClick={() => setNoteAtts(a => a.filter(x => x.id !== att.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--text-muted)' }}>×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {noteLink && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <input className="form-input" placeholder="URL" value={noteLinkUrl} onChange={e => setNoteLinkUrl(e.target.value)} style={{ flex: 2, fontSize: 11 }} />
+                <input className="form-input" placeholder="Titre (opt.)" value={noteLinkTitle} onChange={e => setNoteLinkTitle(e.target.value)} style={{ flex: 1, fontSize: 11 }} />
+                <button className="btn btn-secondary" onClick={addNoteLink} style={{ fontSize: 11 }}>OK</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <label className="btn-icon" title="Image" style={{ cursor: 'pointer' }}>
+                <Svg d={ICO_IMAGE} size={14} />
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleNoteAttUpload} />
+              </label>
+              <button className="btn-icon" title="Lien" onClick={() => setNoteLink(l => !l)}>
+                <Svg d={ICO_LINK_ATT} size={14} />
+              </button>
+              <button className="btn btn-primary" style={{ marginLeft: 'auto', fontSize: 12 }}
+                onClick={submitNote} disabled={!noteText.trim() && noteAtts.length === 0}>
+                Ajouter
+              </button>
             </div>
-          )}
-          {noteLink && (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <input className="form-input" placeholder="URL" value={noteLinkUrl} onChange={e => setNoteLinkUrl(e.target.value)} style={{ flex: 2, fontSize: 11 }} />
-              <input className="form-input" placeholder="Titre (opt.)" value={noteLinkTitle} onChange={e => setNoteLinkTitle(e.target.value)} style={{ flex: 1, fontSize: 11 }} />
-              <button className="btn btn-secondary" onClick={addNoteLink} style={{ fontSize: 11 }}>OK</button>
-            </div>
-          )}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <label className="btn-icon" title="Image" style={{ cursor: 'pointer' }}>
-              <Svg d={ICO_IMAGE} size={14} />
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleNoteAttUpload} />
-            </label>
-            <button className="btn-icon" title="Lien" onClick={() => setNoteLink(l => !l)}>
-              <Svg d={ICO_LINK_ATT} size={14} />
-            </button>
-            <button className="btn btn-primary" style={{ marginLeft: 'auto', fontSize: 12 }}
-              onClick={submitNote} disabled={!noteText.trim() && noteAtts.length === 0}>
-              Ajouter
-            </button>
           </div>
-        </div>
+        )}
       </div>
     )
   }
@@ -408,12 +422,16 @@ export function NNLItemModal({
           <div style={{ background: 'var(--primary-light)', borderRadius: 8, padding: '10px 12px', border: '1px solid var(--primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'var(--primary)' }}>{linkedItem.key}</span>
             <span style={{ flex: 1, fontSize: 12 }}>{linkedItem.desc}</span>
-            <button className="btn-icon danger" onClick={() => setLinkedId(undefined)}>
-              <Svg d={ICO_CLOSE} size={12} />
-            </button>
+            {!readOnly && (
+              <button className="btn-icon danger" onClick={() => setLinkedId(undefined)}>
+                <Svg d={ICO_CLOSE} size={12} />
+              </button>
+            )}
           </div>
         )}
 
+        {!readOnly && (
+        <>
         {/* Créer un nouvel item */}
         {onCreateLinkedItem && (
           <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}
@@ -450,6 +468,8 @@ export function NNLItemModal({
             </button>
           ))}
         </div>
+        </>
+        )}
       </div>
     )
   }
@@ -498,16 +518,22 @@ export function NNLItemModal({
 
       {/* Footer */}
       <div className="modal-footer" style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', padding: '12px 20px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        {isEdit && onDelete && (
+        {!readOnly && isEdit && onDelete && (
           <button className="btn btn-danger" style={{ marginRight: 'auto' }}
             onClick={() => { onDelete(item!.id); onClose() }}>
             <Svg d={ICO_TRASH} size={13} /> Supprimer
           </button>
         )}
-        <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
-        <button className="btn btn-primary" data-testid="nnl-modal-submit" onClick={handleSave}>
-          {isEdit ? 'Enregistrer' : 'Créer'}
-        </button>
+        {readOnly ? (
+          <button className="btn btn-secondary" onClick={onClose}>Fermer</button>
+        ) : (
+          <>
+            <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
+            <button className="btn btn-primary" data-testid="nnl-modal-submit" onClick={handleSave}>
+              {isEdit ? 'Enregistrer' : 'Créer'}
+            </button>
+          </>
+        )}
       </div>
     </>
   )

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useCadence } from '../../context/StateContext'
 import { USER_ROLE_LABELS } from '../../types'
+import { canAccessRoute } from '../../utils/permissions'
 
 /* ── Tiny inline SVG helper ─────────────────────────────────────── */
 function Svg({ d, size = 16 }: { d: string; size?: number }) {
@@ -245,10 +246,14 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
           <Svg d={isDark ? SVG.sun : SVG.moon} />
         </button>
 
-        {/* Settings shortcut */}
-        <button className="hdr-btn" title="Reglages" onClick={() => navigate('/settings')}>
-          <Svg d={SVG.settings} />
-        </button>
+        {/* Settings shortcut — masqué pour un rôle sans accès à /settings (Phase 2.5, roadmap
+            v1, verrouillage Stakeholder) : ce raccourci n'est pas un lien de la Sidebar
+            (filtrée via canAccessRoute), il fallait la même garde ici. */}
+        {canAccessRoute(userRole, '/settings') && (
+          <button className="hdr-btn" title="Reglages" onClick={() => navigate('/settings')}>
+            <Svg d={SVG.settings} />
+          </button>
+        )}
 
         <div className="hdr-sep" />
 

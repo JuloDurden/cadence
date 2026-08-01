@@ -130,3 +130,27 @@ export function canEditVelocity(
 // Équipe : gestion des absences (créer/modifier/supprimer) réservée PO/Scrum Master (+ Admin) —
 // décision actée avec Julien le 2026-07-31 (pas de rôle RH dédié : SM/PO/Admin suffisent).
 export const canManageAbsences = (role: UserRole | '' | undefined) => hasRole(role, 'PO', 'SCRUM_MASTER')
+
+// Phase 2.5 (roadmap v1) — verrouillage Stakeholder (2026-08-01, retour de Julien après test
+// manuel de la création de compte). Premier cas de blocage d'une page ENTIÈRE selon le rôle — tout
+// le reste des permissions de ce fichier ne fait que masquer/désactiver des boutons ou champs à
+// l'intérieur d'une page toujours accessible. `canAccessRoute` est consultée à deux endroits :
+// `App.tsx` (garde-fou réel, redirige si l'URL est tapée directement) et `Sidebar.tsx` (masque le
+// lien correspondant, pour ne pas laisser une entrée de menu qui mènerait à une redirection).
+// Historique/Daily/Retro/Clients/Team/Réglages : Stakeholder n'a rien à y faire (données internes
+// à l'équipe ou gestion de compte). Dashboard, Backlog, Auto-planning restent accessibles tels
+// quels (Auto-planning : Julien a choisi explicitement de ne pas resserrer davantage pour l'instant
+// — "gardons-la ainsi").
+const STAKEHOLDER_BLOCKED_ROUTES = ['/historique', '/daily', '/retro', '/clients', '/team', '/settings']
+
+export function canAccessRoute(role: UserRole | '' | undefined, pathname: string): boolean {
+  if (role === 'ADMIN') return true
+  if (role === 'STAKEHOLDER') return !STAKEHOLDER_BLOCKED_ROUTES.some(r => pathname.startsWith(r))
+  return true
+}
+
+// Pages où un Stakeholder garde l'accès mais en lecture seule totale (aucune action d'édition) —
+// voir docs/roadmap-v1.md, Phase 2.5. Vision/NNL, Roadmap, Planning (Release Planning), Sprint
+// Planning, Kanban, Sprint Review. Backlog reste géré séparément (`canManageBacklog`/
+// `canEditBacklogOperational`, déjà lecture seule pour Stakeholder depuis le sous-chantier 3.4).
+export const isReadOnlyForRole = (role: UserRole | '' | undefined) => role === 'STAKEHOLDER'

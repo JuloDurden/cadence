@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
+import { canAccessRoute } from '../../utils/permissions'
 
 /* ── SVG icons (Lucide, stroke="currentColor") ── */
 const ICONS: Record<string, string> = {
@@ -86,11 +88,20 @@ const SECTIONS = [
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const { userRole } = useAuth()
 
   useEffect(() => {
     document.body.classList.toggle('sb-collapsed', collapsed)
     return () => { document.body.classList.remove('sb-collapsed') }
   }, [collapsed])
+
+  // Phase 2.5 (roadmap v1) — reflet de `canAccessRoute` (utils/permissions.ts) : masque les liens
+  // vers les pages interdites au rôle courant (Stakeholder), plutôt que de laisser une entrée de
+  // menu qui mènerait de toute façon à une redirection immédiate. Sections qui se retrouvent
+  // vides une fois filtrées (aucune ici pour l'instant) ne sont pas rendues.
+  const visibleSections = SECTIONS
+    .map(section => ({ ...section, items: section.items.filter(item => canAccessRoute(userRole, item.to)) }))
+    .filter(section => section.items.length > 0)
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
@@ -107,7 +118,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="sidebar-nav" aria-label="Navigation principale">
-        {SECTIONS.map(section => (
+        {visibleSections.map(section => (
           <div key={section.label}>
             {!collapsed && (
               <div className="sidebar-section-label">{section.label}</div>

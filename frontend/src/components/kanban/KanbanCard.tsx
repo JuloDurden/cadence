@@ -26,9 +26,13 @@ interface Props {
   onEdit: (item: Item) => void
   onRemoveFromSprint: (id: string) => void
   onDragStart: (id: string) => void
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Kanban : la carte reste
+  // cliquable (édition ouverte en lecture seule via ItemModal) mais l'action "Retirer du
+  // sprint" (mutation directe, hors ItemModal) est masquée. Défaut `false`.
+  readOnly?: boolean
 }
 
-export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRemoveFromSprint, onDragStart }: Props) {
+export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRemoveFromSprint, onDragStart, readOnly = false }: Props) {
   const client    = state.clients.find(c => c.id === item.clientId)
   const assignees = item.assignees.map(id => state.team.find(m => m.id === id)).filter(Boolean)
 
@@ -78,14 +82,16 @@ export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRem
           >
             <Ico d={ICO.pencil} size={12} />
           </button>
-          <button
-            className="btn-icon"
-            style={{ padding: '2px 4px' }}
-            onClick={() => onRemoveFromSprint(item.id)}
-            title="Retirer du sprint"
-          >
-            <Ico d={ICO.circleMinus} size={12} stroke="var(--text-muted)" />
-          </button>
+          {!readOnly && (
+            <button
+              className="btn-icon"
+              style={{ padding: '2px 4px' }}
+              onClick={() => onRemoveFromSprint(item.id)}
+              title="Retirer du sprint"
+            >
+              <Ico d={ICO.circleMinus} size={12} stroke="var(--text-muted)" />
+            </button>
+          )}
         </div>
       </div>
     </div>

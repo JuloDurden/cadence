@@ -12,6 +12,7 @@ import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
+import { isReadOnlyForRole } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { attachItemsToEpics } from '../utils/hierarchyScore'
@@ -57,7 +58,11 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 
 export function PlanningPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName, userId } = useAuth()
+  const { userName, userId, userRole } = useAuth()
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule totale sur Release Planning : chaque
+  // handler mutant a un garde-fou en plus des boutons/drag déjà masqués côté UI (défense en
+  // profondeur, voir utils/permissions.ts).
+  const readOnly = isReadOnlyForRole(userRole)
   const { confirm, alert } = useDialog()
   const [view, setView] = useState<View>('grid')
   const [highlightClient, setHighlightClient] = useState('')
@@ -73,6 +78,7 @@ export function PlanningPage() {
   }
 
   function handleDrop(sprintId: string) {
+    if (readOnly) return
     const ids = dragIds.current
     if (!ids.length) return
     setDragOverSprint(null)
@@ -116,6 +122,7 @@ export function PlanningPage() {
   }
 
   function handleUpdateDates(sprintId: string, startDate: string, endDate: string) {
+    if (readOnly) return
     const idx = state.sprints.findIndex(s => s.id === sprintId)
     if (idx === -1) return
     const weeks = state.settings.sprintDuration ?? 2
@@ -125,6 +132,7 @@ export function PlanningPage() {
   }
 
   function handleActivate(sprintId: string) {
+    if (readOnly) return
     const updatedSprints = activateSprint(state.sprints, sprintId)
     updatedSprints.forEach(s => dispatch({ type: 'UPDATE_SPRINT', payload: s }))
     const sp = updatedSprints.find(s => s.id === sprintId)
@@ -135,6 +143,7 @@ export function PlanningPage() {
   }
 
   async function handleClose(sprintId: string) {
+    if (readOnly) return
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     // Chantier G (2026-07-23) : même garde-fou que Roadmap — voir commentaire là-bas.
@@ -156,6 +165,7 @@ export function PlanningPage() {
   }
 
   function handleReopen(sprintId: string) {
+    if (readOnly) return
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     const updatedSprints = reopenSprint(state.sprints, sprintId)
@@ -167,6 +177,7 @@ export function PlanningPage() {
   }
 
   async function handleDeleteSprint(sprintId: string) {
+    if (readOnly) return
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     const blockReason = getSprintDeletionBlockReason(state, sprintId)
@@ -206,6 +217,7 @@ export function PlanningPage() {
   }
 
   function handleUpdateCapacity(sprintId: string, capacity: number) {
+    if (readOnly) return
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     const updated = { ...sp, capacity }
@@ -216,6 +228,7 @@ export function PlanningPage() {
   const activeSprintId = getCurrentSprint(state)?.id ?? null
 
   function handleSave(item: Item, keyCounters?: Record<string, number>) {
+    if (readOnly) { setModalItem(undefined); return }
     const isNew = !state.items.find(i => i.id === item.id)
     if (isNew) {
       dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
@@ -237,6 +250,7 @@ export function PlanningPage() {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   }
   function addSprint() {
+    if (readOnly) return
     const last = state.sprints[state.sprints.length - 1]
     const workingDays = state.settings.sprintDuration ?? 2
     const startDate = last ? nextMonday(last.endDate) : (() => {
@@ -330,9 +344,11 @@ export function PlanningPage() {
           </button>
         )}
 
-        <button className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <ViewIco d={ICO_PLUS} /> Sprint
-        </button>
+        {!readOnly && (
+          <button className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <ViewIco d={ICO_PLUS} /> Sprint
+          </button>
+        )}
       </Header>
 
       <div className="page-content" style={{ padding: '24px 16px' }}>
@@ -347,6 +363,7 @@ export function PlanningPage() {
             onDragLeave={() => setDragOverSprint(null)}
             onDrop={handleDrop}
             onEdit={item => setModalItem(item)}
+            readOnly={readOnly}
           />
         ) : (
           <>
@@ -374,6 +391,7 @@ export function PlanningPage() {
                   onReopen={handleReopen}
                   onDelete={handleDeleteSprint}
                   onUpdateCapacity={handleUpdateCapacity}
+                  readOnly={readOnly}
                 />
               ))}
             </div>
@@ -412,6 +430,7 @@ export function PlanningPage() {
                   onEdit={item => setModalItem(item)}
                   onDragGroup={ids => { dragIds.current = ids }}
                   onDragItem={id  => { dragIds.current = [id] }}
+                  readOnly={readOnly}
                 />
               ))}
               {/* Items sans Epic */}
@@ -424,6 +443,7 @@ export function PlanningPage() {
                   highlightType={highlightType}
                   onEdit={item => setModalItem(item)}
                   onDragStart={id => { dragIds.current = [id] }}
+                  readOnly={readOnly}
                 />
               ))}
               {unassigned.length === 0 && (
@@ -444,6 +464,8 @@ export function PlanningPage() {
           onSave={handleSave}
           onClose={() => setModalItem(undefined)}
           currentUserId={userId}
+          canManage={!readOnly}
+          canOperate={!readOnly}
         />
       )}
     </>

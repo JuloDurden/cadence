@@ -9,6 +9,7 @@ import { getCurrentSprint } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
+import { isReadOnlyForRole } from '../utils/permissions'
 
 const ICO_SHREDDER = '<path d="M4 13V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.588 3.588A2.4 2.4 0 0 1 20 8v5"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 22v-5"/><path d="M14 19v-2"/><path d="M18 20v-3"/><path d="M2 13h20"/><path d="M6 20v-3"/>'
 const ICO_WAND    = '<path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/>'
@@ -298,7 +299,9 @@ function AutoAssignModal({
 export function SprintPlanningPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
   const { confirm } = useDialog()
-  const { userName, userId } = useAuth()
+  const { userName, userId, userRole } = useAuth()
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Sprint Planning.
+  const readOnly = isReadOnlyForRole(userRole)
   const [modalItem,     setModalItem]     = useState<Item | null | undefined>(undefined)
   const [showAutoModal, setShowAutoModal] = useState(false)
   const [maxCoAssign,   setMaxCoAssign]   = useState(2)
@@ -350,6 +353,7 @@ export function SprintPlanningPage() {
   // le Gantt, seul appelant de cette fonction) génère une entrée d'Historique dédiée
   // (`item_assignee`), distincte de `item_edit` (édition complète via la modale Backlog).
   function handleUpdateItem(item: Item) {
+    if (readOnly) return
     const prev = state.items.find(i => i.id === item.id)
     dispatch({ type: 'UPDATE_ITEM', payload: item })
     let historyEntry: HistoryEntry | null = null
@@ -372,6 +376,7 @@ export function SprintPlanningPage() {
   }
 
   async function clearAllAssignments() {
+    if (readOnly) return
     const assigned = state.items.filter(i => i.sprintId === selectedSprintId && i.assignees.length > 0)
     if (!assigned.length) return
     if (!await confirm(`${assigned.length} item${assigned.length > 1 ? 's' : ''} concerné${assigned.length > 1 ? 's' : ''}.`, { title: 'Effacer toutes les attributions du sprint ?', confirmLabel: 'Effacer', danger: true })) return
@@ -394,6 +399,7 @@ export function SprintPlanningPage() {
   }
 
   function applyAutoAssign() {
+    if (readOnly) return
     if (!sprint || !autoPreview.length) return
     const updatedItems = state.items.map(i => {
       const r = autoPreview.find(r => r.itemId === i.id)
@@ -418,6 +424,7 @@ export function SprintPlanningPage() {
   }
 
   function handleSave(item: Item, keyCounters?: Record<string, number>) {
+    if (readOnly) { setModalItem(undefined); return }
     const isNew = !state.items.find(i => i.id === item.id)
     if (isNew) {
       dispatch({ type: 'ADD_ITEM', payload: item, keyCounters })
@@ -461,23 +468,27 @@ export function SprintPlanningPage() {
           </>
         )}
         <div style={{ flex: 1 }} />
-        <button
-          style={BTN_PRIMARY}
-          onClick={() => setShowAutoModal(true)}
-          title="Attribuer automatiquement les items non assignés"
-        >
-          <Svg d={ICO_WAND} size={13} stroke="#fff" />
-          Auto-attribuer
-        </button>
-        <div className="hdr-sep" />
-        <button
-          className="hdr-btn"
-          onClick={clearAllAssignments}
-          title="Effacer toutes les attributions"
-        >
-          <Svg d={ICO_SHREDDER} size={14} />
-        </button>
-        <div className="hdr-sep" />
+        {!readOnly && (
+          <>
+            <button
+              style={BTN_PRIMARY}
+              onClick={() => setShowAutoModal(true)}
+              title="Attribuer automatiquement les items non assignés"
+            >
+              <Svg d={ICO_WAND} size={13} stroke="#fff" />
+              Auto-attribuer
+            </button>
+            <div className="hdr-sep" />
+            <button
+              className="hdr-btn"
+              onClick={clearAllAssignments}
+              title="Effacer toutes les attributions"
+            >
+              <Svg d={ICO_SHREDDER} size={14} />
+            </button>
+            <div className="hdr-sep" />
+          </>
+        )}
       </Header>
 
       <div className="page-content" style={{ padding: '12px 16px' }}>
@@ -520,6 +531,7 @@ export function SprintPlanningPage() {
           sprintId={selectedSprintId}
           onEdit={item => setModalItem(item)}
           onUpdateItem={handleUpdateItem}
+          readOnly={readOnly}
         />
       </div>
 
@@ -544,6 +556,8 @@ export function SprintPlanningPage() {
           onSave={handleSave}
           onClose={() => setModalItem(undefined)}
           currentUserId={userId}
+          canManage={!readOnly}
+          canOperate={!readOnly}
         />
       )}
     </>

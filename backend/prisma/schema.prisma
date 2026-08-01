@@ -39,6 +39,27 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// Phase 2.5 (roadmap v1) — Onboarding, brique "création de compte" : un Admin invite un
+// Stakeholder (seul rôle accessible par invitation, voir routes/invitations.ts) en générant un
+// lien à usage unique (token) à partager manuellement — pas d'infrastructure d'envoi d'email dans
+// ce prototype. `usedAt` marque l'invitation consommée (accept-invite) ; une invitation non
+// utilisée peut être révoquée (DELETE /api/invitations/:id) par un Admin.
+model Invitation {
+  id        String    @id @default(cuid())
+  token     String    @unique @default(cuid())
+  createdBy String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  // Phase 2.5 (roadmap v1), verrouillage Stakeholder — id du Client (WorkspaceState.data.clients,
+  // pas de table dédiée) auquel le futur Stakeholder sera rattaché comme Contact plutôt que comme
+  // fiche Équipe (voir lib/teamState.ts, createLinkedClientContact). Nullable pour ne pas casser
+  // les invitations déjà en base avant ce changement (une seule, déjà utilisée, chez Julien) ;
+  // requis côté API pour toute nouvelle invitation (voir routes/invitations.ts).
+  clientId  String?
+
+  @@map("invitations")
+}
+
 // Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
 // ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
 // STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste

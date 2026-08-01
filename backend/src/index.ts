@@ -5,6 +5,7 @@ import prismaPlugin from './plugins/prisma'
 import { authRoutes } from './routes/auth'
 import { stateRoutes } from './routes/state'
 import { usersRoutes } from './routes/users'
+import { invitationsRoutes } from './routes/invitations'
 
 const fastify = Fastify({ logger: true })
 
@@ -24,6 +25,7 @@ async function start() {
   await fastify.register(authRoutes)
   await fastify.register(stateRoutes)
   await fastify.register(usersRoutes)
+  await fastify.register(invitationsRoutes)
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 

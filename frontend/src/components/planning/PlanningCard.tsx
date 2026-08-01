@@ -17,9 +17,14 @@ interface Props {
   sprintEndDate?: string   // pour détecter les dépassements de deadline
   onEdit: (item: Item) => void
   onDragStart: (id: string) => void
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Release Planning : la carte reste
+  // cliquable (ouvre l'item en lecture seule via ItemModal, canManage/canOperate déjà à false
+  // côté page appelante), mais n'est plus draggable. Défaut `false` : comportement inchangé pour
+  // les autres rôles.
+  readOnly?: boolean
 }
 
-export function PlanningCard({ item, state, highlightClient, highlightType, sprintEndDate, onEdit, onDragStart }: Props) {
+export function PlanningCard({ item, state, highlightClient, highlightType, sprintEndDate, onEdit, onDragStart, readOnly = false }: Props) {
   const client = state.clients.find(c => c.id === item.clientId)
   const status = state.kanbanCols.find(c => c.id === item.status)
   const assignees = item.assignees.map(id => state.team.find(m => m.id === id)).filter(Boolean)
@@ -40,8 +45,8 @@ export function PlanningCard({ item, state, highlightClient, highlightType, spri
     <div
       className="planning-card"
       data-item-id={item.id}
-      draggable
-      onDragStart={() => onDragStart(item.id)}
+      draggable={!readOnly}
+      onDragStart={() => { if (!readOnly) onDragStart(item.id) }}
       onClick={() => onEdit(item)}
       style={{
         borderLeft: `3px solid ${client?.color ?? 'var(--border)'}`,

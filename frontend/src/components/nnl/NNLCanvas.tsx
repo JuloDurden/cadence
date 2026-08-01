@@ -860,8 +860,12 @@ interface PostItProps {
   onDelete:    (id: string) => void
   onEdit:      (id: string) => void
   onResizeEnd: (id: string, w: number, h?: number, wx?: number, wy?: number) => void
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Vision/NNL : le post-it reste
+  // consultable (double-clic / bouton crayon ouvrent la modale en lecture seule), mais n'est
+  // plus déplaçable/redimensionnable, et le bouton de suppression est masqué. Défaut `false`.
+  readOnly?: boolean
 }
-function PostIt({ item, ox, oy, zoom, onDragStart, onDelete, onEdit, onResizeEnd }: PostItProps) {
+function PostIt({ item, ox, oy, zoom, onDragStart, onDelete, onEdit, onResizeEnd, readOnly = false }: PostItProps) {
   const divRef = useRef<HTMLDivElement>(null)
   const oxRef   = useRef(ox);   oxRef.current   = ox
   const oyRef   = useRef(oy);   oyRef.current   = oy
@@ -944,13 +948,15 @@ function PostIt({ item, ox, oy, zoom, onDragStart, onDelete, onEdit, onResizeEnd
         background: accentColor,
         color: textColor,
       }}
-      onMouseDown={e => onDragStart(item.id, e)}
+      onMouseDown={readOnly ? undefined : e => onDragStart(item.id, e)}
       onDoubleClick={e => { e.stopPropagation(); onEdit(item.id) }}
     >
-      <button className="nnl-postit-delete" title="Supprimer"
-        style={{ color: textColor }}
-        onMouseDown={e => e.stopPropagation()}
-        onClick={e => { e.stopPropagation(); onDelete(item.id) }}>×</button>
+      {!readOnly && (
+        <button className="nnl-postit-delete" title="Supprimer"
+          style={{ color: textColor }}
+          onMouseDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onDelete(item.id) }}>×</button>
+      )}
 
       <button className="nnl-postit-edit" title="Modifier (double-clic)"
         style={{ color: textColor }}
@@ -984,16 +990,18 @@ function PostIt({ item, ox, oy, zoom, onDragStart, onDelete, onEdit, onResizeEnd
         </div>
       )}
 
-      <div className="nnl-resize-handle"
-        style={{ borderColor: mutedColor }}
-        onMouseDown={e => {
-          e.stopPropagation(); e.preventDefault()
-          const storedH = divRef.current ? divRef.current.getBoundingClientRect().height / zoom : (localH ?? 90)
-          const curH = localH ?? storedH
-          const tlx = posLeft - localW * zoom / 2
-          const tly = posTop  - curH   * zoom / 2
-          resizeRef.current = { x0: e.clientX, y0: e.clientY, w0: localW, h0: curH, tlx, tly }
-        }} />
+      {!readOnly && (
+        <div className="nnl-resize-handle"
+          style={{ borderColor: mutedColor }}
+          onMouseDown={e => {
+            e.stopPropagation(); e.preventDefault()
+            const storedH = divRef.current ? divRef.current.getBoundingClientRect().height / zoom : (localH ?? 90)
+            const curH = localH ?? storedH
+            const tlx = posLeft - localW * zoom / 2
+            const tly = posTop  - curH   * zoom / 2
+            resizeRef.current = { x0: e.clientX, y0: e.clientY, w0: localW, h0: curH, tlx, tly }
+          }} />
+      )}
     </div>
   )
 }
@@ -1691,7 +1699,7 @@ type NNLSnapshot = {
 }
 
 // ── NNLCanvas ─────────────────────────────────────────────────────────────────
-export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onModalClose: () => void }) {
+export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modalOpen: boolean; onModalClose: () => void; readOnly?: boolean }) {
   const { state, dispatch, saveToServer } = useCadence()
   const { showToast } = useToast()
   const { userName, userId } = useAuth()
@@ -1779,6 +1787,10 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   const r1Ref           = useRef(r1);           r1Ref.current           = r1
   const r2Ref           = useRef(r2);           r2Ref.current           = r2
   const stateRef        = useRef(state);        stateRef.current        = state
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Vision/NNL : ref stable pour
+  // pouvoir vérifier `readOnly` depuis les handlers window (onMove/onUp) et les callbacks
+  // mémorisés, comme les autres refs ci-dessous (toolRef, etc.).
+  const readOnlyRef     = useRef(readOnly);     readOnlyRef.current     = readOnly
   const toolRef         = useRef(tool);         toolRef.current         = tool
   const strokeColorRef  = useRef(strokeColor);  strokeColorRef.current  = strokeColor
   const fillColorRef    = useRef(fillColor);    fillColorRef.current    = fillColor
@@ -1980,7 +1992,9 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         setSnapEnabled(prev => !prev)
         return
       }
-      const t = KEY_TO_TOOL[e.key.toLowerCase()]
+      // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule : le raccourci clavier ne doit pas
+      // pouvoir faire échapper au mode "select" forcé (barre d'outils masquée dans ce cas).
+      const t = readOnlyRef.current ? undefined : KEY_TO_TOOL[e.key.toLowerCase()]
       if (t) { setTool(t); setSelectedShapeId(null); setSelectedShapeIds([]); setSelectedTextId(null) }
       if (e.key === 'Escape') { setPreviewShape(null); setPreviewStroke(null); setEditingText(null); setSelectedShapeId(null); setSelectedShapeIds([]); setSelectedTextId(null) }
     }
@@ -2049,6 +2063,8 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') return
+      // Stakeholder en lecture seule : Undo/Redo restent des mutations de l'état partagé.
+      if (readOnlyRef.current) return
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleNNLUndoRef.current() }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); handleNNLRedoRef.current() }
     }
@@ -2129,6 +2145,10 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') return
       if (!e.ctrlKey && !e.metaKey) return
+      // Stakeholder en lecture seule : copier (lecture pure) reste possible, mais coller/
+      // dupliquer/grouper/dégrouper mutent l'état — bloqués. Autant bloquer le bloc entier :
+      // sans mutation possible ensuite, le presse-papiers interne n'a aucune utilité.
+      if (readOnlyRef.current) return
       const shapeIds = selectedShapeIdsRef.current
       const textId   = selectedTextIdRef.current
       if (e.key === 'c') {
@@ -2161,6 +2181,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       const target = e.target as HTMLElement
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') return
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
+      if (readOnlyRef.current) return
 
       const shapeId  = selectedShapeIdRef.current
       const shapeIds = selectedShapeIdsRef.current
@@ -2911,6 +2932,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // ── Drag post-it ──────────────────────────────────────────────────────────
   const dragRef = useRef<{ id: string; wx0: number; wy0: number; sx0: number; sy0: number } | null>(null)
   const handleDragStart = useCallback((id: string, e: React.MouseEvent) => {
+    if (readOnlyRef.current) return
     if (toolRef.current !== 'select') return
     e.preventDefault(); e.stopPropagation()
     const item = (stateRef.current.nnlItems ?? []).find(n => n.id === id)
@@ -2954,6 +2976,13 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
       setIsPanning(true)
       return
     }
+    // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Vision/NNL : le pan (bouton
+    // milieu, ci-dessus) reste autorisé (pure navigation), mais toute création/sélection/
+    // déplacement via clic gauche est bloquée ici. Comme la sélection ne peut alors jamais être
+    // peuplée, les panneaux de propriétés (Shape/Text/Stroke/Frame) — non déclinés en lecture
+    // seule — ne sont jamais atteignables. Voir aussi TextBlock (plus bas) pour la même garde.
+    if (readOnly) return
+
     // Seulement clic gauche pour le reste
     if (e.button !== 0) return
 
@@ -3509,12 +3538,14 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   // ── Item handlers ─────────────────────────────────────────────────────────
   const handleDelete = (id: string) => {
+    if (readOnly) return
     dispatch({ type: 'DELETE_NNL_ITEM', payload: id })
     saveNNL({ ...state, nnlItems: (state.nnlItems ?? []).filter(n => n.id !== id) })
     showToast('Post-it supprimé', 'info')
   }
 
   const handleResizeEnd = useCallback((id: string, w: number, h?: number, wx?: number, wy?: number) => {
+    if (readOnlyRef.current) return
     const st = stateRef.current
     const item = (st.nnlItems ?? []).find(n => n.id === id); if (!item) return
     const updated: NNLItem = {
@@ -3613,6 +3644,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   }
 
   function handleModalSave(saved: NNLItem) {
+    if (readOnly) { handleModalClose(); return }
     const isCreate = !editItem && modalOpen
     const wasLinkedId = editItem?.linkedItemId
     const isLinkedId  = saved.linkedItemId
@@ -3682,6 +3714,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
   // nœud lié (existant ou tout juste créé via HierarchyNodeModal, voir juste après) fixe le
   // `level` du cadre.
   function handleFrameLinkNode(node: HierarchyNode) {
+    if (readOnly) return
     if (!frameLinkTarget) return
     const st = stateRef.current
     if (frameLinkTarget.mode === 'create') {
@@ -3707,11 +3740,13 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   // "Relier à un autre Epic/Initiative" depuis le panneau de propriétés d'un cadre sélectionné.
   function handleRelinkFrame(frameId: string) {
+    if (readOnly) return
     setFrameLinkTarget({ mode: 'relink', frameId })
   }
 
   // ── Redimensionnement cadre (point 3.5) ─────────────────────────────────────
   function handleFrameResizeStart(frameId: string, handle: 'nw'|'ne'|'sw'|'se', e: React.MouseEvent) {
+    if (readOnly) return
     e.stopPropagation()
     const f = (stateRef.current.nnlFrames ?? []).find(fr => fr.id === frameId)
     if (!f) return
@@ -3725,6 +3760,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   // ── Couleur personnalisée du cadre (point 3.5) ──────────────────────────────
   function handleFrameColorChange(frameId: string, color: string | undefined) {
+    if (readOnly) return
     const st = stateRef.current
     const f = (st.nnlFrames ?? []).find(fr => fr.id === frameId)
     if (!f) return
@@ -3735,6 +3771,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   // ── Suppression du cadre (point 3.5) ────────────────────────────────────────
   function handleDeleteFrame(frameId: string) {
+    if (readOnly) return
     const st = stateRef.current
     dispatch({ type: 'DELETE_NNL_FRAME', payload: frameId })
     saveNNL({ ...st, nnlFrames: (st.nnlFrames ?? []).filter(f => f.id !== frameId) })
@@ -3786,11 +3823,13 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
 
   // ── Text block handlers ───────────────────────────────────────────────────
   function handleTextDblClick(id: string) {
+    if (readOnly) return
     const t = (state.nnlTexts ?? []).find(x => x.id === id)
     if (t) setEditingText(t)
   }
   // onCommit reçoit le HTML final directement depuis le DOM → pas de stale closure
   function handleTextCommit(finalHtml: string) {
+    if (readOnly) { setEditingText(null); return }
     if (!editingText) return
     const tmp = document.createElement('div')
     tmp.innerHTML = finalHtml
@@ -3924,7 +3963,7 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
           editingText?.id === t.id ? null :
           <TextBlock key={t.id} text={t} ox={ox} oy={oy} zoom={zoom}
             onDoubleClick={handleTextDblClick}
-            onMouseDown={tool === 'select' ? (id, e) => {
+            onMouseDown={tool === 'select' && !readOnly ? (id, e) => {
               if (e.button !== 0) return
               setSelectedTextId(id)
               setSelectedShapeId(null)
@@ -3933,8 +3972,8 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
               const tx = (stateRef.current.nnlTexts ?? []).find(tx_ => tx_.id === id)
               if (tx) textDragRef.current = { id, wx0: tx.x, wy0: tx.y, sx0: e.clientX, sy0: e.clientY, hasMoved: false }
             } : undefined}
-            onResizeStart={tool === 'select' ? handleTextResizeStart : undefined}
-            onRotateStart={tool === 'select' ? handleTextRotateStart : undefined}
+            onResizeStart={tool === 'select' && !readOnly ? handleTextResizeStart : undefined}
+            onRotateStart={tool === 'select' && !readOnly ? handleTextRotateStart : undefined}
             isSelected={selectedTextId === t.id}
           />
         ))}
@@ -3952,7 +3991,8 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
             onDragStart={handleDragStart}
             onDelete={handleDelete}
             onEdit={handleOpenEdit}
-            onResizeEnd={handleResizeEnd} />
+            onResizeEnd={handleResizeEnd}
+            readOnly={readOnly} />
         ))}
 
         {/* Rubber-band overlay — rect mode (v0.90.5) */}
@@ -3984,29 +4024,48 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
           )
         })()}
 
-        {/* Toolbar */}
-        <NNLToolbar
-          activeTool={tool}
-          strokeColor={strokeColor}   fillColor={fillColor}
-          activeWidth={drawWidth}     rectRadius={rectRadius}
-          onToolChange={t => { setTool(t); setSelectedShapeId(null) }}
-          onStrokeColorChange={setStrokeColor}
-          onFillColorChange={setFillColor}
-          onWidthChange={setDrawWidth}
-          onRectRadiusChange={setRectRadius}
-          canUndo={nnlCanUndo}
-          canRedo={nnlCanRedo}
-          onUndo={handleNNLUndo}
-          onRedo={handleNNLRedo}
-          selectMode={selectMode}
-          selectScope={selectScope}
-          onSelectModeChange={setSelectMode}
-          onSelectScopeChange={setSelectScope}
-        />
+        {/* Toolbar + panneau calques + toggle grille — outils d'édition, masqués en lecture
+            seule (Stakeholder, Phase 2.5 roadmap v1). La navigation (Minimap/Zoom) reste
+            disponible : ce n'est pas une mutation de l'état partagé. */}
+        {!readOnly && (
+          <>
+            <NNLToolbar
+              activeTool={tool}
+              strokeColor={strokeColor}   fillColor={fillColor}
+              activeWidth={drawWidth}     rectRadius={rectRadius}
+              onToolChange={t => { setTool(t); setSelectedShapeId(null) }}
+              onStrokeColorChange={setStrokeColor}
+              onFillColorChange={setFillColor}
+              onWidthChange={setDrawWidth}
+              onRectRadiusChange={setRectRadius}
+              canUndo={nnlCanUndo}
+              canRedo={nnlCanRedo}
+              onUndo={handleNNLUndo}
+              onRedo={handleNNLRedo}
+              selectMode={selectMode}
+              selectScope={selectScope}
+              onSelectModeChange={setSelectMode}
+              onSelectScopeChange={setSelectScope}
+            />
 
-        {/* Layers panel */}
-        <NNLLayersPanel activeLayerId={activeLayerId} onActiveLayerChange={setActiveLayerId} onSave={saveNNL}
-          selectedFrameId={selectedFrameId} onSelectFrame={handleSelectFrameFromPanel} />
+            <NNLLayersPanel activeLayerId={activeLayerId} onActiveLayerChange={setActiveLayerId} onSave={saveNNL}
+              selectedFrameId={selectedFrameId} onSelectFrame={handleSelectFrameFromPanel} />
+
+            <button
+              data-testid="nnl-snap-toggle"
+              title={snapEnabled ? 'Grille magnétique active — Shift+G pour désactiver' : 'Grille magnétique — Shift+G'}
+              onClick={() => setSnapEnabled(v => !v)}
+              className={`nnl-snap-toggle${snapEnabled ? ' active' : ''}`}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m12 15 4 4"/>
+                <path d="M2.352 10.648a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l6.029-6.029a1 1 0 1 1 3 3l-6.029 6.029a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l6.365-6.367A1 1 0 0 0 8.716 4.282z"/>
+                <path d="m5 8 4 4"/>
+              </svg>
+            </button>
+          </>
+        )}
 
         {/* Minimap + Zoom */}
         {W > 0 && (
@@ -4015,21 +4074,6 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         )}
         <ZoomControls zoom={zoom} onZoom={zoomToCenter}
           onReset={() => { setZoom(1); setOx(0); setOy(canvasSize.h) }} />
-
-        {/* Grille magnétique toggle (v0.90.5) */}
-        <button
-          data-testid="nnl-snap-toggle"
-          title={snapEnabled ? 'Grille magnétique active — Shift+G pour désactiver' : 'Grille magnétique — Shift+G'}
-          onClick={() => setSnapEnabled(v => !v)}
-          className={`nnl-snap-toggle${snapEnabled ? ' active' : ''}`}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m12 15 4 4"/>
-            <path d="M2.352 10.648a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l6.029-6.029a1 1 0 1 1 3 3l-6.029 6.029a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l6.365-6.367A1 1 0 0 0 8.716 4.282z"/>
-            <path d="m5 8 4 4"/>
-          </svg>
-        </button>
       </div>
 
       <NNLItemModal
@@ -4037,12 +4081,13 @@ export function NNLCanvas({ modalOpen, onModalClose }: { modalOpen: boolean; onM
         item={editItem ?? undefined}
         defaultZone="now" defaultType="feature"
         onSave={handleModalSave}
-        onDelete={editItem ? handleDelete : undefined}
+        onDelete={editItem && !readOnly ? handleDelete : undefined}
         onClose={handleModalClose}
-        onCreateLinkedItem={handleCreateLinkedItem}
+        onCreateLinkedItem={readOnly ? undefined : handleCreateLinkedItem}
+        readOnly={readOnly}
       />
 
-      {linkingCallback && (
+      {linkingCallback && !readOnly && (
         <ItemModal
           item={null}
           state={state}

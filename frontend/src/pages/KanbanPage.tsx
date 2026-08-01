@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { BASE_COL_IDS, WORKFLOW_ORDER, EXTRA_STAGES } from '../utils/kanbanStages'
+import { isReadOnlyForRole } from '../utils/permissions'
 import type { Item, KanbanCol, HistoryEntry } from '../types'
 
 // Ré-exportés pour compatibilité : ces constantes vivaient ici jusqu'au Chantier G (2026-07-23),
@@ -67,8 +68,10 @@ function sprintTheme(label: string): string {
 // ── Component ─────────────────────────────────────────────────────────────
 export function KanbanPage() {
   const { state, dispatch, saveToServer, stateLoaded } = useCadence()
-  const { userName, userId } = useAuth()
+  const { userName, userId, userRole } = useAuth()
   const { confirm } = useDialog()
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Kanban.
+  const readOnly = isReadOnlyForRole(userRole)
 
   const [sprintId, setSprintId] = useState<string>(() => getCurrentSprint(state)?.id ?? '')
   // Le choix par défaut ci-dessus est figé au premier rendu, potentiellement sur les données
@@ -214,6 +217,7 @@ export function KanbanPage() {
   function handleDragOver(colId: string) { setDragOverColId(colId) }
 
   function handleDrop(targetId: string) {
+    if (readOnly) return
     setDragOverColId(null)
     if (dragColId.current && dragColId.current !== targetId) {
       const cols = [...state.kanbanCols]
@@ -261,6 +265,7 @@ export function KanbanPage() {
 
   // ── Column management ────────────────────────────────────────────────
   function handleAddCol(stage: KanbanCol) {
+    if (readOnly) return
     const cols = [...state.kanbanCols]
     const newRank = WORKFLOW_ORDER.indexOf(stage.id)
     // Find first existing col whose workflow rank is strictly greater
@@ -276,6 +281,7 @@ export function KanbanPage() {
   }
 
   async function handleDeleteCol(colId: string) {
+    if (readOnly) return
     if (!await confirm('Retirer cette colonne du board ?', { confirmLabel: 'Retirer', danger: true })) return
     const newCols = state.kanbanCols.filter(c => c.id !== colId)
 
@@ -314,6 +320,7 @@ export function KanbanPage() {
 
   // ── Item actions ─────────────────────────────────────────────────────
   function handleSave(item: Item, keyCounters?: Record<string, number>) {
+    if (readOnly) { setModalItem(undefined); return }
     const exists = !!state.items.find(i => i.id === item.id)
     dispatch(exists ? { type: 'UPDATE_ITEM', payload: item } : { type: 'ADD_ITEM', payload: item, keyCounters })
     saveToServer({
@@ -325,6 +332,7 @@ export function KanbanPage() {
   }
 
   function handleRemoveFromSprint(itemId: string) {
+    if (readOnly) return
     const item = state.items.find(i => i.id === itemId)
     if (!item) return
     const updated = { ...item, status: 'backlog', sprintId: null }
@@ -387,22 +395,26 @@ export function KanbanPage() {
             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
-        <div className="hdr-sep" />
-        <button style={reorgBtnStyle} onClick={() => setReorgMode(v => !v)}>
-          <Ico d={ICO.gripVertical} size={13} />
-          Réorganiser
-        </button>
-        {/* Add-col button — popup rendered OUTSIDE header to escape overflow:hidden */}
-        <button
-          ref={addColBtnRef}
-          className="kb-addcol-btn"
-          style={BTN_PRIMARY}
-          onClick={handleAddColClick}
-        >
-          <Ico d={ICO.plus} size={13} stroke="#fff" />
-          Colonne
-        </button>
-        <div className="hdr-sep" />
+        {!readOnly && (
+          <>
+            <div className="hdr-sep" />
+            <button style={reorgBtnStyle} onClick={() => setReorgMode(v => !v)}>
+              <Ico d={ICO.gripVertical} size={13} />
+              Réorganiser
+            </button>
+            {/* Add-col button — popup rendered OUTSIDE header to escape overflow:hidden */}
+            <button
+              ref={addColBtnRef}
+              className="kb-addcol-btn"
+              style={BTN_PRIMARY}
+              onClick={handleAddColClick}
+            >
+              <Ico d={ICO.plus} size={13} stroke="#fff" />
+              Colonne
+            </button>
+            <div className="hdr-sep" />
+          </>
+        )}
       </Header>
 
       {/* ── Add-col popup — position:fixed escapes header overflow:hidden ── */}
@@ -462,6 +474,7 @@ export function KanbanPage() {
                 onDeleteCol={handleDeleteCol}
                 onEdit={item => setModalItem(item)}
                 onRemoveFromSprint={handleRemoveFromSprint}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -469,7 +482,15 @@ export function KanbanPage() {
       </div>
 
       {modalItem !== undefined && (
-        <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)} currentUserId={userId} />
+        <ItemModal
+          item={modalItem}
+          state={state}
+          onSave={handleSave}
+          onClose={() => setModalItem(undefined)}
+          currentUserId={userId}
+          canManage={!readOnly}
+          canOperate={!readOnly}
+        />
       )}
     </>
   )

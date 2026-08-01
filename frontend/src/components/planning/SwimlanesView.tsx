@@ -13,6 +13,8 @@ interface Props {
   onDragLeave: () => void
   onDrop: (sprintId: string) => void
   onEdit: (item: Item) => void
+  // Phase 2.5 (roadmap v1) — voir PlanningCard.tsx (même principe : lecture seule = plus de drag).
+  readOnly?: boolean
 }
 
 /** key de cellule : "clientId:sprintId" ou "clientId:unassigned" */
@@ -22,7 +24,7 @@ function cellKey(clientId: string, sprintId: string | null) {
 
 export function SwimlanesView({
   state, highlightClient, highlightType,
-  dragIds, dragOverKey, onDragOver, onDragLeave, onDrop, onEdit,
+  dragIds, dragOverKey, onDragOver, onDragLeave, onDrop, onEdit, readOnly = false,
 }: Props) {
   const clientsWithItems = state.clients.filter(c =>
     !c.excludeFromPlanning &&
@@ -110,6 +112,7 @@ export function SwimlanesView({
                       onEdit={onEdit}
                       onDragGroup={ids => { dragIds.current = ids }}
                       onDragItem={id  => { dragIds.current = [id] }}
+                      readOnly={readOnly}
                     />
                   ))}
                   {standalone.map(item => (
@@ -122,6 +125,7 @@ export function SwimlanesView({
                       sprintEndDate={sprint.endDate}
                       onEdit={onEdit}
                       onDragStart={id => { dragIds.current = [id] }}
+                      readOnly={readOnly}
                     />
                   ))}
                   {sprintItems.length === 0 && epicGroups.length === 0 && !sprint.closed && (
@@ -154,6 +158,7 @@ export function SwimlanesView({
                       highlightType={highlightType}
                       onEdit={onEdit}
                       onDragStart={id => { dragIds.current = [id] }}
+                      readOnly={readOnly}
                     />
                   ))}
                   {unassignedItems.length === 0 && (

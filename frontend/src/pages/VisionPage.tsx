@@ -3,6 +3,8 @@ import { useCadence } from '../context/StateContext'
 import { useToast } from '../context/ToastContext'
 import { Header } from '../components/layout/Header'
 import { NNLCanvas } from '../components/nnl/NNLCanvas'
+import { useAuth } from '../hooks/useAuth'
+import { isReadOnlyForRole } from '../utils/permissions'
 import type { VisionBoard } from '../types'
 
 type VisionView = 'vision' | 'nnl'
@@ -77,8 +79,9 @@ interface VBSectionProps {
   icon: string; title: string; value: string; placeholder: string; top?: boolean
   textareaRef?: (el: HTMLTextAreaElement | null) => void
   onChange: (v: string) => void; onBlur: () => void
+  readOnly?: boolean
 }
-function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange, onBlur }: VBSectionProps) {
+function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange, onBlur, readOnly = false }: VBSectionProps) {
   return (
     <div className={`vb-section${top ? ' vb-section-top' : ''}`}>
       <div className="vb-section-head">
@@ -86,7 +89,7 @@ function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange
         <h3 className="vb-title">{title}</h3>
       </div>
       <textarea ref={textareaRef} className="vb-textarea" value={value} placeholder={placeholder}
-        rows={top ? 3 : 6} onChange={e => onChange(e.target.value)} onBlur={onBlur} />
+        rows={top ? 3 : 6} onChange={e => onChange(e.target.value)} onBlur={onBlur} disabled={readOnly} />
     </div>
   )
 }
@@ -95,6 +98,9 @@ function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange
 export function VisionPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { showToast } = useToast()
+  const { userRole } = useAuth()
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Vision/NNL.
+  const readOnly = isReadOnlyForRole(userRole)
   const [view, setView] = useState<VisionView>('vision')
   const [modalOpen, setModalOpen] = useState(false)
 
@@ -111,17 +117,21 @@ export function VisionPage() {
   const productName = vb.productName ?? ''
 
   function update(field: keyof VisionBoard, value: string) {
+    if (readOnly) return
     dispatch({ type: 'UPDATE_VISION_BOARD', payload: { ...vb, [field]: value } })
     syncGridHeights()
   }
   function updateProductName(value: string) {
+    if (readOnly) return
     dispatch({ type: 'UPDATE_VISION_BOARD', payload: { ...vb, productName: value } })
   }
   function save() {
+    if (readOnly) return
     saveToServer({ ...state, visionBoard: vb })
     showToast('Vision Board enregistré')
   }
   function saveProductName() {
+    if (readOnly) return
     saveToServer({ ...state, visionBoard: vb })
     showToast('Nom du produit enregistré')
   }
@@ -145,6 +155,7 @@ export function VisionPage() {
           placeholder="Nom du produit"
           onChange={e => updateProductName(e.target.value)}
           onBlur={saveProductName}
+          disabled={readOnly}
           style={{
             border: 'none', background: 'transparent',
             fontSize: 13, fontWeight: 500, color: 'var(--text)',
@@ -169,8 +180,8 @@ export function VisionPage() {
           </button>
         </div>
 
-        {/* Bouton contextuel NNL — ouvre la modal de création */}
-        {view === 'nnl' && (
+        {/* Bouton contextuel NNL — ouvre la modal de création (masqué en lecture seule) */}
+        {view === 'nnl' && !readOnly && (
           <button
             data-testid="btn-add-postit"
             className="hdr-btn primary"
@@ -200,28 +211,28 @@ export function VisionPage() {
             <VBSection icon={ICO_VB_VISION} title="Vision" top
               value={vb.vision}
               placeholder="Quelle est la raison d'être du produit ? Quel changement positif doit-il apporter ?"
-              onChange={v => update('vision', v)} onBlur={save} />
+              onChange={v => update('vision', v)} onBlur={save} readOnly={readOnly} />
             <div className="vb-grid">
               <VBSection icon={ICO_VB_USERS} title="Groupe cible"
                 value={vb.targetGroup}
                 placeholder="Quel segment de marché adresse-t-on ? Qui sont les clients et utilisateurs cibles ?"
                 textareaRef={setGridRef('targetGroup')}
-                onChange={v => update('targetGroup', v)} onBlur={save} />
+                onChange={v => update('targetGroup', v)} onBlur={save} readOnly={readOnly} />
               <VBSection icon={ICO_VB_HEART} title="Besoins"
                 value={vb.needs}
                 placeholder="Quel problème le produit résout-il ? Si plusieurs besoins, priorisez-les et mettez le plus important en premier."
                 textareaRef={setGridRef('needs')}
-                onChange={v => update('needs', v)} onBlur={save} />
+                onChange={v => update('needs', v)} onBlur={save} readOnly={readOnly} />
               <VBSection icon={ICO_VB_PACKAGE} title="Produit"
                 value={vb.product}
                 placeholder="Qu'est-ce que le produit ? Quelles sont ses 3 à 5 fonctionnalités différenciantes ? Est-il réalisable ?"
                 textareaRef={setGridRef('product')}
-                onChange={v => update('product', v)} onBlur={save} />
+                onChange={v => update('product', v)} onBlur={save} readOnly={readOnly} />
               <VBSection icon={ICO_VB_TRENDING} title="Objectifs business"
                 value={vb.businessGoals}
                 placeholder="Comment le produit bénéficiera-t-il à l'entreprise ? Priorisez les objectifs et mettez le plus important en premier."
                 textareaRef={setGridRef('businessGoals')}
-                onChange={v => update('businessGoals', v)} onBlur={save} />
+                onChange={v => update('businessGoals', v)} onBlur={save} readOnly={readOnly} />
             </div>
           </div>
         </div>
@@ -230,7 +241,7 @@ export function VisionPage() {
       {/* ── Vue Now / Next / Later ── */}
       {view === 'nnl' && (
         <div className="page-content nnl-page-content">
-          <NNLCanvas modalOpen={modalOpen} onModalClose={() => setModalOpen(false)} />
+          <NNLCanvas modalOpen={modalOpen && !readOnly} onModalClose={() => setModalOpen(false)} readOnly={readOnly} />
         </div>
       )}
     </>

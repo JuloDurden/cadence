@@ -27,11 +27,14 @@ interface Props {
   onEdit: (item: Item) => void
   onDragGroup: (ids: string[]) => void
   onDragItem:  (id: string)   => void
+  // Phase 2.5 (roadmap v1) — voir PlanningCard.tsx (même principe : lecture seule = plus de drag,
+  // les cartes restent consultables).
+  readOnly?: boolean
 }
 
 export function PlanningEpicGroup({
   epicId, epic, stories, state, highlightClient, highlightType, compact, sprintEndDate,
-  onEdit, onDragGroup, onDragItem,
+  onEdit, onDragGroup, onDragItem, readOnly = false,
 }: Props) {
   const client   = epic ? state.clients.find(c => c.id === epic.clientId) : undefined
   const groupIds = epic ? [epic.id, ...stories.map(s => s.id)] : stories.map(s => s.id)
@@ -52,8 +55,8 @@ export function PlanningEpicGroup({
       {/* Header draggable → déplace tout le groupe ; le chevron bascule replié/déplié sans déclencher le drag */}
       <div
         className="epic-group-header"
-        draggable
-        onDragStart={e => { e.stopPropagation(); onDragGroup(groupIds) }}
+        draggable={!readOnly}
+        onDragStart={e => { e.stopPropagation(); if (!readOnly) onDragGroup(groupIds) }}
         title={`Glisser pour déplacer l'Epic et ses ${stories.length} US`}
         style={{ borderLeft: `3px solid ${client?.color ?? '#6366f1'}` }}
       >
@@ -90,6 +93,7 @@ export function PlanningEpicGroup({
               sprintEndDate={sprintEndDate}
               onEdit={onEdit}
               onDragStart={id => onDragItem(id)}
+              readOnly={readOnly}
             />
           ))}
         </div>

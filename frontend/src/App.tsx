@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { LoginPage } from './pages/LoginPage'
 import { BacklogPage } from './pages/BacklogPage'
 import { KanbanPage } from './pages/KanbanPage'
@@ -23,6 +23,7 @@ import { ToastProvider } from './context/ToastContext'
 import { DialogProvider } from './context/DialogContext'
 import { useAuth } from './hooks/useAuth'
 import { useGlobalUndoRedoShortcut } from './hooks/useGlobalUndoRedoShortcut'
+import { canAccessRoute } from './utils/permissions'
 
 // Tant que les vraies données du serveur ne sont pas arrivées, l'app affichait déjà le contenu
 // (Sidebar + pages) en s'appuyant sur DEMO_STATE, sans empêcher de saisir quoi que ce soit dedans.
@@ -33,6 +34,17 @@ import { useGlobalUndoRedoShortcut } from './hooks/useGlobalUndoRedoShortcut'
 function AppShell() {
   const { stateLoaded, undo, redo, canUndo, canRedo } = useCadence()
   useGlobalUndoRedoShortcut({ undo, redo, canUndo, canRedo })
+  const { userRole } = useAuth()
+  const location = useLocation()
+
+  // Phase 2.5 (roadmap v1) — verrouillage Stakeholder : certaines pages lui sont entièrement
+  // interdites (voir `canAccessRoute`, utils/permissions.ts). Vérifié ici plutôt que route par
+  // route : couvre toute navigation, y compris une URL tapée directement, sans dépendre du lien
+  // de la Sidebar (lui-même masqué pour ces mêmes routes, voir Sidebar.tsx — la Sidebar n'est que
+  // le reflet de cette règle, pas le seul rempart).
+  if (!canAccessRoute(userRole, location.pathname)) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   if (!stateLoaded) {
     return (

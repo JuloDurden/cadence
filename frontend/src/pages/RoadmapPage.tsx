@@ -7,6 +7,7 @@ import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
+import { isReadOnlyForRole } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { getEpicSP, attachItemsToEpics } from '../utils/hierarchyScore'
@@ -108,7 +109,11 @@ const SEG_BTN = (active: boolean): React.CSSProperties => ({
 
 export function RoadmapPage() {
   const { state, dispatch, saveToServer } = useCadence()
-  const { userName } = useAuth()
+  const { userName, userRole } = useAuth()
+  // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule totale sur cette page (voir
+  // utils/permissions.ts, `isReadOnlyForRole`) : le groupe de boutons d'action (Modifier
+  // l'objectif, Activer/Clôturer/Rouvrir, Supprimer) est masqué en bloc, ainsi que "+ Sprint".
+  const readOnly = isReadOnlyForRole(userRole)
   const { confirm, alert } = useDialog()
   const [groupBy, setGroupBy] = useState<'client' | 'group'>('client')
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
@@ -322,9 +327,11 @@ export function RoadmapPage() {
         </div>
       )}
 
-      <button data-testid="btn-add-sprint" className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <ViewIco d={ICO_PLUS} /> Sprint
-      </button>
+      {!readOnly && (
+        <button data-testid="btn-add-sprint" className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <ViewIco d={ICO_PLUS} /> Sprint
+        </button>
+      )}
     </Header>
     <div className="page-content">
       <div className="roadmap-grid">
@@ -377,6 +384,7 @@ export function RoadmapPage() {
                   {dateLabel && <div className="roadmap-goal-date">{dateLabel}</div>}
                 </div>
                 {/* Boutons d'action — groupe d'icônes */}
+                {!readOnly && (
                 <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,.35)', borderRadius: 6,
                   overflow: 'hidden', flexShrink: 0, alignSelf: 'flex-start' }}>
                   {!isTmp && (
@@ -418,6 +426,7 @@ export function RoadmapPage() {
                     </>
                   )}
                 </div>
+                )}
               </div>
 
               {/* Status bar */}
