@@ -6,6 +6,7 @@ import { ToastProvider } from '../context/ToastContext'
 import { DialogProvider } from '../context/DialogContext'
 import { OnboardingProvider } from '../context/OnboardingContext'
 import { PresentationModeProvider, usePresentationMode } from '../context/PresentationModeContext'
+import { PresentationThumbnails } from '../components/presentation/PresentationThumbnails'
 import type { PresentablePageId } from '../data/presentablePages'
 import { DashboardPage } from './DashboardPage'
 import { RoadmapPage } from './RoadmapPage'
@@ -100,23 +101,37 @@ function PresentationPublicView() {
 
   const safeIndex = index < pages.length ? index : 0
   const CurrentPage = PAGE_COMPONENTS[pages[safeIndex].id]
+  const currentPath = pages[safeIndex].path
 
   return (
     <div className="app-shell presentation-active" data-testid="presentation-public-view">
       <div className="main-area">
         <CurrentPage />
       </div>
-      <div
-        style={{
-          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 10001, display: 'flex', alignItems: 'center', gap: 12,
-          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999,
-          boxShadow: 'var(--shadow)', padding: '8px 16px', fontSize: 13,
-        }}
-      >
-        <button data-testid="presentation-public-prev" className="btn-icon" onClick={prev} aria-label="Page précédente">←</button>
-        <span style={{ color: 'var(--text-muted, #666)' }}>{safeIndex + 1} / {pages.length}</span>
-        <button data-testid="presentation-public-next" className="btn-icon" onClick={next} aria-label="Page suivante">→</button>
+      {/* Chantier "Vignettes au survol" (2026-08-02) — même panneau que PresentationBar.tsx (mode
+          présentation d'un compte connecté), voir PresentationThumbnails.tsx. Sélection directe par
+          `setIndex` plutôt que `navigate` : cette vue ne fait aucune vraie navigation React Router
+          (voir commentaire en tête de fichier). */}
+      <div className="presentation-bar-wrap" data-testid="presentation-bar-wrap">
+        <PresentationThumbnails
+          pages={pages}
+          currentPath={currentPath}
+          onSelect={page => {
+            const i = pages.findIndex(p => p.id === page.id)
+            if (i !== -1) setIndex(i)
+          }}
+        />
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 999,
+            boxShadow: 'var(--shadow)', padding: '8px 16px', fontSize: 13,
+          }}
+        >
+          <button data-testid="presentation-public-prev" className="btn-icon" onClick={prev} aria-label="Page précédente">←</button>
+          <span style={{ color: 'var(--text-muted, #666)' }}>{safeIndex + 1} / {pages.length}</span>
+          <button data-testid="presentation-public-next" className="btn-icon" onClick={next} aria-label="Page suivante">→</button>
+        </div>
       </div>
     </div>
   )

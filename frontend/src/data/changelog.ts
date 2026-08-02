@@ -15,7 +15,18 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.96.2',date:'2 Août 2026',dateISO:'2026-08-02',title:'Phase 3 (roadmap v1) — Mode présentation : choix et ordre des pages (Réglages)',current:true,changes:[
+  {version:'v0.96.4',date:'2 Août 2026',dateISO:'2026-08-02',title:'Phase 3 (roadmap v1) — Mode présentation : vraies captures d\'écran dans les vignettes, panneau plus stable au survol',current:true,changes:[
+    {tag:'feat', text:'Les vignettes du panneau de survol affichent désormais une vraie capture d\'écran de chaque page (plus juste une icône), générée par `scripts/generate-presentation-thumbnails.js` (`npm run thumbnails:generate`) — l\'icône reste en filet de sécurité tant qu\'une capture n\'a pas encore été générée'},
+    {tag:'fix', text:'Le panneau de vignettes disparaissait avant d\'atteindre une vignette en la survolant en diagonale — corrigé en gardant le panneau dans le flux normal (sa zone fait désormais vraiment partie de la barre flottante, plus de trou entre les deux) et en ajoutant un court délai avant disparition'},
+    {tag:'test', text:'`tests/presentation-mode.spec.js` inchangé dans son périmètre (sélecteurs stables), revérifié après ces deux correctifs'},
+  ]},
+  {version:'v0.96.3',date:'2 Août 2026',dateISO:'2026-08-02',title:'Phase 3 (roadmap v1) — Mode présentation : vignettes au survol de la barre',current:false,changes:[
+    {tag:'feat', text:'Survoler la barre flottante du mode présentation (compte connecté ou lien public) affiche un panneau de vignettes (icône + libellé) pour naviguer directement vers une page, plutôt que de cycler une par une avec les flèches'},
+    {tag:'ux', text:'La vignette de la page actuellement affichée est mise en avant dans le panneau'},
+    {tag:'chore', text:'Icônes reprises de la Sidebar pour une identification cohérente entre navigation normale et mode présentation ; icône dédiée pour Now/Next/Later, qui n\'a pas d\'entrée propre dans la Sidebar'},
+    {tag:'test', text:'`tests/presentation-mode.spec.js` complété : panneau masqué par défaut puis affiché au survol, navigation directe par clic sur une vignette, mise en avant de la page courante — pour les 2 points d\'entrée'},
+  ]},
+  {version:'v0.96.2',date:'2 Août 2026',dateISO:'2026-08-02',title:'Phase 3 (roadmap v1) — Mode présentation : choix et ordre des pages (Réglages)',current:false,changes:[
     {tag:'feat', text:'Nouvelle section "Pages du mode présentation" dans Réglages (Admin + PO) : choisit les pages affichées et leur ordre, parmi un catalogue élargi à 10 entrées — Dashboard, Vision, Now/Next/Later, Backlog, Roadmap, Release Planning, Auto-planning, Sprint Planning, Kanban, Sprint Review (contre 5 pages figées jusqu\'ici). Vision et Now/Next/Later sont deux entrées séparées bien qu\'elles partagent la même page (bascule interne Vision Board / tableau blanc NNL)'},
     {tag:'feat', text:'Sélection et ordre sauvegardés immédiatement à chaque action (monter/descendre/retirer/ajouter/réinitialiser), comme le reste des réglages du mode présentation — pas de bouton "Enregistrer" séparé'},
     {tag:'chore', text:'Sélection par défaut inchangée (Dashboard, Roadmap, Vision, Sprint Review, Backlog, dans cet ordre) pour tout workspace n\'ayant pas encore de réglage explicite — aucune migration nécessaire'},

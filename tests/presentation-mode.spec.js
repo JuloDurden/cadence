@@ -182,6 +182,58 @@ test.describe('Phase 3 — Mode présentation, compte connecté', () => {
   });
 });
 
+// Chantier "Vignettes au survol" (2026-08-02, retour Julien du 2026-08-01) : survoler la barre
+// flottante du mode présentation affiche un panneau de vignettes (icône + libellé par page),
+// cliquables pour naviguer directement plutôt que de cycler avec les flèches. Testé pour les 2
+// points d'entrée (compte connecté et lien public), voir PresentationThumbnails.tsx.
+test.describe('Phase 3 — Mode présentation, vignettes au survol de la barre', () => {
+
+  test('le panneau de vignettes est masqué par défaut et apparaît au survol (compte connecté)', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="presentation-enter"]').click();
+
+    await expect(page.locator('[data-testid="presentation-thumbs-panel"]')).not.toBeVisible();
+    await page.locator('[data-testid="presentation-bar-wrap"]').hover();
+    await expect(page.locator('[data-testid="presentation-thumbs-panel"]')).toBeVisible();
+    await expect(page.locator('[data-testid^="presentation-thumb-"]')).toHaveCount(5);
+  });
+
+  test('cliquer une vignette navigue directement vers la page correspondante (compte connecté)', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="presentation-enter"]').click();
+
+    await page.locator('[data-testid="presentation-bar-wrap"]').hover();
+    await page.locator('[data-testid="presentation-thumb-sprint-review"]').click();
+
+    await expect(page).toHaveURL(/\/sprint-review$/);
+    await expect(page.locator('.hdr-page-title')).toContainText('Sprint Review');
+  });
+
+  test('la vignette de la page courante est mise en avant (compte connecté)', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="presentation-enter"]').click();
+
+    await page.locator('[data-testid="presentation-bar-wrap"]').hover();
+    await expect(page.locator('[data-testid="presentation-thumb-dashboard"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="presentation-thumb-roadmap"]')).not.toHaveClass(/active/);
+  });
+
+  test('cliquer une vignette navigue directement vers la page correspondante (lien public)', async ({ page }) => {
+    await page.route('**/api/presentation/state/**', r => r.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify({ data: null }),
+    }));
+    await page.goto(`${BASE_URL}/present/tok-valid`);
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('.hdr-page-title')).toContainText('Dashboard');
+
+    await page.locator('[data-testid="presentation-bar-wrap"]').hover();
+    await expect(page.locator('[data-testid^="presentation-thumb-"]')).toHaveCount(5);
+    await page.locator('[data-testid="presentation-thumb-backlog"]').click();
+
+    await expect(page.locator('.hdr-page-title')).toContainText('Product Backlog');
+  });
+});
+
 // Chantier "Config pages présentables" (2026-08-02, retour Julien du 2026-08-01) : sélection +
 // ordre des pages du mode présentation, éditables Admin + PO en Réglages
 // (PresentationPagesSection.tsx), catalogue étendu à 10 pages/sous-vues (Dashboard, Vision, NNL,

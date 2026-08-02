@@ -7,7 +7,8 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test": "node tests/run-tests.js && playwright test",
-    "lint": "eslint tests/ --ext .js"
+    "lint": "eslint tests/ --ext .js",
+    "thumbnails:generate": "node scripts/generate-presentation-thumbnails.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.0",

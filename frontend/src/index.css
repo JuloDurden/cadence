@@ -103,6 +103,94 @@ body {
 .presentation-active .app-header { left: 0; }
 .presentation-active .main-area { margin-left: 0; }
 
+/* Chantier "Vignettes au survol" (2026-08-02, retour Julien du 2026-08-01) — barre flottante du
+   mode présentation (compte connecté : PresentationBar.tsx, lien public : PresentationPublicPage.tsx,
+   même besoin, même traitement). Survol OU focus clavier (`:focus-within`, accessibilité) affiche
+   le panneau.
+   Retour Julien (2026-08-02, 1er essai) : le panneau disparaissait avant d'atteindre une vignette,
+   surtout en diagonale. Cause : le panneau était en `position: absolute` (hors du flux), donc SA
+   PROPRE boîte ne comptait pas dans la taille de `.presentation-bar-wrap` — seule la barre visible
+   comptait. Le trajet de la souris entre la barre (étroite, centrée) et une vignette en bord de
+   panneau (plus large) traversait une zone qui n'appartenait ni à la barre ni au panneau : la
+   souris en sortait donc de `:hover` en cours de route. Corrigé en gardant le panneau DANS le flux
+   (`display: flex; flex-direction: column`, plus de `position: absolute`) : sa hauteur réservée
+   fait partie intégrante de la boîte de `.presentation-bar-wrap`, même quand il est invisible —
+   toute la zone barre + panneau devient un seul bloc survolable sans trou. Un délai avant
+   disparition (`transition-delay` sur la sortie seulement, pas sur l'entrée) ajoute une marge de
+   tolérance en plus. */
+.presentation-bar-wrap {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.presentation-thumbs-panel {
+  display: flex;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 8px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .15s ease .35s, visibility 0s linear .5s, pointer-events 0s linear .5s;
+}
+.presentation-bar-wrap:hover .presentation-thumbs-panel,
+.presentation-bar-wrap:focus-within .presentation-thumbs-panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .15s ease, visibility 0s, pointer-events 0s;
+}
+.presentation-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 96px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 10px;
+  text-align: center;
+  line-height: 1.3;
+}
+.presentation-thumb span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.presentation-thumb:hover { color: var(--text); border-color: var(--border-strong); }
+.presentation-thumb.active { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+/* Vraie capture d'écran (voir scripts/generate-presentation-thumbnails.js) par-dessus l'icône —
+   celle-ci sert de filet de sécurité, visible tant que l'image n'a pas encore été générée (voir
+   PresentationThumbnails.tsx, `onError`). */
+.presentation-thumb-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.presentation-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
 /* ─── Sidebar ─── matches cadence.html exactly ─────────────────────────────── */
 .sidebar {
   width: var(--sidebar-w);
