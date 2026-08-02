@@ -54,6 +54,11 @@ Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/
 
 - ✅ **Mode présentation** (fait 2026-08-01, v0.96) : Dashboard, Roadmap, Vision/NNL, Sprint Review — sidebar masquée, navigation clavier ←/→. Accessible par un bouton "Présenter" du Header pour un compte connecté, ou par un lien public `/present/:token` sans authentification (réservé Admin + PO à la génération). Julien a fait remarquer, avant l'implémentation, que le compte Stakeholder couvre déjà un vrai mode lecture seule authentifié sur ces mêmes pages (verrouillage v0.94.1) : la brique "Mode lecture seule : URL partageable par token" ci-dessous n'apportait donc de plus-value que pour le partage ponctuel sans compte — fusionnée dans le lien de présentation plutôt que construite comme une brique séparée. Voir `docs/corrections.md`.
 - ~~**Mode lecture seule** : URL partageable (token) sans auth — Stakeholder ou client voit les données sans pouvoir les modifier~~ — abandonné en tant que brique séparée (voir ci-dessus), le compte Stakeholder remplit déjà ce rôle pour un usage récurrent.
+- **Idées futures** (notées par Julien le 2026-08-01) :
+  - ~~Le PO et l'Admin peuvent choisir l'**ordre d'affichage** des pages du mode présentation.~~ — fait en v0.96.2 (2026-08-02), section "Pages du mode présentation" dans Réglages.
+  - ~~Le PO et l'Admin peuvent choisir **quelles pages** afficher en mode présentation, parmi : Dashboard, Vision, NNL, Backlog, Roadmap, Release Planning, Auto-planning, Sprint Planning, Kanban, Sprint Review (liste plus large que les 5 pages actuelles). L'affichage par défaut reste celui d'aujourd'hui (Dashboard, Roadmap, Vision, Sprint Review, Backlog).~~ — fait en v0.96.2 (2026-08-02), même section. Voir `data/presentablePages.ts`.
+  - Survoler la `presentation-bar` (barre flottante en bas de l'écran) affiche des vignettes des pages du mode présentation, pour naviguer directement vers l'une d'elles plutôt que de cycler une par une avec les flèches. Pas encore de sous-chantier prévu (prochain sur la liste, après v0.96.2).
+  - **Idée plus grande, pas forcément pour "demain"** : les pages actuelles du mode présentation s'affichent comme des "slides" sur un écran. Julien aimerait pouvoir créer ses propres slides à ajouter à la présentation (en plus des pages de l'outil) — par exemple garder la page Sprint Review pour prendre des notes en direct pendant la cérémonie, tout en pouvant aussi construire une présentation davantage narrative en s'appuyant sur les données de l'outil.
 
 ---
 
@@ -185,6 +190,7 @@ Page actuelle : KPI statiques. À faire :
   - Notification de clôture de sprint (vélocité, items livrés)
   - Alertes bloquants / dépendances non satisfaites
 - **MCP Claude** : MCP Cadence exposant les données Cadence (items, sprints, équipe) à Claude pour requêtes en langage naturel ("Quels items ne sont pas prêts pour le sprint 3 ?")
+- **Intégration GitHub** (ajoutée 2026-08-01, retour Julien) : récupérer les commits, etc. Périmètre exact à préciser (liaison commit ↔ item, PR, issues...). Voir aussi `docs/roadmap-v1.md`, Phase 5.
 
 ---
 

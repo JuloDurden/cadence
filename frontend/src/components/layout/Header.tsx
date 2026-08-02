@@ -6,7 +6,7 @@ import { useCadence } from '../../context/StateContext'
 import { USER_ROLE_LABELS } from '../../types'
 import { canAccessRoute } from '../../utils/permissions'
 import { useOnboarding } from '../../context/OnboardingContext'
-import { usePresentationMode, PRESENTATION_PAGES, type PresentationPage } from '../../context/PresentationModeContext'
+import { usePresentationMode } from '../../context/PresentationModeContext'
 
 /* ── Tiny inline SVG helper ─────────────────────────────────────── */
 function Svg({ d, size = 16 }: { d: string; size?: number }) {
@@ -144,11 +144,12 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
   const initial = (userName || 'A').trim().charAt(0).toUpperCase() || 'A'
   const roleLabel = userRole ? USER_ROLE_LABELS[userRole] : null
   const { state, dispatch, saveToServer, undo, redo, canUndo, canRedo } = useCadence()
-  // Phase 3 (roadmap v1), Mode présentation — bouton visible seulement sur les 4 pages
-  // présentables (voir PresentationModeContext.tsx), pour un compte déjà connecté.
+  // Phase 3 (roadmap v1), Mode présentation — bouton visible seulement sur les pages présentables
+  // configurées (Réglages, voir data/presentablePages.ts et PresentationModeContext.tsx), pour un
+  // compte déjà connecté.
   const location = useLocation()
   const presentation = usePresentationMode()
-  const canPresent = PRESENTATION_PAGES.includes(location.pathname as PresentationPage)
+  const canPresent = presentation.pages.some(p => p.path === location.pathname + location.search)
   const { openPanel: openOnboarding } = useOnboarding()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
@@ -265,10 +266,9 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
           </button>
         )}
 
-        {/* Présenter — Phase 3 (roadmap v1), Mode présentation : visible seulement sur les 4
-            pages présentables (Dashboard/Roadmap/Vision/Sprint Review). Cache la Sidebar et
-            active la navigation clavier ←/→ entre ces 4 pages (voir PresentationModeContext.tsx,
-            AppShell dans App.tsx). */}
+        {/* Présenter — Phase 3 (roadmap v1), Mode présentation : visible seulement sur les pages
+            présentables configurées en Réglages. Cache la Sidebar et active la navigation clavier
+            ←/→ entre ces pages (voir PresentationModeContext.tsx, AppShell dans App.tsx). */}
         {canPresent && (
           <button className="hdr-btn" title="Présenter" data-testid="presentation-enter" onClick={presentation.enter}>
             <Svg d={SVG.present} />

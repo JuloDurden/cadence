@@ -24,8 +24,7 @@ import { DialogProvider } from './context/DialogContext'
 import { OnboardingProvider } from './context/OnboardingContext'
 import { OnboardingPanel } from './components/onboarding/OnboardingPanel'
 import { SpotlightHost } from './components/onboarding/Spotlight'
-import { PresentationModeProvider, usePresentationMode, PRESENTATION_PAGES } from './context/PresentationModeContext'
-import type { PresentationPage } from './context/PresentationModeContext'
+import { PresentationModeProvider, usePresentationMode } from './context/PresentationModeContext'
 import { PresentationBar } from './components/presentation/PresentationBar'
 import { PresentationPublicPage } from './pages/PresentationPublicPage'
 import { useAuth } from './hooks/useAuth'
@@ -46,7 +45,7 @@ function AppShell() {
   // Phase 3 (roadmap v1), Mode présentation — sidebar masquée tant que le mode est actif (bouton
   // "Présenter" du Header, voir PresentationModeContext.tsx). Le contenu des pages reste identique,
   // seule la navigation change (flèches clavier au lieu de la Sidebar, voir ce même contexte).
-  const { active: presentationActive } = usePresentationMode()
+  const { active: presentationActive, pages: presentationPages } = usePresentationMode()
 
   // Phase 2.5 (roadmap v1) — verrouillage Stakeholder : certaines pages lui sont entièrement
   // interdites (voir `canAccessRoute`, utils/permissions.ts). Vérifié ici plutôt que route par
@@ -61,9 +60,11 @@ function AppShell() {
   // empêcher d'atterrir sur une page non prévue pour le mode présentation (Réglages, Backlog avant
   // son ajout à la liste, etc.) — une URL tapée directement, ou un lien resté cliquable ailleurs
   // dans l'UI, y menait quand même. Redirige vers la 1re page présentable tant que le mode est
-  // actif, même logique que le garde-fou Stakeholder juste au-dessus.
-  if (presentationActive && !PRESENTATION_PAGES.includes(location.pathname as PresentationPage)) {
-    return <Navigate to={PRESENTATION_PAGES[0]} replace />
+  // actif, même logique que le garde-fou Stakeholder juste au-dessus. Pages désormais configurables
+  // (Réglages, voir data/presentablePages.ts) plutôt qu'une liste figée.
+  const currentPath = location.pathname + location.search
+  if (presentationActive && !presentationPages.some(p => p.path === currentPath)) {
+    return <Navigate to={presentationPages[0]?.path ?? '/dashboard'} replace />
   }
 
   if (!stateLoaded) {

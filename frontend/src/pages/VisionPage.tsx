@@ -1,4 +1,5 @@
-import React, { useRef, useCallback, useState } from 'react'
+import React, { useRef, useCallback, useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useCadence } from '../context/StateContext'
 import { useToast } from '../context/ToastContext'
 import { Header } from '../components/layout/Header'
@@ -8,6 +9,16 @@ import { isReadOnlyForRole } from '../utils/permissions'
 import type { VisionBoard } from '../types'
 
 type VisionView = 'vision' | 'nnl'
+
+interface VisionPageProps {
+  // Chantier "Config pages présentables" (2026-08-02) — pour PresentationPublicPage.tsx, qui
+  // n'utilise pas de vraie navigation React Router entre les pages (voir ce fichier : navigation
+  // par état local, l'URL réelle reste `/present/:token`) : `?view=nnl` n'y a donc aucun effet,
+  // ce prop force la sous-vue initiale. Pour un compte connecté (navigation clavier du mode
+  // présentation via de vrais changements d'URL), non utilisé : `?view=nnl` suffit, voir
+  // useEffect ci-dessous.
+  initialView?: VisionView
+}
 
 // ── Icons ────────────────────────────────────────────────────────────────
 const ICO_VIEW_VISION =
@@ -95,14 +106,28 @@ function VBSection({ icon, title, value, placeholder, top, textareaRef, onChange
 }
 
 // ── VisionPage ────────────────────────────────────────────────────────────
-export function VisionPage() {
+export function VisionPage({ initialView }: VisionPageProps = {}) {
   const { state, dispatch, saveToServer } = useCadence()
   const { showToast } = useToast()
   const { userRole } = useAuth()
   // Phase 2.5 (roadmap v1) — Stakeholder en lecture seule sur Vision/NNL.
   const readOnly = isReadOnlyForRole(userRole)
-  const [view, setView] = useState<VisionView>('vision')
+  const [searchParams] = useSearchParams()
+  const [view, setView] = useState<VisionView>(
+    () => initialView ?? (searchParams.get('view') === 'nnl' ? 'nnl' : 'vision')
+  )
   const [modalOpen, setModalOpen] = useState(false)
+
+  // Chantier "Config pages présentables" (2026-08-02) — synchronise la sous-vue affichée avec
+  // `?view=nnl` quand l'URL change (navigation clavier ← → du mode présentation pour un compte
+  // connecté, voir PresentationModeContext.tsx : `/vision` <-> `/vision?view=nnl`, même route
+  // React Router, donc VisionPage n'est PAS remonté — seul cet effet permet de suivre le
+  // changement). N'affecte pas le toggle manuel Vision/NNL de l'en-tête ci-dessous : ce dernier
+  // ne touche pas l'URL, `searchParams` ne change donc pas suite à un clic dessus.
+  useEffect(() => {
+    if (initialView) return
+    setView(searchParams.get('view') === 'nnl' ? 'nnl' : 'vision')
+  }, [searchParams, initialView])
 
   // Vision Board — sync refs
   const gridRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map())

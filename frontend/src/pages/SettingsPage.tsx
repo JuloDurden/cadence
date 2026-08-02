@@ -11,6 +11,7 @@ import { useToast } from '../context/ToastContext'
 import { useAuth } from '../hooks/useAuth'
 import { UsersSettingsSection } from '../components/settings/UsersSettingsSection'
 import { PresentationLinkSection } from '../components/settings/PresentationLinkSection'
+import { PresentationPagesSection } from '../components/settings/PresentationPagesSection'
 import { hasRole } from '../utils/permissions'
 import type { KanbanCol, Settings } from '../types'
 
@@ -211,7 +212,9 @@ export function SettingsPage() {
         {/* Utilisateurs (Phase 2, sous-chantier 1) — reserve au role Admin */}
         {isAdmin && <UsersSettingsSection />}
 
-        {/* Mode présentation (Phase 3) — réservé Admin + PO */}
+        {/* Mode présentation (Phase 3) — réservé Admin + PO. Pages/ordre (chantier 2026-08-02)
+            affichées avant le lien, pour lire la config avant de la partager. */}
+        {canManagePresentation && <PresentationPagesSection />}
         {canManagePresentation && <PresentationLinkSection />}
 
         {/* Import / Export */}

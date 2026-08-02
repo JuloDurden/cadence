@@ -100,8 +100,8 @@ test.describe('Phase 3 — Mode présentation, vue publique (lien sans compte)',
     await expect(page.locator('.hdr-page-title')).toContainText('Roadmap');
   });
 
-  // Backlog ajouté au périmètre le 2026-08-01 (retour Julien) — devenu la dernière page de
-  // PRESENTATION_PAGES (voir PresentationModeContext.tsx), donc la cible du bouclage vers la gauche.
+  // Backlog ajouté au périmètre le 2026-08-01 (retour Julien) — devenu la dernière page de la
+  // sélection par défaut (voir data/presentablePages.ts), donc la cible du bouclage vers la gauche.
   test('la flèche gauche depuis le Dashboard boucle sur la dernière page (Backlog)', async ({ page }) => {
     await gotoPresent(page, 'tok-valid', { valid: true });
     await expect(page.locator('.hdr-page-title')).toContainText('Dashboard');
@@ -179,5 +179,89 @@ test.describe('Phase 3 — Mode présentation, compte connecté', () => {
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.locator('[data-testid="presentation-bar"]')).toBeVisible();
+  });
+});
+
+// Chantier "Config pages présentables" (2026-08-02, retour Julien du 2026-08-01) : sélection +
+// ordre des pages du mode présentation, éditables Admin + PO en Réglages
+// (PresentationPagesSection.tsx), catalogue étendu à 10 pages/sous-vues (Dashboard, Vision, NNL,
+// Backlog, Roadmap, Release Planning, Auto-planning, Sprint Planning, Kanban, Sprint Review).
+test.describe('Phase 3 — Mode présentation, choix et ordre des pages (Réglages)', () => {
+
+  test('la sélection par défaut liste les 5 pages d\'origine, dans l\'ordre d\'origine', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+    await expect(page.locator('[data-testid="presentation-pages-section"]')).toBeVisible();
+
+    const rows = page.locator('[data-testid^="presentation-page-row-"]');
+    await expect(rows).toHaveCount(5);
+    await expect(page.locator('[data-testid="presentation-page-row-dashboard"]')).toContainText('1. Dashboard');
+    await expect(page.locator('[data-testid="presentation-page-row-roadmap"]')).toContainText('2. Roadmap');
+    await expect(page.locator('[data-testid="presentation-page-row-vision"]')).toContainText('3. Vision');
+    await expect(page.locator('[data-testid="presentation-page-row-sprint-review"]')).toContainText('4. Sprint Review');
+    await expect(page.locator('[data-testid="presentation-page-row-backlog"]')).toContainText('5. Backlog');
+  });
+
+  test('ajouter une page la fait apparaître en dernière position, puis la retirer la fait disparaître', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+
+    await expect(page.locator('[data-testid="presentation-page-add-kanban"]')).toBeVisible();
+    await page.locator('[data-testid="presentation-page-add-kanban"]').click();
+
+    await expect(page.locator('[data-testid="presentation-page-row-kanban"]')).toContainText('6. Kanban');
+    await expect(page.locator('[data-testid="presentation-page-add-kanban"]')).toHaveCount(0);
+
+    await page.locator('[data-testid="presentation-page-remove-kanban"]').click();
+    await expect(page.locator('[data-testid="presentation-page-row-kanban"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="presentation-page-add-kanban"]')).toBeVisible();
+  });
+
+  test('descendre le Dashboard le place après la Roadmap', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+
+    await page.locator('[data-testid="presentation-page-down-dashboard"]').click();
+    await expect(page.locator('[data-testid="presentation-page-row-roadmap"]')).toContainText('1. Roadmap');
+    await expect(page.locator('[data-testid="presentation-page-row-dashboard"]')).toContainText('2. Dashboard');
+  });
+
+  test('retirer est désactivé quand une seule page reste sélectionnée', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+
+    for (const id of ['roadmap', 'vision', 'sprint-review', 'backlog']) {
+      await page.locator(`[data-testid="presentation-page-remove-${id}"]`).click();
+    }
+    await expect(page.locator('[data-testid^="presentation-page-row-"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="presentation-page-remove-dashboard"]')).toBeDisabled();
+  });
+
+  test('réinitialiser restaure la sélection et l\'ordre par défaut', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'ADMIN' });
+
+    await page.locator('[data-testid="presentation-page-add-kanban"]').click();
+    await page.locator('[data-testid="presentation-page-down-dashboard"]').click();
+    await page.locator('[data-testid="presentation-pages-reset"]').click();
+
+    const rows = page.locator('[data-testid^="presentation-page-row-"]');
+    await expect(rows).toHaveCount(5);
+    await expect(page.locator('[data-testid="presentation-page-row-dashboard"]')).toContainText('1. Dashboard');
+    await expect(page.locator('[data-testid="presentation-page-row-kanban"]')).toHaveCount(0);
+  });
+
+  test('un Dev ne voit pas la section "Pages du mode présentation"', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'DEV' });
+    await expect(page.locator('[data-testid="presentation-pages-section"]')).toHaveCount(0);
+  });
+
+  test('une page ajoutée en Réglages devient atteignable en mode présentation (compte connecté)', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'PO' });
+    // Kanban ajouté en dernier : dashboard, roadmap, vision, sprint-review, backlog, kanban.
+    await page.locator('[data-testid="presentation-page-add-kanban"]').click();
+
+    // Navigation SPA (pas de rechargement) vers le Dashboard : le réglage vient d'être mis à jour
+    // en mémoire côté client, pas besoin de re-mocker /api/state pour que ça se reflète.
+    await page.locator('a[href="/dashboard"]').click();
+    await page.locator('[data-testid="presentation-enter"]').click();
+
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('.hdr-page-title')).toContainText('Kanban');
   });
 });

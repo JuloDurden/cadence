@@ -293,6 +293,12 @@ export interface Scenario {
 
 export interface Settings {
   sprintDuration: number; defaultCapacity: number; theme: 'light' | 'dark'
+  // Phase 3 (roadmap v1), Mode présentation, chantier "Config pages présentables" (2026-08-02) —
+  // ids ordonnés (voir data/presentablePages.ts, PresentablePageId) des pages choisies par un
+  // Admin/PO pour le mode présentation, dans l'ordre d'affichage voulu. Absent = comportement
+  // d'origine (DEFAULT_PRESENTATION_PAGE_IDS), pour rester compatible avec un WorkspaceState
+  // existant qui n'a jamais eu ce champ.
+  presentationPages?: string[]
 }
 
 export interface RoadmapGoal {

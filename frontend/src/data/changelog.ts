@@ -15,7 +15,14 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.96.1',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 3 (roadmap v1) — Mode présentation : Backlog ajouté, page hors périmètre bloquée pendant le mode',current:true,changes:[
+  {version:'v0.96.2',date:'2 Août 2026',dateISO:'2026-08-02',title:'Phase 3 (roadmap v1) — Mode présentation : choix et ordre des pages (Réglages)',current:true,changes:[
+    {tag:'feat', text:'Nouvelle section "Pages du mode présentation" dans Réglages (Admin + PO) : choisit les pages affichées et leur ordre, parmi un catalogue élargi à 10 entrées — Dashboard, Vision, Now/Next/Later, Backlog, Roadmap, Release Planning, Auto-planning, Sprint Planning, Kanban, Sprint Review (contre 5 pages figées jusqu\'ici). Vision et Now/Next/Later sont deux entrées séparées bien qu\'elles partagent la même page (bascule interne Vision Board / tableau blanc NNL)'},
+    {tag:'feat', text:'Sélection et ordre sauvegardés immédiatement à chaque action (monter/descendre/retirer/ajouter/réinitialiser), comme le reste des réglages du mode présentation — pas de bouton "Enregistrer" séparé'},
+    {tag:'chore', text:'Sélection par défaut inchangée (Dashboard, Roadmap, Vision, Sprint Review, Backlog, dans cet ordre) pour tout workspace n\'ayant pas encore de réglage explicite — aucune migration nécessaire'},
+    {tag:'chore', text:'Le même réglage alimente les deux points d\'entrée du mode présentation (bouton "Présenter" pour un compte connecté et lien public `/present/:token`), qui partagent déjà le même état applicatif'},
+    {tag:'test', text:'`tests/presentation-mode.spec.js` complété : sélection par défaut, ajout/retrait, réordonnancement, retrait désactivé à 1 seule page restante, réinitialisation, accès réservé Admin + PO, propagation d\'une page ajoutée à la navigation clavier du mode présentation'},
+  ]},
+  {version:'v0.96.1',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 3 (roadmap v1) — Mode présentation : Backlog ajouté, page hors périmètre bloquée pendant le mode',current:false,changes:[
     {tag:'feat', text:'Le Backlog rejoint la liste des pages présentables (Dashboard, Roadmap, Vision, Sprint Review, Backlog), sur demande de Julien après le 1er essai'},
     {tag:'fix', text:'La Sidebar masquée ne suffisait pas à empêcher d\'atterrir sur une page non prévue pour le mode présentation (Réglages notamment) — une URL tapée directement, ou un lien resté cliquable ailleurs dans l\'interface, y menait quand même. Une navigation vers une page hors périmètre pendant le mode présentation redirige désormais vers la 1re page présentable, sans quitter le mode'},
     {tag:'fix', text:'La page ne prenait pas toute la largeur de l\'écran en mode présentation depuis un compte connecté : un bandeau vide restait à gauche, là où la Sidebar était affichée (le correctif prévu n\'avait été appliqué qu\'à la vue du lien public)'},

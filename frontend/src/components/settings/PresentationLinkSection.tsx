@@ -68,7 +68,7 @@ export function PresentationLinkSection() {
     <section data-testid="presentation-link-section" style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
       <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Mode présentation</h3>
       <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
-        Génère un lien public, sans compte requis, qui ouvre directement le mode présentation (Dashboard, Roadmap, Vision, Sprint Review — navigation au clavier ← →). Utile pour un partage ponctuel en externe ou un affichage sur un écran.
+        Génère un lien public, sans compte requis, qui ouvre directement le mode présentation (pages choisies ci-dessus — navigation au clavier ← →). Utile pour un partage ponctuel en externe ou un affichage sur un écran.
       </p>
 
       {link === undefined ? null : link ? (
