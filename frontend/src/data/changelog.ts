@@ -15,7 +15,13 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.96.4',date:'2 Août 2026',dateISO:'2026-08-02',title:'Phase 3 (roadmap v1) — Mode présentation : vraies captures d\'écran dans les vignettes, panneau plus stable au survol',current:true,changes:[
+  {version:'v0.97',date:'3 Août 2026',dateISO:'2026-08-03',title:'Phase 4 (roadmap v1) — Dashboard widgets : placement libre sur grille façon iOS',current:true,changes:[
+    {tag:'feat', text:'Les blocs du Dashboard (indicateurs, vélocité, burndown, RAG clients, activité récente) sont désormais des widgets placés librement sur une grille façon iOS Springboard, plutôt qu\'un agencement figé : un Admin/PO peut les déplacer, changer leur taille (3 tailles prédéfinies S/M/L), les retirer ou en rajouter, via le bouton "Personnaliser" du Dashboard'},
+    {tag:'feat', text:'Chaque indicateur clé (US terminées, Vélocité moyenne, Sprint actuel, Blocages actifs) devient un widget indépendant, plutôt qu\'un bloc unique — permet de les repositionner ou d\'en masquer certains individuellement'},
+    {tag:'chore', text:'Disposition sauvegardée immédiatement à chaque changement, comme le reste des réglages du mode présentation — réglage de workspace (partagé par tous), pas une préférence individuelle, cohérent avec le thème clair/sombre déjà partagé'},
+    {tag:'test', text:'`tests/dashboard.spec.js` complété : widgets par défaut, accès "Personnaliser" réservé Admin + PO, changement de taille, retrait/ajout d\'un widget, sortie du mode édition'},
+  ]},
+  {version:'v0.96.4',date:'2 Août 2026',dateISO:'2026-08-02',title:'Phase 3 (roadmap v1) — Mode présentation : vraies captures d\'écran dans les vignettes, panneau plus stable au survol',current:false,changes:[
     {tag:'feat', text:'Les vignettes du panneau de survol affichent désormais une vraie capture d\'écran de chaque page (plus juste une icône), générée par `scripts/generate-presentation-thumbnails.js` (`npm run thumbnails:generate`) — l\'icône reste en filet de sécurité tant qu\'une capture n\'a pas encore été générée'},
     {tag:'fix', text:'Le panneau de vignettes disparaissait avant d\'atteindre une vignette en la survolant en diagonale — corrigé en gardant le panneau dans le flux normal (sa zone fait désormais vraiment partie de la barre flottante, plus de trou entre les deux) et en ajoutant un court délai avant disparition'},
     {tag:'test', text:'`tests/presentation-mode.spec.js` inchangé dans son périmètre (sélecteurs stables), revérifié après ces deux correctifs'},

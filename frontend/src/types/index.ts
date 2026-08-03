@@ -1,3 +1,5 @@
+import type { DashboardWidgetPlacement } from '../data/dashboardWidgets'
+
 export type Priority = 'critical' | 'high' | 'medium' | 'low'
 export type RAG = 'R' | 'A' | 'G'
 // Phase 2 (roadmap v1), sous-chantier 1 : roles specifiques Cadence, remplace l'ancien trio
@@ -299,6 +301,11 @@ export interface Settings {
   // d'origine (DEFAULT_PRESENTATION_PAGE_IDS), pour rester compatible avec un WorkspaceState
   // existant qui n'a jamais eu ce champ.
   presentationPages?: string[]
+  // Phase 4 (roadmap v1), Dashboard widgets (2026-08-03) — placement libre sur grille des widgets
+  // du Dashboard (voir data/dashboardWidgets.ts, DashboardWidgetPlacement). Absent = disposition
+  // d'origine (DEFAULT_DASHBOARD_LAYOUT), pour rester compatible avec un WorkspaceState existant
+  // qui n'a jamais eu ce champ.
+  dashboardWidgets?: DashboardWidgetPlacement[]
 }
 
 export interface RoadmapGoal {

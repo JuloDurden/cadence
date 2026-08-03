@@ -395,6 +395,37 @@ body {
 .stat-value { font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1; }
 .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight: 500; }
 
+/* ─── Dashboard widgets (Phase 4, roadmap v1, 2026-08-03) ──────────────────
+   Placement libre sur grille façon iOS Springboard (voir DashboardWidgetGrid.tsx) — chaque tuile
+   est un enfant direct de react-grid-layout (qui lui injecte position/transform), le contenu réel
+   du widget (StatCard, graphique, etc.) remplit `.dash-widget-content`.
+   La barre d'édition (poignée de drag, taille, suppression) n'est montée que si `editable` est
+   vrai côté React (pas juste masquée en CSS) — pas de coût de rendu pour un compte non Admin/PO.
+   Correctif (2026-08-03, test Playwright après coup) : `.dash-widget-content` n'avait pas
+   d'`overflow`, seule `height: 100%` sur son contenu — un widget dont le contenu dépasse la hauteur
+   de sa tuile (ex. RAG Clients avec plusieurs clients) débordait visuellement PAR-DESSUS ce qui
+   suit dans la page (le panneau "+ Ajouter un widget"), lui volant les clics au lieu de les laisser
+   passer. `overflow: hidden` sur `.dash-widget` (garde-fou, rien ne dépasse jamais de la tuile) +
+   `overflow: auto` sur `.dash-widget-content` (défilement interne si le contenu est plus grand que
+   la tuile, plutôt que de le tronquer sans recours). */
+.dash-widget { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.dash-widget-editbar {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px 6px 0 0;
+  padding: 4px 8px; font-size: 11px; color: var(--text-muted);
+}
+.dash-widget-drag-handle { cursor: grab; letter-spacing: -2px; }
+.dash-widget-drag-handle:active { cursor: grabbing; }
+.dash-widget-size-btn, .dash-widget-remove-btn {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 4px;
+  font-size: 11px; line-height: 1; padding: 2px 6px; cursor: pointer; color: var(--text);
+}
+.dash-widget-remove-btn { margin-left: auto; color: var(--text-muted); }
+.dash-widget-size-btn:hover, .dash-widget-remove-btn:hover { background: var(--surface2); }
+.dash-widget-content { flex: 1; min-height: 0; overflow: auto; }
+.dash-widget-content > * { min-height: 100%; }
+.react-grid-item.react-grid-placeholder { background: var(--primary); opacity: .15; border-radius: var(--radius); }
+
 /* ─── Backlog table ─────────────────────────────────────────────────────── */
 .backlog-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .backlog-table th { padding: 7px 8px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }

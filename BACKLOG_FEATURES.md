@@ -58,7 +58,7 @@ Sous-chantiers 1, 2, 4/6 et 5 faits (2026-07-28/29, v0.92–v0.92.5, voir `docs/
   - ~~Le PO et l'Admin peuvent choisir l'**ordre d'affichage** des pages du mode présentation.~~ — fait en v0.96.2 (2026-08-02), section "Pages du mode présentation" dans Réglages.
   - ~~Le PO et l'Admin peuvent choisir **quelles pages** afficher en mode présentation, parmi : Dashboard, Vision, NNL, Backlog, Roadmap, Release Planning, Auto-planning, Sprint Planning, Kanban, Sprint Review (liste plus large que les 5 pages actuelles). L'affichage par défaut reste celui d'aujourd'hui (Dashboard, Roadmap, Vision, Sprint Review, Backlog).~~ — fait en v0.96.2 (2026-08-02), même section. Voir `data/presentablePages.ts`.
   - ~~Survoler la `presentation-bar` (barre flottante en bas de l'écran) affiche des vignettes des pages du mode présentation, pour naviguer directement vers l'une d'elles plutôt que de cycler une par une avec les flèches.~~ — fait en v0.96.3 (2026-08-02), voir `PresentationThumbnails.tsx`. Étendu aux 2 points d'entrée (compte connecté et lien public) pour rester cohérent avec le reste du mode présentation. Affinée en v0.96.4 (2026-08-02) suite au 1er essai de Julien : vraies captures d'écran par page (`scripts/generate-presentation-thumbnails.js`) au lieu d'une simple icône, et panneau qui ne disparaît plus en le survolant en diagonale.
-  - **Idée plus grande, pas forcément pour "demain"** : les pages actuelles du mode présentation s'affichent comme des "slides" sur un écran. Julien aimerait pouvoir créer ses propres slides à ajouter à la présentation (en plus des pages de l'outil) — par exemple garder la page Sprint Review pour prendre des notes en direct pendant la cérémonie, tout en pouvant aussi construire une présentation davantage narrative en s'appuyant sur les données de l'outil.
+  - **Idée plus grande** : les pages actuelles du mode présentation s'affichent comme des "slides" sur un écran. Julien aimerait pouvoir créer ses propres slides à ajouter à la présentation (en plus des pages de l'outil) — utile en particulier pour la Sprint Review (intro, transitions, synthèse). Planifiée avec Julien le 2026-08-02 (discussion uniquement, pas encore de code) : voir `docs/roadmap-v1.md`, Phase 3bis. Base retenue : réutiliser les briques génériques de NNL (formes/texte/traits/calques, déjà découplées de la logique Now/Next/Later), après en avoir extrait une couche partagée hors de `NNLCanvas.tsx` (pas un simple copier-coller, ce composant est tightly coupled à NNL). Slides purement libres pour la v1, pas de lien vers le Backlog. Repoussée après la Phase 4 (2026-08-02) : Julien veut aussi pouvoir y insérer des widgets du Dashboard, donc les widgets configurables (Phase 4) passent en priorité avant l'éditeur de slides.
 
 ---
 
@@ -153,13 +153,11 @@ Route dédiée `/sprint-review` — entrée dans la sidebar. Conçue comme une *
 
 ### 📊 Dashboard — widgets opérationnels
 
-Page actuelle : KPI statiques. À faire :
-
-- **Trend de vélocité** : graphique N derniers sprints (courbe + moyenne mobile)
-- **Forecast de livraison** : basé sur la vélocité moyenne — date estimée de fin d'une Epic ou d'un ensemble d'items sélectionnés
-- **Burndown en temps réel** : pour le sprint actif
-- **Widgets configurables** : choisir quels blocs afficher, redimensionner (layout drag-and-drop)
-- **Vue par client** : charge assignée / réalisée par client sur les N derniers sprints
+- ~~**Trend de vélocité** : graphique N derniers sprints (courbe + moyenne mobile)~~ — déjà fait avant ce chantier (`VelocityChart.tsx`).
+- ~~**Burndown en temps réel** : pour le sprint actif~~ — déjà fait avant ce chantier (`BurndownChart.tsx`).
+- ~~**Widgets configurables** : choisir quels blocs afficher, redimensionner~~ — fait en v0.97 (2026-08-03), Phase 4. Placement libre sur grille façon iOS Springboard plutôt qu'un simple choix/ordre de blocs (retour Julien) : 3 tailles prédéfinies (S/M/L), pas de redimensionnement libre à la souris. Voir `data/dashboardWidgets.ts`, `DashboardWidgetGrid.tsx`. Réservé Admin + PO, réglage de workspace partagé (comme le reste de `state.settings`).
+- **Forecast de livraison** : basé sur la vélocité moyenne — date estimée de fin d'une Epic ou d'un ensemble d'items sélectionnés. Pas encore fait — prévu comme nouveau widget dans le système posé en v0.97, pas un nouveau système à part.
+- **Vue par client** : charge assignée / réalisée par client sur les N derniers sprints (au-delà du RAG actuel, qui ne montre qu'un état instantané). Pas encore fait — même remarque, nouveau widget à ajouter au catalogue existant.
 
 ---
 
