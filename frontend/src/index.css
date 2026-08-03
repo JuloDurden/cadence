@@ -426,6 +426,24 @@ body {
 .dash-widget-content > * { min-height: 100%; }
 .react-grid-item.react-grid-placeholder { background: var(--primary); opacity: .15; border-radius: var(--radius); }
 
+/* ─── Zones du Dashboard (Phase 4, suite, 2026-08-03) ───────────────────────
+   "Sprint en cours" vs "Vue produit" (voir DashboardZoneSplit.tsx) — 2 grilles indépendantes
+   côte à côte ou empilées selon l'orientation choisie, séparées par une poignée redimensionnable
+   par paliers. `flex-basis` en % posé en style inline (calculé dynamiquement) sur `.dash-zone` ;
+   ces règles ne posent que la mécanique flex commune aux 2 orientations. */
+.dash-zone-split { display: flex; gap: 4px; }
+.dash-zone-split-horizontal { flex-direction: row; }
+.dash-zone-split-vertical { flex-direction: column; }
+.dash-zone { min-width: 0; min-height: 0; }
+.dash-zone-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
+.dash-zone-splitter { flex: 0 0 auto; background: transparent; position: relative; }
+.dash-zone-split-horizontal .dash-zone-splitter { width: 4px; cursor: default; }
+.dash-zone-split-vertical .dash-zone-splitter { height: 4px; cursor: default; margin: 8px 0; }
+.dash-zone-splitter.editable { background: var(--border); border-radius: 2px; }
+.dash-zone-split-horizontal .dash-zone-splitter.editable { cursor: col-resize; }
+.dash-zone-split-vertical .dash-zone-splitter.editable { cursor: row-resize; }
+.dash-zone-splitter.editable:hover { background: var(--primary); }
+
 /* ─── Backlog table ─────────────────────────────────────────────────────── */
 .backlog-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .backlog-table th { padding: 7px 8px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -694,9 +712,13 @@ option { font-weight: 400; }
 .sl-unassigned-cell { flex: 0 0 180px; min-width: 180px; }
 
 /* ─── Dashboard ─────────────────────────────────────────────────────────── */
-.dash-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
-.dash-section { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; box-shadow: var(--shadow-sm); }
-.dash-section-title { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
+/* Correctif (2026-08-03, retour Julien répété : jamais de resize des widgets quand la zone change
+   de taille) — `.dash-grid`/`.dash-section`/`.dash-section-title` étaient un reliquat de l'ancien
+   agencement figé (avant les widgets, voir data/dashboardWidgets.ts), plus référencés nulle part.
+   Remplacés par `.dash-widget-grid-viewport` : la grille (DashboardWidgetGrid.tsx) a maintenant une
+   largeur fixe en pixels, indépendante de la largeur de la zone ; ce wrapper la fait défiler
+   horizontalement plutôt que de laisser le flex parent la comprimer. */
+.dash-widget-grid-viewport { overflow-x: auto; margin-bottom: 20px; }
 
 /* ─── Scrollbars ────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 5px; height: 5px; }

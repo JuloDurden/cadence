@@ -306,6 +306,12 @@ export interface Settings {
   // d'origine (DEFAULT_DASHBOARD_LAYOUT), pour rester compatible avec un WorkspaceState existant
   // qui n'a jamais eu ce champ.
   dashboardWidgets?: DashboardWidgetPlacement[]
+  // Phase 4 (roadmap v1), Dashboard widgets, suite (2026-08-03) — orientation et partage de l'espace
+  // entre les 2 zones du Dashboard (Sprint en cours / Vue produit, voir DashboardZoneSplit.tsx).
+  // `dashboardZoneSplit` : part (0-100) allouée à la zone "Sprint en cours" (1re zone). Absents =
+  // valeurs par défaut ('horizontal', 50).
+  dashboardZoneOrientation?: 'horizontal' | 'vertical'
+  dashboardZoneSplit?: number
 }
 
 export interface RoadmapGoal {

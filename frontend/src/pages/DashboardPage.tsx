@@ -6,11 +6,12 @@ import { StatCard } from '../components/dashboard/StatCard'
 import { VelocityChart } from '../components/dashboard/VelocityChart'
 import { BurndownChart } from '../components/dashboard/BurndownChart'
 import { ClientRAG } from '../components/dashboard/ClientRAG'
-import { DashboardWidgetGrid } from '../components/dashboard/DashboardWidgetGrid'
+import { DashboardZoneSplit } from '../components/dashboard/DashboardZoneSplit'
 import { resolveDashboardLayout } from '../data/dashboardWidgets'
 import type { DashboardWidgetId, DashboardWidgetPlacement } from '../data/dashboardWidgets'
 import { isItemDone } from '../utils/status'
 import { getCurrentSprint } from '../utils/sprints'
+import { localIso } from '../utils/dates'
 import { useAuth } from '../hooks/useAuth'
 import { hasRole } from '../utils/permissions'
 
@@ -21,6 +22,11 @@ import { hasRole } from '../utils/permissions'
 // prédéfinies), les retirer ou en rajouter — persisté dans `state.settings.dashboardWidgets`. Cette
 // page ne garde que le calcul des données ; le placement/la mécanique de grille vivent dans
 // DashboardWidgetGrid.tsx (générique, ne connaît rien du Dashboard en particulier).
+//
+// Suite (2026-08-03, retour Julien après le 1er essai) : les widgets sont désormais répartis en 2
+// zones séparées (Sprint en cours / Vue produit, voir dashboardWidgets.ts `scope` et
+// DashboardZoneSplit.tsx), avec orientation et partage d'espace réglables, persistés dans
+// `state.settings.dashboardZoneOrientation` / `dashboardZoneSplit`.
 export function DashboardPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { userRole } = useAuth()
@@ -45,12 +51,29 @@ export function DashboardPage() {
   const currentDoneSP = currentItems.filter(i => isItemDone(i, state.kanbanCols)).reduce((s, i) => s + i.sp, 0)
   const currentTotalSP = currentItems.reduce((s, i) => s + i.sp, 0)
 
-  const blockers = state.dailyEntries.filter(e => e.blockers.trim().length > 0)
+  // Corrigé (2026-08-03, retour Julien "Oui, corriger") : "Blocages actifs" portait mal son nom,
+  // il comptait tout l'historique des dailies au lieu du jour même — scopé à aujourd'hui.
+  const today = localIso(new Date())
+  const blockers = state.dailyEntries.filter(e => e.date === today && e.blockers.trim().length > 0)
 
   const layout = resolveDashboardLayout(state.settings.dashboardWidgets)
+  const zoneOrientation = state.settings.dashboardZoneOrientation ?? 'horizontal'
+  const zoneSplit = state.settings.dashboardZoneSplit ?? 50
 
   function persistLayout(next: DashboardWidgetPlacement[]) {
     const nextSettings = { ...state.settings, dashboardWidgets: next }
+    dispatch({ type: 'UPDATE_SETTINGS', payload: nextSettings })
+    saveToServer({ ...state, settings: nextSettings })
+  }
+
+  function persistOrientation(next: 'horizontal' | 'vertical') {
+    const nextSettings = { ...state.settings, dashboardZoneOrientation: next }
+    dispatch({ type: 'UPDATE_SETTINGS', payload: nextSettings })
+    saveToServer({ ...state, settings: nextSettings })
+  }
+
+  function persistSplit(next: number) {
+    const nextSettings = { ...state.settings, dashboardZoneSplit: next }
     dispatch({ type: 'UPDATE_SETTINGS', payload: nextSettings })
     saveToServer({ ...state, settings: nextSettings })
   }
@@ -144,11 +167,15 @@ export function DashboardPage() {
       </Header>
 
       <div className="page-content">
-        <DashboardWidgetGrid
+        <DashboardZoneSplit
           placements={layout}
+          orientation={zoneOrientation}
+          splitPercent={zoneSplit}
           editable={canCustomize && editing}
           renderWidget={renderWidget}
           onChangePlacements={persistLayout}
+          onChangeOrientation={persistOrientation}
+          onChangeSplit={persistSplit}
         />
       </div>
     </>

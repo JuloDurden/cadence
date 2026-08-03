@@ -25,6 +25,7 @@ declare module 'react-grid-layout' {
     rowHeight?: number
     width?: number
     margin?: [number, number]
+    containerPadding?: [number, number]
     isDraggable?: boolean
     isResizable?: boolean
     draggableHandle?: string
