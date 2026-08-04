@@ -81,21 +81,20 @@ export function DashboardPage() {
   function renderWidget(id: DashboardWidgetId): ReactNode {
     switch (id) {
       case 'kpi-done':
-        return <StatCard label="US terminées" value={doneItems.length} sub={`sur ${state.items.length} total`} icon="✅" />
+        return <StatCard label="US terminées" value={doneItems.length} sub={`sur ${state.items.length} total`} />
       case 'kpi-velocity':
-        return <StatCard label="Vélocité moy." value={avgVelocity > 0 ? `${avgVelocity} SP` : '—'} sub={`sur ${closedSprints.length} sprint${closedSprints.length > 1 ? 's' : ''}`} icon="⚡" color="#ff9500" />
+        return <StatCard label="Vélocité moy." value={avgVelocity > 0 ? `${avgVelocity} SP` : '—'} sub={`sur ${closedSprints.length} sprint${closedSprints.length > 1 ? 's' : ''}`} color="#ff9500" />
       case 'kpi-current-sprint':
         return (
           <StatCard
             label="Sprint actuel"
             value={currentSprint ? `${currentDoneSP}/${currentTotalSP} SP` : '—'}
             sub={currentSprint ? `${Math.round((currentDoneSP / Math.max(1, currentTotalSP)) * 100)}% complété` : 'Aucun sprint actif'}
-            icon="🏃"
             color="var(--primary)"
           />
         )
       case 'kpi-blockers':
-        return <StatCard label="Blocages actifs" value={blockers.length} sub="aujourd'hui" icon="⚠" color={blockers.length > 0 ? 'var(--danger)' : '#34c759'} />
+        return <StatCard label="Blocages actifs" value={blockers.length} sub="aujourd'hui" color={blockers.length > 0 ? 'var(--danger)' : '#34c759'} />
       case 'velocity-chart':
         return <VelocityChart sprints={state.sprints} items={state.items} kanbanCols={state.kanbanCols} />
       case 'burndown-chart':
@@ -109,7 +108,7 @@ export function DashboardPage() {
       case 'recent-activity':
         return (
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', height: '100%', padding: '18px 20px', overflow: 'auto' }}>
-            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14 }}>🕐 Activité récente</div>
+            <div className="dash-widget-title" style={{ marginBottom: 14 }}>Activité récente</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {state.dailyEntries.length === 0 && (
                 <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Aucune activité enregistrée.</p>

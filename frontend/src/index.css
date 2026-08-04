@@ -424,6 +424,11 @@ body {
 .dash-widget-size-btn:hover, .dash-widget-remove-btn:hover { background: var(--surface2); }
 .dash-widget-content { flex: 1; min-height: 0; overflow: auto; }
 .dash-widget-content > * { min-height: 100%; }
+/* Normalisation des titres de widgets (2026-08-03, retour Julien : plus d'émoticônes, même style
+   partout — repris du titre déjà en place sur les 4 StatCard KPI). Pas de margin-bottom ici : elle
+   varie d'un widget à l'autre selon l'espacement voulu avant le contenu, posée en style inline au
+   cas par cas plutôt que dans cette classe partagée. */
+.dash-widget-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
 .react-grid-item.react-grid-placeholder { background: var(--primary); opacity: .15; border-radius: var(--radius); }
 
 /* ─── Zones du Dashboard (Phase 4, suite, 2026-08-03) ───────────────────────
