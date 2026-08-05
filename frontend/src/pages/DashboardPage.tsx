@@ -84,15 +84,49 @@ export function DashboardPage() {
         return <StatCard label="US terminées" value={doneItems.length} sub={`sur ${state.items.length} total`} />
       case 'kpi-velocity':
         return <StatCard label="Vélocité moy." value={avgVelocity > 0 ? `${avgVelocity} SP` : '—'} sub={`sur ${closedSprints.length} sprint${closedSprints.length > 1 ? 's' : ''}`} color="#ff9500" />
-      case 'kpi-current-sprint':
+      case 'kpi-current-sprint': {
+        // Correctif (2026-08-03, retour Julien, plusieurs itérations — spec finale donnée sous forme
+        // de tableau 2x2) — remplace le StatCard générique pour ce widget précis. Vraie grille CSS,
+        // pas une approximation par flex/absolu (les tentatives précédentes étaient fausses) :
+        //   ligne 1 / colonne 1 : {currentDoneSP} — grande police, haut-droite
+        //   ligne 1 / colonne 2 : "SP"            — petite police, haut-droite
+        //   ligne 2 / colonne 1 : "/{currentTotalSP}" — petite police, bas-droite
+        //   ligne 2 / colonne 2 : rien
+        //   ligne 3 (fusionnée)  : pourcentage — aligné sur le bord droit du tableau (même grille,
+        //   pas un élément à part, pour garantir qu'il partage exactement le même bord droit)
+        // Pas de bordure visible (Julien : "je veux absolument pas voir les contours du tableau") —
+        // les bordures n'ont servi qu'à vérifier la structure pendant les itérations précédentes.
+        // Taille réduite au-delà de 2 chiffres (currentTotalSP >= 100) pour ne jamais déborder du
+        // widget carré S (voir feedback_dashboard_widget_fixed_size.md côté mémoire).
+        const heroSize = currentTotalSP >= 100 ? 52 : 68
         return (
-          <StatCard
-            label="Sprint actuel"
-            value={currentSprint ? `${currentDoneSP}/${currentTotalSP} SP` : '—'}
-            sub={currentSprint ? `${Math.round((currentDoneSP / Math.max(1, currentTotalSP)) * 100)}% complété` : 'Aucun sprint actif'}
-            color="var(--primary)"
-          />
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', height: '100%', padding: '10px 12px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+            <div className="dash-widget-title">Sprint actuel</div>
+            {currentSprint ? (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', gridTemplateRows: 'auto auto auto', columnGap: 4 }}>
+                  <span style={{ gridRow: 1, gridColumn: 1, justifySelf: 'end', alignSelf: 'start', fontFamily: 'var(--font-hero)', fontSize: heroSize, fontWeight: 800, color: 'var(--primary)', lineHeight: .78, fontVariantNumeric: 'tabular-nums' }}>
+                    {currentDoneSP}
+                  </span>
+                  <span style={{ gridRow: 1, gridColumn: 2, justifySelf: 'end', alignSelf: 'start', fontFamily: 'var(--font-hero)', fontSize: 16, fontWeight: 800, color: 'var(--primary)', opacity: .6 }}>
+                    SP
+                  </span>
+                  <span style={{ gridRow: 2, gridColumn: 1, justifySelf: 'end', alignSelf: 'end', fontFamily: 'var(--font-hero)', fontSize: 16, fontWeight: 400, color: 'var(--primary)', opacity: .6, fontVariantNumeric: 'tabular-nums' }}>
+                    /{currentTotalSP}
+                  </span>
+                  <span style={{ gridRow: 3, gridColumn: '1 / 3', justifySelf: 'end', fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                    {Math.round((currentDoneSP / Math.max(1, currentTotalSP)) * 100)}% complété
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                Aucun sprint actif
+              </div>
+            )}
+          </div>
         )
+      }
       case 'kpi-blockers':
         return <StatCard label="Blocages actifs" value={blockers.length} sub="aujourd'hui" color={blockers.length > 0 ? 'var(--danger)' : '#34c759'} />
       case 'velocity-chart':
