@@ -108,11 +108,19 @@ export const WIDGET_SIZE_DIMENSIONS: Record<DashboardWidgetSize, { w: number; h:
   XLP: { w: 6,  h: 12 },
 }
 
+/** Réglage de face cachée du widget "Sprint actuel" (2026-08-04, retour Julien) — quelle métrique
+ *  est mise en avant en grand sur la face visible : le nombre de SP fait ('sp', défaut) ou le
+ *  pourcentage de complétion ('percent'). Voir SprintProgressCard.tsx et FlipCard.tsx. Champ
+ *  optionnel et propre à ce widget pour l'instant (pas de bag générique tant qu'un 2e widget n'a pas
+ *  besoin d'un réglage similaire — voir le commentaire d'en-tête de FlipCard.tsx). */
+export type SprintCardEmphasis = 'sp' | 'percent'
+
 export interface DashboardWidgetPlacement {
   id: DashboardWidgetId
   x: number
   y: number
   size: DashboardWidgetSize
+  emphasis?: SprintCardEmphasis
 }
 
 // Coordonnées propres à chaque zone (chaque zone a sa propre grille, sa propre origine (0,0)) —

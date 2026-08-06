@@ -17,7 +17,7 @@ export function VelocityChart({ sprints, items, kanbanCols }: Props) {
 
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: '18px 20px' }}>
-      <div className="dash-widget-title" style={{ marginBottom: 16 }}>Vélocité par sprint</div>
+      <div className="dash-widget-title" style={{ marginBottom: 18 }}>Vélocité par sprint</div>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />

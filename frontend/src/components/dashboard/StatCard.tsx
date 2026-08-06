@@ -13,7 +13,7 @@ interface Props {
 export function StatCard({ label, value, sub, color = 'var(--primary)' }: Props) {
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div className="dash-widget-title" style={{ marginBottom: 6 }}>{label}</div>
+      <div className="dash-widget-title">{label}</div>
       <div style={{ fontSize: 28, fontWeight: 800, color }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sub}</div>}
     </div>

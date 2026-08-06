@@ -15,16 +15,27 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.97.2',date:'3 Août 2026',dateISO:'2026-08-03',title:'Phase 4 (roadmap v1) — Dashboard widgets : 5 tailles normalisées (S/M/L/XL/XL Portrait)',current:true,changes:[
+  {version:'v0.97.3',date:'6 Août 2026',dateISO:'2026-08-06',title:'Phase 4 (roadmap v1) — Dashboard widgets : face cachée de réglages, refonte visuelle (Manrope, Sora/Orbitron)',current:true,changes:[
+    {tag:'refactor', text:'DashboardPage.tsx nettoyé : les widgets "Sprint actuel" et "Activité récente" (jusque-là codés en dur dans `renderWidget`) deviennent des composants à part entière (`SprintProgressCard.tsx`, `RecentActivity.tsx`), même convention que StatCard/VelocityChart/BurndownChart/ClientRAG — la page ne garde plus que le calcul des données (217 → 147 lignes)'},
+    {tag:'ux', text:'Police générale de l\'app remplacée par Manrope (`--font-sans`), à la place de la pile système. Titres de widgets normalisés partout (`.dash-widget-title`), plus aucune émoticône'},
+    {tag:'feat', text:'Widget "Sprint actuel" repensé en grille CSS 2×2 : SP fait en très grand (police `--font-hero`, Sora par défaut, Orbitron en alternative à un seul token près), "SP" aligné en haut à droite, total collé en bas à droite, pourcentage aligné sur le bord droit du tableau'},
+    {tag:'feat', text:'Face cachée de réglages par widget, façon iOS : nouveau composant générique `FlipCard.tsx` (retournement 3D CSS, bouton Réglages en haut-droite visible en mode "Personnaliser", bouton Retour symétrique) — câblé pour l\'instant uniquement sur "Sprint actuel", prêt à réutiliser sur les prochains widgets'},
+    {tag:'feat', text:'Réglage "Sprint actuel" : choix de la métrique mise en avant, SP fait (par défaut) ou % complété — bascule le héros du widget, le total ("/50") disparaît en mode pourcentage au profit de la légende "{fait}/{total} SP". Persisté par widget (`DashboardWidgetPlacement.emphasis`), comme la taille et la position'},
+    {tag:'ux', text:'Barre d\'édition d\'un widget supprimée : poignée de drag dédiée posée en overlay en bas à gauche de chaque widget, boutons taille/suppression posés en overlay en haut à droite — plus de barre au-dessus du contenu'},
+    {tag:'ux', text:'Marge entre le titre d\'un widget et son contenu augmentée sur l\'ensemble des widgets Dashboard (StatCard, Burndown, Vélocité par sprint, RAG Clients, Activité récente, Sprint actuel)'},
+    {tag:'ux', text:'Face cachée de "Sprint actuel" simplifiée : le choix SP/% devient 2 boutons radio ("SP", "%"), sans texte d\'explication ni libellés longs ("SP fait", "% complété"), centré dans le widget'},
+    {tag:'ux', text:'Croix de suppression d\'un widget remplacée par l\'icône Lucide trash-2, comme le reste du projet (cards clients, membres de l\'équipe)'},
+  ]},
+  {version:'v0.97.2',date:'3 Août 2026',dateISO:'2026-08-03',title:'Phase 4 (roadmap v1) — Dashboard widgets : 5 tailles normalisées (S/M/L/XL/XL Portrait)',current:false,changes:[
     {tag:'ux', text:'Les 3 tailles S/M/L ne suivaient pas de grille cohérente — reprises sur le modèle des widgets iOS : chaque taille est un multiple explicite de S (1 info clé), M (largeur 2S × hauteur 1S), L (2S × 2S, soit 2 M empilés), XL (4S × 2S, soit 2 L côte à côte) et une nouvelle taille XL Portrait (2S × 4S, même surface que XL mais en hauteur)'},
     {tag:'feat', text:'Burndown (sprint actif) passe en L/XL (au lieu de M/L) — la taille XL lui donne toute la largeur du Dashboard pour rester lisible jour par jour'},
     {tag:'feat', text:'Santé clients (RAG) passe en L/XL Portrait (au lieu de M/L) — la taille XL Portrait affiche la liste complète des clients sur une colonne, sans scroll, une ligne par client'},
     {tag:'chore', text:'Disposition par défaut du Dashboard réajustée aux nouvelles tailles (Burndown en XL, Santé clients en XL Portrait)'},
     {tag:'fix', text:'Les tuiles se déformaient (S n\'était plus un carré) quand on réduisait ou agrandissait une zone (poignée Sprint/Produit) — la grille mesurait la largeur du conteneur pour calculer la largeur d\'une colonne. Largeur de grille désormais fixe en pixels, indépendante de la zone ; une zone plus étroite que la grille défile horizontalement au lieu de comprimer les tuiles'},
     {tag:'fix', text:'Même après ce correctif, S n\'était toujours pas un vrai carré : `react-grid-layout` calcule la largeur d\'une colonne à partir d\'un `containerPadding` qui vaut `margin` par défaut si on ne le précise pas, ce qui faussait le calcul par rapport à la largeur de grille fixée. Corrigé en passant `containerPadding: [0, 0]` explicitement'},
-    {tag:'ux', text:'Tailles précisées en pixels (retour Julien, rectifiées une 1re fois) : S = 160×160, M = 356×160, L = 356×356, XL = 748×356, XL Portrait = 356×748 — unité de grille et marge résolues pour tomber exactement sur ces valeurs'},
-    {tag:'ux', text:'Titres de widgets normalisés (retour Julien) : plus aucune émoticône (StatCard, Vélocité par sprint, Burndown, RAG Clients, Activité récente), même style partout (`.dash-widget-title` : 11px, 600, `var(--text-muted)`, majuscules, espacement .4px) repris du titre déjà en place sur les 4 KPI'},
-    {tag:'ux', text:'Police générale de l\'app remplacée par Manrope (`--font-sans`), à la place de la pile système (retour Julien : polices pas assez modernes, ça se voit sur les widgets à info précise)'},
+    {tag:'ux', text:'Tailles précisées en pixels : S = 160×160, M = 356×160, L = 356×356, XL = 748×356, XL Portrait = 356×748 — unité de grille et marge résolues pour tomber exactement sur ces valeurs'},
+    {tag:'ux', text:'Titres de widgets normalisés : plus aucune émoticône (StatCard, Vélocité par sprint, Burndown, RAG Clients, Activité récente), même style partout (`.dash-widget-title` : 11px, 600, `var(--text-muted)`, majuscules, espacement .4px) repris du titre déjà en place sur les 4 KPI'},
+    {tag:'ux', text:'Police générale de l\'app remplacée par Manrope (`--font-sans`), à la place de la pile système'},
     {tag:'feat', text:'Widget "Sprint actuel" repensé : le nombre de SP fait domine en grand (police `--font-hero`, Sora ou Orbitron — arbitrage pas encore tranché, un seul token à changer dans index.css), "SP" aligné en haut à droite du chiffre, le total ("/50") collé juste sous "SP" et aligné à droite, pourcentage en dernière ligne'},
     {tag:'test', text:'`tests/dashboard.spec.js` : cycle de taille du Burndown et de Santé clients couvrant leurs nouvelles tailles dédiées'},
   ]},
@@ -62,7 +73,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'test', text:'`tests/presentation-mode.spec.js` complété : sélection par défaut, ajout/retrait, réordonnancement, retrait désactivé à 1 seule page restante, réinitialisation, accès réservé Admin + PO, propagation d\'une page ajoutée à la navigation clavier du mode présentation'},
   ]},
   {version:'v0.96.1',date:'1 Août 2026',dateISO:'2026-08-01',title:'Phase 3 (roadmap v1) — Mode présentation : Backlog ajouté, page hors périmètre bloquée pendant le mode',current:false,changes:[
-    {tag:'feat', text:'Le Backlog rejoint la liste des pages présentables (Dashboard, Roadmap, Vision, Sprint Review, Backlog), sur demande de Julien après le 1er essai'},
+    {tag:'feat', text:'Le Backlog rejoint la liste des pages présentables (Dashboard, Roadmap, Vision, Sprint Review, Backlog)'},
     {tag:'fix', text:'La Sidebar masquée ne suffisait pas à empêcher d\'atterrir sur une page non prévue pour le mode présentation (Réglages notamment) — une URL tapée directement, ou un lien resté cliquable ailleurs dans l\'interface, y menait quand même. Une navigation vers une page hors périmètre pendant le mode présentation redirige désormais vers la 1re page présentable, sans quitter le mode'},
     {tag:'fix', text:'La page ne prenait pas toute la largeur de l\'écran en mode présentation depuis un compte connecté : un bandeau vide restait à gauche, là où la Sidebar était affichée (le correctif prévu n\'avait été appliqué qu\'à la vue du lien public)'},
     {tag:'test', text:'`tests/presentation-mode.spec.js` complété : Backlog dans le périmètre, redirection hors périmètre pendant le mode présentation, bouclage de la navigation clavier mis à jour'},
@@ -139,7 +150,7 @@ export const CHANGELOG: ChangelogVersion[] = [
     {tag:'feat', text:'Le PO (+ Admin) garde un accès complet au Backlog : créer/modifier/supprimer des items, Epics et Initiatives, et tous les champs de la fiche'},
     {tag:'feat', text:'Le Dev peut désormais éditer un sous-ensemble opérationnel d\'un item : statut, Story Points, notes/commentaires, Definition of Done, dépendances — les champs qu\'il renseigne en travaillant l\'item. Le contenu produit (description, User Story, critères, priorité/scoring, epic/client, tags, DoR) reste réservé au PO'},
     {tag:'feat', text:'Auto-assignation : un Dev peut s\'ajouter ou se retirer lui-même des assignés d\'un item (compte lié via la page Team), sans pouvoir gérer les assignations des autres membres'},
-    {tag:'feat', text:'Le Scrum Master reste en lecture seule sur cette page (comme le Stakeholder) — seuls PO et Dev sont mentionnés en écriture dans la matrice de rôles d\'origine, confirmé avec Julien le 2026-07-31'},
+    {tag:'feat', text:'Le Scrum Master reste en lecture seule sur cette page (comme le Stakeholder) — seuls PO et Dev sont mentionnés en écriture dans la matrice de rôles d\'origine'},
     {tag:'chore', text:'"+ Ajouter" (Item/Epic/Initiative) et la suppression d\'un item/Epic/Initiative restent réservés au PO (+ Admin) ; le bouton "Modifier" reste visible pour PO et Dev, masqué pour Scrum Master/Stakeholder'},
     {tag:'test', text:'`tests/permissions.spec.js` complété : accès PO/Dev/Scrum Master/Stakeholder sur "+ Ajouter", "Modifier"/"Supprimer", et les champs de la fiche item (statut, SP, DoD, dépendances, notes, priorité)'},
   ]},

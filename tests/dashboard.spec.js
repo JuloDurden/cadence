@@ -171,3 +171,58 @@ test.describe('Dashboard — 2 zones (Sprint en cours / Vue produit)', () => {
     await expect(page.locator('[data-testid="dashboard-zone-split"]')).toBeVisible();
   });
 });
+
+// Chantier "Face cachée des widgets" (v0.97.3, 2026-08-06, retour Julien) — FlipCard.tsx, câblé pour
+// l'instant sur "Sprint actuel" (SprintProgressCard.tsx) uniquement. Le bouton Réglages n'apparaît
+// qu'en mode "Personnaliser", comme le reste des contrôles d'édition d'un widget.
+test.describe('Dashboard — face cachée de réglages (v0.97.3)', () => {
+
+  test('le bouton Réglages n\'apparaît qu\'en mode Personnaliser', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await expect(page.locator('[data-testid="dashboard-widget-flip-settings"]')).toHaveCount(0);
+
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await expect(page.locator('[data-testid="dashboard-widget-flip-settings"]')).toBeVisible();
+  });
+
+  test('cliquer sur Réglages affiche le choix SP/%, Retour revient à la face visible', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+    await expect(page.locator('[data-testid="dashboard-widget-emphasis-sp"]')).toBeVisible();
+    await expect(page.locator('[data-testid="dashboard-widget-emphasis-percent"]')).toBeVisible();
+
+    await page.locator('[data-testid="dashboard-widget-flip-back"]').click();
+    await expect(page.locator('[data-testid="dashboard-widget-flip-settings"]')).toBeVisible();
+  });
+
+  test('choisir "%" bascule le héros du widget et fait disparaître le total', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+
+    await page.locator('[data-testid="dashboard-widget-emphasis-percent"]').click();
+    await page.locator('[data-testid="dashboard-widget-flip-back"]').click();
+
+    // "/{totalSP}" (à côté du héros) disparaît en mode pourcentage — vérifié via son propre
+    // data-testid plutôt qu'une recherche de "/" sur tout le widget : la légende reste
+    // "{doneSP}/{totalSP} SP" en mode pourcentage, elle contient légitimement un "/".
+    const sprintWidget = page.locator('[data-testid="dashboard-widget-kpi-current-sprint"]');
+    await expect(sprintWidget).toContainText('SP');
+    await expect(page.locator('[data-testid="dashboard-widget-sprint-total"]')).toHaveCount(0);
+  });
+
+  test('sortir du mode édition revient automatiquement à la face visible', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+    await expect(page.locator('[data-testid="dashboard-widget-emphasis-sp"]')).toBeVisible();
+
+    // Sort du mode édition (un seul clic, "Terminer") — `editable` passe à `false`, FlipCard
+    // revient automatiquement sur la face visible (useEffect), les boutons de la face cachée
+    // restent dans le DOM (contenu React normal) mais ne sont plus visibles (visibility: hidden).
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await expect(page.locator('[data-testid="dashboard-widget-emphasis-sp"]')).not.toBeVisible();
+  });
+});

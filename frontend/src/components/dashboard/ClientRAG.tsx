@@ -9,7 +9,7 @@ interface Props { clients: Client[]; items: Item[]; kanbanCols: KanbanCol[] }
 export function ClientRAG({ clients, items, kanbanCols }: Props) {
   return (
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: '18px 20px' }}>
-      <div className="dash-widget-title" style={{ marginBottom: 14 }}>RAG Clients</div>
+      <div className="dash-widget-title" style={{ marginBottom: 16 }}>RAG Clients</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {clients.map(client => {
           const clientItems = items.filter(i => i.clientId === client.id)

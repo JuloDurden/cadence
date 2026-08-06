@@ -407,8 +407,8 @@ body {
    Placement libre sur grille façon iOS Springboard (voir DashboardWidgetGrid.tsx) — chaque tuile
    est un enfant direct de react-grid-layout (qui lui injecte position/transform), le contenu réel
    du widget (StatCard, graphique, etc.) remplit `.dash-widget-content`.
-   La barre d'édition (poignée de drag, taille, suppression) n'est montée que si `editable` est
-   vrai côté React (pas juste masquée en CSS) — pas de coût de rendu pour un compte non Admin/PO.
+   Les boutons d'édition (taille, suppression) ne sont montés que si `editable` est vrai côté React
+   (pas juste masqués en CSS) — pas de coût de rendu pour un compte non Admin/PO.
    Correctif (2026-08-03, test Playwright après coup) : `.dash-widget-content` n'avait pas
    d'`overflow`, seule `height: 100%` sur son contenu — un widget dont le contenu dépasse la hauteur
    de sa tuile (ex. RAG Clients avec plusieurs clients) débordait visuellement PAR-DESSUS ce qui
@@ -416,28 +416,63 @@ body {
    passer. `overflow: hidden` sur `.dash-widget` (garde-fou, rien ne dépasse jamais de la tuile) +
    `overflow: auto` sur `.dash-widget-content` (défilement interne si le contenu est plus grand que
    la tuile, plutôt que de le tronquer sans recours). */
-.dash-widget { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-.dash-widget-editbar {
-  display: flex; align-items: center; gap: 6px;
-  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px 6px 0 0;
-  padding: 4px 8px; font-size: 11px; color: var(--text-muted);
+.dash-widget { position: relative; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+/* Boutons d'édition (2026-08-06) — plus de barre dédiée au-dessus de la tuile : posés en overlay
+   directement sur le widget, même traitement visuel que `.dash-flip-corner-btn` (24×24).
+   Emplacements réservés en haut-droite (un titre de widget commence toujours en haut-gauche, jamais
+   de collision) : suppression toujours au plus près du bord (right: 6px, présente sur toute tuile
+   éditable) ; taille juste à sa gauche (right: 36px, seulement sur les tuiles à plusieurs tailles).
+   Le bouton Réglages de FlipCard.tsx partage ce même emplacement (right: 36px) — aucun widget
+   n'ayant aujourd'hui à la fois plusieurs tailles et une face cachée, pas de collision réelle ; à
+   revoir si un widget cumule un jour les deux.
+   Poignée de drag en bas-gauche (voir commentaire dans DashboardWidgetGrid.tsx pour le pourquoi du
+   retour à une poignée dédiée) — pas en bas-droite : trop proche de la légende de "Sprint actuel",
+   alignée à droite en bas de sa grille. */
+.dash-widget-remove-btn, .dash-widget-size-btn, .dash-widget-drag-handle {
+  position: absolute; z-index: 1;
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border: none; background: var(--surface); border-radius: 6px;
+  font-size: 12px; line-height: 1; cursor: pointer; color: var(--text-muted);
 }
-.dash-widget-drag-handle { cursor: grab; letter-spacing: -2px; }
+.dash-widget-remove-btn, .dash-widget-size-btn { top: 6px; }
+.dash-widget-remove-btn { right: 6px; }
+.dash-widget-size-btn { right: 36px; font-size: 10px; font-weight: 600; }
+.dash-widget-drag-handle { bottom: 6px; left: 6px; cursor: grab; }
 .dash-widget-drag-handle:active { cursor: grabbing; }
-.dash-widget-size-btn, .dash-widget-remove-btn {
-  border: 1px solid var(--border); background: var(--surface); border-radius: 4px;
-  font-size: 11px; line-height: 1; padding: 2px 6px; cursor: pointer; color: var(--text);
-}
-.dash-widget-remove-btn { margin-left: auto; color: var(--text-muted); }
-.dash-widget-size-btn:hover, .dash-widget-remove-btn:hover { background: var(--surface2); }
+.dash-widget-remove-btn:hover, .dash-widget-size-btn:hover, .dash-widget-drag-handle:hover { background: var(--surface2); color: var(--text); }
 .dash-widget-content { flex: 1; min-height: 0; overflow: auto; }
 .dash-widget-content > * { min-height: 100%; }
-/* Normalisation des titres de widgets (2026-08-03, retour Julien : plus d'émoticônes, même style
-   partout — repris du titre déjà en place sur les 4 StatCard KPI). Pas de margin-bottom ici : elle
-   varie d'un widget à l'autre selon l'espacement voulu avant le contenu, posée en style inline au
-   cas par cas plutôt que dans cette classe partagée. */
-.dash-widget-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+/* Normalisation des titres de widgets (2026-08-03 : plus d'émoticônes, même style partout — repris
+   du titre déjà en place sur les 4 StatCard KPI). Marge par défaut sous le titre (2026-08-06,
+   titre/contenu trop collés) ; certains widgets la surchargent en style inline selon leur propre
+   espacement (graphiques Recharts notamment, qui ont déjà leur propre marge interne). */
+.dash-widget-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 10px; }
 .react-grid-item.react-grid-placeholder { background: var(--primary); opacity: .15; border-radius: var(--radius); }
+
+/* Face cachée d'un widget (FlipCard.tsx, 2026-08-04) — retournement 3D façon iOS pour éditer les
+   réglages d'un widget individuellement. `front`/`back` amènent chacun leur propre carte
+   (fond/radius/ombre), cette classe ne pose que la mécanique du retournement (positionnement,
+   double face, transform) — symétrique entre front et back, aucun des deux n'a de style de carte ici. */
+.dash-flip { position: relative; width: 100%; height: 100%; perspective: 1200px; }
+.dash-flip-inner {
+  position: relative; width: 100%; height: 100%;
+  transition: transform .5s cubic-bezier(.4, .2, .2, 1);
+  transform-style: preserve-3d;
+}
+.dash-flip-flipped { transform: rotateY(180deg); }
+.dash-flip-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.dash-flip-back { transform: rotateY(180deg); }
+/* Bouton coin haut-droite, même position sur les 2 faces (Réglages sur le front, Retour sur le
+   back). `right: 36px` plutôt que 6px (2026-08-06) : laisse la place au bouton de suppression de la
+   tuile (`.dash-widget-remove-btn`, DashboardWidgetGrid.tsx), toujours présent en `right: 6px` sur
+   une tuile éditable, quel que soit son contenu. */
+.dash-flip-corner-btn {
+  position: absolute; bottom: 6px; right: 6px;
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+  border: none; background: var(--surface); border-radius: 6px;
+  color: var(--text-muted); cursor: pointer;
+}
+.dash-flip-corner-btn:hover { background: var(--surface2); color: var(--text); }
 
 /* ─── Zones du Dashboard (Phase 4, suite, 2026-08-03) ───────────────────────
    "Sprint en cours" vs "Vue produit" (voir DashboardZoneSplit.tsx) — 2 grilles indépendantes

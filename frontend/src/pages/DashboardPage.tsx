@@ -6,6 +6,8 @@ import { StatCard } from '../components/dashboard/StatCard'
 import { VelocityChart } from '../components/dashboard/VelocityChart'
 import { BurndownChart } from '../components/dashboard/BurndownChart'
 import { ClientRAG } from '../components/dashboard/ClientRAG'
+import { SprintProgressCard } from '../components/dashboard/SprintProgressCard'
+import { RecentActivity } from '../components/dashboard/RecentActivity'
 import { DashboardZoneSplit } from '../components/dashboard/DashboardZoneSplit'
 import { resolveDashboardLayout } from '../data/dashboardWidgets'
 import type { DashboardWidgetId, DashboardWidgetPlacement } from '../data/dashboardWidgets'
@@ -78,55 +80,30 @@ export function DashboardPage() {
     saveToServer({ ...state, settings: nextSettings })
   }
 
+  // Réglages par widget, face cachée (2026-08-04, retour Julien, voir FlipCard.tsx) — patch un seul
+  // placement dans `layout` et persiste comme le reste (taille, position). Générique par id, pas
+  // seulement pour kpi-current-sprint : à réutiliser tel quel pour les prochains widgets flippables.
+  function updateWidgetSetting(id: DashboardWidgetId, patch: Partial<DashboardWidgetPlacement>) {
+    persistLayout(layout.map(p => p.id === id ? { ...p, ...patch } : p))
+  }
+
   function renderWidget(id: DashboardWidgetId): ReactNode {
     switch (id) {
       case 'kpi-done':
         return <StatCard label="US terminées" value={doneItems.length} sub={`sur ${state.items.length} total`} />
       case 'kpi-velocity':
         return <StatCard label="Vélocité moy." value={avgVelocity > 0 ? `${avgVelocity} SP` : '—'} sub={`sur ${closedSprints.length} sprint${closedSprints.length > 1 ? 's' : ''}`} color="#ff9500" />
-      case 'kpi-current-sprint': {
-        // Correctif (2026-08-03, retour Julien, plusieurs itérations — spec finale donnée sous forme
-        // de tableau 2x2) — remplace le StatCard générique pour ce widget précis. Vraie grille CSS,
-        // pas une approximation par flex/absolu (les tentatives précédentes étaient fausses) :
-        //   ligne 1 / colonne 1 : {currentDoneSP} — grande police, haut-droite
-        //   ligne 1 / colonne 2 : "SP"            — petite police, haut-droite
-        //   ligne 2 / colonne 1 : "/{currentTotalSP}" — petite police, bas-droite
-        //   ligne 2 / colonne 2 : rien
-        //   ligne 3 (fusionnée)  : pourcentage — aligné sur le bord droit du tableau (même grille,
-        //   pas un élément à part, pour garantir qu'il partage exactement le même bord droit)
-        // Pas de bordure visible (Julien : "je veux absolument pas voir les contours du tableau") —
-        // les bordures n'ont servi qu'à vérifier la structure pendant les itérations précédentes.
-        // Taille réduite au-delà de 2 chiffres (currentTotalSP >= 100) pour ne jamais déborder du
-        // widget carré S (voir feedback_dashboard_widget_fixed_size.md côté mémoire).
-        const heroSize = currentTotalSP >= 100 ? 52 : 68
+      case 'kpi-current-sprint':
         return (
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', height: '100%', padding: '10px 12px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-            <div className="dash-widget-title">Sprint actuel</div>
-            {currentSprint ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'auto auto', gridTemplateRows: 'auto auto auto', columnGap: 4 }}>
-                  <span style={{ gridRow: 1, gridColumn: 1, justifySelf: 'end', alignSelf: 'start', fontFamily: 'var(--font-hero)', fontSize: heroSize, fontWeight: 800, color: 'var(--primary)', lineHeight: .78, fontVariantNumeric: 'tabular-nums' }}>
-                    {currentDoneSP}
-                  </span>
-                  <span style={{ gridRow: 1, gridColumn: 2, justifySelf: 'end', alignSelf: 'start', fontFamily: 'var(--font-hero)', fontSize: 16, fontWeight: 800, color: 'var(--primary)', opacity: .6 }}>
-                    SP
-                  </span>
-                  <span style={{ gridRow: 2, gridColumn: 1, justifySelf: 'end', alignSelf: 'end', fontFamily: 'var(--font-hero)', fontSize: 16, fontWeight: 400, color: 'var(--primary)', opacity: .6, fontVariantNumeric: 'tabular-nums' }}>
-                    /{currentTotalSP}
-                  </span>
-                  <span style={{ gridRow: 3, gridColumn: '1 / 3', justifySelf: 'end', fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                    {Math.round((currentDoneSP / Math.max(1, currentTotalSP)) * 100)}% complété
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-                Aucun sprint actif
-              </div>
-            )}
-          </div>
+          <SprintProgressCard
+            sprint={currentSprint}
+            doneSP={currentDoneSP}
+            totalSP={currentTotalSP}
+            editable={canCustomize && editing}
+            emphasis={layout.find(p => p.id === 'kpi-current-sprint')?.emphasis ?? 'sp'}
+            onChangeEmphasis={next => updateWidgetSetting('kpi-current-sprint', { emphasis: next })}
+          />
         )
-      }
       case 'kpi-blockers':
         return <StatCard label="Blocages actifs" value={blockers.length} sub="aujourd'hui" color={blockers.length > 0 ? 'var(--danger)' : '#34c759'} />
       case 'velocity-chart':
@@ -140,38 +117,7 @@ export function DashboardPage() {
       case 'client-rag':
         return <ClientRAG clients={state.clients} items={state.items} kanbanCols={state.kanbanCols} />
       case 'recent-activity':
-        return (
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', height: '100%', padding: '18px 20px', overflow: 'auto' }}>
-            <div className="dash-widget-title" style={{ marginBottom: 14 }}>Activité récente</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {state.dailyEntries.length === 0 && (
-                <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Aucune activité enregistrée.</p>
-              )}
-              {[...state.dailyEntries]
-                .sort((a, b) => b.date.localeCompare(a.date))
-                .slice(0, 8)
-                .map((entry, i) => {
-                  const member = state.team.find(m => m.id === entry.memberId)
-                  if (!member) return null
-                  return (
-                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 10, flexShrink: 0 }}>
-                        {member.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ fontWeight: 600, fontSize: 12 }}>{member.name}</span>
-                          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{new Date(entry.date).toLocaleDateString('fr-FR')}</span>
-                        </div>
-                        {entry.today && <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 1 }}>🎯 {entry.today}</div>}
-                        {entry.blockers && <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 1 }}>⚠ {entry.blockers}</div>}
-                      </div>
-                    </div>
-                  )
-              })}
-            </div>
-          </div>
-        )
+        return <RecentActivity dailyEntries={state.dailyEntries} team={state.team} />
     }
   }
 
