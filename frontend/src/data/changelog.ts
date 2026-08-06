@@ -15,7 +15,21 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.97.4',date:'6 Août 2026',dateISO:'2026-08-06',title:'Phase 4 (roadmap v1) — Dashboard widgets : face cachée de réglages sur les 7 widgets restants (généralisation terminée)',current:true,changes:[
+  {version:'v0.97.5',date:'6 Août 2026',dateISO:'2026-08-06',title:'Phase 4 (roadmap v1) - Dashboard widgets : 3 nouveaux widgets (Vélocité par membre, Santé du sprint, Absences du sprint)',current:true,changes:[
+    {tag:'feat', text:'Nouveau widget "Vélocité par membre" (9e widget à utiliser `FlipCard.tsx`), disponible uniquement via la modal "+ Ajouter un widget" (pas dans la disposition par défaut, pour ne pas perturber les 8 widgets déjà posés par défaut) : une courbe par membre de l\'équipe, mêmes filtres que la page Équipe (`i.assignees.includes(m.id)`), une US à plusieurs assignés comptant intégralement pour chacun'},
+    {tag:'feat', text:'Réglage "Vélocité par membre" en face cachée : SP terminés (par défaut) ou nombre d\'US terminées'},
+    {tag:'feat', text:'Interactions de lecture sur "Vélocité par membre" (non persistées) : clic sur un nom dans la légende pour masquer/afficher sa courbe, clic sur une courbe pour la mettre en surbrillance (les autres courbes s\'estompent, ainsi que leur nom dans la légende)'},
+    {tag:'ux', text:'Taille M de "Vélocité par membre" en version compacte, sans légende ni graduations, même convention que le Graphique de vélocité'},
+    {tag:'ux', text:'Aperçu miniature du widget "Vélocité par membre" ajouté dans la modal "+ Ajouter un widget"'},
+    {tag:'fix', text:'Infobulle de "Vélocité par membre" inexploitable dès plusieurs membres (valeurs affichées sans nom associé) : reconstruite en pastille de couleur, nom et valeur par membre visible, triée par valeur décroissante, hauteur limitée avec défilement de secours pour une équipe nombreuse'},
+    {tag:'fix', text:'Menu déroulant "+ Ajouter" de la modal d\'ajout de widget rogné pour les cartes tout en bas de la liste (`.modal-body` en `overflow-y: auto`, pas un problème d\'empilement de calques) : le menu détecte désormais l\'espace disponible sous le bouton et s\'ouvre vers le haut si besoin'},
+    {tag:'feat', text:'Nouveau widget "Santé du sprint" (10e widget à utiliser `FlipCard.tsx`), disponible uniquement via la modal "+ Ajouter un widget" en tailles L/XL : jauge à 3 segments À faire/En cours/Terminé (Story Points par défaut) plutôt que le simple fait/total des autres widgets KPI, jours restants, % de temps écoulé, % complété, capacité utilisée (`effectiveCapacity()`, même mesure que Planning/Roadmap/AutoPlanning/Sprint Review) et nombre d\'US avec deadline non terminées'},
+    {tag:'feat', text:'Réglage "Santé du sprint" en face cachée : jauge et % de complétion en Story Points (par défaut) ou en nombre d\'US'},
+    {tag:'ux', text:'Aperçu miniature du widget "Santé du sprint" ajouté dans la modal "+ Ajouter un widget"'},
+    {tag:'feat', text:'Nouveau widget "Absences du sprint" (11e widget, sans face cachée de réglages), disponible uniquement via la modal "+ Ajouter un widget" en tailles S/M : liste des absences de l\'équipe qui chevauchent le sprint en cours, avatar (photo ou initiales), nom, période, et un badge "jours restants" pour une absence en cours aujourd\'hui. En taille S : total et avatars empilés (les 3 premiers), sans le détail par personne'},
+    {tag:'ux', text:'Aperçu miniature du widget "Absences du sprint" ajouté dans la modal "+ Ajouter un widget"'},
+  ]},
+  {version:'v0.97.4',date:'6 Août 2026',dateISO:'2026-08-06',title:'Phase 4 (roadmap v1) — Dashboard widgets : face cachée de réglages sur les 7 widgets restants (généralisation terminée)',current:false,changes:[
     {tag:'feat', text:'Face cachée de réglages sur le widget "Graphique de vélocité" (2e widget après "Sprint actuel" à utiliser `FlipCard.tsx`) : choix "Vélocité + Planifié" (par défaut) ou "Vélocité" seule'},
     {tag:'feat', text:'Courbe de progression optionnelle sur le Graphique de vélocité (case à cocher, désactivée par défaut) : ligne lissée reliant la vélocité de chaque sprint, superposée aux barres'},
     {tag:'ux', text:'Barres "Planifié" du Graphique de vélocité recolorées (`var(--text-faint)` au lieu de `var(--border)`) : plus visibles, tout en restant secondaires par rapport aux barres "Vélocité"'},

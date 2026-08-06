@@ -37,6 +37,7 @@ export type DashboardWidgetScope = 'sprint' | 'product'
 export type DashboardWidgetId =
   | 'kpi-done' | 'kpi-velocity' | 'kpi-current-sprint' | 'kpi-blockers'
   | 'velocity-chart' | 'burndown-chart' | 'client-rag' | 'recent-activity'
+  | 'team-velocity' | 'sprint-health' | 'sprint-absences'
 
 export interface DashboardWidgetDef {
   id: DashboardWidgetId
@@ -68,6 +69,28 @@ export const DASHBOARD_WIDGET_CATALOG: DashboardWidgetDef[] = [
   // ne pas être traité dans le sprint en cours, ce qui raccourcit encore la liste en scope 'sprint'.
   { id: 'client-rag',         label: 'Santé clients (RAG)',     allowedSizes: ['M', 'L', 'XL', 'XLP'], scope: 'product' },
   { id: 'recent-activity',    label: 'Activité récente',        allowedSizes: ['M', 'L'], scope: 'sprint' },
+  // 9e widget (2026-08-06, retour Julien, capture "Sprint Velocity by Team Member" en référence
+  // de style) — même famille que velocity-chart (M compact/L/XL détaillé), pas de taille verrouillée
+  // vu le nombre de lignes (une par membre) qui a besoin de largeur pour rester lisible. Ajouté au
+  // catalogue seulement, PAS à DEFAULT_DASHBOARD_LAYOUT plus bas — n'apparaît pas d'office sur un
+  // Dashboard déjà personnalisé ou fraîchement initialisé, à poser volontairement via la modal
+  // "+ Ajouter un widget" (AddWidgetModal.tsx), exactement le cas d'usage pour lequel cette modal a
+  // été construite (ajout d'un widget hors des 8 par défaut).
+  { id: 'team-velocity',      label: 'Vélocité par membre',     allowedSizes: ['M', 'L', 'XL'], scope: 'product' },
+  // 10e widget (2026-08-06, retour Julien, capture "Sprint Health Gadget" en référence de style) —
+  // jauge de progression du sprint en cours, scope 'sprint' (comme Sprint actuel/Blocages/Burndown).
+  // L/XL uniquement (pas M, retour Julien après le 1er essai : "la taille est trop petite pour le
+  // nombre d'informations") — 4 statistiques sous la jauge (voir SprintHealthCard.tsx), pas de
+  // version compacte prévue pour l'instant. Ajouté au catalogue seulement, pas à
+  // `DEFAULT_DASHBOARD_LAYOUT`, même raison que team-velocity.
+  { id: 'sprint-health',      label: 'Santé du sprint',         allowedSizes: ['L', 'XL'], scope: 'sprint' },
+  // 11e widget (2026-08-06, retour Julien) — liste des absences de l'équipe qui chevauchent le
+  // sprint en cours, scope 'sprint'. Pas de face cachée (FlipCard.tsx) : aucun réglage demandé, pas
+  // besoin d'en inventer un (voir SprintAbsencesCard.tsx). S en version résumée (total + avatars
+  // empilés, pas de place pour la période/le compte à rebours par personne) et M en liste complète
+  // — 2 tailles au choix, retour Julien après la maquette. Ajouté au catalogue seulement, pas à
+  // `DEFAULT_DASHBOARD_LAYOUT`, même raison que team-velocity/sprint-health.
+  { id: 'sprint-absences',    label: 'Absences du sprint',      allowedSizes: ['S', 'M'], scope: 'sprint' },
 ]
 
 export const DASHBOARD_ZONE_LABELS: Record<DashboardWidgetScope, string> = {
@@ -172,6 +195,8 @@ export interface DashboardWidgetPlacement {
   clientRagIndicator?: ClientRagIndicator
   clientRagScope?: ClientRagScope
   recentActivityWindow?: RecentActivityWindow
+  teamVelocityMetric?: TeamVelocityMetric
+  sprintHealthMetric?: SprintHealthMetric
 }
 
 /** Réglages de face cachée du widget "Burndown" (2026-08-06) — voir BurndownChart.tsx et
@@ -229,6 +254,36 @@ export type ClientRagScope = 'product' | 'sprint'
  *    'sprint'. Vide (avec message dédié) si aucun sprint actif.
  *  Toujours limité aux 8 entrées les plus récentes dans la fenêtre choisie, comme avant ce réglage. */
 export type RecentActivityWindow = '2h' | 'today' | 'week' | 'sprint'
+
+/** Réglage de face cachée du widget "Vélocité par membre" (2026-08-06, retour Julien, capture
+ *  d'un graphique multi-courbes "Sprint Velocity by Team Member" en référence de style) — voir
+ *  TeamVelocityChart.tsx et FlipCard.tsx :
+ *  - `sp`    : SP terminés par membre et par sprint (par défaut) — cohérent avec le terme
+ *    "vélocité" déjà utilisé ailleurs (Graphique de vélocité, Sprint actuel).
+ *  - `count` : nombre d'US terminées par membre et par sprint, plutôt que leur somme de SP.
+ *  Une US à plusieurs assignés compte intégralement pour CHAQUE assigné (même convention que
+ *  `assignedItems` dans TeamPage.tsx) — pas de répartition des SP entre coéquipiers, un compromis
+ *  simple assumé plutôt qu'une vraie règle de partage de charge.
+ *  Affichage/masquage d'une courbe par clic sur son nom dans la légende, mise en surbrillance
+ *  d'une courbe par clic dessus (fade les autres) — état purement local au composant (pas de champ
+ *  ici), pas persisté : ce sont des aides de lecture ponctuelles du graphique, pas un réglage du
+ *  widget au sens propre. */
+export type TeamVelocityMetric = 'sp' | 'count'
+
+/** Réglage de face cachée du widget "Santé du sprint" (2026-08-06, retour Julien, capture "Sprint
+ *  Health Gadget" en référence de style) — voir SprintHealthCard.tsx et FlipCard.tsx :
+ *  - `sp`    : jauge et % de complétion en Story Points (par défaut) — même calcul que
+ *    `getSprintSP()` (utils/hierarchyScore.ts), ventilé en 3 segments À faire/En cours/Terminé
+ *    plutôt que juste fait/total.
+ *  - `items` : jauge et % de complétion en nombre d'US (`Item`) du sprint, chacune classée
+ *    individuellement selon son propre statut. Revenu à ce comptage simple (2026-08-06, retour
+ *    Julien après le 1er essai : "le réglage Epic/Initiative traité n'est pas assez souple,
+ *    retournons au nombre d'items") — un 1er essai comptait des Epics/Initiatives (1 "item" par
+ *    groupe, terminé si 100% de ses US le sont), jugé trop rigide.
+ *  Segments classés via les colonnes Kanban courantes (`KanbanCol`, configurables) : Terminé =
+ *  colonnes `isDone`, À faire = la colonne `isDefault`, En cours = toute autre colonne — généralise
+ *  à n'importe quel jeu de colonnes plutôt que de coder en dur des ids de statut. */
+export type SprintHealthMetric = 'sp' | 'items'
 
 // Coordonnées propres à chaque zone (chaque zone a sa propre grille, sa propre origine (0,0)) —
 // reprend la disposition d'avant ce chantier, réajustée aux nouvelles tailles XL/XLP (burndown-chart

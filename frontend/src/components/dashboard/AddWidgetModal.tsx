@@ -22,8 +22,17 @@ const ICO_CHEVRON_DOWN = '<path d="m6 9 6 6 6-6"/>'
 // prennent beaucoup trop de place" — remplace les 2 boutons pleine largeur empilés par un seul
 // bouton compact, placé à droite du titre/légende plutôt qu'en dessous). Fermeture au clic
 // extérieur, même mécanique que les menus de NNLToolbar.tsx (`mousedown` sur `window`).
+//
+// Ouverture vers le haut si besoin (2026-08-06, retour Julien : "le dropdown... est masqué quand
+// on clique dessus pour un widget tout en bas de la liste") — un simple z-index ne suffit pas : la
+// carte est dans `.modal-body` (`overflow-y: auto`), donc un menu qui déborde sous le bas visible
+// de cette zone scrollable est rogné quel que soit son z-index, pas caché derrière le footer. On
+// mesure l'espace restant sous le bouton à l'ouverture et on bascule le menu au-dessus (`bottom:
+// '100%'`) s'il n'y a pas la place pour ses ~2 lignes en dessous.
+const MENU_HEIGHT_ESTIMATE = 84
 function AddZoneMenu({ id, onAdd }: { id: DashboardWidgetId; onAdd: (zone: DashboardWidgetScope) => void }) {
   const [open, setOpen] = useState(false)
+  const [openUp, setOpenUp] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,6 +43,21 @@ function AddZoneMenu({ id, onAdd }: { id: DashboardWidgetId; onAdd: (zone: Dashb
     window.addEventListener('mousedown', onMouseDown)
     return () => window.removeEventListener('mousedown', onMouseDown)
   }, [open])
+
+  function toggle() {
+    if (!open && ref.current) {
+      // La limite réelle n'est pas le bas de la fenêtre mais le bas de `.modal-body` (2026-08-06,
+      // retour Julien : "ce n'est toujours pas bon" — la 1ère version comparait à
+      // `window.innerHeight`, or la modal ne remplit pas toute la fenêtre, donc ce calcul jugeait
+      // à tort qu'il y avait de la place en dessous alors que `.modal-body` (overflow-y: auto)
+      // rogne le menu bien avant le bord de la fenêtre).
+      const rect = ref.current.getBoundingClientRect()
+      const scrollBounds = ref.current.closest('.modal-body')?.getBoundingClientRect()
+      const limit = scrollBounds ? scrollBounds.bottom : window.innerHeight
+      setOpenUp(limit - rect.bottom < MENU_HEIGHT_ESTIMATE + 12)
+    }
+    setOpen(o => !o)
+  }
 
   function pick(zone: DashboardWidgetScope) {
     onAdd(zone)
@@ -47,7 +71,7 @@ function AddZoneMenu({ id, onAdd }: { id: DashboardWidgetId; onAdd: (zone: Dashb
         className="btn btn-secondary"
         style={{ fontSize: 11, padding: '6px 10px' }}
         data-testid={`add-widget-${id}-toggle`}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
       >
         <Svg d={ICO_PLUS} size={12} /> Ajouter <Svg d={ICO_CHEVRON_DOWN} size={11} />
       </button>
@@ -55,7 +79,8 @@ function AddZoneMenu({ id, onAdd }: { id: DashboardWidgetId; onAdd: (zone: Dashb
         <div
           data-testid={`add-widget-${id}-menu`}
           style={{
-            position: 'absolute', top: '100%', right: 0, marginTop: 4, zIndex: 20,
+            position: 'absolute', right: 0, zIndex: 20,
+            ...(openUp ? { bottom: '100%', marginBottom: 4 } : { top: '100%', marginTop: 4 }),
             background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
             boxShadow: '0 6px 20px rgba(0,0,0,.12)', minWidth: 150, overflow: 'hidden',
           }}
@@ -169,6 +194,61 @@ function RecentActivityMockup() {
   )
 }
 
+// Mini graphique multi-courbes (team-velocity) — 3 courbes de couleurs distinctes, mêmes teintes
+// que MEMBER_COLORS dans TeamVelocityChart.tsx, tracés figés plausibles façon "sprint velocity".
+function TeamVelocityMockup() {
+  const lines = [
+    { color: '#6366f1', points: '4,30 30,20 55,26 78,10 96,16' },
+    { color: '#f59e0b', points: '4,40 30,36 55,18 78,28 96,8' },
+    { color: '#10b981', points: '4,20 30,32 55,34 78,22 96,30' },
+  ]
+  return (
+    <svg viewBox="0 0 100 48" width="100%" height={64} preserveAspectRatio="none">
+      {lines.map((l, i) => (
+        <polyline key={i} points={l.points} stroke={l.color} strokeWidth="2" fill="none" />
+      ))}
+    </svg>
+  )
+}
+
+// Mini jauge 3 segments (sprint-health) — mêmes couleurs que SprintHealthCard.tsx (À faire/En
+// cours/Terminé), proportions figées plausibles.
+function SprintHealthMockup() {
+  return (
+    <div style={{ height: 64, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 8, padding: '0 8px' }}>
+      <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ width: '28%', background: 'var(--text-faint)' }} />
+        <div style={{ width: '16%', background: '#ff9500' }} />
+        <div style={{ width: '56%', background: '#34c759' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+        <div style={{ height: 5, width: 22, background: 'var(--border)', borderRadius: 3 }} />
+        <div style={{ height: 5, width: 22, background: 'var(--border)', borderRadius: 3 }} />
+        <div style={{ height: 5, width: 22, background: 'var(--border)', borderRadius: 3 }} />
+      </div>
+    </div>
+  )
+}
+
+// Mini liste d'avatars (sprint-absences) — 2 lignes, avatar rond + 2 barres de texte (nom/période),
+// même composition que RecentActivityMockup, couleurs de SprintAbsencesCard.tsx.
+function SprintAbsencesMockup() {
+  const rows = [{ c: '#f59e0b' }, { c: '#3b82f6' }]
+  return (
+    <div style={{ height: 64, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, padding: '0 8px' }}>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 16, height: 16, borderRadius: '50%', background: r.c, flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+            <div style={{ height: 5, width: '55%', background: 'var(--text-faint)', borderRadius: 3 }} />
+            <div style={{ height: 4, width: '35%', background: 'var(--border)', borderRadius: 3 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function WidgetPreview({ id }: { id: DashboardWidgetId }) {
   switch (id) {
     case 'kpi-done':
@@ -187,6 +267,12 @@ function WidgetPreview({ id }: { id: DashboardWidgetId }) {
       return <ClientRagMockup />
     case 'recent-activity':
       return <RecentActivityMockup />
+    case 'team-velocity':
+      return <TeamVelocityMockup />
+    case 'sprint-health':
+      return <SprintHealthMockup />
+    case 'sprint-absences':
+      return <SprintAbsencesMockup />
   }
 }
 

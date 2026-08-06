@@ -329,3 +329,196 @@ test.describe('Dashboard — ordre des zones et doublons de widgets (v0.97.4)', 
     await expect(tiles).toHaveCount(2);
   });
 });
+
+// Chantier "Vélocité par membre" (v0.97.5, 2026-08-06) — 9e widget Dashboard, disponible
+// uniquement via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir
+// TeamVelocityChart.tsx. Ajouté via la modal, sa `key` est générée (`team-velocity-<uid>`), donc
+// pas de testid fixe `dashboard-widget-team-velocity` : la tuile et ses réglages sont recherchés
+// par préfixe (`^=`), même convention que le test de duplication de "Santé clients (RAG)" ci-dessus.
+test.describe('Dashboard — widget "Vélocité par membre" (v0.97.5)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Vue produit avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-team-velocity-toggle"]').click();
+    await page.locator('[data-testid="add-widget-team-velocity-product"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Vélocité par membre');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    await expect(
+      page.locator('[data-testid="dashboard-zone-product"] .dash-widget[data-testid^="dashboard-widget-team-velocity"]')
+    ).toBeVisible();
+  });
+
+  test('la face cachée bascule entre SP terminés (par défaut) et nombre d\'US terminées', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-team-velocity-toggle"]').click();
+    await page.locator('[data-testid="add-widget-team-velocity-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-team-velocity"]');
+    await tile.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+
+    const spRadio = tile.locator('[data-testid^="dashboard-widget-team-velocity-sp-"]');
+    const countRadio = tile.locator('[data-testid^="dashboard-widget-team-velocity-count-"]');
+    await expect(spRadio).toBeChecked();
+    await expect(countRadio).not.toBeChecked();
+
+    await countRadio.click();
+    await expect(countRadio).toBeChecked();
+    await expect(spRadio).not.toBeChecked();
+
+    await tile.locator('[data-testid="dashboard-widget-flip-back"]').click();
+    await expect(tile.locator('[data-testid="dashboard-widget-flip-settings"]')).toBeVisible();
+  });
+
+  // Widget dupliquable comme les 8 autres depuis le correctif v0.97.4 (collision de `name` HTML) —
+  // vérifie que ce widget-là suit bien la même règle : 2 exemplaires, chacun son propre réglage.
+  test('2 exemplaires du widget gardent chacun leur propre réglage SP/US', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+
+    await page.locator('[data-testid="add-widget-team-velocity-toggle"]').click();
+    await page.locator('[data-testid="add-widget-team-velocity-product"]').click();
+    await page.locator('[data-testid="add-widget-team-velocity-toggle"]').click();
+    await page.locator('[data-testid="add-widget-team-velocity-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tiles = page.locator('.dash-widget[data-testid^="dashboard-widget-team-velocity"]');
+    await expect(tiles).toHaveCount(2);
+
+    const first = tiles.nth(0);
+    await first.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+    await first.locator('[data-testid^="dashboard-widget-team-velocity-count-"]').click();
+    await first.locator('[data-testid="dashboard-widget-flip-back"]').click();
+
+    const second = tiles.nth(1);
+    await second.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+    await expect(second.locator('[data-testid^="dashboard-widget-team-velocity-sp-"]')).toBeChecked();
+  });
+});
+
+// Chantier "Santé du sprint" (v0.97.5, 2026-08-06) — 10e widget Dashboard, disponible uniquement
+// via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir SprintHealthCard.tsx. Ajouté via
+// la modal, sa `key` est générée (`sprint-health-<uid>`) — même convention de recherche par préfixe
+// que le bloc "Vélocité par membre" ci-dessus. Scope 'sprint' (pas 'product') : ajouté dans la zone
+// "Sprint en cours" via `add-widget-sprint-health-sprint`.
+test.describe('Dashboard — widget "Santé du sprint" (v0.97.5)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Sprint en cours avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-toggle"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-sprint"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Santé du sprint');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    await expect(
+      page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget[data-testid^="dashboard-widget-sprint-health"]')
+    ).toBeVisible();
+  });
+
+  test('la face cachée bascule entre Story Points (par défaut) et nombre d\'US', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-toggle"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-sprint-health"]');
+    await tile.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+
+    const spRadio = tile.locator('[data-testid^="dashboard-widget-sprint-health-sp-"]');
+    const itemsRadio = tile.locator('[data-testid^="dashboard-widget-sprint-health-items-"]');
+    await expect(spRadio).toBeChecked();
+    await expect(itemsRadio).not.toBeChecked();
+
+    await itemsRadio.click();
+    await expect(itemsRadio).toBeChecked();
+    await expect(spRadio).not.toBeChecked();
+
+    await tile.locator('[data-testid="dashboard-widget-flip-back"]').click();
+    await expect(tile.locator('[data-testid="dashboard-widget-flip-settings"]')).toBeVisible();
+  });
+
+  // Seul widget du catalogue limité à L/XL (retour Julien, après le 1er essai en M/L : "la taille
+  // est trop petite pour le nombre d'informations") — cycle à 2 tailles, pas 3+ comme les autres
+  // widgets à plusieurs tailles.
+  test('changer la taille cycle L -> XL -> L', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-toggle"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-sprint-health"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-sprint-health"]');
+    await expect(sizeBtn).toHaveText('L');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('XL');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('L');
+  });
+});
+
+// Chantier "Absences du sprint" (v0.97.5, 2026-08-06) — 11e widget Dashboard, disponible
+// uniquement via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir
+// SprintAbsencesCard.tsx. Pas de face cachée de réglages (aucun réglage demandé), donc pas de test
+// de bascule ici, contrairement aux 2 blocs précédents. `DEMO_STATE.absences` est vide (voir
+// data/demo.ts) : le widget affiche systématiquement son état vide dans ces tests, ce qui permet
+// de vérifier ce message de façon déterministe sans dépendre du contenu changeant du jeu de
+// données de démo.
+test.describe('Dashboard — widget "Absences du sprint" (v0.97.5)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Sprint en cours avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-sprint-absences-toggle"]').click();
+    await page.locator('[data-testid="add-widget-sprint-absences-sprint"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Absences du sprint');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    const tile = page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget[data-testid^="dashboard-widget-sprint-absences"]');
+    await expect(tile).toBeVisible();
+    await expect(tile).toContainText('Aucune absence sur ce sprint');
+  });
+
+  // Seul widget du catalogue en S/M (pas L/XL comme Santé du sprint) — maquette validée avant
+  // développement (retour Julien : "Je vois bien un widget soit en taille S ou M... Avant de le
+  // développer, fais-moi un mockup"), taille S jugée trop petite pour le détail par personne
+  // (période, compte à rebours), retenue quand même pour un résumé (total + avatars empilés).
+  test('changer la taille cycle S -> M -> S', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-sprint-absences-toggle"]').click();
+    await page.locator('[data-testid="add-widget-sprint-absences-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-sprint-absences"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-sprint-absences"]');
+    await expect(sizeBtn).toHaveText('S');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('M');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('S');
+  });
+});

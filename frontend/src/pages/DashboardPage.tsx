@@ -10,6 +10,9 @@ import { RecentActivity } from '../components/dashboard/RecentActivity'
 import { BlockersCard } from '../components/dashboard/BlockersCard'
 import { DoneItemsCard } from '../components/dashboard/DoneItemsCard'
 import { AvgVelocityCard } from '../components/dashboard/AvgVelocityCard'
+import { TeamVelocityChart } from '../components/dashboard/TeamVelocityChart'
+import { SprintHealthCard } from '../components/dashboard/SprintHealthCard'
+import { SprintAbsencesCard } from '../components/dashboard/SprintAbsencesCard'
 import { DashboardZoneSplit } from '../components/dashboard/DashboardZoneSplit'
 import { AddWidgetModal } from '../components/dashboard/AddWidgetModal'
 import { resolveDashboardLayout, widgetScope, placementScope, zoneRowSpan, DASHBOARD_WIDGET_CATALOG, DASHBOARD_ZONE_LABELS } from '../data/dashboardWidgets'
@@ -290,6 +293,46 @@ export function DashboardPage() {
             instanceKey={key}
             windowMode={placement.recentActivityWindow ?? 'today'}
             onChangeWindow={next => updateWidgetSetting(key, { recentActivityWindow: next })}
+          />
+        )
+      case 'team-velocity':
+        return (
+          <TeamVelocityChart
+            sprints={state.sprints}
+            team={state.team}
+            items={state.items}
+            kanbanCols={state.kanbanCols}
+            editable={canCustomize && editing}
+            instanceKey={key}
+            metric={placement.teamVelocityMetric ?? 'sp'}
+            onChangeMetric={next => updateWidgetSetting(key, { teamVelocityMetric: next })}
+            size={placement.size}
+          />
+        )
+      case 'sprint-health':
+        return (
+          <SprintHealthCard
+            sprint={currentSprint}
+            items={state.items}
+            hierarchyNodes={state.hierarchyNodes}
+            kanbanCols={state.kanbanCols}
+            team={state.team}
+            absences={state.absences}
+            today={today}
+            editable={canCustomize && editing}
+            instanceKey={key}
+            metric={placement.sprintHealthMetric ?? 'sp'}
+            onChangeMetric={next => updateWidgetSetting(key, { sprintHealthMetric: next })}
+          />
+        )
+      case 'sprint-absences':
+        return (
+          <SprintAbsencesCard
+            absences={state.absences}
+            team={state.team}
+            sprint={currentSprint}
+            today={today}
+            size={placement.size}
           />
         )
     }
