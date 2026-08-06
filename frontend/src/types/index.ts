@@ -312,6 +312,10 @@ export interface Settings {
   // valeurs par défaut ('horizontal', 50).
   dashboardZoneOrientation?: 'horizontal' | 'vertical'
   dashboardZoneSplit?: number
+  // Ordre des 2 zones interchangeable (2026-08-06, retour Julien : "on ne peut pas interchanger
+  // leur ordre") — `true` = Vue produit affichée en 1re zone (gauche/haut selon l'orientation),
+  // Sprint en cours en 2e. Absent = comportement d'origine (`false`, Sprint en cours en 1er).
+  dashboardZonesSwapped?: boolean
 }
 
 export interface RoadmapGoal {

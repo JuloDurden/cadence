@@ -1,4 +1,5 @@
-import type { HierarchyNode, Item } from '../types'
+import type { HierarchyNode, Item, KanbanCol } from '../types'
+import { isItemDone } from './status'
 
 /**
  * SP affiché pour un nœud de regroupement (Epic ou Initiative) — généralisation
@@ -24,6 +25,57 @@ export function getHierarchyNodeSP(node: HierarchyNode | undefined, childrenSP: 
 /** Raccourci pour le cas le plus courant : un Epic dont les enfants sont des `Item`. */
 export function getEpicSP(epic: HierarchyNode | undefined, stories: Item[]): number {
   return getHierarchyNodeSP(epic, stories.map(s => s.sp))
+}
+
+/**
+ * SP total et SP terminés pour un sprint donné — widgets Dashboard (2026-08-06, retour Julien :
+ * "les autres widgets... semblent prendre en compte seulement les items"). Un simple
+ * `items.filter(i => i.sprintId === sprintId)` (VelocityChart.tsx, BurndownChart.tsx, et le calcul
+ * de `currentDoneSP`/`currentTotalSP` dans DashboardPage.tsx avant ce correctif) ratait les Epics
+ * assignés directement au sprint (`HierarchyNode.sprintId`, indépendant du sprint de leurs US) mais
+ * pas encore découpés en US — même cas que celui corrigé dans ClientRAG.tsx (voir son commentaire
+ * d'en-tête) et `cellEpics` dans SwimlanesView.tsx.
+ *
+ * Règle : chaque Epic assigné au sprint compte pour `getHierarchyNodeSP()` (son SP arbitraire s'il
+ * est renseigné, sinon la somme de ses US dans ce sprint). Le "terminé" suit ses US s'il en a dans
+ * ce sprint ; sinon son propre statut (`HierarchyNode.status`, résolu comme un Item via
+ * `kanbanCols`) détermine s'il compte comme terminé. Les US qui ne sont rattachées à aucun Epic
+ * assigné à ce sprint comptent individuellement (qu'elles aient ou non un `epicId` — Epic assigné à
+ * un autre sprint, ou aucun). Les Initiatives n'ont pas de champ `sprintId` propre (couvrent
+ * plusieurs sprints par nature, voir HierarchyNodeModal.tsx) : rien à leur niveau ici, leur travail
+ * n'entre que via leurs Epics/US, déjà comptés.
+ */
+export interface SprintSP { total: number; done: number }
+
+export function getSprintSP(
+  sprintId: string,
+  items: Item[],
+  hierarchyNodes: HierarchyNode[],
+  kanbanCols: KanbanCol[],
+): SprintSP {
+  const sprintItems = items.filter(i => i.sprintId === sprintId)
+  const epicsInSprint = hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprintId)
+  const epicIds = new Set(epicsInSprint.map(e => e.id))
+
+  let total = 0
+  let done = 0
+
+  for (const epic of epicsInSprint) {
+    const epicItems = sprintItems.filter(i => i.epicId === epic.id)
+    const epicSP = getHierarchyNodeSP(epic, epicItems.map(i => i.sp))
+    total += epicSP
+    if (epicItems.length > 0) {
+      done += epicItems.filter(i => isItemDone(i, kanbanCols)).reduce((s, i) => s + i.sp, 0)
+    } else if (kanbanCols.some(c => c.isDone && c.id === epic.status)) {
+      done += epicSP
+    }
+  }
+
+  const directItems = sprintItems.filter(i => !i.epicId || !epicIds.has(i.epicId))
+  total += directItems.reduce((s, i) => s + i.sp, 0)
+  done += directItems.filter(i => isItemDone(i, kanbanCols)).reduce((s, i) => s + i.sp, 0)
+
+  return { total, done }
 }
 
 /* ─── Regroupement par Epic (Phase 1, sous-chantier 2 — redone 2026-07-29) ──────────

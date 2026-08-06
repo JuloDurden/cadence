@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { ReactNode } from 'react'
 import GridLayout from 'react-grid-layout'
 import type { Layout } from 'react-grid-layout'
@@ -7,7 +6,7 @@ import {
   DASHBOARD_GRID_COLS, DASHBOARD_GRID_MARGIN, DASHBOARD_GRID_WIDTH_PX, DASHBOARD_ROW_HEIGHT,
   DASHBOARD_WIDGET_CATALOG, WIDGET_SIZE_DIMENSIONS,
 } from '../../data/dashboardWidgets'
-import type { DashboardWidgetId, DashboardWidgetPlacement, DashboardWidgetScope, DashboardWidgetSize } from '../../data/dashboardWidgets'
+import type { DashboardWidgetId, DashboardWidgetPlacement, DashboardWidgetSize } from '../../data/dashboardWidgets'
 
 /* ── Tiny inline SVG helper (même convention que FlipCard.tsx/Header.tsx) ──────────── */
 function Svg({ d, size = 14 }: { d: string; size?: number }) {
@@ -56,69 +55,59 @@ const ICO_TRASH =
 // démarrant un drag avant d'atteindre l'élément. `draggableCancel` sur un sélecteur `button` ne
 // suffisait pas non plus : les contrôles internes d'un widget ne sont pas forcément des `<button>`
 // (inputs radio, liens, etc.). Retour à une poignée dédiée (`.dash-widget-drag-handle`, coin
-// bas-gauche, seul emplacement encore libre — bas-droite trop proche de la légende de "Sprint
-// actuel" alignée à droite), `draggableHandle` restreint le déclenchement du drag à cette poignée
-// uniquement, tout le reste de la tuile redevient cliquable normalement.
+// bas-gauche — bas-droite trop proche de la légende de "Sprint actuel" alignée à droite),
+// `draggableHandle` restreint le déclenchement du drag à cette poignée uniquement, tout le reste de
+// la tuile redevient cliquable normalement.
+//
+// Plus de panneau "+ Ajouter un widget" ici (2026-08-06, retour Julien après un 1er essai qui ne
+// proposait que les widgets de la zone courante — bug signalé) — l'ajout se fait désormais depuis
+// un bouton unique dans le Header (voir DashboardPage.tsx), avec une modal qui choisit la zone
+// cible explicitement. Ce composant reste volontairement générique (placement/drag/taille/
+// suppression uniquement), toute la logique d'ajout vit au niveau de la page.
+//
+// Doublons de widgets autorisés (2026-08-06, retour Julien : "possibilité de rajouter plusieurs
+// fois des widgets") — un widget n'est plus identifié par son `id` (TYPE, partagé par toutes ses
+// instances) mais par `key` (unique par TUILE, voir DashboardWidgetPlacement dans
+// dashboardWidgets.ts) : toutes les opérations ci-dessous (layout, drag, taille, suppression) sont
+// keyées par `key`. `id` ne sert plus qu'à retrouver la définition catalogue (tailles autorisées).
 
 interface DashboardWidgetGridProps {
   placements: DashboardWidgetPlacement[]
   editable: boolean
-  renderWidget: (id: DashboardWidgetId) => ReactNode
+  renderWidget: (placement: DashboardWidgetPlacement) => ReactNode
   onChangePlacements: (next: DashboardWidgetPlacement[]) => void
-  /** Zone rendue par cette grille (voir DashboardZoneSplit.tsx) — restreint le panneau "+ Ajouter
-   *  un widget" aux widgets de cette zone, un widget ne pouvant appartenir qu'à une seule zone. */
-  scope: DashboardWidgetScope
 }
 
-function widgetLabel(id: DashboardWidgetId) {
-  return DASHBOARD_WIDGET_CATALOG.find(w => w.id === id)?.label ?? id
-}
 function widgetDef(id: DashboardWidgetId) {
   return DASHBOARD_WIDGET_CATALOG.find(w => w.id === id)
 }
 
-export function DashboardWidgetGrid({ placements, editable, renderWidget, onChangePlacements, scope }: DashboardWidgetGridProps) {
-  const [addPanelOpen, setAddPanelOpen] = useState(false)
-
+export function DashboardWidgetGrid({ placements, editable, renderWidget, onChangePlacements }: DashboardWidgetGridProps) {
   const layout = placements.map(p => ({
-    i: p.id, x: p.x, y: p.y, ...WIDGET_SIZE_DIMENSIONS[p.size],
+    i: p.key, x: p.x, y: p.y, ...WIDGET_SIZE_DIMENSIONS[p.size],
   }))
 
   function handleDragStop(newLayout: Layout[]) {
     const next = placements.map(p => {
-      const item = newLayout.find(l => l.i === p.id)
+      const item = newLayout.find(l => l.i === p.key)
       return item ? { ...p, x: item.x, y: item.y } : p
     })
     onChangePlacements(next)
   }
 
-  function cycleSize(id: DashboardWidgetId) {
-    const def = widgetDef(id)
-    if (!def || def.allowedSizes.length < 2) return
-    const current = placements.find(p => p.id === id)
+  function cycleSize(key: string) {
+    const current = placements.find(p => p.key === key)
     if (!current) return
+    const def = widgetDef(current.id)
+    if (!def || def.allowedSizes.length < 2) return
     const idx = def.allowedSizes.indexOf(current.size)
     const nextSize: DashboardWidgetSize = def.allowedSizes[(idx + 1) % def.allowedSizes.length]
-    onChangePlacements(placements.map(p => p.id === id ? { ...p, size: nextSize } : p))
+    onChangePlacements(placements.map(p => p.key === key ? { ...p, size: nextSize } : p))
   }
 
-  function removeWidget(id: DashboardWidgetId) {
-    onChangePlacements(placements.filter(p => p.id !== id))
+  function removeWidget(key: string) {
+    onChangePlacements(placements.filter(p => p.key !== key))
   }
-
-  function addWidget(id: DashboardWidgetId) {
-    const def = widgetDef(id)
-    if (!def) return
-    const size = def.allowedSizes[0]
-    // Ajoutée sous tout le reste (y le plus bas + sa hauteur), à gauche — pas d'emplacement
-    // "intelligent" recherché entre les tuiles existantes, l'utilisateur la fait glisser ensuite où
-    // il veut.
-    const maxY = placements.reduce((m, p) => Math.max(m, p.y + WIDGET_SIZE_DIMENSIONS[p.size].h), 0)
-    onChangePlacements([...placements, { id, x: 0, y: maxY, size }])
-    setAddPanelOpen(false)
-  }
-
-  const available = DASHBOARD_WIDGET_CATALOG.filter(w => w.scope === scope && !placements.some(p => p.id === w.id))
 
   return (
     <div>
@@ -147,11 +136,11 @@ export function DashboardWidgetGrid({ placements, editable, renderWidget, onChan
           {placements.map(p => {
             const def = widgetDef(p.id)
             return (
-              <div key={p.id} className="dash-widget" data-testid={`dashboard-widget-${p.id}`}>
+              <div key={p.key} className="dash-widget" data-testid={`dashboard-widget-${p.key}`}>
                 {editable && (
                   <span
                     className="dash-widget-drag-handle"
-                    data-testid={`dashboard-widget-drag-${p.id}`}
+                    data-testid={`dashboard-widget-drag-${p.key}`}
                     title="Déplacer"
                   >
                     <Svg d={ICO_GRIP} />
@@ -161,9 +150,9 @@ export function DashboardWidgetGrid({ placements, editable, renderWidget, onChan
                   <button
                     type="button"
                     className="dash-widget-remove-btn"
-                    data-testid={`dashboard-widget-remove-${p.id}`}
+                    data-testid={`dashboard-widget-remove-${p.key}`}
                     title="Retirer du Dashboard"
-                    onClick={() => removeWidget(p.id)}
+                    onClick={() => removeWidget(p.key)}
                   >
                     <Svg d={ICO_TRASH} size={13} />
                   </button>
@@ -172,40 +161,19 @@ export function DashboardWidgetGrid({ placements, editable, renderWidget, onChan
                   <button
                     type="button"
                     className="dash-widget-size-btn"
-                    data-testid={`dashboard-widget-size-${p.id}`}
+                    data-testid={`dashboard-widget-size-${p.key}`}
                     title="Changer la taille"
-                    onClick={() => cycleSize(p.id)}
+                    onClick={() => cycleSize(p.key)}
                   >
                     {p.size}
                   </button>
                 )}
-                <div className="dash-widget-content">{renderWidget(p.id)}</div>
+                <div className="dash-widget-content">{renderWidget(p)}</div>
               </div>
             )
           })}
         </GridLayout>
       </div>
-
-      {editable && (
-        <div style={{ marginTop: 16 }}>
-          {!addPanelOpen ? (
-            <button type="button" className="hdr-ctx-btn" data-testid={`dashboard-add-widget-toggle-${scope}`} onClick={() => setAddPanelOpen(true)} disabled={available.length === 0}>
-              + Ajouter un widget
-            </button>
-          ) : (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              {available.length === 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tous les widgets sont déjà sur le Dashboard.</span>}
-              {available.map(w => (
-                <button key={w.id} type="button" className="hdr-ctx-btn" style={{ fontSize: 11 }}
-                  data-testid={`dashboard-add-widget-${w.id}`} onClick={() => addWidget(w.id)}>
-                  + {widgetLabel(w.id)}
-                </button>
-              ))}
-              <button type="button" className="hdr-ctx-btn" style={{ fontSize: 11 }} onClick={() => setAddPanelOpen(false)}>Fermer</button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

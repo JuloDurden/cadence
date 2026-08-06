@@ -23,13 +23,11 @@ function Svg({ d, size = 14 }: { d: string; size?: number }) {
 const ICO_SETTINGS = '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
 const ICO_ARROW_LEFT = '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>'
 
-// Face cachée générique d'un widget Dashboard (2026-08-04, retour Julien) — "on va développer
-// d'autres widgets aujourd'hui donc on va rapidement le propager sur d'autres widgets" : construit
-// générique dès le départ (props front/back), pas juste pour SprintProgressCard, mais câblé pour
-// l'instant uniquement sur ce widget (voir SprintProgressCard.tsx) en attendant un 2e cas concret
-// pour confirmer que l'API tient la route.
-// Déclencheur (retour Julien) : bouton "Réglages" en haut à droite du widget, visible seulement en
-// mode "Personnaliser" — pas dans la barre d'édition générique de DashboardWidgetGrid.tsx
+// Face cachée générique d'un widget Dashboard (2026-08-04) — construit générique dès le départ
+// (props front/back), pas juste pour SprintProgressCard ; VelocityChart.tsx (2026-08-06) en est le
+// 2e cas concret, l'API front/back n'a pas eu besoin de changer.
+// Déclencheur : bouton "Réglages" en haut à droite du widget, visible seulement en mode
+// "Personnaliser" — pas dans la barre d'édition générique de DashboardWidgetGrid.tsx
 // (drag/taille/suppression), qui reste volontairement agnostique du contenu de chaque widget.
 // Note technique : `backface-visibility: hidden` seul ne suffit pas — la face "derrière" reste dans
 // le flux (bounding box non nulle), donc cliquable et considérée "visible" par les tests Playwright

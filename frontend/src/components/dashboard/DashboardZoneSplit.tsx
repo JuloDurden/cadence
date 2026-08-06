@@ -1,15 +1,25 @@
 import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { DashboardWidgetGrid } from './DashboardWidgetGrid'
-import { DASHBOARD_ZONE_LABELS, widgetScope, zoneRowSpan } from '../../data/dashboardWidgets'
-import type { DashboardWidgetId, DashboardWidgetPlacement, DashboardWidgetScope } from '../../data/dashboardWidgets'
+import { DASHBOARD_ZONE_LABELS, placementScope, zoneRowSpan } from '../../data/dashboardWidgets'
+import type { DashboardWidgetPlacement, DashboardWidgetScope } from '../../data/dashboardWidgets'
 
 // Phase 4 (roadmap v1), Dashboard widgets, suite (2026-08-03, retour Julien après le 1er essai) —
 // distingue les widgets "Sprint en cours" (opérationnel, change à chaque sprint) des widgets
-// "Vue produit" (tendance/historique) : 2 zones séparées, chacune sa propre grille (un widget ne
-// peut pas passer d'une zone à l'autre en le glissant — les catégories sont fixées par le
-// catalogue, voir dashboardWidgets.ts). Orientation (côte à côte / empilées) et partage de l'espace
-// entre les 2 zones réglables par un Admin/PO, persistés comme le reste (state.settings).
+// "Vue produit" (tendance/historique) : 2 zones séparées, chacune sa propre grille. Orientation
+// (côte à côte / empilées) et partage de l'espace entre les 2 zones réglables par un Admin/PO,
+// persistés comme le reste (state.settings).
+//
+// Ordre des zones interchangeable (2026-08-06, retour Julien : "on ne peut pas interchanger leur
+// ordre" — les zones étaient toujours affichées Sprint en cours puis Vue produit, gauche/droite ou
+// haut/bas selon l'orientation, sans réglage) — `zonesSwapped` persisté comme le reste, bouton dédié
+// à côté du choix d'orientation.
+//
+// La zone d'un widget suit le catalogue par défaut (voir dashboardWidgets.ts), mais un placement
+// peut la surcharger via `scopeOverride` — pour l'instant, seul le réglage "périmètre" de Santé
+// clients (RAG) le fait automatiquement quand on le change (voir ClientRAG.tsx dans
+// DashboardPage.tsx) : pas de bouton dédié "changer de zone" (retour Julien : "je ne pensais pas à
+// rajouter un bouton supplémentaire"), le comportement suit un réglage déjà existant du widget.
 //
 // "Redimensionnable par paliers dans la limite de leur remplissage" (demande de Julien) : une
 // vraie poignée à glisser (pas un simple sélecteur de boutons — accepté avec Julien que c'est une
@@ -21,33 +31,36 @@ import type { DashboardWidgetId, DashboardWidgetPlacement, DashboardWidgetScope 
 // moitié de sa "part équitable" de lignes par rapport à l'autre zone est exclu des paliers
 // disponibles. Documenté comme une approximation, pas une garantie physique de non-recouvrement.
 const SPLIT_STEPS = [20, 35, 50, 65, 80]
-const ZONES: DashboardWidgetScope[] = ['sprint', 'product']
 
 interface DashboardZoneSplitProps {
   placements: DashboardWidgetPlacement[]
   orientation: 'horizontal' | 'vertical'
   splitPercent: number
+  zonesSwapped: boolean
   editable: boolean
-  renderWidget: (id: DashboardWidgetId) => ReactNode
+  renderWidget: (placement: DashboardWidgetPlacement) => ReactNode
   onChangePlacements: (next: DashboardWidgetPlacement[]) => void
   onChangeOrientation: (o: 'horizontal' | 'vertical') => void
   onChangeSplit: (pct: number) => void
+  onChangeZonesSwapped: (next: boolean) => void
 }
 
 export function DashboardZoneSplit({
-  placements, orientation, splitPercent, editable, renderWidget,
-  onChangePlacements, onChangeOrientation, onChangeSplit,
+  placements, orientation, splitPercent, zonesSwapped, editable, renderWidget,
+  onChangePlacements, onChangeOrientation, onChangeSplit, onChangeZonesSwapped,
 }: DashboardZoneSplitProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragPercent, setDragPercent] = useState<number | null>(null)
 
+  const ZONES: DashboardWidgetScope[] = zonesSwapped ? ['product', 'sprint'] : ['sprint', 'product']
+
   const byZone: Record<DashboardWidgetScope, DashboardWidgetPlacement[]> = {
-    sprint: placements.filter(p => widgetScope(p.id) === 'sprint'),
-    product: placements.filter(p => widgetScope(p.id) === 'product'),
+    sprint: placements.filter(p => placementScope(p) === 'sprint'),
+    product: placements.filter(p => placementScope(p) === 'product'),
   }
 
   function mergeZone(scope: DashboardWidgetScope, nextZonePlacements: DashboardWidgetPlacement[]) {
-    const rest = placements.filter(p => widgetScope(p.id) !== scope)
+    const rest = placements.filter(p => placementScope(p) !== scope)
     onChangePlacements([...rest, ...nextZonePlacements])
   }
 
@@ -116,6 +129,17 @@ export function DashboardZoneSplit({
           >
             ↕ Empilées
           </button>
+          <div className="hdr-sep" />
+          <button
+            type="button"
+            className="hdr-ctx-btn"
+            style={{ fontSize: 11 }}
+            data-testid="dashboard-zone-swap-order"
+            title="Inverser l'ordre des 2 zones"
+            onClick={() => onChangeZonesSwapped(!zonesSwapped)}
+          >
+            ⇄ Inverser l'ordre
+          </button>
         </div>
       )}
 
@@ -135,7 +159,6 @@ export function DashboardZoneSplit({
               <DashboardWidgetGrid
                 placements={byZone[scope]}
                 editable={editable}
-                scope={scope}
                 renderWidget={renderWidget}
                 onChangePlacements={next => mergeZone(scope, next)}
               />
