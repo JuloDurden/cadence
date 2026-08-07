@@ -61,11 +61,11 @@ test.describe('Réglages', () => {
 
   // Section Réinitialisation (2026-08-07) : préparation d'un jeu de démo propre, réservée Admin.
   // Élargie à Admin + PO (2026-08-07, suite, retour Julien : "un bouton pour supprimer tout sauf
-  // les comptes utilisateurs") pour accueillir le reset total — voir describe ci-dessous. Les 2
+  // les comptes utilisateurs") pour accueillir le reset total, voir describe ci-dessous. Les 2
   // boutons ciblés (Product Backlog, Clients) restent réservés Admin, gating individuel inchangé.
   test.describe('Réinitialisation (Admin)', () => {
 
-    // Rôle corrigé : PO -> DEV (2026-08-07) — depuis l'élargissement de la section à Admin + PO
+    // Rôle corrigé : PO -> DEV (2026-08-07), depuis l'élargissement de la section à Admin + PO
     // pour le bouton de reset total, un PO voit désormais la section (juste sans les 2 boutons
     // Admin). Seul un rôle sans aucun des deux droits (Dev, Scrum Master, Stakeholder) ne la voit
     // plus du tout ; Dev choisi comme représentant, voir le describe "Réinitialisation totale".
@@ -122,7 +122,7 @@ test.describe('Réglages', () => {
   });
 
   // Reset total (v0.97.7, 2026-08-07, retour Julien : "un bouton pour supprimer tout sauf les
-  // comptes utilisateurs") — réservé Admin + PO (décision Julien, AskUserQuestion), confirmation
+  // comptes utilisateurs"), réservé Admin + PO (décision Julien, AskUserQuestion), confirmation
   // renforcée par saisie du mot-clé "SUPPRIMER" (ResetAllDataModal.tsx), pas le simple Oui/Non de
   // DialogContext. Vide données métier (items, Epics/Initiatives, sprints, équipe, clients...) sans
   // toucher aux comptes (hors périmètre du blob JSON testé ici) ni aux réglages personnalisés
@@ -199,13 +199,13 @@ test.describe('Réglages', () => {
       await expect(page.locator('[data-testid="reset-all-modal"]')).not.toBeVisible();
 
       // Les fiches équipe (TeamMember) disparaissent avec le reset ; les comptes applicatifs
-      // (table `User`, hors du blob JSON réinitialisé ici) ne sont jamais touchés — vérifié par
+      // (table `User`, hors du blob JSON réinitialisé ici) ne sont jamais touchés, vérifié par
       // lecture de code (voir docs/corrections.md), pas testable en E2E sans flux de connexion
       // dédié : cet Admin reste connecté juste après le reset, preuve indirecte que son propre
       // compte a bien survécu à l'opération.
       //
       // Navigation SPA (clic sur le lien de la Sidebar), pas `goTo('/team')` (2026-08-07, test
-      // corrigé) — `goTo` recharge une page complète et re-mocke `/api/**` à zéro (voir
+      // corrigé), `goTo` recharge une page complète et re-mocke `/api/**` à zéro (voir
       // helpers.js), donc `GET /api/state` renvoie de nouveau `{ data: null }` et l'app repart du
       // DEMO_STATE en mémoire : le reset qu'on vient de faire (jamais vraiment persisté par ce mock
       // générique) redeviendrait invisible. Un clic sur le lien reste dans la même page React
@@ -213,6 +213,89 @@ test.describe('Réglages', () => {
       await page.locator('a[href="/team"]').click();
       await expect(page.locator('.page-content')).toBeVisible();
       await expect(page.locator('[data-testid="member-card"]')).toHaveCount(0);
+    });
+
+  });
+
+  // Export/Import Excel du Backlog (v0.97.8, 2026-08-07, Phase 5 roadmap v1), export scopé au
+  // Product Backlog (items) + Epics/Initiatives, sur 2 feuilles distinctes ("Backlog" et "Epics &
+  // Initiatives") ; import via une fenêtre de correspondance des colonnes plutôt qu'une
+  // correspondance silencieuse (voir ImportExcelMappingModal.tsx / utils/excelBacklog.ts). Le
+  // round-trip export -> réimport du même fichier, sans toucher aux suggestions par défaut, sert de
+  // test de bout en bout : toutes les Clés déjà présentes dans le fichier doivent matcher les
+  // éléments existants (0 ajout, uniquement des mises à jour).
+  test.describe('Export/Import Excel du Backlog (v0.97.8)', () => {
+
+    test('affiche les boutons Export/Import Excel', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="btn-export-excel"]')).toBeVisible();
+      await expect(page.locator('[data-testid="input-import-excel"]')).toBeAttached();
+    });
+
+    test('exporter Excel télécharge un fichier .xlsx nommé avec la date du jour', async ({ page }) => {
+      await goTo(page, '/settings');
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('[data-testid="btn-export-excel"]').click(),
+      ]);
+      expect(download.suggestedFilename()).toMatch(/^cadence-backlog-\d{4}-\d{2}-\d{2}\.xlsx$/);
+    });
+
+    test('réimporter le fichier exporté ouvre la modal de mapping avec les 2 feuilles et des correspondances déjà suggérées', async ({ page }) => {
+      await goTo(page, '/settings');
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('[data-testid="btn-export-excel"]').click(),
+      ]);
+      const filePath = await download.path();
+      expect(filePath).toBeTruthy();
+
+      await page.setInputFiles('[data-testid="input-import-excel"]', filePath);
+
+      await expect(page.locator('[data-testid="import-excel-mapping-modal"]')).toBeVisible();
+      await expect(page.locator('[data-testid="import-excel-sheet-0"]')).toContainText('Backlog');
+      await expect(page.locator('[data-testid="import-excel-sheet-target-0"]')).toHaveValue('items');
+      await expect(page.locator('[data-testid="import-excel-col-0-0"]')).toHaveValue('key');
+      await expect(page.locator('[data-testid="import-excel-col-0-1"]')).toHaveValue('title');
+
+      await expect(page.locator('[data-testid="import-excel-sheet-1"]')).toContainText('Epics & Initiatives');
+      await expect(page.locator('[data-testid="import-excel-sheet-target-1"]')).toHaveValue('epics');
+      await expect(page.locator('[data-testid="import-excel-col-1-0"]')).toHaveValue('key');
+    });
+
+    test('annuler la modal de mapping ne modifie rien', async ({ page }) => {
+      await goTo(page, '/settings');
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('[data-testid="btn-export-excel"]').click(),
+      ]);
+      const filePath = await download.path();
+
+      await page.setInputFiles('[data-testid="input-import-excel"]', filePath);
+      const modal = page.locator('[data-testid="import-excel-mapping-modal"]');
+      await expect(modal).toBeVisible();
+      await modal.getByRole('button', { name: 'Annuler' }).click();
+
+      await expect(modal).not.toBeVisible();
+      await expect(page.getByRole('status')).toHaveCount(0);
+    });
+
+    test('confirmer sans modifier les suggestions ne crée aucun nouvel élément (les Clés matchent déjà)', async ({ page }) => {
+      await goTo(page, '/settings');
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.locator('[data-testid="btn-export-excel"]').click(),
+      ]);
+      const filePath = await download.path();
+
+      await page.setInputFiles('[data-testid="input-import-excel"]', filePath);
+      await expect(page.locator('[data-testid="import-excel-mapping-modal"]')).toBeVisible();
+      await page.locator('[data-testid="import-excel-confirm-btn"]').click();
+
+      await expect(page.locator('[data-testid="import-excel-mapping-modal"]')).not.toBeVisible();
+      const toast = page.getByRole('status');
+      await expect(toast).toContainText('0 item(s) ajouté');
+      await expect(toast).toContainText('0 Epic(s)/Initiative(s) ajouté');
     });
 
   });

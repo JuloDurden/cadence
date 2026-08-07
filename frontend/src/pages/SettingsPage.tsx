@@ -14,7 +14,11 @@ import { UsersSettingsSection } from '../components/settings/UsersSettingsSectio
 import { PresentationLinkSection } from '../components/settings/PresentationLinkSection'
 import { PresentationPagesSection } from '../components/settings/PresentationPagesSection'
 import { ResetAllDataModal } from '../components/settings/ResetAllDataModal'
+import { ImportExcelMappingModal } from '../components/settings/ImportExcelMappingModal'
+import type { SheetMapping } from '../components/settings/ImportExcelMappingModal'
 import { hasRole } from '../utils/permissions'
+import { buildBacklogWorkbookBuffer, readWorkbookSheets, applyMapping, applyBacklogExcelImport } from '../utils/excelBacklog'
+import type { RawSheet } from '../utils/excelBacklog'
 import type { KanbanCol, Settings, HistoryEntry, CadenceState } from '../types'
 
 export function SettingsPage() {
@@ -77,6 +81,61 @@ export function SettingsPage() {
     }
     reader.readAsText(file)
     e.target.value = ''
+  }
+
+  // Export/Import Excel du Backlog (Phase 5, roadmap v1, 2026-08-07, retour Julien : "ça peut être
+  // clairement intéressant comme pour le JSON"), voir `utils/excelBacklog.ts` pour le détail des
+  // colonnes et de la résolution Client/Epic/Sprint/Statut. Scopé au Backlog (items + Epics/
+  // Initiatives) seulement, contrairement à l'export/import JSON ci-dessus qui couvre tout le
+  // workspace. Revu (même soir, retour Julien après un 1er essai trop rapide) : User Story
+  // complète (rôle/besoin/bénéfice), critères d'acceptation, et une 2e feuille Epics/Initiatives,
+  // voir le détail dans excelBacklog.ts.
+  async function exportExcel() {
+    const buffer = await buildBacklogWorkbookBuffer(state)
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `cadence-backlog-${new Date().toISOString().split('T')[0]}.xlsx`
+    a.click(); URL.revokeObjectURL(url)
+  }
+
+  // Mapping de colonnes explicite avant import (2026-08-07, retour Julien : "une fenêtre pourrait
+  // proposer l'en-tête que l'on souhaite rattacher à la colonne"), le fichier est d'abord lu SANS
+  // aucune correspondance en-tête↔champ (`readWorkbookSheets`), puis `ImportExcelMappingModal`
+  // affiche une suggestion par feuille/colonne à confirmer ou ajuster ; l'import réel
+  // (`applyBacklogExcelImport`) n'a lieu qu'au clic sur "Importer" de cette modal.
+  const [importSheets, setImportSheets] = useState<RawSheet[] | null>(null)
+
+  async function importExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return
+    try {
+      const buffer = await file.arrayBuffer()
+      const sheets = await readWorkbookSheets(buffer)
+      if (sheets.length === 0) { showToast('Fichier Excel vide.', 'error') }
+      else setImportSheets(sheets)
+    } catch { showToast('Fichier Excel invalide.', 'error') }
+    e.target.value = ''
+  }
+
+  function confirmExcelImport(sheetMappings: SheetMapping[]) {
+    if (!importSheets) return
+    const itemRows = sheetMappings
+      .map((sm, i) => sm.target === 'items' ? applyMapping(importSheets[i].rows, sm.mapping) : [])
+      .flat()
+    const epicRows = sheetMappings
+      .map((sm, i) => sm.target === 'epics' ? applyMapping(importSheets[i].rows, sm.mapping) : [])
+      .flat()
+    const { newState, itemsAdded, itemsUpdated, itemsSkipped, epicsAdded, epicsUpdated, epicsSkipped } =
+      applyBacklogExcelImport(state, itemRows, epicRows)
+    dispatch({ type: 'SET_STATE', payload: newState })
+    saveToServer(newState)
+    setImportSheets(null)
+    const skipped = itemsSkipped + epicsSkipped
+    const skippedText = skipped > 0 ? `, ${skipped} ligne(s) ignorée(s) (sans titre)` : ''
+    showToast(
+      `Import Excel : ${itemsAdded} item(s) ajouté(s), ${itemsUpdated} mis à jour, `
+      + `${epicsAdded} Epic(s)/Initiative(s) ajouté(s), ${epicsUpdated} mis à jour${skippedText}.`
+    )
   }
 
   // Préparation d'un fichier de démo "carré" (retour Julien, 2026-08-07) : avant de repartir sur un
@@ -427,14 +486,33 @@ export function SettingsPage() {
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
             Le fichier JSON contient tout l'etat du projet (sprints, items, equipe, clients, historique). Utilisez-le pour migrer ou faire une sauvegarde manuelle.
           </p>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="hdr-ctx-btn" onClick={exportJSON}>Exporter JSON</button>
             <label className="hdr-ctx-btn" style={{ cursor: 'pointer' }}>
               Importer JSON
               <input type="file" accept=".json" style={{ display: 'none' }} onChange={importJSON} />
             </label>
           </div>
+
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '16px 0' }}>
+            L'export/import Excel couvre le Product Backlog (items) et les Epics/Initiatives, sur deux feuilles distinctes, lisibles et modifiables dans un tableur : le fichier exporté sert lui-même de modèle pour le réimport. Une ligne dont la Clé correspond à un élément existant le met à jour, sinon un nouvel élément est créé. À l'import, une fenêtre permet de faire correspondre les colonnes du fichier aux champs Cadence avant validation.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button className="hdr-ctx-btn" data-testid="btn-export-excel" onClick={exportExcel}>Exporter Excel (Backlog)</button>
+            <label className="hdr-ctx-btn" style={{ cursor: 'pointer' }}>
+              Importer Excel (Backlog)
+              <input type="file" accept=".xlsx" data-testid="input-import-excel" style={{ display: 'none' }} onChange={importExcel} />
+            </label>
+          </div>
         </section>
+
+        {importSheets && (
+          <ImportExcelMappingModal
+            sheets={importSheets}
+            onCancel={() => setImportSheets(null)}
+            onConfirm={confirmExcelImport}
+          />
+        )}
 
       </div>
     </>
