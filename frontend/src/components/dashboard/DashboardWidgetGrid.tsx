@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import GridLayout from 'react-grid-layout'
 import type { Layout } from 'react-grid-layout'
@@ -39,11 +40,24 @@ const ICO_TRASH =
 // Correctif (2026-08-03, les widgets ne doivent JAMAIS être resizés quand on réduit/agrandit leur
 // zone, S doit rester un carré en permanence) — plus de `WidthProvider` : ce HOC mesurait la largeur
 // du conteneur (donc de la zone) et en déduisait la largeur d'une colonne, ce qui déformait les
-// tuiles dès que la zone changeait de taille. `GridLayout` reçoit maintenant une largeur fixe en
-// pixels (`DASHBOARD_GRID_WIDTH_PX`, voir data/dashboardWidgets.ts), ce qui fixe la largeur de
-// colonne à `DASHBOARD_ROW_HEIGHT` — proportions garanties, quelle que soit la largeur de la zone.
-// Si la zone est plus étroite que la grille, elle défile horizontalement au lieu de comprimer les
-// tuiles (voir `.dash-widget-grid-viewport` dans index.css).
+// tuiles dès que la zone changeait de taille. `GridLayout` reçoit une largeur de COLONNE toujours
+// fixe (`DASHBOARD_ROW_HEIGHT`) — proportions garanties, quelle que soit la largeur de la zone.
+// Si la zone est plus étroite que la grille minimale (`DASHBOARD_GRID_COLS` colonnes), elle défile
+// horizontalement au lieu de comprimer les tuiles (voir `.dash-widget-grid-viewport` dans
+// index.css).
+//
+// Correctif (2026-08-07, retour Julien : "quand on agrandit une zone, elle ne gagne pas d'autres
+// emplacements en largeur... on a maximum 4 emplacements de taille S" même zone pleine largeur) —
+// `cols`/`width` n'étaient PAS seulement fixes en largeur de colonne (voulu), ils étaient fixes en
+// NOMBRE de colonnes aussi (`DASHBOARD_GRID_COLS` = 12 toujours, `width={DASHBOARD_GRID_WIDTH_PX}`
+// toujours) : l'espace supplémentaire d'une zone agrandie restait vide au lieu de devenir des
+// emplacements utilisables. Un `ResizeObserver` sur `.dash-widget-grid-viewport` mesure maintenant
+// la largeur RÉELLEMENT disponible et calcule le nombre de colonnes qui y tiennent à largeur de
+// colonne CONSTANTE (`DASHBOARD_ROW_HEIGHT`, jamais recalculée à partir de la largeur mesurée,
+// contrairement à l'ancien `WidthProvider`) — les tuiles déjà posées ne bougent ni ne se déforment,
+// seuls de nouveaux emplacements vides apparaissent à droite. Toujours au moins
+// `DASHBOARD_GRID_COLS` colonnes (`Math.max`), jamais moins : une zone plus étroite que la grille
+// minimale garde son défilement horizontal, comportement inchangé.
 //
 // Contrôles d'édition (2026-08-06) — plus de barre dédiée au-dessus de la tuile : les boutons
 // taille/suppression sont posés en overlay directement sur le widget (voir
@@ -87,6 +101,34 @@ export function DashboardWidgetGrid({ placements, editable, renderWidget, onChan
     i: p.key, x: p.x, y: p.y, ...WIDGET_SIZE_DIMENSIONS[p.size],
   }))
 
+  // Mesure la largeur RÉELLEMENT disponible dans la zone (voir le correctif du 2026-08-07 dans le
+  // commentaire d'en-tête) — `viewportRef` cible `.dash-widget-grid-viewport`, un `div` bloc classique
+  // qui suit toujours la largeur de son parent flex (`.dash-zone`), jamais la largeur fixe de
+  // `GridLayout` posée à l'intérieur : pas de boucle de rétroaction entre la mesure et la valeur
+  // mesurée.
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const [availableWidth, setAvailableWidth] = useState(DASHBOARD_GRID_WIDTH_PX)
+
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    const observer = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width
+      if (w) setAvailableWidth(w)
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  // Nombre de colonnes qui tiennent dans `availableWidth` à largeur de colonne CONSTANTE
+  // (`DASHBOARD_ROW_HEIGHT`) — jamais moins que `DASHBOARD_GRID_COLS` (`Math.max`), pour ne jamais
+  // faire disparaître d'emplacements déjà occupés par des tuiles existantes.
+  const cols = Math.max(
+    DASHBOARD_GRID_COLS,
+    Math.floor((availableWidth + DASHBOARD_GRID_MARGIN) / (DASHBOARD_ROW_HEIGHT + DASHBOARD_GRID_MARGIN)),
+  )
+  const gridWidth = cols * DASHBOARD_ROW_HEIGHT + (cols - 1) * DASHBOARD_GRID_MARGIN
+
   function handleDragStop(newLayout: Layout[]) {
     const next = placements.map(p => {
       const item = newLayout.find(l => l.i === p.key)
@@ -114,12 +156,12 @@ export function DashboardWidgetGrid({ placements, editable, renderWidget, onChan
       {/* Largeur fixe en pixels (pas WidthProvider) : la grille ne se redimensionne jamais avec la
           zone, elle défile horizontalement si la zone est plus étroite qu'elle. Voir le commentaire
           d'en-tête. */}
-      <div className="dash-widget-grid-viewport">
+      <div className="dash-widget-grid-viewport" ref={viewportRef}>
         <GridLayout
           className="dash-widget-grid"
           layout={layout}
-          width={DASHBOARD_GRID_WIDTH_PX}
-          cols={DASHBOARD_GRID_COLS}
+          width={gridWidth}
+          cols={cols}
           rowHeight={DASHBOARD_ROW_HEIGHT}
           margin={[DASHBOARD_GRID_MARGIN, DASHBOARD_GRID_MARGIN]}
           // Explicite plutôt que laissé au défaut : `react-grid-layout` fait sinon

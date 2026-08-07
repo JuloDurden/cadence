@@ -784,9 +784,12 @@ option { font-weight: 400; }
 /* Correctif (2026-08-03, retour Julien répété : jamais de resize des widgets quand la zone change
    de taille) — `.dash-grid`/`.dash-section`/`.dash-section-title` étaient un reliquat de l'ancien
    agencement figé (avant les widgets, voir data/dashboardWidgets.ts), plus référencés nulle part.
-   Remplacés par `.dash-widget-grid-viewport` : la grille (DashboardWidgetGrid.tsx) a maintenant une
-   largeur fixe en pixels, indépendante de la largeur de la zone ; ce wrapper la fait défiler
-   horizontalement plutôt que de laisser le flex parent la comprimer. */
+   Remplacés par `.dash-widget-grid-viewport` : ce wrapper reste un bloc classique qui suit toujours
+   la largeur de la zone (`.dash-zone`), mesurée par un `ResizeObserver` dans DashboardWidgetGrid.tsx
+   pour calculer le nombre de colonnes qui y tiennent à largeur de colonne CONSTANTE (2026-08-07,
+   correctif : une zone agrandie gagne maintenant des emplacements au lieu de laisser l'espace vide).
+   S'il reste plus étroit que la grille minimale (12 colonnes), il défile horizontalement plutôt que
+   de laisser le flex parent comprimer les tuiles. */
 .dash-widget-grid-viewport { overflow-x: auto; margin-bottom: 20px; }
 
 /* ─── Scrollbars ────────────────────────────────────────────────────────── */

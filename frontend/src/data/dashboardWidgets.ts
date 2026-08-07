@@ -37,7 +37,8 @@ export type DashboardWidgetScope = 'sprint' | 'product'
 export type DashboardWidgetId =
   | 'kpi-done' | 'kpi-velocity' | 'kpi-current-sprint' | 'kpi-blockers'
   | 'velocity-chart' | 'burndown-chart' | 'client-rag' | 'recent-activity'
-  | 'team-velocity' | 'sprint-health' | 'sprint-absences'
+  | 'team-velocity' | 'sprint-health' | 'sprint-absences' | 'epic-progress' | 'delivery-forecast'
+  | 'client-view' | 'retro-actions' | 'blocked-items' | 'ready-for-planning' | 'member-workload'
 
 export interface DashboardWidgetDef {
   id: DashboardWidgetId
@@ -91,6 +92,83 @@ export const DASHBOARD_WIDGET_CATALOG: DashboardWidgetDef[] = [
   // — 2 tailles au choix, retour Julien après la maquette. Ajouté au catalogue seulement, pas à
   // `DEFAULT_DASHBOARD_LAYOUT`, même raison que team-velocity/sprint-health.
   { id: 'sprint-absences',    label: 'Absences du sprint',      allowedSizes: ['S', 'M'], scope: 'sprint' },
+  // 12e widget (2026-08-07, retour Julien, capture "Epics by Percent Completion" en référence de
+  // style) — même système de jauge à 3 segments que Santé du sprint (voir `statusBucket`), appliqué
+  // par Epic plutôt qu'au sprint entier. L/XLP (pas L/XL, retour Julien après la maquette : "je me
+  // suis trompé pour la taille") — une ligne par Epic profite de la hauteur (comme Santé clients
+  // (RAG), déjà en L/XLP) plutôt que de la largeur. Scope 'product' par défaut (un Epic dépasse
+  // souvent un seul sprint), réglage pour restreindre au sprint en cours — voir EpicProgressCard.tsx.
+  // Ajouté au catalogue seulement, pas à `DEFAULT_DASHBOARD_LAYOUT`, même raison que les widgets
+  // précédents.
+  { id: 'epic-progress',      label: 'Progression par Epic',    allowedSizes: ['L', 'XLP'], scope: 'product' },
+  // 13e widget (2026-08-07, retour Julien — `docs/roadmap-v1.md` : "Forecast de livraison basé sur
+  // la vélocité moyenne") — pas de face cachée (aucun réglage demandé, comme sprint-absences). Pas
+  // de détail vélocité (moyenne/min/max) affiché sur ce widget : déjà couvert par "Vélocité
+  // moyenne"/"Graphique de vélocité"/"Vélocité par membre", inutile de le répéter ici (retour
+  // Julien). M compact (dates seules) / L complet (+ nombre de sprints par estimation, barre de
+  // plage optimiste-pessimiste) — pas de XL, même raison que le détail vélocité écarté : un
+  // historique des vélocités en plus dupliquerait ces widgets. Voir DeliveryForecastCard.tsx.
+  // Ajouté au catalogue seulement, pas à `DEFAULT_DASHBOARD_LAYOUT`, même raison que les widgets
+  // précédents.
+  { id: 'delivery-forecast',  label: 'Forecast de livraison',   allowedSizes: ['M', 'L'], scope: 'product' },
+  // 14e widget (2026-08-07, retour Julien — `docs/roadmap-v1.md` : "Vue par client sur les N
+  // derniers sprints, au-delà du RAG actuel qui ne montre qu'un état instantané") — même famille que
+  // team-velocity (courbes par sprint), mais par Client plutôt que par membre, ET un réglage
+  // d'affichage courbes/tableau chaleur (retour Julien : "n'est-il pas possible de faire les 2, avec
+  // choix dans les réglages" — les 2 maquettes proposées lui convenaient également). Couleur =
+  // `Client.color` (déjà utilisée dans une quinzaine de fichiers de l'app), pas une couleur
+  // recalculée comme sur team-velocity. Fenêtre fixée aux 6 derniers sprints CLÔTURÉS, pas un
+  // réglage : pas assez de sprints dans les données actuelles pour qu'un réglage serve à quelque
+  // chose (retour Julien, accepté). Métrique fixée aux SP livrés (US terminées), pas de bascule
+  // SP/nombre d'US comme sur team-velocity/sprint-health : suivre un pourcentage n'a pas de sens sur
+  // des sprints déjà clôturés. M compact/L/XL détaillé, même palier que team-velocity. Voir
+  // ClientViewCard.tsx. Ajouté au catalogue seulement, pas à `DEFAULT_DASHBOARD_LAYOUT`, même raison
+  // que les widgets précédents.
+  { id: 'client-view',        label: 'Vue par client',          allowedSizes: ['M', 'L', 'XL'], scope: 'product' },
+  // 15e widget (2026-08-07, retour Julien : "on peut s'occuper de tous [les 4] afin d'avoir une
+  // petite vingtaine de widgets") — actions de rétro non cochées (`RetroAction.done === false`),
+  // gagné en visibilité depuis le Dashboard plutôt que seulement sur la page Rétro. Pas de face
+  // cachée (aucun réglage demandé, comme sprint-absences). Pas d'avatar du propriétaire (retour
+  // Julien après la maquette : "je ne suis pas sûr que l'avatar soit nécessaire" — remplacé par son
+  // prénom en texte, plus compact pour une liste où le texte de l'action est l'info principale) : S
+  // retravaillé sur le modèle des KPI existants (BlockersCard.tsx : gros chiffre + légende), pas un
+  // résumé à avatars empilés comme sprint-absences. Scope 'product' (une action de rétro reste
+  // ouverte quel que soit le sprint d'origine, pas limitée au sprint en cours). Voir
+  // RetroActionsCard.tsx. Ajouté au catalogue seulement, pas à `DEFAULT_DASHBOARD_LAYOUT`, même
+  // raison que les widgets précédents.
+  { id: 'retro-actions',      label: 'Actions de rétro',        allowedSizes: ['S', 'M'], scope: 'product' },
+  // 16e widget (2026-08-07, retour Julien) — items dont au moins une entrée de `Item.deps` pointe
+  // vers un item pas encore terminé (`isItemDone()`, utils/status.ts) : une notion CALCULÉE à partir
+  // du vrai graphe de dépendances, distincte du statut Kanban manuel "Bloqué" (`EXTRA_STAGES`,
+  // kanbanStages.ts) — celui-ci reste posé à la main sur le Kanban, sans lien avec `deps`. Aucune UI
+  // existante ne faisait déjà ce calcul (BacklogPage.tsx/DepsOverlay.tsx n'exploitent `deps` que pour
+  // le surlignage de chaîne ou l'ordre de planification, jamais `isItemDone`). Scope 'sprint' par
+  // défaut : signal de risque pour le sprint en cours, même famille que Santé du sprint/Blocages
+  // actifs — réglage pour élargir à tout le backlog (voir BlockedItemsCard.tsx). S/M comme
+  // Absences du sprint/Actions de rétro. Ajouté au catalogue seulement, pas à
+  // `DEFAULT_DASHBOARD_LAYOUT`, même raison que les widgets précédents.
+  { id: 'blocked-items',      label: 'Items bloqués par dépendance', allowedSizes: ['S', 'M'], scope: 'sprint' },
+  // 17e widget (2026-08-07, retour Julien) — items du backlog (`sprintId` vide, pas encore affectés
+  // à un sprint) dont la Definition of Ready (`Item.dor`) est complète, candidats à tirer dans la
+  // prochaine planification. Reprend exactement la même règle que le filtre "Prêt (DoR complète)"
+  // déjà présent sur le Backlog (`filterReady`/`dorDodStat`, BacklogPage.tsx) — pas une nouvelle
+  // définition de "prêt", juste exposée sur le Dashboard. Scope 'product' (le backlog n'est
+  // rattaché à aucun sprint par construction). Pas de face cachée (aucun réglage avec un vrai sens
+  // ici, contrairement au périmètre de blocked-items). S/M comme les autres widgets liste. Voir
+  // ReadyForPlanningCard.tsx. Ajouté au catalogue seulement, pas à `DEFAULT_DASHBOARD_LAYOUT`, même
+  // raison que les widgets précédents.
+  { id: 'ready-for-planning', label: 'Prêt pour planification',      allowedSizes: ['S', 'M'], scope: 'product' },
+  // 18e widget (2026-08-07, retour Julien) — condense, par membre, la barre de charge déjà affichée
+  // dans le panneau membres du Gantt de Sprint Planning (GanttView.tsx) : SP réparti `sp / nb
+  // assignés` sur le sprint en cours, face à la capacité individuelle (`computeMemberCapacity()`,
+  // utils/sprintCapacity.ts), mêmes seuils de couleur (rouge en dépassement, orange à partir de
+  // 85%). Pas une nouvelle règle de calcul, ni de face cachée (aucun réglage demandé). Un membre
+  // absent sur toute la durée du sprint est exclu (`isMemberFullyAbsent()`), même règle que le
+  // Gantt. Triés par charge décroissante, les surcharges remontent en premier. Scope 'sprint'
+  // (notion de capacité restante SUR le sprint en cours). L/XLP comme "Progression par Epic" — une
+  // ligne par membre profite de la hauteur. Voir MemberWorkloadCard.tsx. Ajouté au catalogue
+  // seulement, pas à `DEFAULT_DASHBOARD_LAYOUT`, même raison que les widgets précédents.
+  { id: 'member-workload',    label: 'Charge actuelle par membre',   allowedSizes: ['L', 'XLP'], scope: 'sprint' },
 ]
 
 export const DASHBOARD_ZONE_LABELS: Record<DashboardWidgetScope, string> = {
@@ -197,6 +275,10 @@ export interface DashboardWidgetPlacement {
   recentActivityWindow?: RecentActivityWindow
   teamVelocityMetric?: TeamVelocityMetric
   sprintHealthMetric?: SprintHealthMetric
+  epicProgressScope?: EpicProgressScope
+  epicProgressMetric?: EpicProgressMetric
+  clientViewDisplay?: ClientViewDisplay
+  blockedItemsScope?: BlockedItemsScope
 }
 
 /** Réglages de face cachée du widget "Burndown" (2026-08-06) — voir BurndownChart.tsx et
@@ -284,6 +366,49 @@ export type TeamVelocityMetric = 'sp' | 'count'
  *  colonnes `isDone`, À faire = la colonne `isDefault`, En cours = toute autre colonne — généralise
  *  à n'importe quel jeu de colonnes plutôt que de coder en dur des ids de statut. */
 export type SprintHealthMetric = 'sp' | 'items'
+
+/** Réglages de face cachée du widget "Progression par Epic" (2026-08-07, retour Julien, capture
+ *  "Epics by Percent Completion" en référence de style) — voir EpicProgressCard.tsx et FlipCard.tsx.
+ *  Même système de classement que "Santé du sprint" (`SprintHealthMetric`), appliqué par Epic
+ *  plutôt qu'au sprint entier :
+ *  - `epicProgressScope` : 'product' (tous les Epics du produit, par défaut — un Epic dépasse
+ *    souvent un seul sprint) ou 'sprint' (seulement les Epics assignés au sprint en cours, via leur
+ *    propre champ `sprintId` ou via au moins une US assignée au sprint — même règle que
+ *    `computeSPBuckets`/`getSprintSP()`).
+ *  - `epicProgressMetric` : 'sp' (Story Points, par défaut) ou 'items' (nombre d'US), même
+ *    définition que `SprintHealthMetric`.
+ *  Un Epic sans aucune US dans le périmètre choisi s'affiche "Pas encore découpé en US" plutôt
+ *  qu'une barre vide (même traitement que Santé clients (RAG)). Pas de correspondance automatique
+ *  entre `epicProgressScope` et la zone du widget (contrairement à Santé clients (RAG)) — ce
+ *  comportement reste un cas particulier de ce seul widget (voir le commentaire de
+ *  `DashboardWidgetPlacement.scopeOverride` plus haut), pas généralisé ici. */
+export type EpicProgressScope = 'product' | 'sprint'
+export type EpicProgressMetric = 'sp' | 'items'
+
+/** Réglage de face cachée du widget "Vue par client" (2026-08-07, retour Julien — voir
+ *  `docs/roadmap-v1.md`) — voir ClientViewCard.tsx et FlipCard.tsx :
+ *  - `lines`   : une courbe par client (SP livrés par sprint), même famille que "Vélocité par
+ *    membre" — clic sur la légende pour masquer/afficher une courbe, clic sur une courbe pour la
+ *    mettre en surbrillance (fade les autres), même interactions.
+ *  - `heatmap` : tableau client × sprint, une cellule = SP livrés ce sprint pour ce client, teinte
+ *    proportionnelle à la valeur (intensité relative au maximum observé sur toute la fenêtre).
+ *  Les 2 réponses à la même donnée, pas un calcul différent — choix demandé explicitement par
+ *  Julien plutôt que de trancher entre les 2 maquettes proposées ("n'est-il pas possible de faire
+ *  les 2, avec choix dans les réglages ? Car les 2 me conviennent très bien"). `lines` par défaut. */
+export type ClientViewDisplay = 'lines' | 'heatmap'
+
+/** Réglage de face cachée du widget "Items bloqués par dépendance" (2026-08-07, retour Julien) —
+ *  voir BlockedItemsCard.tsx et FlipCard.tsx :
+ *  - `sprint`  : seuls les items du sprint en cours (`item.sprintId === currentSprint.id`) sont
+ *    considérés, par défaut — signal de risque immédiat pour le sprint en cours.
+ *  - `product` : tous les items du produit, quel que soit leur sprint — les dépendances sont souvent
+ *    cross-sprint (voir DepsOverlay.tsx, qui ne trace des flèches qu'entre sprints différents), donc
+ *    le choix du périmètre est une vraie question, pas artificielle (même raisonnement que
+ *    `epicProgressScope`).
+ *  Dans les 2 cas, un item est "bloqué" si au moins un id de `item.deps` désigne un item dont
+ *  `isItemDone()` est faux — l'item bloquant lui-même peut être hors périmètre (ex. dans un sprint
+ *  antérieur ou déjà livré à un client différent), seul son statut de complétion compte. */
+export type BlockedItemsScope = 'sprint' | 'product'
 
 // Coordonnées propres à chaque zone (chaque zone a sa propre grille, sa propre origine (0,0)) —
 // reprend la disposition d'avant ce chantier, réajustée aux nouvelles tailles XL/XLP (burndown-chart

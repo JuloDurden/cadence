@@ -13,6 +13,13 @@ import { AvgVelocityCard } from '../components/dashboard/AvgVelocityCard'
 import { TeamVelocityChart } from '../components/dashboard/TeamVelocityChart'
 import { SprintHealthCard } from '../components/dashboard/SprintHealthCard'
 import { SprintAbsencesCard } from '../components/dashboard/SprintAbsencesCard'
+import { EpicProgressCard } from '../components/dashboard/EpicProgressCard'
+import { DeliveryForecastCard } from '../components/dashboard/DeliveryForecastCard'
+import { ClientViewCard } from '../components/dashboard/ClientViewCard'
+import { RetroActionsCard } from '../components/dashboard/RetroActionsCard'
+import { BlockedItemsCard } from '../components/dashboard/BlockedItemsCard'
+import { ReadyForPlanningCard } from '../components/dashboard/ReadyForPlanningCard'
+import { MemberWorkloadCard } from '../components/dashboard/MemberWorkloadCard'
 import { DashboardZoneSplit } from '../components/dashboard/DashboardZoneSplit'
 import { AddWidgetModal } from '../components/dashboard/AddWidgetModal'
 import { resolveDashboardLayout, widgetScope, placementScope, zoneRowSpan, DASHBOARD_WIDGET_CATALOG, DASHBOARD_ZONE_LABELS } from '../data/dashboardWidgets'
@@ -323,6 +330,7 @@ export function DashboardPage() {
             instanceKey={key}
             metric={placement.sprintHealthMetric ?? 'sp'}
             onChangeMetric={next => updateWidgetSetting(key, { sprintHealthMetric: next })}
+            size={placement.size}
           />
         )
       case 'sprint-absences':
@@ -332,6 +340,85 @@ export function DashboardPage() {
             team={state.team}
             sprint={currentSprint}
             today={today}
+            size={placement.size}
+          />
+        )
+      case 'epic-progress':
+        return (
+          <EpicProgressCard
+            hierarchyNodes={state.hierarchyNodes}
+            items={state.items}
+            kanbanCols={state.kanbanCols}
+            currentSprint={currentSprint}
+            editable={canCustomize && editing}
+            instanceKey={key}
+            scope={placement.epicProgressScope ?? 'product'}
+            onChangeScope={next => updateWidgetSetting(key, { epicProgressScope: next })}
+            metric={placement.epicProgressMetric ?? 'sp'}
+            onChangeMetric={next => updateWidgetSetting(key, { epicProgressMetric: next })}
+          />
+        )
+      case 'delivery-forecast':
+        return (
+          <DeliveryForecastCard
+            sprints={state.sprints}
+            items={state.items}
+            hierarchyNodes={state.hierarchyNodes}
+            kanbanCols={state.kanbanCols}
+            currentSprint={currentSprint}
+            today={today}
+            size={placement.size}
+          />
+        )
+      case 'client-view':
+        return (
+          <ClientViewCard
+            sprints={state.sprints}
+            items={state.items}
+            clients={state.clients}
+            kanbanCols={state.kanbanCols}
+            editable={canCustomize && editing}
+            instanceKey={key}
+            display={placement.clientViewDisplay ?? 'lines'}
+            onChangeDisplay={next => updateWidgetSetting(key, { clientViewDisplay: next })}
+            size={placement.size}
+          />
+        )
+      case 'retro-actions':
+        return (
+          <RetroActionsCard
+            retroSessions={state.retroSessions}
+            retroArchives={state.retroArchives}
+            team={state.team}
+            today={today}
+            size={placement.size}
+          />
+        )
+      case 'blocked-items':
+        return (
+          <BlockedItemsCard
+            items={state.items}
+            kanbanCols={state.kanbanCols}
+            currentSprint={currentSprint}
+            editable={canCustomize && editing}
+            instanceKey={key}
+            scope={placement.blockedItemsScope ?? 'sprint'}
+            onChangeScope={next => updateWidgetSetting(key, { blockedItemsScope: next })}
+            size={placement.size}
+          />
+        )
+      case 'ready-for-planning':
+        return (
+          <ReadyForPlanningCard
+            items={state.items}
+            size={placement.size}
+          />
+        )
+      case 'member-workload':
+        return (
+          <MemberWorkloadCard
+            state={state}
+            currentSprint={currentSprint}
             size={placement.size}
           />
         )

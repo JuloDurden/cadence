@@ -210,6 +210,25 @@ test.describe('Dashboard — 2 zones (Sprint en cours / Vue produit)', () => {
     await expect(page.locator('[data-testid="dashboard-zone-orientation-horizontal"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="dashboard-zone-split"]')).toBeVisible();
   });
+
+  // Correctif (v0.97.6, 2026-08-07, retour Julien : "quand on agrandit une zone, elle ne gagne pas
+  // d'autres emplacements en largeur... on a maximum 4 emplacements de taille S" même zone pleine
+  // largeur) — la grille de chaque zone (DashboardWidgetGrid.tsx) mesure désormais sa largeur RÉELLE
+  // via un `ResizeObserver` pour calculer son nombre de colonnes, au lieu d'une largeur/un nombre de
+  // colonnes toujours fixes (12 colonnes = 748px, quelle que soit la zone). Zones empilées + grand
+  // viewport → chaque zone approche la pleine largeur de la fenêtre, largement au-delà de 748px :
+  // la grille doit suivre, pas rester figée à sa largeur minimale. `expect.poll` plutôt qu'une
+  // lecture unique de `boundingBox()` : le premier rendu utilise la largeur de repli
+  // (`DASHBOARD_GRID_WIDTH_PX`) avant que le `ResizeObserver` ne déclenche son 1er callback.
+  test('une zone empilée en plein écran gagne des colonnes au-delà de la largeur minimale (748px)', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-zone-orientation-vertical"]').click();
+
+    const grid = page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget-grid');
+    await expect.poll(async () => (await grid.boundingBox())?.width ?? 0).toBeGreaterThan(748);
+  });
 });
 
 // Chantier "Face cachée des widgets" (v0.97.3, 2026-08-06, retour Julien) — FlipCard.tsx, câblé au
@@ -473,6 +492,25 @@ test.describe('Dashboard — widget "Santé du sprint" (v0.97.5)', () => {
     await sizeBtn.click();
     await expect(sizeBtn).toHaveText('L');
   });
+
+  // 5e statistique ajoutée (2026-08-07, retour Julien : "il faut que la jauge affiche les items
+  // bloqués") — présente en L comme en XL, seule la disposition change (2 lignes 3+2 en L, 1 ligne
+  // de 5 en XL), le libellé lui-même est toujours affiché dans les 2 tailles.
+  test('affiche la statistique "Items bloqués" en L comme en XL', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-toggle"]').click();
+    await page.locator('[data-testid="add-widget-sprint-health-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-sprint-health"]');
+    await expect(tile).toContainText('Items bloqués');
+
+    await tile.locator('[data-testid^="dashboard-widget-size-sprint-health"]').click();
+    await expect(tile).toContainText('Items bloqués');
+  });
 });
 
 // Chantier "Absences du sprint" (v0.97.5, 2026-08-06) — 11e widget Dashboard, disponible
@@ -520,5 +558,482 @@ test.describe('Dashboard — widget "Absences du sprint" (v0.97.5)', () => {
     await expect(sizeBtn).toHaveText('M');
     await sizeBtn.click();
     await expect(sizeBtn).toHaveText('S');
+  });
+});
+
+// Chantier "Progression par Epic" (v0.97.6, 2026-08-07) — 12e widget Dashboard, disponible
+// uniquement via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir
+// EpicProgressCard.tsx. Scope 'product' par défaut (contrairement aux 3 widgets précédents, tous
+// scope 'sprint') — ajouté dans la zone "Vue produit" via `add-widget-epic-progress-product`.
+// `DEMO_STATE` contient plusieurs Epics (voir data/demo.ts) : le widget affiche donc des lignes
+// dès l'ajout, pas l'état vide.
+test.describe('Dashboard — widget "Progression par Epic" (v0.97.6)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Vue produit avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-epic-progress-toggle"]').click();
+    await page.locator('[data-testid="add-widget-epic-progress-product"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Progression par Epic');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    await expect(
+      page.locator('[data-testid="dashboard-zone-product"] .dash-widget[data-testid^="dashboard-widget-epic-progress"]')
+    ).toBeVisible();
+  });
+
+  test('la face cachée bascule indépendamment le périmètre (Produit/Sprint) et la métrique (SP/US)', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-epic-progress-toggle"]').click();
+    await page.locator('[data-testid="add-widget-epic-progress-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-epic-progress"]');
+    await tile.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+
+    const productRadio = tile.locator('[data-testid^="dashboard-widget-epic-progress-product-"]');
+    const sprintRadio = tile.locator('[data-testid^="dashboard-widget-epic-progress-sprint-"]');
+    const spRadio = tile.locator('[data-testid^="dashboard-widget-epic-progress-sp-"]');
+    const itemsRadio = tile.locator('[data-testid^="dashboard-widget-epic-progress-items-"]');
+
+    await expect(productRadio).toBeChecked();
+    await expect(spRadio).toBeChecked();
+
+    await sprintRadio.click();
+    await expect(sprintRadio).toBeChecked();
+    await expect(productRadio).not.toBeChecked();
+    // Le réglage de métrique n'est pas affecté par celui de périmètre — 2 groupes indépendants.
+    await expect(spRadio).toBeChecked();
+
+    await itemsRadio.click();
+    await expect(itemsRadio).toBeChecked();
+    await expect(spRadio).not.toBeChecked();
+
+    await tile.locator('[data-testid="dashboard-widget-flip-back"]').click();
+    await expect(tile.locator('[data-testid="dashboard-widget-flip-settings"]')).toBeVisible();
+  });
+
+  test('changer la taille cycle L -> XLP -> L', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-epic-progress-toggle"]').click();
+    await page.locator('[data-testid="add-widget-epic-progress-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-epic-progress"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-epic-progress"]');
+    await expect(sizeBtn).toHaveText('L');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('XLP');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('L');
+  });
+});
+
+// Chantier "Forecast de livraison" (v0.97.6, 2026-08-07) — 13e widget Dashboard, disponible
+// uniquement via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir
+// DeliveryForecastCard.tsx. Pas de face cachée de réglages (aucun réglage demandé), donc pas de
+// test de bascule ici, comme le bloc "Absences du sprint". `DEMO_STATE` a un sprint clôturé
+// (`closed: true`, voir data/demo.ts) et un backlog non entièrement terminé : le widget affiche
+// donc ses 3 colonnes de dates, pas un des 2 messages d'état particulier (backlog fini / pas
+// d'historique).
+test.describe('Dashboard — widget "Forecast de livraison" (v0.97.6)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Vue produit avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-delivery-forecast-toggle"]').click();
+    await page.locator('[data-testid="add-widget-delivery-forecast-product"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Forecast de livraison');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    const tile = page.locator('[data-testid="dashboard-zone-product"] .dash-widget[data-testid^="dashboard-widget-delivery-forecast"]');
+    await expect(tile).toBeVisible();
+    await expect(tile).toContainText('SP restants sur');
+    await expect(tile).toContainText('Optimiste');
+    await expect(tile).toContainText('Moyen');
+    await expect(tile).toContainText('Pessimiste');
+  });
+
+  test('changer la taille cycle M -> L -> M', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-delivery-forecast-toggle"]').click();
+    await page.locator('[data-testid="add-widget-delivery-forecast-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-delivery-forecast"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-delivery-forecast"]');
+    await expect(sizeBtn).toHaveText('M');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('L');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('M');
+  });
+});
+
+// Chantier "Vue par client" (v0.97.6, 2026-08-07) — 14e widget Dashboard, disponible uniquement via
+// la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir ClientViewCard.tsx. Scope 'product',
+// ajouté dans la zone "Vue produit" via `add-widget-client-view-product`.
+test.describe('Dashboard — widget "Vue par client" (v0.97.6)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Vue produit avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-client-view-toggle"]').click();
+    await page.locator('[data-testid="add-widget-client-view-product"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Vue par client');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    await expect(
+      page.locator('[data-testid="dashboard-zone-product"] .dash-widget[data-testid^="dashboard-widget-client-view"]')
+    ).toBeVisible();
+  });
+
+  test('la face cachée bascule entre Courbes (par défaut) et Tableau chaleur', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-client-view-toggle"]').click();
+    await page.locator('[data-testid="add-widget-client-view-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-client-view"]');
+    await tile.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+
+    const linesRadio = tile.locator('[data-testid^="dashboard-widget-client-view-lines-"]');
+    const heatmapRadio = tile.locator('[data-testid^="dashboard-widget-client-view-heatmap-"]');
+    await expect(linesRadio).toBeChecked();
+    await expect(heatmapRadio).not.toBeChecked();
+
+    await heatmapRadio.click();
+    await expect(heatmapRadio).toBeChecked();
+    await expect(linesRadio).not.toBeChecked();
+
+    await tile.locator('[data-testid="dashboard-widget-flip-back"]').click();
+    await expect(tile.locator('[data-testid="dashboard-widget-flip-settings"]')).toBeVisible();
+  });
+
+  test('changer la taille cycle M -> L -> XL -> M', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-client-view-toggle"]').click();
+    await page.locator('[data-testid="add-widget-client-view-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-client-view"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-client-view"]');
+    await expect(sizeBtn).toHaveText('M');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('L');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('XL');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('M');
+  });
+});
+
+// Chantier "Actions de rétro" (v0.97.6, 2026-08-07) — 15e widget Dashboard, disponible uniquement
+// via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir RetroActionsCard.tsx. Scope
+// 'product', ajouté dans la zone "Vue produit" via `add-widget-retro-actions-product`. Pas de face
+// cachée de réglages (aucun réglage demandé), donc pas de test de bascule ici, comme le bloc
+// "Absences du sprint"/"Forecast de livraison". `DEMO_STATE.retroSessions` et `.retroArchives` sont
+// tous deux vides (voir data/demo.ts) : le widget affiche donc systématiquement l'état vide.
+test.describe('Dashboard — widget "Actions de rétro" (v0.97.6)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Vue produit avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-retro-actions-toggle"]').click();
+    await page.locator('[data-testid="add-widget-retro-actions-product"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Actions de rétro');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    const tile = page.locator('[data-testid="dashboard-zone-product"] .dash-widget[data-testid^="dashboard-widget-retro-actions"]');
+    await expect(tile).toBeVisible();
+    await expect(tile).toContainText('Aucune action ouverte');
+  });
+
+  test('changer la taille cycle S -> M -> S', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-retro-actions-toggle"]').click();
+    await page.locator('[data-testid="add-widget-retro-actions-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-retro-actions"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-retro-actions"]');
+    await expect(sizeBtn).toHaveText('S');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('M');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('S');
+  });
+});
+
+// Chantier "Items bloqués par dépendance" (v0.97.6, 2026-08-07) — 16e widget Dashboard, disponible
+// uniquement via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir
+// BlockedItemsCard.tsx. Scope 'sprint' par défaut, ajouté dans la zone "Sprint en cours" via
+// `add-widget-blocked-items-sprint`. Pas d'assertion de contenu sur le test d'ajout (comme "Santé du
+// sprint") : le résultat dépend du sprint en cours au moment de l'exécution (`Item.sprintId` vs la
+// date du jour dans `DEMO_STATE.sprints`), pas une donnée figée comme les widgets à état vide
+// garanti (Absences du sprint, Actions de rétro).
+test.describe('Dashboard — widget "Items bloqués par dépendance" (v0.97.6)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Sprint en cours avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-blocked-items-toggle"]').click();
+    await page.locator('[data-testid="add-widget-blocked-items-sprint"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Items bloqués par dépendance');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    await expect(
+      page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget[data-testid^="dashboard-widget-blocked-items"]')
+    ).toBeVisible();
+  });
+
+  test('la face cachée bascule entre Sprint en cours (par défaut) et Tout le backlog', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-blocked-items-toggle"]').click();
+    await page.locator('[data-testid="add-widget-blocked-items-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-blocked-items"]');
+    await tile.locator('[data-testid="dashboard-widget-flip-settings"]').click();
+
+    const sprintRadio = tile.locator('[data-testid^="dashboard-widget-blocked-items-sprint-"]');
+    const productRadio = tile.locator('[data-testid^="dashboard-widget-blocked-items-product-"]');
+    await expect(sprintRadio).toBeChecked();
+    await expect(productRadio).not.toBeChecked();
+
+    await productRadio.click();
+    await expect(productRadio).toBeChecked();
+    await expect(sprintRadio).not.toBeChecked();
+
+    await tile.locator('[data-testid="dashboard-widget-flip-back"]').click();
+    await expect(tile.locator('[data-testid="dashboard-widget-flip-settings"]')).toBeVisible();
+  });
+
+  test('changer la taille cycle S -> M -> S', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-blocked-items-toggle"]').click();
+    await page.locator('[data-testid="add-widget-blocked-items-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-blocked-items"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-blocked-items"]');
+    await expect(sizeBtn).toHaveText('S');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('M');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('S');
+  });
+});
+
+// Chantier "Prêt pour planification" (v0.97.6, 2026-08-07) — 17e widget Dashboard, disponible
+// uniquement via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir
+// ReadyForPlanningCard.tsx. Scope 'product', ajouté dans la zone "Vue produit" via
+// `add-widget-ready-for-planning-product`. Pas de face cachée de réglages (aucun réglage demandé),
+// donc pas de test de bascule ici, comme "Absences du sprint"/"Actions de rétro". Aucun item du
+// backlog démo n'a de DoR renseignée (voir data/demo.ts) : le widget affiche donc systématiquement
+// l'état vide, même principe que "Absences du sprint"/"Actions de rétro".
+test.describe('Dashboard — widget "Prêt pour planification" (v0.97.6)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Vue produit avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-ready-for-planning-toggle"]').click();
+    await page.locator('[data-testid="add-widget-ready-for-planning-product"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Prêt pour planification');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    const tile = page.locator('[data-testid="dashboard-zone-product"] .dash-widget[data-testid^="dashboard-widget-ready-for-planning"]');
+    await expect(tile).toBeVisible();
+    await expect(tile).toContainText('Aucun item prêt');
+  });
+
+  test('changer la taille cycle S -> M -> S', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-ready-for-planning-toggle"]').click();
+    await page.locator('[data-testid="add-widget-ready-for-planning-product"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-ready-for-planning"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-ready-for-planning"]');
+    await expect(sizeBtn).toHaveText('S');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('M');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('S');
+  });
+});
+
+// Chantier "Charge actuelle par membre" (v0.97.6, 2026-08-07) — 18e widget Dashboard, disponible
+// uniquement via la modal d'ajout (pas dans `DEFAULT_DASHBOARD_LAYOUT`), voir
+// MemberWorkloadCard.tsx. Scope 'sprint', ajouté dans la zone "Sprint en cours" via
+// `add-widget-member-workload-sprint`. Pas de face cachée de réglages (aucun réglage demandé), donc
+// pas de test de bascule ici, comme "Santé du sprint"/"Items bloqués par dépendance". Pas
+// d'assertion de contenu sur le test d'ajout (comme "Santé du sprint") : le contenu dépend du sprint
+// en cours et de la répartition SP par membre au moment de l'exécution, pas une donnée figée.
+test.describe('Dashboard — widget "Charge actuelle par membre" (v0.97.6)', () => {
+
+  test('ajouté depuis la modal, il s\'affiche dans la zone Sprint en cours avec un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-member-workload-toggle"]').click();
+    await page.locator('[data-testid="add-widget-member-workload-sprint"]').click();
+
+    await expect(page.getByRole('status')).toContainText('Charge actuelle par membre');
+
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+    await expect(
+      page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget[data-testid^="dashboard-widget-member-workload"]')
+    ).toBeVisible();
+  });
+
+  test('changer la taille cycle L -> XLP -> L', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-member-workload-toggle"]').click();
+    await page.locator('[data-testid="add-widget-member-workload-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('.dash-widget[data-testid^="dashboard-widget-member-workload"]');
+    const sizeBtn = tile.locator('[data-testid^="dashboard-widget-size-member-workload"]');
+    await expect(sizeBtn).toHaveText('L');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('XLP');
+    await sizeBtn.click();
+    await expect(sizeBtn).toHaveText('L');
+  });
+});
+
+// Chantier "Modal d'ajout de widget : recherche/tri/filtres/badges" (v0.97.6, 2026-08-07, retour
+// Julien : "la modal propose pas loin de 20 widgets, il va falloir étoffer le choix") — catalogue
+// passé à 18 entrées, voir AddWidgetModal.tsx (champ de recherche, boutons de tri A→Z/Z→A/Récents,
+// filtres taille/zone, badges de taille par carte). État purement local à la modal, réinitialisé à
+// chaque ouverture (pas de test de persistance ici).
+test.describe('Dashboard — modal d\'ajout de widget : recherche/tri/filtres (v0.97.6)', () => {
+
+  async function openModal(page) {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+  }
+
+  test('les 18 widgets du catalogue sont proposés par défaut, sans filtre actif', async ({ page }) => {
+    await openModal(page);
+    await expect(page.locator('[data-testid^="add-widget-card-"]')).toHaveCount(18);
+  });
+
+  test('le champ de recherche filtre par libellé, insensible aux accents et à la casse', async ({ page }) => {
+    await openModal(page);
+    await page.locator('[data-testid="add-widget-search"]').fill('RECENTE');
+
+    await expect(page.locator('[data-testid^="add-widget-card-"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="add-widget-card-recent-activity"]')).toBeVisible();
+    await expect(page.locator('[data-testid="add-widget-card-kpi-done"]')).toHaveCount(0);
+  });
+
+  test('une recherche sans résultat affiche l\'état vide', async ({ page }) => {
+    await openModal(page);
+    await page.locator('[data-testid="add-widget-search"]').fill('zzzzz');
+
+    await expect(page.locator('[data-testid="add-widget-empty"]')).toBeVisible();
+    await expect(page.locator('[data-testid^="add-widget-card-"]')).toHaveCount(0);
+  });
+
+  test('le tri A→Z (par défaut) place "Absences du sprint" en premier, Z→A le place en dernier', async ({ page }) => {
+    await openModal(page);
+    const cards = page.locator('[data-testid^="add-widget-card-"]');
+    await expect(cards.first()).toHaveAttribute('data-testid', 'add-widget-card-sprint-absences');
+
+    await page.locator('[data-testid="add-widget-sort-za"]').click();
+    await expect(cards.last()).toHaveAttribute('data-testid', 'add-widget-card-sprint-absences');
+  });
+
+  test('le tri "Récents" place le widget le plus récemment ajouté au catalogue en tête', async ({ page }) => {
+    await openModal(page);
+    await page.locator('[data-testid="add-widget-sort-recent"]').click();
+
+    const cards = page.locator('[data-testid^="add-widget-card-"]');
+    await expect(cards.first()).toHaveAttribute('data-testid', 'add-widget-card-member-workload');
+  });
+
+  test('le filtre de taille limite l\'affichage aux widgets disponibles dans cette taille', async ({ page }) => {
+    await openModal(page);
+    await page.locator('[data-testid="add-widget-filter-size-XLP"]').click();
+
+    await expect(page.locator('[data-testid^="add-widget-card-"]')).toHaveCount(3);
+    await expect(page.locator('[data-testid="add-widget-card-client-rag"]')).toBeVisible();
+    await expect(page.locator('[data-testid="add-widget-card-epic-progress"]')).toBeVisible();
+    await expect(page.locator('[data-testid="add-widget-card-member-workload"]')).toBeVisible();
+    await expect(page.locator('[data-testid="add-widget-card-kpi-done"]')).toHaveCount(0);
+  });
+
+  test('le filtre de zone limite l\'affichage aux widgets de cette zone par défaut', async ({ page }) => {
+    await openModal(page);
+    await page.locator('[data-testid="add-widget-filter-zone-sprint"]').click();
+
+    await expect(page.locator('[data-testid^="add-widget-card-"]')).toHaveCount(8);
+    await expect(page.locator('[data-testid="add-widget-card-member-workload"]')).toBeVisible();
+    await expect(page.locator('[data-testid="add-widget-card-kpi-done"]')).toHaveCount(0);
+  });
+
+  test('chaque carte affiche un badge par taille disponible du widget', async ({ page }) => {
+    await openModal(page);
+
+    const kpiDoneCard = page.locator('[data-testid="add-widget-card-kpi-done"]');
+    await expect(kpiDoneCard.getByText('S', { exact: true })).toBeVisible();
+
+    const clientRagCard = page.locator('[data-testid="add-widget-card-client-rag"]');
+    await expect(clientRagCard.getByText('M', { exact: true })).toBeVisible();
+    await expect(clientRagCard.getByText('L', { exact: true })).toBeVisible();
+    await expect(clientRagCard.getByText('XL', { exact: true })).toBeVisible();
+    await expect(clientRagCard.getByText('XLP', { exact: true })).toBeVisible();
   });
 });
