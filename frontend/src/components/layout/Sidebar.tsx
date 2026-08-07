@@ -87,11 +87,16 @@ const SECTIONS = [
 ]
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
+  // Persisté en localStorage, pas `state.settings` (2026-08-07, bug remonté par Julien : la
+  // sidebar repart dépliée à chaque refresh) — préférence d'écran propre à l'utilisateur/l'appareil,
+  // pas un réglage de workspace partagé, même convention que le mode d'affichage de la modale
+  // d'item (`modal-view`, ItemModal.tsx) ou l'orientation de la toolbar NNL (NNLToolbar.tsx).
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === 'true')
   const { userRole } = useAuth()
 
   useEffect(() => {
     document.body.classList.toggle('sb-collapsed', collapsed)
+    localStorage.setItem('sidebar-collapsed', String(collapsed))
     return () => { document.body.classList.remove('sb-collapsed') }
   }, [collapsed])
 
@@ -143,6 +148,7 @@ export function Sidebar() {
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button
             className="sidebar-collapse-btn"
+            data-testid="sidebar-collapse-toggle"
             onClick={() => setCollapsed(c => !c)}
             title={collapsed ? 'Etendre' : 'Reduire'}
           >

@@ -22,7 +22,7 @@ import { ReadyForPlanningCard } from '../components/dashboard/ReadyForPlanningCa
 import { MemberWorkloadCard } from '../components/dashboard/MemberWorkloadCard'
 import { DashboardZoneSplit } from '../components/dashboard/DashboardZoneSplit'
 import { AddWidgetModal } from '../components/dashboard/AddWidgetModal'
-import { resolveDashboardLayout, widgetScope, placementScope, zoneRowSpan, DASHBOARD_WIDGET_CATALOG, DASHBOARD_ZONE_LABELS } from '../data/dashboardWidgets'
+import { resolveDashboardLayout, widgetScope, placementScope, findFreeSlot, WIDGET_SIZE_DIMENSIONS, DASHBOARD_GRID_COLS, DASHBOARD_WIDGET_CATALOG, DASHBOARD_ZONE_LABELS } from '../data/dashboardWidgets'
 import type { DashboardWidgetPlacement, DashboardWidgetId, DashboardWidgetScope } from '../data/dashboardWidgets'
 import { isItemDone } from '../utils/status'
 import { getSprintSP } from '../utils/hierarchyScore'
@@ -138,11 +138,22 @@ export function DashboardPage() {
     saveToServer({ ...state, settings: nextSettings })
   }
 
+  // Nombre de colonnes RÉELLEMENT disponibles par zone (2026-08-07, bug remonté par Julien : un
+  // widget ajouté via la modal se plaçait toujours tout en bas du périmètre pré-resize, jamais dans
+  // l'espace gagné par un agrandissement de zone) — mesuré localement par chaque
+  // `DashboardWidgetGrid` (ResizeObserver, voir son commentaire d'en-tête) et remonté ici via
+  // `onColsChange`/`onZoneColsChange`, cette page n'ayant elle-même aucun accès DOM. Défaut
+  // `DASHBOARD_GRID_COLS` tant que la mesure n'est pas encore remontée (premier rendu).
+  const [zoneCols, setZoneCols] = useState<Record<DashboardWidgetScope, number>>({
+    sprint: DASHBOARD_GRID_COLS, product: DASHBOARD_GRID_COLS,
+  })
+
   // Ajout d'un widget depuis la modal (2026-08-06, retour Julien, voir AddWidgetModal.tsx) — posé
-  // en bas de la zone choisie (`zoneRowSpan`, même heuristique que l'ancien `addWidget` dans
-  // DashboardWidgetGrid.tsx avant sa suppression), avec une nouvelle `key` générée (doublons
-  // autorisés, voir dashboardWidgets.ts). `scopeOverride` seulement si la zone choisie diffère du
-  // `scope` par défaut du widget dans le catalogue — pas la peine de le persister sinon.
+  // au premier emplacement libre de la zone choisie (`findFreeSlot`, corrigé le 2026-08-07 : posait
+  // auparavant tout en bas en `x: 0` via `zoneRowSpan` seul, sans jamais chercher d'espace libre à
+  // droite), avec une nouvelle `key` générée (doublons autorisés, voir dashboardWidgets.ts).
+  // `scopeOverride` seulement si la zone choisie diffère du `scope` par défaut du widget dans le
+  // catalogue — pas la peine de le persister sinon.
   // Toast de confirmation (2026-08-06, retour Julien) — seul signal une fois la carte de la modal
   // repliée, la modal elle-même restant ouverte pour enchaîner d'autres ajouts (voir
   // AddWidgetModal.tsx).
@@ -150,11 +161,13 @@ export function DashboardPage() {
     const def = DASHBOARD_WIDGET_CATALOG.find(w => w.id === id)
     if (!def) return
     const zonePlacements = layout.filter(p => placementScope(p) === zone)
+    const dims = WIDGET_SIZE_DIMENSIONS[def.allowedSizes[0]]
+    const existing = zonePlacements.map(p => ({ x: p.x, y: p.y, ...WIDGET_SIZE_DIMENSIONS[p.size] }))
+    const { x, y } = findFreeSlot(existing, dims.w, dims.h, zoneCols[zone])
     const placement: DashboardWidgetPlacement = {
       key: `${id}-${uid()}`,
       id,
-      x: 0,
-      y: zoneRowSpan(zonePlacements),
+      x, y,
       size: def.allowedSizes[0],
       scopeOverride: zone === widgetScope(id) ? undefined : zone,
     }
@@ -497,6 +510,7 @@ export function DashboardPage() {
             onChangeOrientation={persistOrientation}
             onChangeSplit={persistSplit}
             onChangeZonesSwapped={persistZonesSwapped}
+            onZoneColsChange={(zone, cols) => setZoneCols(z => z[zone] === cols ? z : { ...z, [zone]: cols })}
           />
         </div>
       </div>

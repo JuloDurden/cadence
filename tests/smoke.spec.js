@@ -28,3 +28,34 @@ test.describe('Smoke — toutes les routes React', () => {
     });
   }
 });
+
+// Sidebar (v0.97.7, 2026-08-07, retour Julien : "si on collapse la sidebar avant de refresh, elle
+// réapparaît uncollapsed") — état purement en mémoire jusqu'ici (`useState(false)`, jamais lu ni
+// écrit nulle part), corrigé en `localStorage` (préférence d'écran/utilisateur, pas un réglage de
+// workspace partagé) — même convention que le mode d'affichage de la modale d'item (`modal-view`)
+// ou l'orientation de la toolbar NNL. Voir Sidebar.tsx.
+test.describe('Sidebar — collapse persistant (v0.97.7)', () => {
+  test('l\'état réduit de la sidebar persiste après un refresh', async ({ page }) => {
+    await goTo(page, '/dashboard');
+    const sidebar = page.locator('.sidebar');
+    await expect(sidebar).not.toHaveClass(/collapsed/);
+
+    await page.locator('[data-testid="sidebar-collapse-toggle"]').click();
+    await expect(sidebar).toHaveClass(/collapsed/);
+
+    await page.reload();
+    await expect(page.locator('.sidebar')).toHaveClass(/collapsed/);
+  });
+
+  test('réétendre la sidebar persiste aussi après un refresh', async ({ page }) => {
+    await goTo(page, '/dashboard');
+    await page.locator('[data-testid="sidebar-collapse-toggle"]').click();
+    await expect(page.locator('.sidebar')).toHaveClass(/collapsed/);
+
+    await page.locator('[data-testid="sidebar-collapse-toggle"]').click();
+    await expect(page.locator('.sidebar')).not.toHaveClass(/collapsed/);
+
+    await page.reload();
+    await expect(page.locator('.sidebar')).not.toHaveClass(/collapsed/);
+  });
+});

@@ -9,17 +9,20 @@ import { cascadeSprintDates } from '../utils/dates'
 import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../hooks/useAuth'
+import { useDialog } from '../context/DialogContext'
 import { UsersSettingsSection } from '../components/settings/UsersSettingsSection'
 import { PresentationLinkSection } from '../components/settings/PresentationLinkSection'
 import { PresentationPagesSection } from '../components/settings/PresentationPagesSection'
+import { ResetAllDataModal } from '../components/settings/ResetAllDataModal'
 import { hasRole } from '../utils/permissions'
-import type { KanbanCol, Settings } from '../types'
+import type { KanbanCol, Settings, HistoryEntry, CadenceState } from '../types'
 
 export function SettingsPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const navigate = useNavigate()
   const { showToast } = useToast()
-  const { userRole } = useAuth()
+  const { confirm } = useDialog()
+  const { userRole, userName } = useAuth()
   // Phase 2 (roadmap v1), sous-chantier 2 : gate sur le vrai role backend, pas sur userName
   // (voir docs/corrections.md, Chantier M — c'etait explicitement l'erreur a ne pas refaire).
   const isAdmin = userRole === 'ADMIN'
@@ -74,6 +77,152 @@ export function SettingsPage() {
     }
     reader.readAsText(file)
     e.target.value = ''
+  }
+
+  // Préparation d'un fichier de démo "carré" (retour Julien, 2026-08-07) : avant de repartir sur un
+  // nouveau jeu de données propre pour clients/sprints/US/Epics/Initiatives, ajout d'options de
+  // réinitialisation ciblées. Réservé au rôle Admin (même logique que UsersSettingsSection) : action
+  // destructrice à l'échelle du workspace, pas une simple préférence d'affichage.
+  const itemCount = state.items.length
+  const hierarchyCount = state.hierarchyNodes.length
+  const backlogEmpty = itemCount === 0 && hierarchyCount === 0
+
+  // Reset "profond" : items + Epics/Initiatives, et tout ce qui les référence directement
+  // (historique, sessions/archives Sprint Review, post-its/cadres NNL liés). Les sprints
+  // (dates/capacité/objectif) et les clients ne sont volontairement pas touchés ici : un Epic peut
+  // être "affiché sous" un sprint mais un Sprint existe indépendamment de son contenu.
+  async function resetBacklog() {
+    if (backlogEmpty) { showToast('Le Product Backlog est déjà vide.'); return }
+    const ok = await confirm(
+      `Supprime définitivement ${itemCount} item(s) et ${hierarchyCount} Epic(s)/Initiative(s), ainsi que l'historique, les enregistrements Sprint Review et les post-its/cadres NNL qui leur sont liés. Les sprints et les clients ne sont pas affectés. Cette action est irréversible.`,
+      { title: 'Réinitialiser le Product Backlog ?', confirmLabel: 'Réinitialiser', danger: true }
+    )
+    if (!ok) return
+
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'other',
+      timestamp: new Date().toISOString(),
+      author: userName,
+      detail: `Product Backlog réinitialisé (${itemCount} item(s), ${hierarchyCount} Epic(s)/Initiative(s) supprimés)`,
+    }
+    const cleanSR = <T extends { itemRecords: unknown[]; unfinishedRecords: unknown[]; notes?: { linkedItemId?: string }[] }>(s: T): T => ({
+      ...s,
+      itemRecords: [],
+      unfinishedRecords: [],
+      notes: (s.notes ?? []).filter(n => !n.linkedItemId),
+    })
+
+    const newState: CadenceState = {
+      ...state,
+      items: [],
+      hierarchyNodes: [],
+      itemKeyCounters: {},
+      // itemKey présent = référence à un item ou un Epic/Initiative supprimé (voir types/index.ts,
+      // HistoryEntry) ; les entrées sans itemKey (sprint_*, daily_archive, retro_archive...) restent.
+      history: [historyEntry, ...state.history.filter(h => !h.itemKey)].slice(0, 200),
+      sprintReviewSessions: (state.sprintReviewSessions ?? []).map(cleanSR),
+      sprintReviewArchives: (state.sprintReviewArchives ?? []).map(cleanSR),
+      nnlItems: (state.nnlItems ?? []).filter(n => !n.linkedItemId),
+      nnlFrames: [], // tout cadre référence forcément un hierarchyNode, désormais tous supprimés
+    }
+    dispatch({ type: 'SET_STATE', payload: newState })
+    saveToServer(newState)
+    showToast('Product Backlog réinitialisé.')
+  }
+
+  // Bloqué tant que le Backlog n'est pas vide (retour Julien, 2026-08-07) : items et Epics/Initiatives
+  // référencent clientId, et la convention du projet est de détacher plutôt que de laisser une
+  // référence morte (voir utils/cascadeDelete.ts), donc on impose l'ordre Backlog → Clients plutôt
+  // que de vider clientId partout automatiquement.
+  async function resetClients() {
+    if (!backlogEmpty) return
+    const clientCount = state.clients.length
+    if (clientCount === 0) { showToast('La liste des clients est déjà vide.'); return }
+    const ok = await confirm(
+      `Supprime définitivement ${clientCount} client(s) et leurs groupes de clients. Cette action est irréversible.`,
+      { title: 'Réinitialiser les clients ?', confirmLabel: 'Réinitialiser', danger: true }
+    )
+    if (!ok) return
+
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'other',
+      timestamp: new Date().toISOString(),
+      author: userName,
+      detail: `Clients réinitialisés (${clientCount} client(s) supprimés)`,
+    }
+    const newState: CadenceState = {
+      ...state,
+      clients: [],
+      clientGroups: [],
+      history: [historyEntry, ...state.history].slice(0, 200),
+    }
+    dispatch({ type: 'SET_STATE', payload: newState })
+    saveToServer(newState)
+    showToast('Clients réinitialisés.')
+  }
+
+  // Reset total (2026-08-07, retour Julien : "un bouton pour supprimer tout sauf les comptes
+  // utilisateurs"). Réservé Admin + PO (décision Julien, AskUserQuestion) — contrairement aux 2
+  // resets ciblés ci-dessus, restés Admin uniquement, périmètre inchangé de leur propre chantier.
+  // Vide toutes les DONNÉES MÉTIER (items, Epics/Initiatives, sprints, équipe, clients, absences,
+  // Dailies, Rétrospectives, Sprint Review, Now/Next/Later) en un seul passage — pas de dépendance
+  // d'ordre à gérer comme resetBacklog/resetClients puisque tout part simultanément. Préserve
+  // explicitement `settings`, `kanbanCols`, `customTags`, `removedBaseTags` (réglages personnalisés,
+  // décision Julien : "données métier uniquement", les réglages restent inchangés) et ne touche
+  // jamais aux comptes `User` (table Prisma séparée, hors de ce blob JSON) : vider `state.team`
+  // suffit à faire disparaître les fiches Équipe sans supprimer les comptes liés (`linkedUserId`),
+  // même comportement déjà en place pour "Supprimer un membre" (TeamPage.tsx) — vérifié avant de
+  // construire ce bouton, voir docs/corrections.md. Confirmation renforcée par mot-clé, voir
+  // ResetAllDataModal.tsx.
+  const [resetAllOpen, setResetAllOpen] = useState(false)
+  const resetAllCounts = {
+    items: itemCount,
+    hierarchyNodes: hierarchyCount,
+    sprints: state.sprints.length,
+    team: state.team.length,
+    clients: state.clients.length,
+  }
+
+  function resetAllData() {
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'other',
+      timestamp: new Date().toISOString(),
+      author: userName,
+      detail: 'Toutes les données ont été réinitialisées (comptes utilisateurs et réglages conservés)',
+    }
+    const newState: CadenceState = {
+      ...state,
+      sprints: [],
+      items: [],
+      hierarchyNodes: [],
+      itemKeyCounters: {},
+      team: [],
+      clients: [],
+      clientGroups: [],
+      dailyEntries: [],
+      dailyArchives: [],
+      retroSessions: [],
+      retroArchives: [],
+      sprintReviewSessions: [],
+      sprintReviewArchives: [],
+      roadmap: [],
+      absences: [],
+      visionBoard: { productName: '', vision: '', targetGroup: '', needs: '', product: '', businessGoals: '' },
+      nnlItems: [],
+      nnlShapes: [],
+      nnlTexts: [],
+      nnlStrokes: [],
+      nnlLayers: [],
+      nnlFrames: [],
+      history: [historyEntry],
+    }
+    dispatch({ type: 'SET_STATE', payload: newState })
+    saveToServer(newState)
+    setResetAllOpen(false)
+    showToast('Toutes les données ont été réinitialisées.')
   }
 
   return (
@@ -216,6 +365,61 @@ export function SettingsPage() {
             affichées avant le lien, pour lire la config avant de la partager. */}
         {canManagePresentation && <PresentationPagesSection />}
         {canManagePresentation && <PresentationLinkSection />}
+
+        {/* Réinitialisation (préparation d'un jeu de démo propre, 2026-08-07, réservé Admin pour les
+            2 resets ciblés). Section élargie à Admin + PO (2026-08-07, suite) pour accueillir le
+            reset total ci-dessous, réservé PO en plus d'Admin (décision Julien) — les 2 resets
+            ciblés restent chacun gatés `isAdmin` individuellement, périmètre inchangé. */}
+        {(isAdmin || canManagePresentation) && (
+          <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16, border: '1px solid var(--danger)' }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: 'var(--danger)' }}>Réinitialisation</h3>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
+              Actions destructrices et irréversibles, à utiliser pour repartir sur un jeu de données propre. Les sprints (dates, capacité, objectifs) ne sont jamais supprimés directement, seul leur contenu (items, Epics/Initiatives) l'est via la réinitialisation du Product Backlog.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {isAdmin && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button data-testid="btn-reset-backlog" className="hdr-ctx-btn" style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }} onClick={resetBacklog}>
+                      Réinitialiser le Product Backlog
+                    </button>
+                    <span data-testid="reset-backlog-count" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {itemCount} item(s), {hierarchyCount} Epic(s)/Initiative(s)
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <button data-testid="btn-reset-clients" className="hdr-ctx-btn" style={{ borderColor: 'var(--danger)', color: 'var(--danger)', opacity: backlogEmpty ? 1 : .5, cursor: backlogEmpty ? 'pointer' : 'not-allowed' }}
+                      disabled={!backlogEmpty} onClick={resetClients} title={backlogEmpty ? undefined : 'Réinitialisez d\'abord le Product Backlog : les items/Epics en cours référencent encore des clients.'}>
+                      Réinitialiser les clients
+                    </button>
+                    <span data-testid="reset-clients-count" style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      {backlogEmpty
+                        ? `${state.clients.length} client(s)`
+                        : 'Disponible une fois le Product Backlog vide'}
+                    </span>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--border)', margin: '4px 0' }} />
+                </>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button data-testid="btn-reset-all" className="hdr-ctx-btn" style={{ borderColor: 'var(--danger)', color: 'var(--danger)', fontWeight: 700 }}
+                  onClick={() => setResetAllOpen(true)}>
+                  Réinitialiser toutes les données
+                </button>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  Comptes utilisateurs et réglages conservés
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <ResetAllDataModal
+          open={resetAllOpen}
+          counts={resetAllCounts}
+          onCancel={() => setResetAllOpen(false)}
+          onConfirm={resetAllData}
+        />
 
         {/* Import / Export */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20 }}>

@@ -470,3 +470,29 @@ export function placementScope(p: DashboardWidgetPlacement): DashboardWidgetScop
 export function zoneRowSpan(placements: DashboardWidgetPlacement[]): number {
   return placements.reduce((max, p) => Math.max(max, p.y + WIDGET_SIZE_DIMENSIONS[p.size].h), 0)
 }
+
+/** Premier emplacement libre (haut-gauche, lecture ligne par ligne) pour un widget de taille w×h,
+ *  compte tenu des tuiles déjà posées et du nombre de colonnes RÉELLEMENT disponibles dans la zone
+ *  (2026-08-07, bug remonté par Julien : un widget ajouté via la modal se plaçait toujours tout en
+ *  bas du périmètre pré-resize, en `x: 0`, sans jamais utiliser l'espace libre à droite gagné par
+ *  un agrandissement de zone — voir `onColsChange` dans DashboardWidgetGrid.tsx pour comment `cols`
+ *  remonte jusqu'à l'appelant). Parcourt les lignes de haut en bas puis les colonnes de gauche à
+ *  droite, teste chaque position candidate par chevauchement de rectangles (AABB) avec les tuiles
+ *  existantes. Repli sur `zoneRowSpan` (tout en bas, `x: 0`) si `cols` n'est pas fourni ou si aucune
+ *  position n'est trouvée (garde-fou uniquement : le scan couvre toujours au moins jusqu'à
+ *  `zoneRowSpan + h`, où une position libre existe forcément). */
+export function findFreeSlot(
+  existing: { x: number; y: number; w: number; h: number }[],
+  w: number,
+  h: number,
+  cols: number,
+): { x: number; y: number } {
+  const maxY = existing.reduce((max, p) => Math.max(max, p.y + p.h), 0)
+  for (let y = 0; y <= maxY; y++) {
+    for (let x = 0; x <= cols - w; x++) {
+      const overlaps = existing.some(p => x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y)
+      if (!overlaps) return { x, y }
+    }
+  }
+  return { x: 0, y: maxY }
+}

@@ -229,6 +229,107 @@ test.describe('Dashboard — 2 zones (Sprint en cours / Vue produit)', () => {
     const grid = page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget-grid');
     await expect.poll(async () => (await grid.boundingBox())?.width ?? 0).toBeGreaterThan(748);
   });
+
+  // Correctif (v0.97.7, 2026-08-07, retour Julien : "les widgets que l'on ajoute se mettent tout
+  // en bas du périmètre de la zone pré-resize plutôt qu'au premier emplacement possible") —
+  // `addWidgetToZone` (DashboardPage.tsx) empilait auparavant tout nouveau widget en `x: 0`, sous
+  // le dernier existant (`zoneRowSpan` seul), sans jamais chercher un emplacement libre. Corrigé
+  // avec `findFreeSlot` (dashboardWidgets.ts). Zone "Sprint en cours" par défaut : Sprint actuel +
+  // Blocages actifs (2 tuiles S, x0-x6) laissent un trou libre en (x6, y0, 6×3) au-dessus du
+  // Burndown (XL, y3-y9) — "Graphique de vélocité" (1re taille autorisée M = 6×3) y tient
+  // exactement. Pas besoin de redimensionner la zone pour ce test : le trou existe déjà dans la
+  // disposition par défaut, à largeur de grille minimale (12 colonnes).
+  test('un widget ajouté remplit un emplacement libre existant plutôt que de s\'empiler tout en bas', async ({ page }) => {
+    await goTo(page, '/dashboard', { role: 'PO' });
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-velocity-chart-toggle"]').click();
+    await page.locator('[data-testid="add-widget-velocity-chart-sprint"]').click();
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tile = page.locator('[data-testid="dashboard-zone-sprint"] [data-testid^="dashboard-widget-velocity-chart"]');
+    const kpiBlockers = page.locator('[data-testid="dashboard-zone-sprint"] [data-testid="dashboard-widget-kpi-blockers"]');
+    const [tileBox, kpiBox] = await Promise.all([tile.boundingBox(), kpiBlockers.boundingBox()]);
+    // Même ligne que les 2 KPI (y proche), posé à leur droite — pas 4 lignes plus bas sous
+    // Activité récente comme avant le correctif.
+    expect(Math.abs((tileBox?.y ?? 0) - (kpiBox?.y ?? 0))).toBeLessThan(10);
+    expect(tileBox?.x ?? 0).toBeGreaterThan((kpiBox?.x ?? 0) + (kpiBox?.width ?? 0) - 5);
+  });
+
+  // Correctif (v0.97.7, 2026-08-07, retour Julien, capture d'écran à l'appui) — après un
+  // agrandissement de zone (gain de colonnes au-delà de 748px) et l'ajout de widgets dans l'espace
+  // gagné, un refresh les faisait revenir se coincer dans l'ancien périmètre alors que la zone
+  // restait visuellement large : `react-grid-layout` ne resynchronise jamais ses positions quand
+  // seul `cols` change, et `cols` vaut encore sa valeur par défaut (12) au tout premier rendu, avant
+  // la 1re mesure du `ResizeObserver`. Corrigé via `key={cols}` sur `GridLayout` (DashboardWidgetGrid.tsx),
+  // qui force un remontage (donc une resynchronisation) dès que la vraie largeur est mesurée.
+  test('un widget posé au-delà de l\'ancien périmètre fixe (748px) le reste après un refresh', async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await goTo(page, '/dashboard', { role: 'PO' });
+
+    // Mock à état pour `/api/state` (2026-08-07, test corrigé) — le mock générique de `goTo`
+    // (helpers.js) répond toujours `{ data: null }`, y compris après un `page.reload()` (les
+    // routes Playwright survivent au rechargement) : sans ce correctif, l'app repart TOUJOURS du
+    // DEMO_STATE au reload, quel que soit le vrai bug corrigé côté app — ce n'est pas cette page
+    // qui doit persister, c'est la simulation du backend qui doit rejouer le dernier `PUT` au `GET`
+    // suivant, comme le fait le vrai `WorkspaceState` singleton. Enregistré APRÈS `goTo` : les
+    // routes Playwright sont résolues en LIFO, donc ce handler plus spécifique prime sur le
+    // générique `**/api/**` déjà en place pour ce seul chemin.
+    let savedData = null;
+    await page.route('**/api/state', async r => {
+      if (r.request().method() === 'PUT') {
+        savedData = r.request().postDataJSON().data;
+        return r.fulfill({ status: 204, body: '' });
+      }
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: savedData }) });
+    });
+
+    await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-zone-orientation-vertical"]').click();
+
+    const grid = page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget-grid');
+    await expect.poll(async () => (await grid.boundingBox())?.width ?? 0).toBeGreaterThan(748);
+
+    // Comble la 1re ligne de la zone (x0-x6 KPI, x6-x12 libre à largeur de grille minimale) puis un
+    // 3e ajout doit atterrir en x12 : au-delà de l'ancien périmètre fixe, seulement possible grâce
+    // à la largeur réellement mesurée de la zone agrandie.
+    await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
+    await page.locator('[data-testid="add-widget-kpi-blockers-toggle"]').click();
+    await page.locator('[data-testid="add-widget-kpi-blockers-sprint"]').click();
+    await page.locator('[data-testid="add-widget-kpi-blockers-toggle"]').click();
+    await page.locator('[data-testid="add-widget-kpi-blockers-sprint"]').click();
+    // Dernier ajout : on attend explicitement que le PUT correspondant soit capturé par le mock
+    // ci-dessus avant de continuer, pour être sûr que le refresh plus bas rejoue bien CETTE
+    // disposition (sans cette attente, le `PUT` est encore en vol au moment du `page.reload()`).
+    await page.locator('[data-testid="add-widget-kpi-blockers-toggle"]').click();
+    await Promise.all([
+      page.waitForResponse(r => r.url().includes('/api/state') && r.request().method() === 'PUT'),
+      page.locator('[data-testid="add-widget-kpi-blockers-sprint"]').click(),
+    ]);
+    await page.locator('[data-testid="dashboard-add-widget-modal"] .modal-close').click();
+
+    const tiles = page.locator('[data-testid="dashboard-zone-sprint"] [data-testid^="dashboard-widget-kpi-blockers"]');
+    await expect(tiles).toHaveCount(4); // 1 par défaut + 3 ajoutés
+
+    async function countBeyondOldBoundary() {
+      const gridBox = await grid.boundingBox();
+      const lefts = await tiles.evaluateAll(els => els.map(el => el.getBoundingClientRect().left));
+      return lefts.filter(l => gridBox && l - gridBox.x > 700).length;
+    }
+    await expect.poll(countBeyondOldBoundary).toBeGreaterThan(0);
+    const countBefore = await countBeyondOldBoundary();
+
+    await page.reload();
+    const gridAfter = page.locator('[data-testid="dashboard-zone-sprint"] .dash-widget-grid');
+    const tilesAfter = page.locator('[data-testid="dashboard-zone-sprint"] [data-testid^="dashboard-widget-kpi-blockers"]');
+    await expect(tilesAfter).toHaveCount(4);
+    async function countBeyondOldBoundaryAfter() {
+      const gridBox = await gridAfter.boundingBox();
+      const lefts = await tilesAfter.evaluateAll(els => els.map(el => el.getBoundingClientRect().left));
+      return lefts.filter(l => gridBox && l - gridBox.x > 700).length;
+    }
+    await expect.poll(countBeyondOldBoundaryAfter).toBe(countBefore);
+  });
 });
 
 // Chantier "Face cachée des widgets" (v0.97.3, 2026-08-06, retour Julien) — FlipCard.tsx, câblé au

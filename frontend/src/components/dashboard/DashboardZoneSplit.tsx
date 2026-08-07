@@ -43,11 +43,12 @@ interface DashboardZoneSplitProps {
   onChangeOrientation: (o: 'horizontal' | 'vertical') => void
   onChangeSplit: (pct: number) => void
   onChangeZonesSwapped: (next: boolean) => void
+  onZoneColsChange?: (zone: DashboardWidgetScope, cols: number) => void
 }
 
 export function DashboardZoneSplit({
   placements, orientation, splitPercent, zonesSwapped, editable, renderWidget,
-  onChangePlacements, onChangeOrientation, onChangeSplit, onChangeZonesSwapped,
+  onChangePlacements, onChangeOrientation, onChangeSplit, onChangeZonesSwapped, onZoneColsChange,
 }: DashboardZoneSplitProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragPercent, setDragPercent] = useState<number | null>(null)
@@ -161,6 +162,7 @@ export function DashboardZoneSplit({
                 editable={editable}
                 renderWidget={renderWidget}
                 onChangePlacements={next => mergeZone(scope, next)}
+                onColsChange={cols => onZoneColsChange?.(scope, cols)}
               />
             </div>
             {i === 0 && (

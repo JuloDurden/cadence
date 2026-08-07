@@ -90,13 +90,14 @@ interface DashboardWidgetGridProps {
   editable: boolean
   renderWidget: (placement: DashboardWidgetPlacement) => ReactNode
   onChangePlacements: (next: DashboardWidgetPlacement[]) => void
+  onColsChange?: (cols: number) => void
 }
 
 function widgetDef(id: DashboardWidgetId) {
   return DASHBOARD_WIDGET_CATALOG.find(w => w.id === id)
 }
 
-export function DashboardWidgetGrid({ placements, editable, renderWidget, onChangePlacements }: DashboardWidgetGridProps) {
+export function DashboardWidgetGrid({ placements, editable, renderWidget, onChangePlacements, onColsChange }: DashboardWidgetGridProps) {
   const layout = placements.map(p => ({
     i: p.key, x: p.x, y: p.y, ...WIDGET_SIZE_DIMENSIONS[p.size],
   }))
@@ -129,6 +130,17 @@ export function DashboardWidgetGrid({ placements, editable, renderWidget, onChan
   )
   const gridWidth = cols * DASHBOARD_ROW_HEIGHT + (cols - 1) * DASHBOARD_GRID_MARGIN
 
+  // Remonte `cols` au composant parent (2026-08-07, bug remonté par Julien : un widget ajouté via
+  // la modal se plaçait tout en bas du périmètre pré-resize, jamais dans l'espace gagné par un
+  // agrandissement de zone) — `DashboardPage.addWidgetToZone()` ne connaît pas la largeur réelle
+  // d'une zone (mesurée ici, localement, via le `ResizeObserver` ci-dessus), il lui faut ce nombre
+  // de colonnes à jour pour calculer un emplacement libre pertinent. Callback optionnel : ce
+  // composant reste utilisable sans, comme avant.
+  useEffect(() => {
+    onColsChange?.(cols)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cols])
+
   function handleDragStop(newLayout: Layout[]) {
     const next = placements.map(p => {
       const item = newLayout.find(l => l.i === p.key)
@@ -158,6 +170,19 @@ export function DashboardWidgetGrid({ placements, editable, renderWidget, onChan
           d'en-tête. */}
       <div className="dash-widget-grid-viewport" ref={viewportRef}>
         <GridLayout
+          // `key={cols}` (2026-08-07, bug remonté par Julien : après un refresh, les widgets posés
+          // dans les colonnes gagnées par un agrandissement de zone revenaient se coincer dans
+          // l'ancien périmètre, alors que la zone restait visuellement large) — `react-grid-layout`
+          // ne resynchronise JAMAIS ses positions internes quand seul `cols` change (uniquement sur
+          // changement de `layout`/`children`/`compactType`, voir son `getDerivedStateFromProps`).
+          // Au premier rendu suivant un refresh, `cols` vaut encore sa valeur par défaut (mesure du
+          // `ResizeObserver` pas encore faite) : `correctBounds` clampe alors définitivement tout
+          // widget posé au-delà de cette largeur par défaut, sans jamais se corriger une fois `cols`
+          // mis à jour avec la vraie largeur. Forcer un REMONTAGE complet du composant à chaque
+          // changement de `cols` (via `key`) fait repartir `react-grid-layout` de `layout` (les
+          // vraies positions stockées, jamais corrompues elles-mêmes) avec le bon nombre de
+          // colonnes dès que le `ResizeObserver` a mesuré la largeur réelle.
+          key={cols}
           className="dash-widget-grid"
           layout={layout}
           width={gridWidth}
