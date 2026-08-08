@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useDialog } from '../context/DialogContext'
 import { UsersSettingsSection } from '../components/settings/UsersSettingsSection'
 import { PresentationLinkSection } from '../components/settings/PresentationLinkSection'
+import { ApiTokensSection } from '../components/settings/ApiTokensSection'
 import { PresentationPagesSection } from '../components/settings/PresentationPagesSection'
 import { ResetAllDataModal } from '../components/settings/ResetAllDataModal'
 import { ImportExcelMappingModal } from '../components/settings/ImportExcelMappingModal'
@@ -424,6 +425,7 @@ export function SettingsPage() {
             affichées avant le lien, pour lire la config avant de la partager. */}
         {canManagePresentation && <PresentationPagesSection />}
         {canManagePresentation && <PresentationLinkSection />}
+        <ApiTokensSection />
 
         {/* Réinitialisation (préparation d'un jeu de démo propre, 2026-08-07, réservé Admin pour les
             2 resets ciblés). Section élargie à Admin + PO (2026-08-07, suite) pour accueillir le

@@ -1,4 +1,4 @@
-import type { AuthUser, Invitation, ManagedUser, PresentationLink, UserRole } from '../types'
+import type { ApiToken, ApiTokenCreateResult, AuthUser, Invitation, ManagedUser, PresentationLink, UserRole } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -109,4 +109,11 @@ export const api = {
   // PresentationPublicPage.tsx via StateContext (prop `publicToken`) pour charger l'état du
   // workspace en lecture seule, à la place de `getState` (qui exige un JWT).
   getPresentationState: (token: string) => request<{ data: unknown }>(`/api/presentation/state/${token}`),
+  // Phase 5 (roadmap v1), MCP Claude (Cadence) : jetons d'accès personnels (voir
+  // backend/src/routes/apiTokens.ts). Chaque utilisateur connecté gère ses propres jetons, pas de
+  // route réservée à un rôle particulier ici (le filtrage par propriétaire se fait côté serveur).
+  listApiTokens: () => request<{ tokens: ApiToken[] }>('/api/api-tokens'),
+  createApiToken: (name: string) =>
+    request<ApiTokenCreateResult>('/api/api-tokens', { method: 'POST', body: JSON.stringify({ name }) }),
+  revokeApiToken: (id: string) => request<void>(`/api/api-tokens/${id}`, { method: 'DELETE' }),
 }

@@ -600,6 +600,21 @@ export interface PresentationLink {
   createdAt: string
 }
 
+// Phase 5 (roadmap v1), MCP Claude (Cadence) : jeton d'accès personnel (PAT), voir
+// backend/src/routes/apiTokens.ts. La valeur en clair n'est jamais renvoyée après sa création
+// (voir ApiTokenCreateResult), ce type ne couvre que ce qui reste consultable ensuite.
+export interface ApiToken {
+  id: string
+  name: string
+  createdAt: string
+  lastUsedAt: string | null
+}
+
+export interface ApiTokenCreateResult {
+  token: string
+  apiToken: ApiToken
+}
+
 // ── Sprint Review ─────────────────────────────────────────────────────────────
 
 export type SRBadge = 'accepted' | 'refused' | 'pending'

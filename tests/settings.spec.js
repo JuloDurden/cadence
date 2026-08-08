@@ -300,4 +300,102 @@ test.describe('Réglages', () => {
 
   });
 
+  // Jetons API personnels / MCP Claude (Cadence) (v0.97.9, 2026-08-08) : section personnelle, sans
+  // gating de rôle (chaque utilisateur ne gère que ses propres jetons, le filtrage par propriétaire
+  // est fait côté serveur). `GET /api/state` mocké par `goTo()` (voir helpers.js) ne couvre pas
+  // `/api/api-tokens` : même stratégie que `presentation-mode.spec.js` pour
+  // `/api/presentation-link`, un mock stateful enregistré APRÈS `goTo()` puis `page.reload()` pour
+  // qu'il s'applique dès le premier rendu.
+  test.describe('Jetons API personnels (MCP) (v0.97.9)', () => {
+
+    async function mockApiTokensApi(page, initialTokens = []) {
+      let tokens = [...initialTokens];
+      await page.route('**/api/api-tokens', async r => {
+        if (r.request().method() === 'GET') {
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ tokens }) });
+        }
+        if (r.request().method() === 'POST') {
+          const body = r.request().postDataJSON();
+          const apiToken = { id: `tok-${tokens.length + 1}`, name: body.name, createdAt: '2026-08-08T10:00:00.000Z', lastUsedAt: null };
+          tokens = [apiToken, ...tokens];
+          return r.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ token: 'cadence-pat-fake-token-value', apiToken }) });
+        }
+        return r.continue();
+      });
+      await page.route('**/api/api-tokens/*', async r => {
+        if (r.request().method() === 'DELETE') {
+          const id = r.request().url().split('/').pop();
+          tokens = tokens.filter(t => t.id !== id);
+          return r.fulfill({ status: 204 });
+        }
+        return r.continue();
+      });
+    }
+
+    test('affiche la section avec l\'état vide', async ({ page }) => {
+      await goTo(page, '/settings');
+      await mockApiTokensApi(page, []);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="api-tokens-section"]')).toBeVisible();
+      await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="api-token-create-btn"]')).toBeDisabled();
+    });
+
+    test('générer un jeton l\'affiche en clair une seule fois et l\'ajoute à la liste', async ({ page }) => {
+      await goTo(page, '/settings');
+      await mockApiTokensApi(page, []);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="api-token-name-input"]').fill('Claude Desktop');
+      await page.locator('[data-testid="api-token-create-btn"]').click();
+
+      const reveal = page.locator('[data-testid="api-token-reveal"]');
+      await expect(reveal).toBeVisible();
+      await expect(reveal.locator('input')).toHaveValue('cadence-pat-fake-token-value');
+
+      await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(1);
+      await expect(page.locator('[data-testid="api-token-row"]')).toContainText('Claude Desktop');
+
+      // Fermer la révélation ne fait disparaître que le bloc de rappel, pas la ligne dans la liste.
+      await reveal.getByRole('button', { name: 'J\'ai copié le jeton' }).click();
+      await expect(reveal).not.toBeVisible();
+      await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(1);
+    });
+
+    test('révoquer un jeton le retire de la liste après confirmation', async ({ page }) => {
+      await goTo(page, '/settings');
+      await mockApiTokensApi(page, [
+        { id: 'tok-1', name: 'Claude Desktop', createdAt: '2026-08-08T09:00:00.000Z', lastUsedAt: null },
+      ]);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(1);
+      await page.locator('[data-testid="api-token-revoke"]').click();
+      await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
+      await page.locator('[data-testid="dialog-confirm"]').click();
+
+      await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(0);
+      await expect(page.getByRole('status')).toContainText('révoqué');
+    });
+
+    test('annuler la confirmation de révocation ne modifie pas la liste', async ({ page }) => {
+      await goTo(page, '/settings');
+      await mockApiTokensApi(page, [
+        { id: 'tok-1', name: 'Claude Desktop', createdAt: '2026-08-08T09:00:00.000Z', lastUsedAt: null },
+      ]);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="api-token-revoke"]').click();
+      await page.locator('[data-testid="dialog-cancel"]').click();
+
+      await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(1);
+    });
+
+  });
+
 });

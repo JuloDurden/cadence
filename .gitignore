@@ -33,9 +33,15 @@ desktop.ini
 frontend/.env
 backend/.env
 
+# MCP (contient le jeton API en clair, voir mcp/README.md)
+.mcp.json
+
 # Build
 frontend/dist/
 backend/dist/
+mcp/dist/
+# Fichier de sondage temporaire (verrouillé par la synchro OneDrive, voir docs/corrections.md)
+mcp/probe.mjs
 
 # Node
 node_modules/
