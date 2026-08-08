@@ -6,6 +6,7 @@ import { ToastProvider } from '../context/ToastContext'
 import { DialogProvider } from '../context/DialogContext'
 import { OnboardingProvider } from '../context/OnboardingContext'
 import { PresentationModeProvider, usePresentationMode } from '../context/PresentationModeContext'
+import { ChatProvider } from '../context/ChatContext'
 import { PresentationThumbnails } from '../components/presentation/PresentationThumbnails'
 import type { PresentablePageId } from '../data/presentablePages'
 import { DashboardPage } from './DashboardPage'
@@ -150,7 +151,15 @@ export function PresentationPublicPage() {
         <AuthOverrideProvider value={{ userRole: 'STAKEHOLDER', userName: 'Invité' }}>
           <OnboardingProvider>
             <PresentationModeProvider>
-              <PresentationPublicView />
+              {/* Phase 6 (roadmap v1), Compagnon IA, 2026-08-08 : le Header partagé (rendu par
+                  chaque page réutilisée ci-dessus) appelle `useChat()` sans condition, et sans ce
+                  Provider ce sous-arbre plante entièrement dès qu'une page s'affiche ici (bug
+                  réel, corrigé après un run E2E : les 4 tests de ce fichier échouaient tous en
+                  amont d'une vraie assertion). Le bouton lui-même reste caché pour ce visiteur
+                  invité (`token: null`, voir Header.tsx), seul le Provider est nécessaire. */}
+              <ChatProvider>
+                <PresentationPublicView />
+              </ChatProvider>
             </PresentationModeProvider>
           </OnboardingProvider>
         </AuthOverrideProvider>

@@ -7,6 +7,7 @@ import { USER_ROLE_LABELS } from '../../types'
 import { canAccessRoute } from '../../utils/permissions'
 import { useOnboarding } from '../../context/OnboardingContext'
 import { usePresentationMode } from '../../context/PresentationModeContext'
+import { useChat } from '../../context/ChatContext'
 
 /* ── Tiny inline SVG helper ─────────────────────────────────────── */
 function Svg({ d, size = 16 }: { d: string; size?: number }) {
@@ -31,6 +32,7 @@ const SVG = {
   close:    '<path d="M18 6 6 18M6 6l12 12"/>',
   help:     '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   present:  '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+  bot:      '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
 }
 
 interface HeaderProps {
@@ -137,7 +139,7 @@ function SearchModal({ onClose }: { onClose: () => void }) {
 }
 
 export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
-  const { logout, userName, userRole } = useAuth()
+  const { token, logout, userName, userRole } = useAuth()
   // Phase 2 (roadmap v1), sous-chantier 1 : userName/userRole étaient déjà capturés au login
   // (useAuth.ts) mais jamais consommés ici — le panneau profil affichait "Admin" en dur, déconnecté
   // du compte réellement connecté.
@@ -151,6 +153,7 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
   const presentation = usePresentationMode()
   const canPresent = presentation.pages.some(p => p.path === location.pathname + location.search)
   const { openPanel: openOnboarding } = useOnboarding()
+  const { togglePanel: toggleChat } = useChat()
   const navigate = useNavigate()
   const [notifOpen, setNotifOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -283,6 +286,20 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
         <button className="hdr-btn" title="Aide" aria-label="Aide" onClick={openOnboarding}>
           <Svg d={SVG.help} />
         </button>
+
+        {/* Compagnon IA (Phase 6, roadmap v1), sous-chantier 1, 2026-08-08 : ouvre le panneau de
+            chat (voir ChatContext.tsx/ChatPanel.tsx). Visible pour tout compte réellement connecté
+            (`token` non nul) : c'est l'exécution des outils d'écriture qui est filtrée par rôle côté
+            serveur (routes/ai.ts), pas l'accès à la conversation elle-même. Masqué en revanche pour
+            le visiteur "invité" du lien de présentation publique (`token: null`, voir
+            AuthOverrideContext.tsx) : POST /api/ai-chat exige une authentification que ce visiteur
+            n'a pas, et un lien public n'a de toute façon pas vocation à exposer l'assistant IA de
+            l'équipe. */}
+        {token && (
+          <button className="hdr-btn" title="Compagnon IA" aria-label="Compagnon IA" data-testid="chat-toggle-btn" onClick={toggleChat}>
+            <Svg d={SVG.bot} />
+          </button>
+        )}
 
         <div className="hdr-sep" />
 

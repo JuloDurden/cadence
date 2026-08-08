@@ -196,6 +196,24 @@ model JiraConfig {
   @@map("jira_config")
 }
 
+// Phase 6 (roadmap v1), Compagnon IA, 2026-08-08 : cle API Anthropic (Claude), singleton (meme
+// principe que GitHubConfig/SlackConfig/JiraConfig - un seul assistant pour tout le workspace).
+// Decisions actees avec Julien (AskUserQuestion) : fournisseur = API Claude (Anthropic), panneau
+// lateral pour commencer (voir ChatContext.tsx/ChatPanel.tsx cote frontend). Gestion reservee Admin
+// (secret d'organisation). `model` : identifiant du modele Claude a utiliser (ex.
+// "claude-sonnet-5"), volontairement editable plutot que fige en dur, au cas ou Anthropic fasse
+// evoluer les identifiants disponibles, sans avoir a redeployer. Meme posture que les autres
+// integrations : cle en clair en base (ce prototype ne chiffre aucun secret au repos), jamais
+// renvoyee en clair par l'API une fois enregistree (apercu tronque uniquement, voir routes/ai.ts).
+model AiConfig {
+  id        String   @id @default(cuid())
+  apiKey    String
+  model     String   @default("claude-sonnet-5")
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_config")
+}
+
 // Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
 // ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
 // STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste

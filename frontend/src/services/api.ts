@@ -1,4 +1,4 @@
-import type { ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, JiraConfig, JiraIssueSummary, JiraProject, ManagedUser, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
+import type { AiConfig, AiToolCall, ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, JiraConfig, JiraIssueSummary, JiraProject, ManagedUser, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -164,4 +164,16 @@ export const api = {
   getJiraProjects: (input: { siteUrl: string; email: string; apiToken: string }) =>
     request<{ projects: JiraProject[] }>('/api/jira-config/projects', { method: 'POST', body: JSON.stringify(input) }),
   importFromJira: () => request<{ issues: JiraIssueSummary[]; cadenceClientId: string }>('/api/jira-config/import', { method: 'POST' }),
+
+  // Phase 6 (roadmap v1), Compagnon IA, sous-chantier 1, 2026-08-08 : configuration réservée Admin
+  // (voir backend/src/routes/ai.ts), même logique que GitHub/Slack/Jira (clé jamais renvoyée en
+  // clair, `apiKey` optionnel à la mise à jour pour ne pas la ressaisir à chaque changement de
+  // modèle). `sendChatMessage` envoie l'historique complet à chaque appel : pas d'état conversation
+  // côté serveur dans cette 1re version (voir ChatContext.tsx).
+  getAiConfig: () => request<{ config: AiConfig | null }>('/api/ai-config'),
+  saveAiConfig: (input: { apiKey?: string; model?: string }) =>
+    request<{ config: AiConfig }>('/api/ai-config', { method: 'PUT', body: JSON.stringify(input) }),
+  deleteAiConfig: () => request<void>('/api/ai-config', { method: 'DELETE' }),
+  sendChatMessage: (messages: { role: 'user' | 'assistant'; content: string }[]) =>
+    request<{ reply: string; toolCalls: AiToolCall[] }>('/api/ai-chat', { method: 'POST', body: JSON.stringify({ messages }) }),
 }

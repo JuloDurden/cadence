@@ -720,6 +720,40 @@ export interface JiraIssueSummary {
   parentKey: string | null
 }
 
+// ── Compagnon IA ──────────────────────────────────────────────────────────────
+
+// Phase 6 (roadmap v1), Compagnon IA, sous-chantier 1 (aide à la rédaction/création d'items),
+// 2026-08-08 : configuration singleton de l'assistant (voir backend/src/routes/ai.ts), même
+// principe que GitHubConfig/SlackConfig/JiraConfig. `model` reste éditable (identifiant du modèle
+// Claude, ex. "claude-sonnet-5") plutôt que figé en dur côté backend.
+export interface AiConfig {
+  model: string
+  tokenPreview: string
+  updatedAt: string
+}
+
+/** Un message de la conversation, tel que maintenu côté frontend (ChatContext.tsx) et renvoyé en
+ *  entier à chaque appel de POST /api/ai-chat, sans persistance ni historique côté serveur dans
+ *  cette 1re version. */
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  toolCalls?: AiToolCall[]
+  error?: boolean
+}
+
+/** Effet de bord d'un message assistant : item/Epic/Initiative créé ou modifié par un outil
+ *  (tool use) exécuté côté serveur, que le panneau de chat affiche en résumé (`ChatPanel.tsx`) et
+ *  que `ChatContext.tsx` dispatch dans l'état local (ADD_ITEM/UPDATE_ITEM/...), sans passer par
+ *  `saveToServer` : le backend a déjà persisté au moment de l'exécution de l'outil (voir
+ *  routes/ai.ts), contrairement à l'import Jira qui, lui, ne fait que proposer des changements. */
+export type AiToolCall =
+  | { kind: 'item_created'; item: Item; keyCounters: Record<string, number> }
+  | { kind: 'item_updated'; item: Item }
+  | { kind: 'node_created'; node: HierarchyNode; keyCounters: Record<string, number> }
+  | { kind: 'node_updated'; node: HierarchyNode }
+
 // ── Sprint Review ─────────────────────────────────────────────────────────────
 
 export type SRBadge = 'accepted' | 'refused' | 'pending'

@@ -16,6 +16,7 @@ import { ApiTokensSection } from '../components/settings/ApiTokensSection'
 import { GitHubSection } from '../components/settings/GitHubSection'
 import { SlackSection } from '../components/settings/SlackSection'
 import { JiraSection } from '../components/settings/JiraSection'
+import { AiSection } from '../components/settings/AiSection'
 import { PresentationPagesSection } from '../components/settings/PresentationPagesSection'
 import { ResetAllDataModal } from '../components/settings/ResetAllDataModal'
 import { ImportExcelMappingModal } from '../components/settings/ImportExcelMappingModal'
@@ -433,6 +434,10 @@ export function SettingsPage() {
 
         {/* Intégration Jira (Phase 5, roadmap v1), réservée Admin, voir JiraSection.tsx. */}
         {isAdmin && <JiraSection />}
+
+        {/* Compagnon IA (Phase 6, roadmap v1), réservée Admin (secret d'organisation), voir
+            AiSection.tsx. */}
+        {isAdmin && <AiSection />}
 
         {/* Mode présentation (Phase 3) — réservé Admin + PO. Pages/ordre (chantier 2026-08-02)
             affichées avant le lien, pour lire la config avant de la partager. */}

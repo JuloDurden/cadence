@@ -802,4 +802,97 @@ test.describe('Réglages', () => {
 
   });
 
+  // Phase 6 (roadmap v1), Compagnon IA, sous-chantier 1, v0.98 : configuration singleton de
+  // l'assistant (AiSection.tsx), même mock à 1 étape que Intégration GitHub ci-dessus (une clé
+  // collée, vérifiée par un appel réel avant enregistrement, pas de sélection intermédiaire comme
+  // Slack/Jira).
+  test.describe('Compagnon IA (v0.98)', () => {
+
+    async function mockAiConfigApi(page, initialConfig = null) {
+      let config = initialConfig;
+      await page.route('**/api/ai-config', async r => {
+        const method = r.request().method();
+        if (method === 'GET') {
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'PUT') {
+          const body = r.request().postDataJSON();
+          if (body.apiKey === 'bad-key') {
+            return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Clé API Anthropic invalide ou révoquée' }) });
+          }
+          config = { model: body.model, tokenPreview: '••••fake', updatedAt: '2026-08-08T10:00:00.000Z' };
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'DELETE') {
+          config = null;
+          return r.fulfill({ status: 204 });
+        }
+        return r.continue();
+      });
+    }
+
+    test('la section est absente pour un rôle non Admin (PO)', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'PO' });
+      await expect(page.locator('[data-testid="ai-section"]')).toHaveCount(0);
+    });
+
+    test('affiche le bouton de connexion quand aucun assistant n\'est configuré', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockAiConfigApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="ai-section"]')).toBeVisible();
+      await expect(page.locator('[data-testid="ai-connect-btn"]')).toBeVisible();
+    });
+
+    test('connecter une clé affiche l\'état connecté avec le modèle et l\'aperçu de la clé', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockAiConfigApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="ai-connect-btn"]').click();
+      await page.locator('[data-testid="ai-model-input"]').fill('claude-sonnet-5');
+      await page.locator('[data-testid="ai-key-input"]').fill('sk-ant-fake');
+      await page.locator('[data-testid="ai-save-btn"]').click();
+
+      const connected = page.locator('[data-testid="ai-config-connected"]');
+      await expect(connected).toBeVisible();
+      await expect(connected).toContainText('claude-sonnet-5');
+      await expect(connected).toContainText('••••fake');
+    });
+
+    test('une erreur de connexion affiche le message renvoyé par le serveur', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockAiConfigApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="ai-connect-btn"]').click();
+      await page.locator('[data-testid="ai-model-input"]').fill('claude-sonnet-5');
+      await page.locator('[data-testid="ai-key-input"]').fill('bad-key');
+      await page.locator('[data-testid="ai-save-btn"]').click();
+
+      await expect(page.locator('[data-testid="ai-save-error"]')).toContainText('Clé API Anthropic invalide ou révoquée');
+      await expect(page.locator('[data-testid="ai-config-connected"]')).not.toBeVisible();
+    });
+
+    test('déconnecter retire la configuration après confirmation', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockAiConfigApi(page, { model: 'claude-sonnet-5', tokenPreview: '••••fake', updatedAt: '2026-08-08T09:00:00.000Z' });
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="ai-config-connected"]')).toBeVisible();
+      await page.locator('[data-testid="ai-disconnect-btn"]').click();
+      await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
+      await page.locator('[data-testid="dialog-confirm"]').click();
+
+      await expect(page.locator('[data-testid="ai-config-connected"]')).not.toBeVisible();
+      await expect(page.locator('[data-testid="ai-connect-btn"]')).toBeVisible();
+    });
+
+  });
+
 });

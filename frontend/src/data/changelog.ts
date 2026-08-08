@@ -15,7 +15,15 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.97.13',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration Jira : import répétable d\'Epics et issues, actions de masse sur le Backlog',current:true,changes:[
+  {version:'v0.98',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 6 (roadmap v1) - Compagnon IA, sous-chantier 1 : aide à la rédaction et à la création d\'items via un chat (API Claude)',current:true,changes:[
+    {tag:'feat', text:'Nouveau panneau de chat global "Compagnon IA", accessible depuis n\'importe quelle page via un bouton dédié dans l\'en-tête. Aide à rédiger des User Stories, Bugs, Epics/Initiatives, et peut les créer ou les modifier directement dans le Backlog sur demande'},
+    {tag:'feat', text:'Nouvelle section "Compagnon IA" en Réglages, réservée au rôle Admin : clé API Anthropic et modèle utilisé (Claude Sonnet 5 par défaut), vérifiés par un appel réel avant tout enregistrement, comme GitHub/Slack/Jira'},
+    {tag:'feat', text:'Les droits d\'écriture du chat reproduisent exactement ceux du MCP Cadence et du reste de l\'application : PO/Admin créent et éditent tout, un Dev est limité au statut/SP/DoD/dépendances/auto-assignation, Scrum Master et Stakeholder peuvent seulement se faire aider à la rédaction en texte, sans droit de création'},
+    {tag:'feat', text:'Chaque item ou Epic/Initiative créé ou modifié par le chat apparaît immédiatement dans le Backlog, sans recharger la page (le serveur exécute et persiste l\'action pendant la conversation, le résultat est resynchronisé côté client)'},
+    {tag:'chore', text:'Conversation sans historique persistant côté serveur pour cette 1re version (perdue au rechargement de page) : les 3 sous-chantiers suivants du Compagnon IA (estimation automatique des SP, détection d\'anomalies, planification de sprints par contraintes) restent à construire'},
+    {tag:'test', text:'Vérifié en conditions réelles avec une clé API Anthropic : connexion en Réglages, puis échange dans le panneau de chat'},
+  ]},
+  {version:'v0.97.13',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration Jira : import répétable d\'Epics et issues, actions de masse sur le Backlog',current:false,changes:[
     {tag:'feat', text:'Nouvelle section "Intégration Jira" en Réglages, réservée au rôle Admin : site Jira Cloud, email et jeton API (Basic Auth), projet choisi dans une liste plutôt que saisi librement. Connexion vérifiée avant tout enregistrement, comme GitHub et Slack'},
     {tag:'feat', text:'Import répétable par clé Jira (nouveau champ `jiraKey` sur les items et les Epics/Initiatives, distinct de la Clé Cadence) : un réimport met à jour les éléments déjà importés plutôt que de les dupliquer. Champs personnalisés Story Points et Epic Link (projets Jira "classiques") auto-détectés à la connexion, jamais saisis manuellement'},
     {tag:'feat', text:'Client Cadence associé obligatoire à la connexion d\'un projet Jira : tous les items/Epics importés lui sont rattachés, à redistribuer ensuite si le projet Jira couvre plusieurs clients réels (voir actions de masse ci-dessous). Empêche un rattachement silencieux au premier Client de la liste'},

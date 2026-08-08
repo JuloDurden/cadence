@@ -24,6 +24,8 @@ import { DialogProvider } from './context/DialogContext'
 import { OnboardingProvider } from './context/OnboardingContext'
 import { OnboardingPanel } from './components/onboarding/OnboardingPanel'
 import { SpotlightHost } from './components/onboarding/Spotlight'
+import { ChatProvider } from './context/ChatContext'
+import { ChatPanel } from './components/chat/ChatPanel'
 import { PresentationModeProvider, usePresentationMode } from './context/PresentationModeContext'
 import { PresentationBar } from './components/presentation/PresentationBar'
 import { PresentationPublicPage } from './pages/PresentationPublicPage'
@@ -105,6 +107,7 @@ function AppShell() {
       <OnboardingPanel />
       <SpotlightHost />
       <PresentationBar />
+      <ChatPanel />
     </div>
   )
 }
@@ -117,7 +120,9 @@ function AppLayout() {
       <StateProvider>
         <OnboardingProvider>
           <PresentationModeProvider>
-            <AppShell />
+            <ChatProvider>
+              <AppShell />
+            </ChatProvider>
           </PresentationModeProvider>
         </OnboardingProvider>
       </StateProvider>
