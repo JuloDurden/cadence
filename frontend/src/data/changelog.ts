@@ -15,7 +15,15 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.97.9',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - MCP Claude (Cadence) : jetons API personnels, serveur MCP en lecture seule (Backlog, sprints, équipe, clients, hiérarchie)',current:true,changes:[
+  {version:'v0.97.10',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - MCP Claude (Cadence) : écriture (création/édition d\'items et d\'Epics/Initiatives), garde-fous par rôle',current:true,changes:[
+    {tag:'feat', text:'Le MCP Cadence peut désormais créer et modifier des items du Backlog et des Epics/Initiatives, en plus de la lecture. Aucune suppression dans cette version'},
+    {tag:'feat', text:'Nouvelles routes ciblées par action (`POST/PATCH /api/items`, `POST/PATCH /api/hierarchy-nodes`) plutôt qu\'un patch générique de tout le workspace via `PUT /api/state` : chaque action vérifie désormais le rôle côté serveur, une première dans ce projet (`PUT /api/state` n\'a jamais eu ce contrôle, seul le frontend masquait les actions selon le rôle)'},
+    {tag:'feat', text:'Les règles reproduisent exactement celles de l\'application (`utils/permissions.ts`) : PO et Admin créent et éditent tous les champs d\'un item ou d\'un Epic/Initiative ; un Dev est limité au statut, aux SP, à la DoD, aux dépendances et à sa propre auto-assignation ; Scrum Master et Stakeholder n\'ont accès à aucun outil d\'écriture'},
+    {tag:'feat', text:'4 nouveaux outils MCP : `create_item`, `update_item`, `create_hierarchy_node`, `update_hierarchy_node`, portés à 12 au total. Une action refusée (rôle insuffisant, champ non autorisé, clé introuvable) renvoie un message explicite, jamais un échec silencieux'},
+    {tag:'ux', text:'Client, Epic, sprint et statut se renseignent par leur nom ou libellé (comme pour l\'import Excel), jamais par un identifiant technique : plus simple à utiliser en langage naturel depuis Claude'},
+    {tag:'test', text:'Vérifié en conditions réelles avec 2 comptes de rôles différents : changement de statut et renommage réussis avec un jeton PO/Admin, changement de statut réussi mais renommage bloqué (403) avec un jeton Dev'},
+  ]},
+  {version:'v0.97.9',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - MCP Claude (Cadence) : jetons API personnels, serveur MCP en lecture seule (Backlog, sprints, équipe, clients, hiérarchie)',current:false,changes:[
     {tag:'feat', text:'Nouvelle section "Jetons API personnels (MCP)" en Réglages, visible à tous les rôles connectés : chaque utilisateur génère et révoque ses propres jetons, sans dépendre d\'un rôle particulier. Le jeton en clair n\'est affiché qu\'une seule fois, à sa création'},
     {tag:'feat', text:'Un jeton API est un JWT signé comme une session normale (mêmes claims id/email/rôle), longue durée plutôt que les 8h d\'une session : un outil externe qui l\'utilise hérite exactement des droits du compte qui l\'a généré (Admin/PO/Scrum Master/Dev/Stakeholder), jamais un accès à part'},
     {tag:'feat', text:'Révocation immédiate malgré la longue durée du jeton : chaque jeton porte un identifiant unique vérifié en base à chaque requête authentifiée qui l\'utilise, sans coût ajouté sur les sessions normales (qui n\'ont pas cet identifiant)'},

@@ -1,14 +1,15 @@
 # MCP Cadence
 
 Serveur MCP (Model Context Protocol) qui expose le Backlog, les sprints, l'équipe, les clients et
-les Epics/Initiatives de Cadence à Claude, en langage naturel, en lecture seule.
+les Epics/Initiatives de Cadence à Claude, en langage naturel : lecture, et depuis la v0.97.10,
+création/édition d'items et d'Epics/Initiatives.
 
 Phase 5 (roadmap v1), 2026-08-08. Décision Julien (AskUserQuestion) : ce serveur ne fait aucune
-authentification lui-même, il porte simplement le jeton reçu sur chaque appel à l'API Cadence
-existante (`GET /api/state`) : c'est le backend qui applique les mêmes rôles (Admin/PO/Scrum
-Master/Dev/Stakeholder) que le reste de l'application, jamais un accès "tout ou rien".
-L'écriture (créer/modifier un item...) n'est pas couverte par ce premier chantier, volontairement
-séparée pour la suite.
+authentification ni vérification de rôle lui-même, il porte simplement le jeton reçu sur chaque
+appel à l'API Cadence (routes ciblées par action, `routes/items.ts`/`routes/hierarchyNodes.ts` côté
+backend, plutôt qu'un patch générique de tout le workspace via `PUT /api/state`) : c'est le backend
+qui applique les mêmes rôles (Admin/PO/Scrum Master/Dev/Stakeholder) que le reste de l'application,
+jamais un accès "tout ou rien". Aucune suppression dans cette version (décision Julien).
 
 ## 1. Générer un jeton
 
@@ -71,7 +72,9 @@ Dans la configuration de Claude Desktop (`claude_desktop_config.json`), ajouter 
 `CADENCE_API_URL` doit pointer vers le backend Cadence déjà démarré (`npm run dev` dans
 `backend/`) : ce serveur MCP ne démarre pas le backend, il s'y connecte.
 
-## 4. Outils exposés (lecture seule)
+## 4. Outils exposés
+
+### Lecture
 
 - `list_items` : items du Backlog, filtrables par sprint (ou "current"), statut, client, Epic,
   assigné, tag, type, priorité
@@ -82,6 +85,21 @@ Dans la configuration de Claude Desktop (`claude_desktop_config.json`), ajouter 
 - `list_clients` : clients, importance, RAG, CA annuel
 - `list_hierarchy` : Epics et Initiatives, filtrables par niveau/client
 - `search_backlog` : recherche libre dans le Backlog (titre, rôle/besoin/bénéfice)
+
+### Écriture
+
+Aucune suppression. Les règles de rôle reproduisent exactement celles de l'application
+(`frontend/src/utils/permissions.ts`) :
+
+- **PO ou Admin** : création et édition complète (tous les champs) des items et des
+  Epics/Initiatives
+- **Dev** : édition d'un item limitée au statut, aux SP, à la DoD, aux dépendances et à sa propre
+  auto-assignation (`assignSelf`) ; ne peut rien créer, ne peut pas toucher aux Epics/Initiatives
+- **Scrum Master, Stakeholder** : aucun outil d'écriture n'aboutit (403)
+
+Outils : `create_item`, `update_item`, `create_hierarchy_node`, `update_hierarchy_node`. Un rôle
+insuffisant ou un champ non autorisé renvoie une erreur explicite (ex. "Champ(s) réservé(s) à un PO
+ou Admin : title"), jamais un échec silencieux.
 
 ## Révoquer l'accès
 

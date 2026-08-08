@@ -1,12 +1,19 @@
 import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { fetchState, getCurrentSprint } from './cadenceClient.js'
+import { fetchState, getCurrentSprint, createItem, updateItem, createHierarchyNode, updateHierarchyNode } from './cadenceClient.js'
 import type { CadenceState, Item } from './types.js'
 
-// Outils de LECTURE SEULE (2026-08-08, Phase 5 roadmap v1, décision Julien via AskUserQuestion) :
-// l'écriture (créer/modifier un item, changer un statut...) est un chantier volontairement séparé,
-// pour valider d'abord le socket auth + lecture avant d'y ajouter la question des garde-fous par
-// rôle sur des actions qui modifient réellement le Backlog.
+// Outils de LECTURE (2026-08-08, Phase 5 roadmap v1, décision Julien via AskUserQuestion) : validés
+// en premier, avant d'ajouter l'écriture (ci-dessous) une fois le socket auth + lecture confirmé
+// fonctionnel en conditions réelles.
+//
+// Outils d'ÉCRITURE (2026-08-08, suite) : création/édition d'items et d'Epics/Initiatives
+// uniquement, aucune suppression dans cette version (décision Julien, AskUserQuestion). Ce serveur
+// MCP ne vérifie lui-même AUCUN rôle : il transmet le jeton, et c'est le backend
+// (routes/items.ts, routes/hierarchyNodes.ts) qui applique les mêmes règles que le reste de l'app
+// (PO/Admin en création et édition complète, Dev limité au sous-ensemble opérationnel
+// statut/SP/DoD/dépendances + auto-assignation). Un rôle insuffisant renvoie une erreur 403
+// explicite, remontée telle quelle par ces outils plutôt que masquée.
 
 function normalize(s: string): string {
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
@@ -14,6 +21,12 @@ function normalize(s: string): string {
 
 function text(value: string) {
   return { content: [{ type: 'text' as const, text: value }] }
+}
+
+/** Erreurs d'écriture (403 rôle insuffisant, 404 clé introuvable, 400 validation...) renvoyées par
+ *  le backend comme un message texte lisible, jamais une exception MCP brute. */
+function errorText(e: unknown) {
+  return text(`Erreur : ${e instanceof Error ? e.message : String(e)}`)
 }
 
 function clientName(state: CadenceState, clientId: string | undefined | null): string {
@@ -211,5 +224,91 @@ export function registerTools(server: McpServer) {
     const max = limit ?? 30
     const lines = matches.slice(0, max).map(i => itemLine(state, i))
     return text([`${matches.length} résultat(s) pour "${query}" :`, ...lines].join('\n'))
+  })
+
+  server.registerTool('create_item', {
+    description: "Crée un nouvel item du Backlog (User Story, Bug, Tâche ou Spike). Réservé aux jetons PO ou Admin, comme le bouton \"+ Ajouter\" du Backlog.",
+    inputSchema: {
+      title: z.string().min(1).describe('Titre de l\'item'),
+      role: z.string().optional().describe('User Story : "en tant que ..."'),
+      need: z.string().optional().describe('User Story : "je souhaite ..."'),
+      benefit: z.string().optional().describe('User Story : "afin de ..."'),
+      type: z.string().optional().describe('story, bug, task ou spike (story par défaut)'),
+      priority: z.string().optional().describe('critical, high, medium ou low (medium par défaut)'),
+      status: z.string().optional().describe('Libellé du statut Kanban (statut par défaut sinon)'),
+      clientName: z.string().optional(),
+      epicKey: z.string().optional().describe('Clé de l\'Epic ou de l\'Initiative parent'),
+      sprintLabel: z.string().optional().describe('Libellé du sprint, ou "current"'),
+      sp: z.number().optional(),
+      tags: z.array(z.string()).optional(),
+    },
+  }, async (input) => {
+    try {
+      const { item } = await createItem(input)
+      return text(`Item créé : ${item.key} : ${item.desc}`)
+    } catch (e) { return errorText(e) }
+  })
+
+  server.registerTool('update_item', {
+    description: "Modifie un item existant du Backlog par sa Clé. Un jeton PO/Admin peut modifier tous les champs ; un jeton Dev est limité au statut, aux SP, à la DoD, aux dépendances et à sa propre auto-assignation (assignSelf) : toute autre modification renvoie une erreur explicite.",
+    inputSchema: {
+      key: z.string().describe('Clé de l\'item à modifier, ex. "FAX-012"'),
+      title: z.string().optional().describe('PO/Admin uniquement'),
+      role: z.string().optional().describe('PO/Admin uniquement'),
+      need: z.string().optional().describe('PO/Admin uniquement'),
+      benefit: z.string().optional().describe('PO/Admin uniquement'),
+      type: z.string().optional().describe('PO/Admin uniquement'),
+      clientName: z.string().optional().describe('PO/Admin uniquement'),
+      epicKey: z.string().optional().describe('PO/Admin uniquement'),
+      tags: z.array(z.string()).optional().describe('PO/Admin uniquement, remplace tous les tags'),
+      assignees: z.array(z.string()).optional().describe('PO/Admin uniquement, remplace la liste complète des assignés (noms)'),
+      priority: z.string().optional().describe('critical, high, medium ou low, PO/Admin uniquement'),
+      status: z.string().optional().describe('Libellé du statut Kanban'),
+      sprintLabel: z.string().optional().describe('Libellé du sprint, ou "current"'),
+      sp: z.number().optional(),
+      deps: z.array(z.string()).optional().describe('Clés des items dont celui-ci dépend, remplace la liste complète'),
+      dod: z.array(z.object({ text: z.string(), done: z.boolean() })).optional().describe('Definition of Done, remplace la liste complète'),
+      assignSelf: z.boolean().optional().describe('Dev : true pour s\'auto-assigner, false pour se retirer soi-même'),
+    },
+  }, async ({ key, ...input }) => {
+    try {
+      const { item } = await updateItem(key, input)
+      return text(`Item mis à jour : ${item.key} : ${item.desc}`)
+    } catch (e) { return errorText(e) }
+  })
+
+  server.registerTool('create_hierarchy_node', {
+    description: "Crée un nouvel Epic ou une nouvelle Initiative. Réservé aux jetons PO ou Admin.",
+    inputSchema: {
+      title: z.string().min(1),
+      level: z.enum(['epic', 'initiative']).optional().describe('epic par défaut'),
+      parentKey: z.string().optional().describe('Clé de l\'Initiative parente, pour un Epic'),
+      clientName: z.string().optional(),
+      sprintLabel: z.string().optional().describe('Libellé du sprint, ou "current"'),
+      sp: z.number().optional(),
+    },
+  }, async (input) => {
+    try {
+      const { node } = await createHierarchyNode(input)
+      return text(`${node.level === 'initiative' ? 'Initiative créée' : 'Epic créé'} : ${node.key} : ${node.desc}`)
+    } catch (e) { return errorText(e) }
+  })
+
+  server.registerTool('update_hierarchy_node', {
+    description: "Modifie un Epic ou une Initiative existant par sa Clé. Réservé aux jetons PO ou Admin.",
+    inputSchema: {
+      key: z.string().describe('Clé de l\'Epic/Initiative à modifier'),
+      title: z.string().optional(),
+      level: z.enum(['epic', 'initiative']).optional(),
+      parentKey: z.string().optional(),
+      clientName: z.string().optional(),
+      sprintLabel: z.string().optional().describe('Libellé du sprint, ou "current"'),
+      sp: z.number().optional(),
+    },
+  }, async ({ key, ...input }) => {
+    try {
+      const { node } = await updateHierarchyNode(key, input)
+      return text(`${node.level === 'initiative' ? 'Initiative mise à jour' : 'Epic mis à jour'} : ${node.key} : ${node.desc}`)
+    } catch (e) { return errorText(e) }
   })
 }
