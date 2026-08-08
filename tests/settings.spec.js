@@ -625,4 +625,181 @@ test.describe('Réglages', () => {
 
   });
 
+  // Intégration Jira (v0.97.13, 2026-08-08, Phase 5 roadmap v1) : réservée Admin, comme GitHub et
+  // Slack. Flux en 2 temps (voir JiraSection.tsx) : "Vérifier la connexion" (ne persiste rien, sert
+  // à peupler le sélecteur de projet avant le tout 1er enregistrement) puis choix du projet + du
+  // Client Cadence (obligatoire, voir routes/jira.ts) puis "Enregistrer". `GET /api/jira-config`
+  // mocké par `goTo()` (voir helpers.js) ne couvre pas `/api/jira-config` : même stratégie que les
+  // 2 blocs précédents, mock stateful enregistré APRÈS `goTo()` puis `page.reload()`.
+  test.describe('Intégration Jira (v0.97.13)', () => {
+
+    const FAKE_PROJECTS = [{ key: 'PME2', name: 'PME2 Test' }, { key: 'AGA', name: 'AGANOR' }];
+
+    async function mockJiraApi(page, initialConfig = null) {
+      let config = initialConfig;
+      await page.route('**/api/jira-config', async r => {
+        const method = r.request().method();
+        if (method === 'GET') {
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'PUT') {
+          const body = r.request().postDataJSON();
+          config = {
+            siteUrl: body.siteUrl, email: body.email, tokenPreview: '••••fake',
+            projectKey: body.projectKey, projectName: body.projectName,
+            storyPointsFieldId: null, epicLinkFieldId: null,
+            cadenceClientId: body.cadenceClientId, updatedAt: '2026-08-08T10:00:00.000Z',
+          };
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'DELETE') { config = null; return r.fulfill({ status: 204 }); }
+        return r.continue();
+      });
+      await page.route('**/api/jira-config/projects', async r => {
+        const body = r.request().postDataJSON();
+        if (body.apiToken === 'bad-token') {
+          return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Email ou jeton API Jira invalide' }) });
+        }
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ projects: FAKE_PROJECTS }) });
+      });
+      await page.route('**/api/jira-config/import', r =>
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          issues: [
+            { key: 'PME2-1', type: 'Epic', title: 'Epic importé', status: 'To Do', priority: 'Medium', storyPoints: null, parentKey: null },
+            { key: 'PME2-2', type: 'Story', title: 'Issue importée', status: 'In Progress', priority: 'High', storyPoints: 5, parentKey: 'PME2-1' },
+          ],
+          cadenceClientId: 'cl5',
+        }) })
+      );
+    }
+
+    test('la section est absente pour un rôle non Admin (PO)', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'PO' });
+      await expect(page.locator('[data-testid="jira-section"]')).toHaveCount(0);
+    });
+
+    test('affiche le bouton de connexion quand aucun projet n\'est configuré', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockJiraApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="jira-section"]')).toBeVisible();
+      await expect(page.locator('[data-testid="jira-connect-btn"]')).toBeVisible();
+    });
+
+    test('vérifier la connexion révèle la liste des projets', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockJiraApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="jira-connect-btn"]').click();
+      await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
+      await page.locator('[data-testid="jira-email-input"]').fill('julien@example.com');
+      await page.locator('[data-testid="jira-token-input"]').fill('fake-token');
+      await page.locator('[data-testid="jira-verify-btn"]').click();
+
+      await expect(page.locator('[data-testid="jira-project-select"]')).toBeVisible();
+      await expect(page.locator('[data-testid="jira-project-select"] option')).toHaveCount(3); // placeholder + 2 projets
+    });
+
+    test('une erreur de vérification affiche le message renvoyé par le serveur', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockJiraApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="jira-connect-btn"]').click();
+      await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
+      await page.locator('[data-testid="jira-email-input"]').fill('julien@example.com');
+      await page.locator('[data-testid="jira-token-input"]').fill('bad-token');
+      await page.locator('[data-testid="jira-verify-btn"]').click();
+
+      await expect(page.locator('[data-testid="jira-verify-error"]')).toContainText('Email ou jeton API Jira invalide');
+      await expect(page.locator('[data-testid="jira-project-select"]')).toHaveCount(0);
+    });
+
+    // Client Cadence obligatoire (retour utilisateur, 2026-08-08) : un projet choisi sans Client
+    // associé doit bloquer l'enregistrement plutôt que de rattacher silencieusement les items
+    // importés au 1er Client de la liste, voir JiraSection.tsx/routes/jira.ts. Le bouton
+    // "Enregistrer" est désactivé tant que les deux ne sont pas choisis, plutôt qu'un message
+    // d'erreur après coup.
+    test('le bouton Enregistrer reste désactivé tant qu\'aucun Client n\'est choisi', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockJiraApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="jira-connect-btn"]').click();
+      await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
+      await page.locator('[data-testid="jira-email-input"]').fill('julien@example.com');
+      await page.locator('[data-testid="jira-token-input"]').fill('fake-token');
+      await page.locator('[data-testid="jira-verify-btn"]').click();
+      await page.locator('[data-testid="jira-project-select"]').selectOption('PME2');
+
+      await expect(page.locator('[data-testid="jira-save-btn"]')).toBeDisabled();
+      await page.locator('[data-testid="jira-client-select"]').selectOption('cl5');
+      await expect(page.locator('[data-testid="jira-save-btn"]')).toBeEnabled();
+    });
+
+    test('choisir un projet et un Client puis enregistrer affiche l\'état connecté', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockJiraApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="jira-connect-btn"]').click();
+      await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
+      await page.locator('[data-testid="jira-email-input"]').fill('julien@example.com');
+      await page.locator('[data-testid="jira-token-input"]').fill('fake-token');
+      await page.locator('[data-testid="jira-verify-btn"]').click();
+      await page.locator('[data-testid="jira-project-select"]').selectOption('PME2');
+      await page.locator('[data-testid="jira-client-select"]').selectOption('cl5');
+      await page.locator('[data-testid="jira-save-btn"]').click();
+
+      const connected = page.locator('[data-testid="jira-config-connected"]');
+      await expect(connected).toBeVisible();
+      await expect(connected).toContainText('PME2 Test');
+      await expect(connected).toContainText('••••fake');
+    });
+
+    test('importer depuis Jira affiche un résumé et le bouton "Importer" reste disponible', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockJiraApi(page, {
+        siteUrl: 'https://cadence-test.atlassian.net', email: 'julien@example.com', tokenPreview: '••••fake',
+        projectKey: 'PME2', projectName: 'PME2 Test', storyPointsFieldId: null, epicLinkFieldId: null,
+        cadenceClientId: 'cl5', updatedAt: '2026-08-08T09:00:00.000Z',
+      });
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="jira-config-connected"]')).toBeVisible();
+      await page.locator('[data-testid="jira-import-btn"]').click();
+
+      await expect(page.getByRole('status')).toContainText('Import Jira');
+      await expect(page.locator('[data-testid="jira-import-btn"]')).toBeVisible();
+    });
+
+    test('déconnecter retire la configuration après confirmation', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockJiraApi(page, {
+        siteUrl: 'https://cadence-test.atlassian.net', email: 'julien@example.com', tokenPreview: '••••fake',
+        projectKey: 'PME2', projectName: 'PME2 Test', storyPointsFieldId: null, epicLinkFieldId: null,
+        cadenceClientId: 'cl5', updatedAt: '2026-08-08T09:00:00.000Z',
+      });
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="jira-config-connected"]')).toBeVisible();
+      await page.locator('[data-testid="jira-disconnect-btn"]').click();
+      await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
+      await page.locator('[data-testid="dialog-confirm"]').click();
+
+      await expect(page.locator('[data-testid="jira-config-connected"]')).not.toBeVisible();
+      await expect(page.locator('[data-testid="jira-connect-btn"]')).toBeVisible();
+    });
+
+  });
+
 });

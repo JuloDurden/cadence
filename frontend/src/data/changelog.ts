@@ -15,7 +15,16 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.97.12',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration Slack : clôture de sprint, alertes bloquants, résumé Daily',current:true,changes:[
+  {version:'v0.97.13',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration Jira : import répétable d\'Epics et issues, actions de masse sur le Backlog',current:true,changes:[
+    {tag:'feat', text:'Nouvelle section "Intégration Jira" en Réglages, réservée au rôle Admin : site Jira Cloud, email et jeton API (Basic Auth), projet choisi dans une liste plutôt que saisi librement. Connexion vérifiée avant tout enregistrement, comme GitHub et Slack'},
+    {tag:'feat', text:'Import répétable par clé Jira (nouveau champ `jiraKey` sur les items et les Epics/Initiatives, distinct de la Clé Cadence) : un réimport met à jour les éléments déjà importés plutôt que de les dupliquer. Champs personnalisés Story Points et Epic Link (projets Jira "classiques") auto-détectés à la connexion, jamais saisis manuellement'},
+    {tag:'feat', text:'Client Cadence associé obligatoire à la connexion d\'un projet Jira : tous les items/Epics importés lui sont rattachés, à redistribuer ensuite si le projet Jira couvre plusieurs clients réels (voir actions de masse ci-dessous). Empêche un rattachement silencieux au premier Client de la liste'},
+    {tag:'fix', text:'Les éléments d\'un import (Jira, comme JSON et Excel déjà en place) apparaissent désormais immédiatement après l\'import, sans avoir à recharger la page'},
+    {tag:'feat', text:'Backlog : sélection multi-items (case à cocher par ligne, case "tout sélectionner" sur les items filtrés) et nouvelle barre d\'actions en masse, réservée PO/Admin : changer le Client, le Sprint, la priorité ou le statut de tous les items sélectionnés en une seule action, ou les supprimer (avec confirmation et le même nettoyage des dépendances mortes qu\'une suppression unitaire)'},
+    {tag:'ux', text:'Barre d\'actions en masse en boutons icône et menu déroulant (Client, Sprint, Priorité, Statut) plutôt qu\'un sélecteur unique, bouton Supprimer séparé sans bordure'},
+    {tag:'test', text:'Import Jira et affichage immédiat des éléments importés vérifiés en conditions réelles avec un espace Jira de test'},
+  ]},
+  {version:'v0.97.12',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration Slack : clôture de sprint, alertes bloquants, résumé Daily',current:false,changes:[
     {tag:'feat', text:'Nouvelle section "Intégration Slack" en Réglages, réservée au rôle Admin : jeton Bot d\'une Slack App (scopes chat:write, channels:read, groups:read), vérifié avant tout enregistrement. 3 notifications indépendantes, chacune avec son propre canal et son propre interrupteur : Clôture de sprint, Alertes bloquants, Résumé Daily'},
     {tag:'feat', text:'Clôture de sprint : message automatique et silencieux à la clôture d\'un sprint (items terminés, SP livrés), depuis la Roadmap comme depuis le Release Planning'},
     {tag:'feat', text:'Alertes bloquants : message quand un item passe au statut Kanban Bloqué (détecté côté serveur, un seul point de détection quel que soit l\'écran à l\'origine du changement, y compris le MCP), et message consolidé quand un sprint est activé avec des items dont une dépendance n\'est pas terminée'},

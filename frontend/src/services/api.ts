@@ -1,4 +1,4 @@
-import type { ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, ManagedUser, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
+import type { ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, JiraConfig, JiraIssueSummary, JiraProject, ManagedUser, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -150,4 +150,18 @@ export const api = {
     request<{ sent: boolean; error?: string }>('/api/slack-config/notify/dependency-block', { method: 'POST', body: JSON.stringify(input) }),
   notifySlackDailySummary: (input: { date: string; entries: { memberName: string; yesterday: string; today: string; blockers: string }[] }) =>
     request<{ sent: boolean; error?: string }>('/api/slack-config/notify/daily-summary', { method: 'POST', body: JSON.stringify(input) }),
+
+  // Phase 5 (roadmap v1), Intégration Jira : configuration réservée Admin (voir
+  // backend/src/routes/jira.ts). `getJiraProjects` ne persiste rien (même rôle que
+  // `verifySlackToken`) : sert à peupler le sélecteur de projet avant le tout premier
+  // enregistrement. `importFromJira` renvoie les issues normalisées, sans rien écrire dans le
+  // Backlog : c'est `applyJiraImport` (utils/jiraImport.ts) côté frontend qui fait la fusion, puis
+  // `putState` (déjà présent ci-dessus) qui persiste, exactement comme l'import Excel existant.
+  getJiraConfig: () => request<{ config: JiraConfig | null }>('/api/jira-config'),
+  saveJiraConfig: (input: { siteUrl: string; email: string; apiToken?: string; projectKey: string; projectName: string; cadenceClientId: string }) =>
+    request<{ config: JiraConfig }>('/api/jira-config', { method: 'PUT', body: JSON.stringify(input) }),
+  deleteJiraConfig: () => request<void>('/api/jira-config', { method: 'DELETE' }),
+  getJiraProjects: (input: { siteUrl: string; email: string; apiToken: string }) =>
+    request<{ projects: JiraProject[] }>('/api/jira-config/projects', { method: 'POST', body: JSON.stringify(input) }),
+  importFromJira: () => request<{ issues: JiraIssueSummary[]; cadenceClientId: string }>('/api/jira-config/import', { method: 'POST' }),
 }

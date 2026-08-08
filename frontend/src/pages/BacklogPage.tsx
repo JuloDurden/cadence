@@ -3,7 +3,7 @@ import { useCadence } from '../context/StateContext'
 import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
 import { ItemModal } from '../components/backlog/ItemModal'
-import { EXTRA_STAGES } from '../utils/kanbanStages'
+import { EXTRA_STAGES, statusOptionsForItemModal } from '../utils/kanbanStages'
 import { fmtDate } from '../utils/dates'
 import { HierarchyNodeModal } from '../components/backlog/HierarchyNodeModal'
 import { BacklogGroupCard } from '../components/backlog/BacklogGroupCard'
@@ -11,6 +11,7 @@ import { findEpicChildren, detachEpicChildren, findHierarchyChildren, detachHier
 import { withHistoryEntry } from '../utils/history'
 import { canManageBacklog, canEditBacklogOperational } from '../utils/permissions'
 import { useDialog } from '../context/DialogContext'
+import { useToast } from '../context/ToastContext'
 import { useOnboarding } from '../context/OnboardingContext'
 import { CREATE_ITEM_CHECKLIST_ID, CREATE_ITEM_MODAL_STEPS } from '../data/onboardingChecklist'
 import { attachItemsToEpics, getHierarchyNodeSP, buildInitiativeSections, getItemInitiativeId, type InitiativeSection, type EpicGroup } from '../utils/hierarchyScore'
@@ -119,6 +120,18 @@ const ICO_LAYERS = '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points
 const ICO_PLUS    = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 const ICO_CHECK   = '<path d="M20 6 9 17l-5-5"/>'
 const ICO_FILTER  = '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
+
+// Icônes de la barre d'actions en masse (Phase 5, roadmap v1, 2026-08-08, remplace le sélecteur
+// de champ par des boutons icône + texte, sur demande de Julien après un 1er essai en <select>
+// jugé peu ergonomique). Tracés Lucide (building-2, footprints, arrow-down-0-1, square-kanban,
+// trash-2) copiés tels quels, mêmes conventions que SVG_EDIT/SVG_DEL ci-dessus.
+const ICO_BUILDING    = '<path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/>'
+// Lucide n'a pas de "sport-shoe", sa page pointe vers "footprints", inversée horizontalement
+// (transform CSS sur le <span> englobant, voir bouton "Sprint" ci-dessous) pour évoquer un pas.
+const ICO_FOOTPRINTS  = '<path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/>'
+const ICO_SORT_NUM    = '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><rect x="15" y="4" width="4" height="6" ry="2"/><path d="M17 20v-6h-2"/><path d="M15 20h4"/>'
+const ICO_KANBAN      = '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/>'
+const ICO_TRASH       = '<path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
 
 // Header Backlog — ergonomie (retour Julien, 2026-07-29) : 8 contrôles (7 selects + bouton
 // Prêt) ramenés à 3 boutons à dropdown (Trier/Filtrer/Grouper, "unibody" — un seul contour,
@@ -237,12 +250,23 @@ function DorDodBadge({ stat, label }: { stat: { done: number; total: number } | 
   )
 }
 
-/** En-tête de tableau partagé (15 colonnes) — réutilisé par la table plate (mode "Grouper :
- *  aucun") et par la mini-table de chaque card de groupe (sous-chantier 4, 2026-07-29). */
-function BacklogTableHead() {
+/** En-tête de tableau partagé (15 colonnes, 16 avec la case à cocher), réutilisé par la table
+ *  plate (mode "Grouper : aucun") et par la mini-table de chaque card de groupe (sous-chantier 4,
+ *  2026-07-29). Colonne de sélection (Phase 5, roadmap v1, 2026-08-08) réservée PO/Admin
+ *  (`selectable`, même périmètre que `canManage`, le Client est un champ "contenu produit") : la
+ *  case du header sélectionne/désélectionne tous les items FILTRÉS de la page entière, pas
+ *  seulement ceux de la card où on clique (une seule sélection globale, cohérente d'une card à
+ *  l'autre plutôt qu'une sélection isolée par groupe). */
+function BacklogTableHead({ selectable, allSelected, onToggleAll }: { selectable: boolean; allSelected: boolean; onToggleAll: () => void }) {
   return (
     <thead>
       <tr>
+        {selectable && (
+          <th style={{ width: 24, textAlign: 'center' }}>
+            <input type="checkbox" data-testid="backlog-select-all" checked={allSelected}
+              onChange={onToggleAll} title="Sélectionner/désélectionner tous les items filtrés" />
+          </th>
+        )}
         <th style={{ width: 28 }} />
         <th style={{ width: 46, textAlign: 'center' }}>Prio.</th>
         <th style={{ width: 72, textAlign: 'center' }}>Clé</th>
@@ -268,6 +292,7 @@ export function BacklogPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const { userName, userId, userRole } = useAuth()
   const { confirm } = useDialog()
+  const { showToast } = useToast()
   // Phase 2 (roadmap v1), sous-chantier 3/6, page 4/4 : PO (+ Admin) accès complet, Dev
   // sous-ensemble opérationnel (statut/SP/notes/DoD/dépendances/auto-assignation), Scrum Master
   // et Stakeholder en lecture seule — voir utils/permissions.ts.
@@ -293,6 +318,20 @@ export function BacklogPage() {
   const [sortBy,         setSortBy]         = useState(backlogPrefs.sortBy ?? '')
   const [expandedIds,      setExpandedIds]      = useState<Set<string>>(new Set())
   const [hoveredId,        setHoveredId]        = useState<string | null>(null)
+  // Sélection multi-items + actions de masse (Phase 5, roadmap v1, 2026-08-08, question de Julien :
+  // après un import Jira/Excel arrivé sous un seul Client faute de mapping multi-client, il faut
+  // pouvoir redistribuer plusieurs items sans passer par l'ItemModal un par un ; Julien a aussi
+  // demandé Sprint/priorité/statut/suppression en plus du Client déjà là). Sélection non
+  // réinitialisée par les changements de filtre/tri/groupement : filtrer par Client "Import Jira",
+  // tout sélectionner, changer de filtre pour affiner si besoin, reste un usage valide.
+  // `bulkField` choisit QUEL champ change (Supprimer a son propre bouton, direct, hors de ce
+  // choix), `bulkValue` porte la valeur cible (id Client/Sprint, Priority, id de statut), staging
+  // avant clic sur "Appliquer", plutôt qu'appliqué au clic d'une option du dropdown (retour Julien,
+  // 2026-08-08 : boutons icône + dropdown à la place du <select> unique du 1er essai).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  type BulkField = 'client' | 'sprint' | 'priority' | 'status'
+  const [bulkField, setBulkField] = useState<BulkField>('client')
+  const [bulkValue, setBulkValue] = useState('')
 
   // Sauvegarde de la configuration d'affichage à chaque changement (retour Julien, 2026-07-29).
   useEffect(() => {
@@ -359,6 +398,12 @@ export function BacklogPage() {
   const sortMenu  = useHeaderMenu()
   const filterMenu = useHeaderMenu()
   const groupMenu = useHeaderMenu()
+  // Dropdowns de la barre d'actions en masse (Phase 5, roadmap v1, 2026-08-08), même hook que
+  // Trier/Filtrer/Grouper ci-dessus, un par bouton de champ (Client/Sprint/Priorité/Statut).
+  const bulkClientMenu = useHeaderMenu()
+  const bulkSprintMenu = useHeaderMenu()
+  const bulkPriorityMenu = useHeaderMenu()
+  const bulkStatusMenu = useHeaderMenu()
 
   function clearAllFilters() {
     setFilterClient(''); setFilterSprint(''); setFilterEpic(''); setFilterInitiative('')
@@ -633,6 +678,94 @@ export function BacklogPage() {
     })
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const allFilteredSelected = filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))
+  function toggleSelectAllFiltered() {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allFilteredSelected) filtered.forEach(i => next.delete(i.id))
+      else filtered.forEach(i => next.add(i.id))
+      return next
+    })
+  }
+
+  /** Applique un changement de champ (Client/Sprint/priorité/statut) à tous les items sélectionnés
+   *  en une seule action (voir HistoryEventType, `item_bulk_change`), même pattern `dispatch` par
+   *  item + un seul `saveToServer` que les cascades de suppression (`handleDeleteHierarchyNode`
+   *  ci-dessus), plutôt qu'une nouvelle action de reducer dédiée au traitement en masse. La
+   *  suppression a son propre chemin (`handleBulkDelete`, confirmation + cascade dépendances). */
+  function handleBulkApply() {
+    if (selectedIds.size === 0 || !bulkValue) return
+    const count = selectedIds.size
+    let updatedItems = state.items
+    let detail = ''
+    if (bulkField === 'client') {
+      const client = state.clients.find(c => c.id === bulkValue)
+      updatedItems = state.items.map(i => selectedIds.has(i.id) ? { ...i, clientId: bulkValue } : i)
+      detail = `${count} item(s) réassigné(s) au Client ${client?.name ?? bulkValue}`
+    } else if (bulkField === 'sprint') {
+      const sprintId = bulkValue === 'unassigned' ? null : bulkValue
+      const sprint = sprintId ? state.sprints.find(s => s.id === sprintId) : undefined
+      updatedItems = state.items.map(i => selectedIds.has(i.id) ? { ...i, sprintId } : i)
+      detail = `${count} item(s) déplacé(s) ${sprintId ? `vers le Sprint ${sprint?.number}` : 'hors sprint'}`
+    } else if (bulkField === 'priority') {
+      const priority = bulkValue as Item['priority']
+      updatedItems = state.items.map(i => selectedIds.has(i.id) ? { ...i, priority } : i)
+      detail = `${count} item(s) passé(s) en priorité ${PRIO_LABEL[bulkValue] ?? bulkValue}`
+    } else if (bulkField === 'status') {
+      const status = getStatus(bulkValue)
+      updatedItems = state.items.map(i => selectedIds.has(i.id) ? { ...i, status: bulkValue } : i)
+      detail = `${count} item(s) passé(s) au statut ${status?.label ?? bulkValue}`
+    }
+    updatedItems.filter(i => selectedIds.has(i.id)).forEach(i => dispatch({ type: 'UPDATE_ITEM', payload: i }))
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(), type: 'item_bulk_change', timestamp: new Date().toISOString(),
+      detail, author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({ ...state, items: updatedItems }, historyEntry))
+    setSelectedIds(new Set())
+    setBulkValue('')
+    showToast(`${detail}.`)
+  }
+
+  /** Suppression de tous les items sélectionnés, même cascade dépendances qu'un `handleDelete`
+   *  unitaire (`findDependents`/détachement des `deps` morts) mais calculée pour tout le lot en un
+   *  seul passage plutôt qu'un `detachDependents` par id (évite de compter un même item dépendant
+   *  plusieurs fois s'il référence 2 items supprimés du même lot). */
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds)
+    const count = ids.length
+    if (count === 0) return
+    const deletedIdSet = selectedIds
+    const dependentIds = new Set<string>()
+    ids.forEach(id => findDependents(state.items, id).forEach(d => dependentIds.add(d.id)))
+    const msg = dependentIds.size > 0
+      ? `Retiré des dépendances de ${dependentIds.size} item(s). Cette action est irréversible.`
+      : 'Cette action est irréversible.'
+    if (!await confirm(msg, { title: `Supprimer ${count} item(s) ?`, confirmLabel: 'Supprimer', danger: true })) return
+    ids.forEach(id => dispatch({ type: 'DELETE_ITEM', payload: id }))
+    const remaining = state.items
+      .filter(i => !deletedIdSet.has(i.id))
+      .map(i => (i.deps ?? []).some(d => deletedIdSet.has(d)) ? { ...i, deps: (i.deps ?? []).filter(d => !deletedIdSet.has(d)) } : i)
+    remaining.filter(i => dependentIds.has(i.id)).forEach(i => dispatch({ type: 'UPDATE_ITEM', payload: i }))
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(), type: 'item_bulk_change', timestamp: new Date().toISOString(),
+      detail: `${count} item(s) supprimé(s)`, author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({ ...state, items: remaining }, historyEntry))
+    setSelectedIds(new Set())
+    showToast(`${count} item(s) supprimé(s).`)
+  }
+
   /* ── lookups ── */
   function getClient(id: string) { return state.clients.find(c => c.id === id) }
   function getMember(id: string) { return state.team.find(m => m.id === id) }
@@ -666,6 +799,14 @@ export function BacklogPage() {
           onMouseLeave={() => setHoveredId(null)}
           className={depDepth ? `dep-hl dep-hl-${depDepth}` : ''}
           style={{ cursor: 'default' }}>
+          {/* Sélection (Phase 5, roadmap v1, 2026-08-08), réservée PO/Admin, même périmètre que
+              les autres actions sur `canManage` de cette table. */}
+          {canManage && (
+            <td style={{ textAlign: 'center' }}>
+              <input type="checkbox" data-testid={`item-select-${item.id}`} checked={selectedIds.has(item.id)}
+                onChange={() => toggleSelect(item.id)} onClick={e => e.stopPropagation()} />
+            </td>
+          )}
           {/* Expand */}
           <td style={{ textAlign: 'center', padding: '0 4px' }}>
             {(criteria.length > 0 || hasUS) && (
@@ -796,7 +937,7 @@ export function BacklogPage() {
         {/* US + CA expand */}
         {isExpanded && (hasUS || criteria.length > 0) && (
           <tr className="ca-expand-row">
-            <td colSpan={15} className="ca-expand-cell">
+            <td colSpan={canManage ? 16 : 15} className="ca-expand-cell">
               <div className="ca-expand-inner">
                 {hasUS && (
                   <div className="ca-us-block">
@@ -895,7 +1036,7 @@ export function BacklogPage() {
       >
         {group.items.length > 0 ? (
           <table className="backlog-table">
-            <BacklogTableHead />
+            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
             <tbody>{group.items.map(renderItemRow)}</tbody>
           </table>
         ) : (
@@ -935,7 +1076,7 @@ export function BacklogPage() {
         {epicDisplayGroups.map(g => renderGroupCard(g, 1))}
         {section.directItems.length > 0 && (
           <table className="backlog-table">
-            <BacklogTableHead />
+            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
             <tbody>{section.directItems.map(renderItemRow)}</tbody>
           </table>
         )}
@@ -961,7 +1102,7 @@ export function BacklogPage() {
           badge={<span>{section.directItems.length} item{section.directItems.length !== 1 ? 's' : ''} · {sp} SP</span>}
         >
           <table className="backlog-table">
-            <BacklogTableHead />
+            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
             <tbody>{section.directItems.map(renderItemRow)}</tbody>
           </table>
         </BacklogGroupCard>
@@ -1086,12 +1227,102 @@ export function BacklogPage() {
       )}
 
       <div className="page-content">
+        {/* Barre d'actions en masse (Phase 5, roadmap v1, 2026-08-08), visible dès qu'au moins un
+            item est sélectionné, quel que soit le mode de groupement/filtre actif. Usage principal :
+            redistribuer les items d'un import Jira/Excel arrivés sous un seul Client (voir
+            JiraConfig.cadenceClientId) vers leurs vrais Clients, filtre par filtre. */}
+        {canManage && selectedIds.size > 0 && (
+          <>
+            <div data-testid="bulk-actions-bar" style={{
+              display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,
+              background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8,
+              padding: '6px 10px', marginBottom: 10,
+            }}>
+              <strong style={{ marginRight: 4 }}>{selectedIds.size} item(s) sélectionné(s)</strong>
+
+              <button ref={bulkClientMenu.btnRef} className={`hdr-menu-trigger${bulkField === 'client' ? ' active' : ''}`}
+                style={{ width: 96, justifyContent: 'center' }} data-testid="bulk-field-client"
+                onClick={() => { if (bulkField !== 'client') { setBulkField('client'); setBulkValue('') }; bulkClientMenu.toggle() }}>
+                <Svg d={ICO_BUILDING} size={14} /> Client
+              </button>
+              <button ref={bulkSprintMenu.btnRef} className={`hdr-menu-trigger${bulkField === 'sprint' ? ' active' : ''}`}
+                style={{ width: 96, justifyContent: 'center' }} data-testid="bulk-field-sprint"
+                onClick={() => { if (bulkField !== 'sprint') { setBulkField('sprint'); setBulkValue('') }; bulkSprintMenu.toggle() }}>
+                <span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}><Svg d={ICO_FOOTPRINTS} size={14} /></span> Sprint
+              </button>
+              <button ref={bulkPriorityMenu.btnRef} className={`hdr-menu-trigger${bulkField === 'priority' ? ' active' : ''}`}
+                style={{ width: 96, justifyContent: 'center' }} data-testid="bulk-field-priority"
+                onClick={() => { if (bulkField !== 'priority') { setBulkField('priority'); setBulkValue('') }; bulkPriorityMenu.toggle() }}>
+                <Svg d={ICO_SORT_NUM} size={14} /> Priorité
+              </button>
+              <button ref={bulkStatusMenu.btnRef} className={`hdr-menu-trigger${bulkField === 'status' ? ' active' : ''}`}
+                style={{ width: 96, justifyContent: 'center' }} data-testid="bulk-field-status"
+                onClick={() => { if (bulkField !== 'status') { setBulkField('status'); setBulkValue('') }; bulkStatusMenu.toggle() }}>
+                <Svg d={ICO_KANBAN} size={14} /> Statut
+              </button>
+              <button className="btn-icon" data-testid="bulk-delete-btn" title="Supprimer les items sélectionnés" onClick={handleBulkDelete}>
+                <Svg d={ICO_TRASH} size={15} />
+              </button>
+
+              <div style={{ flex: 1 }} />
+
+              <button className="hdr-btn primary" data-testid="bulk-apply-btn" disabled={!bulkValue} onClick={handleBulkApply}>
+                Appliquer
+              </button>
+              <button className="hdr-ctx-btn" onClick={() => { setSelectedIds(new Set()); setBulkValue('') }}>
+                Annuler la sélection
+              </button>
+            </div>
+
+            {/* Dropdowns des 4 boutons de champ, même mécanisme que Trier/Filtrer/Grouper
+                (useHeaderMenu, position calculée depuis le bouton). Choisir une valeur la STAGE
+                seulement (bulkField/bulkValue) : il faut encore cliquer "Appliquer". */}
+            {bulkClientMenu.open && bulkClientMenu.pos && (
+              <div ref={bulkClientMenu.menuRef} className="hdr-menu-panel"
+                style={{ position: 'fixed', top: bulkClientMenu.pos.top, right: bulkClientMenu.pos.right, zIndex: 9999, minWidth: 170 }}>
+                {state.clients.map(c => (
+                  <MenuOption key={c.id} label={c.name} active={bulkField === 'client' && bulkValue === c.id}
+                    onClick={() => { setBulkField('client'); setBulkValue(c.id); bulkClientMenu.close() }} />
+                ))}
+              </div>
+            )}
+            {bulkSprintMenu.open && bulkSprintMenu.pos && (
+              <div ref={bulkSprintMenu.menuRef} className="hdr-menu-panel"
+                style={{ position: 'fixed', top: bulkSprintMenu.pos.top, right: bulkSprintMenu.pos.right, zIndex: 9999, minWidth: 170 }}>
+                <MenuOption label="Non assigné" active={bulkField === 'sprint' && bulkValue === 'unassigned'}
+                  onClick={() => { setBulkField('sprint'); setBulkValue('unassigned'); bulkSprintMenu.close() }} />
+                {state.sprints.map(s => (
+                  <MenuOption key={s.id} label={`Sprint ${s.number}`} active={bulkField === 'sprint' && bulkValue === s.id}
+                    onClick={() => { setBulkField('sprint'); setBulkValue(s.id); bulkSprintMenu.close() }} />
+                ))}
+              </div>
+            )}
+            {bulkPriorityMenu.open && bulkPriorityMenu.pos && (
+              <div ref={bulkPriorityMenu.menuRef} className="hdr-menu-panel"
+                style={{ position: 'fixed', top: bulkPriorityMenu.pos.top, right: bulkPriorityMenu.pos.right, zIndex: 9999, minWidth: 170 }}>
+                {(['critical', 'high', 'medium', 'low'] as const).map(p => (
+                  <MenuOption key={p} label={PRIO_LABEL[p]} active={bulkField === 'priority' && bulkValue === p}
+                    onClick={() => { setBulkField('priority'); setBulkValue(p); bulkPriorityMenu.close() }} />
+                ))}
+              </div>
+            )}
+            {bulkStatusMenu.open && bulkStatusMenu.pos && (
+              <div ref={bulkStatusMenu.menuRef} className="hdr-menu-panel"
+                style={{ position: 'fixed', top: bulkStatusMenu.pos.top, right: bulkStatusMenu.pos.right, zIndex: 9999, minWidth: 170 }}>
+                {statusOptionsForItemModal(state.kanbanCols).map(c => (
+                  <MenuOption key={c.id} label={c.label} active={bulkField === 'status' && bulkValue === c.id}
+                    onClick={() => { setBulkField('status'); setBulkValue(c.id); bulkStatusMenu.close() }} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
         {groupBy === 'none' ? (
           // Pas de regroupement actif : table plate inchangée (retour Julien, 2026-07-29 —
           // seuls les modes de regroupement passent en cards, ce mode par défaut n'a rien à
           // "regrouper" visuellement).
           <table className="backlog-table" data-testid="backlog-table">
-            <BacklogTableHead />
+            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
             <tbody>{filtered.map(renderItemRow)}</tbody>
           </table>
         ) : (

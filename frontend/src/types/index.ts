@@ -114,6 +114,12 @@ export interface Item {
   wsjf?: WSJFScore
   rice?: RICEScore
   createdAt: string
+  // Phase 5 (roadmap v1), Intégration Jira, 2026-08-08 : clé de l'issue Jira d'origine (ex.
+  // "PROJ-123"), distincte de `key` (clé Cadence, ex. "FAX-007"). Sert de clé de rapprochement pour
+  // un réimport répétable (voir utils/jiraImport.ts) : contrairement à l'import Excel, qui matche
+  // par `key` (round-trip export/réimport du même fichier Cadence), une issue Jira est une entité
+  // étrangère qui n'a jamais de clé Cadence avant son tout premier import.
+  jiraKey?: string
 }
 
 /**
@@ -150,6 +156,7 @@ export interface HierarchyNode {
   deadline?: Deadline
   notes?: Note[]
   createdAt: string
+  jiraKey?: string   // voir Item.jiraKey ci-dessus : même rôle, côté Epic (HierarchyLevel 'epic')
 }
 
 export interface Sprint {
@@ -557,6 +564,14 @@ export type HistoryEventType =
   // rattachement/ré-attachement/détachement, `detail` précise le cas — même principe que
   // `item_sprint_change` pour un changement de rattachement analogue.
   | 'item_epic_change'
+  // Action de masse sur plusieurs items sélectionnés dans le Backlog (Phase 5, roadmap v1,
+  // 2026-08-08) : Client, Sprint, priorité, statut ou suppression. Usage principal, redistribuer
+  // les items d'un import Jira/Excel (arrivés sous un seul Client faute de mapping multi-client,
+  // voir JiraConfig.cadenceClientId) vers leurs vrais Clients/Sprints, mais s'applique à toute
+  // sélection. Un seul type couvrant les 5 actions (plutôt qu'un par champ) : `detail` porte déjà
+  // le compte d'items et le champ/valeur concernés en texte libre ; une entrée par item, comme le
+  // ferait `handleSave` un par un, inonderait l'historique sur un gros lot.
+  | 'item_bulk_change'
 
 export interface HistoryEntry {
   id: string; type: HistoryEventType; timestamp: string
@@ -665,6 +680,44 @@ export interface SlackConfig {
 export interface SlackChannel {
   id: string
   name: string
+}
+
+// Phase 5 (roadmap v1), Intégration Jira, 2026-08-08 : voir schema.prisma (backend) pour le détail
+// des choix (connexion API directe, import répétable par jiraKey). `storyPointsFieldId`/
+// `epicLinkFieldId` affichés en lecture seule dans Réglages (auto-détectés côté serveur, jamais
+// saisis par l'utilisateur). `cadenceClientId` obligatoire (question de Julien, 2026-08-08) : sans
+// Client Cadence forcé, un import sans sélection rattachait silencieusement les items au 1er Client
+// de la liste plutôt qu'à un vrai état "non rattaché".
+export interface JiraConfig {
+  siteUrl: string
+  email: string
+  tokenPreview: string
+  projectKey: string
+  projectName: string
+  storyPointsFieldId: string | null
+  epicLinkFieldId: string | null
+  cadenceClientId: string
+  updatedAt: string
+}
+
+export interface JiraProject {
+  key: string
+  name: string
+}
+
+/** Issue Jira normalisée telle que renvoyée par POST /api/jira-config/import, voir
+ *  backend/src/lib/jira.ts (mapIssue). `parentKey` = clé Jira de l'Epic parent, résolue soit via
+ *  `fields.parent` (projet team-managed) soit via le champ personnalisé Epic Link (company-managed,
+ *  voir epicLinkFieldId ci-dessus), sans distinction ici : `applyJiraImport` (utils/jiraImport.ts) n'a pas
+ *  besoin de savoir laquelle des deux sources l'a fourni. */
+export interface JiraIssueSummary {
+  key: string
+  type: string
+  title: string
+  status: string
+  priority: string
+  storyPoints: number | null
+  parentKey: string | null
 }
 
 // ── Sprint Review ─────────────────────────────────────────────────────────────

@@ -284,3 +284,106 @@ test.describe('Backlog — niveau Initiative (sous-chantier 4, redémarré 2026-
   });
 
 });
+
+// Actions de masse (Backlog) (v0.97.13, 2026-08-08, Phase 5 roadmap v1) : sélection multi-items
+// (case à cocher par ligne, réservée PO/Admin comme le reste des actions de cette table, même
+// `canManage`) et barre d'actions en masse (Client/Sprint/Priorité/Statut/Supprimer). Choisir une
+// valeur dans un dropdown la STAGE seulement (voir BacklogPage.tsx, bulkField/bulkValue), il faut
+// ensuite cliquer "Appliquer", sauf Supprimer qui agit directement après confirmation. BUG-001
+// (id "i1", voir data/demo.ts) sert de cible : Sprint 1, Client "Bugs transverses", priorité
+// "critical" (P1), statut "done" au départ, valeurs de base connues pour vérifier chaque action.
+// Colonnes de la table repérées par position (`td` n-ième, 0-indexé) plutôt que par contenu,
+// mêmes indices que BacklogTableHead/renderItemRow : 0 case à cocher, 2 priorité, 5 Sprint,
+// 6 Client, 7 Statut.
+test.describe('Actions de masse (Backlog) (v0.97.13)', () => {
+
+  function bug001Row(page) {
+    return page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' }).first();
+  }
+
+  test('la case à cocher est absente pour un rôle sans droit de gestion (Dev)', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'DEV' });
+    await expect(bug001Row(page).locator('input[type="checkbox"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="backlog-select-all"]')).toHaveCount(0);
+  });
+
+  test('sélectionner un item affiche la barre d\'actions avec le compte', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await bug001Row(page).locator('input[type="checkbox"]').check();
+    const bar = page.locator('[data-testid="bulk-actions-bar"]');
+    await expect(bar).toBeVisible();
+    await expect(bar).toContainText('1 item(s) sélectionné(s)');
+  });
+
+  test('"tout sélectionner" coche tous les items filtrés et "Annuler la sélection" désélectionne tout', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const total = await page.locator('[data-testid="backlog-table"] tbody tr td:first-child input[type="checkbox"]').count();
+    await page.locator('[data-testid="backlog-select-all"]').check();
+    await expect(page.locator('[data-testid="bulk-actions-bar"]')).toContainText(`${total} item(s) sélectionné(s)`);
+
+    await page.getByRole('button', { name: 'Annuler la sélection' }).click();
+    await expect(page.locator('[data-testid="bulk-actions-bar"]')).toHaveCount(0);
+  });
+
+  test('changer le Client des items sélectionnés', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const row = bug001Row(page);
+    await row.locator('input[type="checkbox"]').check();
+
+    await page.locator('[data-testid="bulk-field-client"]').click();
+    await page.locator('.hdr-menu-panel .hdr-menu-option').filter({ hasText: 'MANFIFE' }).click();
+    await page.locator('[data-testid="bulk-apply-btn"]').click();
+
+    await expect(row.locator('td').nth(6)).toContainText('MANFIFE');
+    // La sélection et la barre disparaissent après application (même comportement pour les 4 champs).
+    await expect(page.locator('[data-testid="bulk-actions-bar"]')).toHaveCount(0);
+  });
+
+  test('changer le Sprint des items sélectionnés', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const row = bug001Row(page);
+    await row.locator('input[type="checkbox"]').check();
+
+    await page.locator('[data-testid="bulk-field-sprint"]').click();
+    await page.locator('.hdr-menu-panel .hdr-menu-option').filter({ hasText: 'Sprint 2' }).click();
+    await page.locator('[data-testid="bulk-apply-btn"]').click();
+
+    await expect(row.locator('td').nth(5)).toContainText('S2');
+  });
+
+  test('changer la priorité des items sélectionnés', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const row = bug001Row(page);
+    await row.locator('input[type="checkbox"]').check();
+
+    await page.locator('[data-testid="bulk-field-priority"]').click();
+    await page.locator('.hdr-menu-panel .hdr-menu-option').filter({ hasText: 'P4' }).click();
+    await page.locator('[data-testid="bulk-apply-btn"]').click();
+
+    await expect(row.locator('td').nth(2)).toContainText('P4');
+  });
+
+  test('changer le statut des items sélectionnés', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    const row = bug001Row(page);
+    await row.locator('input[type="checkbox"]').check();
+
+    await page.locator('[data-testid="bulk-field-status"]').click();
+    await page.locator('.hdr-menu-panel .hdr-menu-option').filter({ hasText: 'Annulé' }).click();
+    await page.locator('[data-testid="bulk-apply-btn"]').click();
+
+    await expect(row.locator('td').nth(7)).toContainText('Annulé');
+  });
+
+  test('supprimer les items sélectionnés demande confirmation puis les retire du Backlog', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await bug001Row(page).locator('input[type="checkbox"]').check();
+
+    await page.locator('[data-testid="bulk-delete-btn"]').click();
+    await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
+    await page.locator('[data-testid="dialog-confirm"]').click();
+
+    await expect(page.locator('[data-testid="backlog-table"]')).not.toContainText('BUG-001');
+  });
+
+});

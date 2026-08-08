@@ -162,6 +162,40 @@ model SlackConfig {
   @@map("slack_config")
 }
 
+// Phase 5 (roadmap v1), Integration Jira, 2026-08-08 : connexion a un seul projet Jira lie au
+// workspace Cadence (singleton, meme principe que GitHubConfig/SlackConfig). Decisions actees avec
+// Julien (AskUserQuestion) : connexion API directe (jeton API Jira Cloud + email, Basic Auth)
+// plutot qu'un export CSV, et import repetable (les items/Epics importes conservent leur cle Jira
+// d'origine - voir Item.jiraKey/HierarchyNode.jiraKey cote frontend, dans le blob JSON, pas ici -
+// pour qu'un reimport mette a jour plutot que duplique). `storyPointsFieldId` : id du champ
+// personnalise Jira portant les Story Points (varie par instance Jira, ex. "customfield_10016"),
+// auto-detecte a la connexion (recherche d'un champ nomme "Story point..."), jamais force par
+// l'utilisateur. `cadenceClientId` : Client Cadence (WorkspaceState.data.clients, pas de relation
+// FK ici puisque hors de ce blob JSON) auquel rattacher les items importes - un projet Jira
+// correspond en general a un seul client/produit cote Cadence. Obligatoire (pas de valeur par
+// defaut) suite a une question de Julien (2026-08-08) : sans Client force, un import sans
+// selection rattachait silencieusement les items au premier Client de la liste (state.clients[0]),
+// un choix arbitraire jamais voulu par personne plutot qu'un vrai etat "non rattache".
+model JiraConfig {
+  id        String  @id @default(cuid())
+  siteUrl   String
+  email     String
+  apiToken  String
+  projectKey  String
+  projectName String
+
+  storyPointsFieldId String?
+  // Repli pour les projets Jira "classiques" (company-managed) : `fields.parent` (utilise pour le
+  // rattachement Epic sur les projets "team-managed") y est souvent absent, le lien vers l'Epic
+  // passe alors par ce champ personnalise dedie ("Epic Link"), auto-detecte comme storyPointsFieldId.
+  epicLinkFieldId    String?
+  cadenceClientId    String
+
+  updatedAt DateTime @updatedAt
+
+  @@map("jira_config")
+}
+
 // Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
 // ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
 // STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste
