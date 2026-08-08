@@ -97,3 +97,45 @@ test.describe('Daily Standup', () => {
   });
 
 });
+
+// Bouton "Envoyer sur Slack" (v0.97.12, 2026-08-08, Phase 5 roadmap v1) : réservé Scrum Master/Admin
+// comme le bouton Archiver (canArchiveDaily), envoi manuel plutôt qu'automatique à chaque saisie
+// (décision Julien, AskUserQuestion). `POST /api/slack-config/notify/daily-summary` mocké après
+// `goTo()`, pas besoin de `page.reload()` (l'appel ne part qu'au clic, pas au montage de la page).
+test.describe('Résumé Daily sur Slack (v0.97.12)', () => {
+
+  test('le bouton est visible pour un Scrum Master, pas pour un rôle sans droit d\'archivage (Dev)', async ({ page }) => {
+    await goTo(page, '/daily', { role: 'SCRUM_MASTER' });
+    await expect(page.locator('[data-testid="btn-send-daily-slack"]')).toBeVisible();
+    await goTo(page, '/daily', { role: 'DEV' });
+    await expect(page.locator('[data-testid="btn-send-daily-slack"]')).toHaveCount(0);
+  });
+
+  test('un envoi réussi affiche un toast de confirmation', async ({ page }) => {
+    await goTo(page, '/daily', { role: 'SCRUM_MASTER' });
+    await page.route('**/api/slack-config/notify/daily-summary', r =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sent: true }) })
+    );
+    await page.locator('[data-testid="btn-send-daily-slack"]').click();
+    await expect(page.getByRole('status')).toContainText('envoyé');
+  });
+
+  test('un envoi vers une intégration non configurée affiche un message d\'information', async ({ page }) => {
+    await goTo(page, '/daily', { role: 'SCRUM_MASTER' });
+    await page.route('**/api/slack-config/notify/daily-summary', r =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sent: false }) })
+    );
+    await page.locator('[data-testid="btn-send-daily-slack"]').click();
+    await expect(page.getByRole('status')).toContainText('non configurée');
+  });
+
+  test('une erreur Slack renvoyée par le serveur est affichée dans le toast', async ({ page }) => {
+    await goTo(page, '/daily', { role: 'SCRUM_MASTER' });
+    await page.route('**/api/slack-config/notify/daily-summary', r =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sent: false, error: 'Le bot n\'est pas membre de ce canal' }) })
+    );
+    await page.locator('[data-testid="btn-send-daily-slack"]').click();
+    await expect(page.getByRole('status')).toContainText('Le bot n\'est pas membre de ce canal');
+  });
+
+});

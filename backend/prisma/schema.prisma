@@ -127,6 +127,41 @@ model GitHubConfig {
   @@map("github_config")
 }
 
+// Phase 5 (roadmap v1), Integration Slack, 2026-08-08 : config d'un seul workspace Slack lie au
+// workspace Cadence (singleton, meme principe que GitHubConfig ci-dessus). Jeton Bot d'une vraie
+// Slack App (xoxb-...), pas un webhook entrant : choisi par Julien (AskUserQuestion) pour pouvoir
+// poster dans plusieurs canaux au choix plutot qu'un seul canal fixe. Meme posture que
+// GitHubConfig : jeton en clair jamais renvoye par l'API une fois enregistre, stocke en clair en
+// base (pas de chiffrement des secrets au repos dans ce prototype).
+//
+// 3 notifications independantes (perimetre acte avec Julien), chacune avec son propre canal et son
+// propre interrupteur : cloture de sprint, "bloquants" (statut Kanban Bloque ET items dont une
+// dependance n'est pas terminee a l'activation d'un sprint - les 2 partagent le meme canal/
+// interrupteur, decision Julien de les regrouper sous un seul perimetre "alertes bloquants/
+// dependances"), et resume Daily (envoye via un bouton manuel, PAS automatique a chaque saisie -
+// decision Julien, pour eviter un message par membre a chaque entree individuelle).
+model SlackConfig {
+  id        String   @id @default(cuid())
+  botToken  String
+  teamName  String?
+
+  sprintCloseChannelId   String?
+  sprintCloseChannelName String?
+  sprintCloseEnabled     Boolean @default(false)
+
+  blockedChannelId   String?
+  blockedChannelName String?
+  blockedEnabled     Boolean @default(false)
+
+  dailyChannelId   String?
+  dailyChannelName String?
+  dailyEnabled     Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("slack_config")
+}
+
 // Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
 // ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
 // STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste

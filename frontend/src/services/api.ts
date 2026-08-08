@@ -1,4 +1,4 @@
-import type { ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, ManagedUser, PresentationLink, UserRole } from '../types'
+import type { ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, ManagedUser, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -125,4 +125,29 @@ export const api = {
   deleteGitHubConfig: () => request<void>('/api/github-config', { method: 'DELETE' }),
   getGitHubCommits: (key: string) => request<{ commits: GitHubCommitSummary[] }>(`/api/github-config/commits/${encodeURIComponent(key)}`),
   getGitHubPullRequests: (key: string) => request<{ pullRequests: GitHubPullRequestSummary[] }>(`/api/github-config/prs/${encodeURIComponent(key)}`),
+
+  // Phase 5 (roadmap v1), Intégration Slack : configuration réservée Admin (voir
+  // backend/src/routes/slack.ts). `verifySlackToken` ne persiste rien : sert uniquement à peupler
+  // le sélecteur de canaux avant le tout premier enregistrement (aucune config en base pour
+  // `getSlackChannels`, qui lit le jeton déjà stocké, de savoir lequel utiliser).
+  getSlackConfig: () => request<{ config: SlackConfig | null }>('/api/slack-config'),
+  saveSlackConfig: (input: { botToken?: string; sprintClose?: { channelId: string; channelName: string; enabled: boolean }; blocked?: { channelId: string; channelName: string; enabled: boolean }; daily?: { channelId: string; channelName: string; enabled: boolean } }) =>
+    request<{ config: SlackConfig }>('/api/slack-config', { method: 'PUT', body: JSON.stringify(input) }),
+  deleteSlackConfig: () => request<void>('/api/slack-config', { method: 'DELETE' }),
+  getSlackChannels: () => request<{ channels: SlackChannel[] }>('/api/slack-config/channels'),
+  verifySlackToken: (token: string) => request<{ team: string; channels: SlackChannel[] }>('/api/slack-config/verify', { method: 'POST', body: JSON.stringify({ token }) }),
+
+  // Notifications Slack : appels additifs silencieux (le backend ne lève jamais d'erreur HTTP dure
+  // ici, voir routes/slack.ts), déclenchés depuis le frontend au moment de l'action existante
+  // (clôture de sprint, changement de statut vers Bloqué, activation de sprint), sans toucher au
+  // mécanisme de sauvegarde principal (`putState` ci-dessus). Sauf le résumé Daily (bouton
+  // explicite), dont le frontend lit `error` pour l'afficher.
+  notifySlackSprintClose: (input: { sprintNumber: number; sprintLabel: string; spDone: number; spTotal: number; itemsDone: number; itemsTotal: number }) =>
+    request<{ sent: boolean; error?: string }>('/api/slack-config/notify/sprint-close', { method: 'POST', body: JSON.stringify(input) }),
+  // Pas de fonction pour 'blocked-item' ici : détecté côté backend (voir routes/state.ts et
+  // routes/items.ts), pas déclenché depuis le frontend.
+  notifySlackDependencyBlock: (input: { sprintLabel: string; items: { key: string; desc: string; blockedByKeys: string[] }[] }) =>
+    request<{ sent: boolean; error?: string }>('/api/slack-config/notify/dependency-block', { method: 'POST', body: JSON.stringify(input) }),
+  notifySlackDailySummary: (input: { date: string; entries: { memberName: string; yesterday: string; today: string; blockers: string }[] }) =>
+    request<{ sent: boolean; error?: string }>('/api/slack-config/notify/daily-summary', { method: 'POST', body: JSON.stringify(input) }),
 }

@@ -10,6 +10,7 @@ import { withHistoryEntry } from '../utils/history'
 import { useToast } from '../context/ToastContext'
 import { useDialog } from '../context/DialogContext'
 import { canArchiveDaily, canEditDailyCard } from '../utils/permissions'
+import { api } from '../services/api'
 
 const DURATIONS = [5, 10, 15, 20, 30]
 
@@ -37,6 +38,7 @@ const ICO = {
   trash:     '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
   fileDown:  '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/>',
   printer:   '<polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
+  send:      '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 }
 
 function Avatar({ member, size = 28 }: { member: TeamMember; size?: number }) {
@@ -72,6 +74,7 @@ export function DailyPage() {
   const [todayOpen, setTodayOpen] = useState(true)
   const [archivesOpen, setArchivesOpen] = useState(true)
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null)
+  const [sendingSlack, setSendingSlack] = useState(false)
 
   const currentSprint = useMemo(() => getCurrentSprint(state), [state])
   const archives = useMemo(
@@ -119,6 +122,27 @@ export function DailyPage() {
     navigator.clipboard.writeText(lines.join('\n'))
       .then(() => showToast('Résumé copié'))
       .catch(() => showToast('Impossible de copier', 'error'))
+  }
+
+  // Phase 5 (roadmap v1), Intégration Slack, 2026-08-08 : bouton explicite (décision Julien,
+  // AskUserQuestion) plutôt qu'un envoi automatique à chaque saisie individuelle (spam), réservé
+  // au(x) même(s) rôle(s) que l'archivage (`canArchive`) : diffuser le résumé sur Slack est plus
+  // proche d'une action de publication que de la copie personnelle (ouverte à tous, copyResume
+  // ci-dessus). Seuls les membres présents (comme le calcul de `blockers` plus haut), pas toute
+  // l'équipe : un membre absent n'a rien à résumer.
+  function sendDailySummaryToSlack() {
+    const entries = presentMembers.map(m => {
+      const e = getEntry(m.id)
+      return { memberName: m.name, yesterday: e.yesterday, today: e.today, blockers: e.blockers }
+    })
+    setSendingSlack(true)
+    api.notifySlackDailySummary({ date, entries })
+      .then(({ sent, error }) => {
+        if (sent) showToast('Résumé envoyé sur Slack.')
+        else showToast(error ?? 'Intégration Slack non configurée pour le résumé Daily.', error ? 'error' : 'info')
+      })
+      .catch(() => showToast("Impossible d'envoyer le résumé sur Slack.", 'error'))
+      .finally(() => setSendingSlack(false))
   }
 
   // Archiver et vider les saisies du jour en une seule action atomique — auparavant deux
@@ -276,6 +300,11 @@ export function DailyPage() {
         <button className="hdr-btn" onClick={copyResume} title="Copier le résumé du jour">
           <Svg d={ICO.copy} size={14} />
         </button>
+        {canArchive && (
+          <button className="hdr-btn" data-testid="btn-send-daily-slack" onClick={sendDailySummaryToSlack} disabled={sendingSlack} title="Envoyer le résumé du jour sur Slack">
+            <Svg d={ICO.send} size={14} />
+          </button>
+        )}
         {canArchive && (
           <button className="hdr-btn" data-testid="btn-archive-daily" onClick={archiveDaily} title="Archiver ce daily (et vider les saisies du jour)">
             <Svg d={ICO.archive} size={14} />

@@ -15,7 +15,15 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.97.11',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration GitHub : dépôt lié en Réglages, commits et Pull Requests retrouvés depuis un item',current:true,changes:[
+  {version:'v0.97.12',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration Slack : clôture de sprint, alertes bloquants, résumé Daily',current:true,changes:[
+    {tag:'feat', text:'Nouvelle section "Intégration Slack" en Réglages, réservée au rôle Admin : jeton Bot d\'une Slack App (scopes chat:write, channels:read, groups:read), vérifié avant tout enregistrement. 3 notifications indépendantes, chacune avec son propre canal et son propre interrupteur : Clôture de sprint, Alertes bloquants, Résumé Daily'},
+    {tag:'feat', text:'Clôture de sprint : message automatique et silencieux à la clôture d\'un sprint (items terminés, SP livrés), depuis la Roadmap comme depuis le Release Planning'},
+    {tag:'feat', text:'Alertes bloquants : message quand un item passe au statut Kanban Bloqué (détecté côté serveur, un seul point de détection quel que soit l\'écran à l\'origine du changement, y compris le MCP), et message consolidé quand un sprint est activé avec des items dont une dépendance n\'est pas terminée'},
+    {tag:'feat', text:'Résumé Daily : nouveau bouton "Envoyer sur Slack" sur la page Daily (réservé Scrum Master/Admin, comme l\'archivage), envoi manuel plutôt qu\'automatique à chaque saisie pour éviter un message par membre'},
+    {tag:'chore', text:'Notifications de clôture de sprint et d\'alertes bloquants en side-effect silencieux (n\'affectent jamais l\'action d\'origine en cas d\'échec) ; le résumé Daily, action explicite, affiche confirmation ou erreur'},
+    {tag:'test', text:'Vérifié en conditions réelles avec une Slack App et des canaux de test : statut Bloqué, résumé Daily et clôture de sprint tous les trois reçus sur Slack'},
+  ]},
+  {version:'v0.97.11',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration GitHub : dépôt lié en Réglages, commits et Pull Requests retrouvés depuis un item',current:false,changes:[
     {tag:'feat', text:'Nouvelle section "Intégration GitHub" en Réglages, réservée au rôle Admin (secret d\'organisation, contrairement aux jetons API MCP personnels) : propriétaire, nom du dépôt et jeton personnel GitHub (scope lecture "Contents" + "Pull requests" suffit), avec vérification de l\'accès au dépôt avant tout enregistrement'},
     {tag:'feat', text:'Un seul dépôt lié au workspace à la fois (comme le lien de partage du mode présentation), le jeton en clair n\'est plus jamais renvoyé une fois enregistré, seul un aperçu tronqué reste affiché'},
     {tag:'feat', text:'Nouvel onglet "GitHub" dans la fiche d\'un item existant : liste les commits et Pull Requests dont le message ou le titre contient sa Clé (ex. "PME2-001"), avec lien direct vers GitHub. Consultation ouverte à tout compte connecté, chargée seulement à l\'ouverture de l\'onglet'},

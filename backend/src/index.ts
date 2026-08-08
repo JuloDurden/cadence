@@ -12,6 +12,7 @@ import { apiTokensRoutes } from './routes/apiTokens'
 import { itemsRoutes } from './routes/items'
 import { hierarchyNodesRoutes } from './routes/hierarchyNodes'
 import { githubRoutes } from './routes/github'
+import { slackRoutes } from './routes/slack'
 
 const fastify = Fastify({ logger: true })
 
@@ -38,6 +39,7 @@ async function start() {
   await fastify.register(itemsRoutes)
   await fastify.register(hierarchyNodesRoutes)
   await fastify.register(githubRoutes)
+  await fastify.register(slackRoutes)
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 

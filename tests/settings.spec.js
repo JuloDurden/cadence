@@ -493,4 +493,136 @@ test.describe('Réglages', () => {
 
   });
 
+  // Intégration Slack (v0.97.12, 2026-08-08, Phase 5 roadmap v1) : réservée Admin, comme
+  // l'intégration GitHub. Flux en 2 temps (voir SlackSection.tsx) : "Vérifier le jeton" (ne
+  // persiste rien, sert à peupler le sélecteur de canaux avant le tout 1er enregistrement) puis
+  // "Enregistrer". `GET /api/slack-config` mocké par `goTo()` (voir helpers.js) ne couvre pas
+  // `/api/slack-config` : même stratégie que les blocs précédents, mock stateful enregistré APRÈS
+  // `goTo()` puis `page.reload()`.
+  test.describe('Intégration Slack (v0.97.12)', () => {
+
+    const FAKE_CHANNELS = [{ id: 'C1', name: 'general' }, { id: 'C2', name: 'dev-alerts' }];
+
+    async function mockSlackApi(page, initialConfig = null) {
+      let config = initialConfig;
+      await page.route('**/api/slack-config', async r => {
+        const method = r.request().method();
+        if (method === 'GET') {
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'PUT') {
+          const body = r.request().postDataJSON();
+          const toRow = (row) => ({ channelId: row?.channelId || null, channelName: row?.channelName || null, enabled: !!row?.enabled });
+          config = {
+            teamName: 'Cadence Test',
+            tokenPreview: '••••fake',
+            updatedAt: '2026-08-08T10:00:00.000Z',
+            sprintClose: toRow(body.sprintClose),
+            blocked: toRow(body.blocked),
+            daily: toRow(body.daily),
+          };
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'DELETE') { config = null; return r.fulfill({ status: 204 }); }
+        return r.continue();
+      });
+      await page.route('**/api/slack-config/verify', r =>
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ team: 'Cadence Test', channels: FAKE_CHANNELS }) })
+      );
+      await page.route('**/api/slack-config/channels', r =>
+        r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ channels: FAKE_CHANNELS }) })
+      );
+    }
+
+    test('la section est absente pour un rôle non Admin (PO)', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'PO' });
+      await expect(page.locator('[data-testid="slack-section"]')).toHaveCount(0);
+    });
+
+    test('affiche le bouton de connexion quand aucun workspace n\'est configuré', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockSlackApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="slack-section"]')).toBeVisible();
+      await expect(page.locator('[data-testid="slack-connect-btn"]')).toBeVisible();
+    });
+
+    test('vérifier le jeton révèle le nom du workspace et les 3 lignes de notification', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockSlackApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="slack-connect-btn"]').click();
+      await page.locator('[data-testid="slack-token-input"]').fill('xoxb-fake');
+      await page.locator('[data-testid="slack-verify-btn"]').click();
+
+      await expect(page.getByText('Cadence Test')).toBeVisible();
+      await expect(page.locator('[data-testid="slack-row-sprintClose-enabled"]')).toBeVisible();
+      await expect(page.locator('[data-testid="slack-row-blocked-enabled"]')).toBeVisible();
+      await expect(page.locator('[data-testid="slack-row-daily-enabled"]')).toBeVisible();
+    });
+
+    test('une erreur de vérification affiche le message renvoyé par le serveur', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockSlackApi(page, null);
+      await page.route('**/api/slack-config/verify', r =>
+        r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Jeton Slack invalide ou révoqué' }) })
+      );
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="slack-connect-btn"]').click();
+      await page.locator('[data-testid="slack-token-input"]').fill('xoxb-bad');
+      await page.locator('[data-testid="slack-verify-btn"]').click();
+
+      await expect(page.locator('[data-testid="slack-verify-error"]')).toContainText('Jeton Slack invalide ou révoqué');
+      await expect(page.locator('[data-testid="slack-row-sprintClose-enabled"]')).toHaveCount(0);
+    });
+
+    test('activer une notification avec un canal puis enregistrer affiche l\'état connecté', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockSlackApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="slack-connect-btn"]').click();
+      await page.locator('[data-testid="slack-token-input"]').fill('xoxb-fake');
+      await page.locator('[data-testid="slack-verify-btn"]').click();
+      await expect(page.locator('[data-testid="slack-row-blocked-enabled"]')).toBeVisible();
+
+      await page.locator('[data-testid="slack-row-blocked-enabled"]').check();
+      await page.locator('[data-testid="slack-row-blocked-channel"]').selectOption('C2');
+      await page.locator('[data-testid="slack-save-btn"]').click();
+
+      const connected = page.locator('[data-testid="slack-config-connected"]');
+      await expect(connected).toBeVisible();
+      await expect(connected).toContainText('Cadence Test');
+      await expect(connected).toContainText('dev-alerts');
+    });
+
+    test('déconnecter retire la configuration après confirmation', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockSlackApi(page, {
+        teamName: 'Cadence Test', tokenPreview: '••••fake', updatedAt: '2026-08-08T09:00:00.000Z',
+        sprintClose: { channelId: null, channelName: null, enabled: false },
+        blocked: { channelId: 'C2', channelName: 'dev-alerts', enabled: true },
+        daily: { channelId: null, channelName: null, enabled: false },
+      });
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="slack-config-connected"]')).toBeVisible();
+      await page.locator('[data-testid="slack-disconnect-btn"]').click();
+      await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
+      await page.locator('[data-testid="dialog-confirm"]').click();
+
+      await expect(page.locator('[data-testid="slack-config-connected"]')).not.toBeVisible();
+      await expect(page.locator('[data-testid="slack-connect-btn"]')).toBeVisible();
+    });
+
+  });
+
 });

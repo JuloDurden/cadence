@@ -125,6 +125,59 @@ export function deleteSprintCascade(state: CadenceState, sprintId: string): Spri
   }
 }
 
+// Phase 5 (roadmap v1), Intégration Slack, 2026-08-08 : payloads des notifications additives
+// envoyées depuis RoadmapPage.tsx/PlanningPage.tsx juste après closeSprint()/activateSprint()
+// (voir services/api.ts, notifySlackSprintClose/notifySlackDependencyBlock). Fonctions pures,
+// ne dispatchent rien : à l'appelant d'envoyer le résultat, en fire-and-forget silencieux.
+
+export interface SprintCloseNotificationPayload {
+  sprintNumber: number; sprintLabel: string
+  spDone: number; spTotal: number; itemsDone: number; itemsTotal: number
+}
+
+/** SP/items terminés vs total, pour les items de ce sprint (même convention `isDone` que
+ *  `getUnresolvedUnfinishedItems` ci-dessus). */
+export function buildSprintCloseNotification(state: CadenceState, sprint: Sprint): SprintCloseNotificationPayload {
+  const doneCols = state.kanbanCols.filter(c => c.isDone).map(c => c.id)
+  const items = state.items.filter(i => i.sprintId === sprint.id)
+  const doneItems = items.filter(i => doneCols.includes(i.status))
+  return {
+    sprintNumber: sprint.number,
+    sprintLabel: sprint.label || '',
+    itemsDone: doneItems.length,
+    itemsTotal: items.length,
+    spDone: doneItems.reduce((sum, i) => sum + (i.sp || 0), 0),
+    spTotal: items.reduce((sum, i) => sum + (i.sp || 0), 0),
+  }
+}
+
+export interface DependencyBlockNotificationPayload {
+  sprintLabel: string
+  items: { key: string; desc: string; blockedByKeys: string[] }[]
+}
+
+/** Items de ce sprint dont au moins une dépendance (`Item.deps`, ids d'items) n'est pas encore
+ *  terminée - `null` si aucun (pas la peine d'appeler l'API pour ne rien envoyer). Vérifié à
+ *  l'activation seulement (voir AskUserQuestion, périmètre acté avec Julien), pas à chaque
+ *  assignation à un sprint pendant la planification, plus bruyant et moins ciblé. */
+export function buildDependencyBlockNotification(state: CadenceState, sprint: Sprint): DependencyBlockNotificationPayload | null {
+  const doneCols = state.kanbanCols.filter(c => c.isDone).map(c => c.id)
+  const itemById = new Map(state.items.map(i => [i.id, i]))
+  const items = state.items.filter(i => i.sprintId === sprint.id)
+
+  const blocked = items
+    .map(item => {
+      const unresolvedDeps = (item.deps ?? [])
+        .map(depId => itemById.get(depId))
+        .filter((dep): dep is Item => !!dep && !doneCols.includes(dep.status))
+      return unresolvedDeps.length > 0 ? { key: item.key, desc: item.desc, blockedByKeys: unresolvedDeps.map(d => d.key) } : null
+    })
+    .filter((x): x is { key: string; desc: string; blockedByKeys: string[] } => x !== null)
+
+  if (blocked.length === 0) return null
+  return { sprintLabel: sprint.label || `Sprint ${sprint.number}`, items: blocked }
+}
+
 /** Construit l'entrée d'Historique correspondant à une transition de cycle de vie de sprint. */
 export function sprintLifecycleHistoryEntry(
   action: SprintLifecycleAction,

@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middleware/auth'
+import { postSlackMessage, formatBlockedItemMessage } from '../lib/slack'
 
 // Correctif 2026-07-22, complément final (voir docs/corrections.md, Sprint Review) : le tri
 // `orderBy: { updatedAt: 'desc' }` ajouté au correctif précédent supposait un ordre toujours
@@ -15,6 +16,32 @@ import { authenticate } from '../middleware/auth'
 // "trouver puis créer/mettre à jour" qui laisse toujours une place à l'ambiguïté. GET/PUT ciblent
 // désormais tous les deux exactement la même ligne, sans jamais dépendre d'un tri.
 const SINGLETON_ID = 'workspace-state-singleton'
+
+// Phase 5 (roadmap v1), Intégration Slack, 2026-08-08 : alerte "item passé au statut Bloqué" (voir
+// lib/slack.ts, formatBlockedItemMessage). Contrairement à la clôture/activation de sprint (2 pages
+// seulement, RoadmapPage/PlanningPage, appel additif ajouté directement là-bas), un changement de
+// statut peut venir d'une bonne dizaine d'écrans différents (Backlog, Kanban, Sprint Planning,
+// Sprint Review, glisser-déposer...), tous passant in fine par ce même `PUT /api/state` générique
+// (voir StateContext.tsx, saveToServer). Plutôt que dupliquer l'appel Slack dans chaque écran,
+// détection par comparaison de l'état précédent/nouveau ICI, au seul endroit qu'ils traversent
+// tous. Coût nul si l'alerte n'est pas activée (court-circuité avant toute lecture/comparaison).
+interface MinimalItem { id: string; key: string; desc: string; status: string }
+
+function extractItems(data: unknown): MinimalItem[] {
+  const items = (data as { items?: unknown })?.items
+  if (!Array.isArray(items)) return []
+  return items.filter((i): i is MinimalItem =>
+    typeof i === 'object' && i !== null && typeof (i as MinimalItem).id === 'string' && typeof (i as MinimalItem).status === 'string'
+  )
+}
+
+/** Items qui viennent de passer au statut 'blocked' entre `previousData` et `nextData` (absent ou
+ *  à un autre statut avant, 'blocked' maintenant) - jamais l'inverse (un item qui sort de Bloqué
+ *  n'a pas d'alerte dédiée dans ce 1er chantier). */
+function newlyBlockedItems(previousData: unknown, nextData: unknown): MinimalItem[] {
+  const previousStatusById = new Map(extractItems(previousData).map(i => [i.id, i.status]))
+  return extractItems(nextData).filter(i => i.status === 'blocked' && previousStatusById.get(i.id) !== 'blocked')
+}
 
 export async function stateRoutes(fastify: FastifyInstance) {
   // GET /api/state — charger l'état du workspace
@@ -52,6 +79,18 @@ export async function stateRoutes(fastify: FastifyInstance) {
     '/api/state',
     { preHandler: authenticate },
     async (req, reply) => {
+      const slackConfig = await fastify.prisma.slackConfig.findFirst()
+      if (slackConfig?.blockedEnabled && slackConfig.blockedChannelId) {
+        const previous = await fastify.prisma.workspaceState.findUnique({ where: { id: SINGLETON_ID } })
+        const blocked = newlyBlockedItems(previous?.data, req.body.data)
+        // Fire-and-forget : ne bloque jamais la réponse au client sur l'envoi Slack, et une
+        // panne Slack ne doit jamais empêcher une sauvegarde réelle de l'état.
+        for (const item of blocked) {
+          postSlackMessage(slackConfig.botToken, slackConfig.blockedChannelId, formatBlockedItemMessage({ itemKey: item.key, itemDesc: item.desc }))
+            .catch(() => {})
+        }
+      }
+
       await fastify.prisma.workspaceState.upsert({
         where: { id: SINGLETON_ID },
         update: { data: req.body.data as object, version: { increment: 1 } },

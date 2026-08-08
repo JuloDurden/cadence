@@ -6,6 +6,7 @@ import {
   resolveAssigneeIds, resolveDepKeys, linkedTeamMember,
   type Item,
 } from '../lib/backlogWrite'
+import { postSlackMessage, formatBlockedItemMessage } from '../lib/slack'
 
 // Phase 5 (roadmap v1), MCP Claude (Cadence), écriture, 2026-08-08 : 1er couple de routes d'écriture
 // ciblées (voir backlogWrite.ts pour le choix d'architecture). Reproduit côté serveur les règles de
@@ -138,6 +139,19 @@ export async function itemsRoutes(fastify: FastifyInstance) {
 
       const items = state.items.map(i => i.id === existing.id ? updated : i)
       await saveState(fastify, { ...state, items })
+
+      // Alerte Slack "statut Bloqué" (Phase 5, Intégration Slack, 2026-08-08) : ce PATCH est le
+      // seul chemin d'écriture d'un item qui ne passe PAS par `PUT /api/state` (voir MCP), donc pas
+      // couvert par la détection par comparaison ajoutée dans routes/state.ts pour tous les autres
+      // écrans. Même garde-fou (court-circuité si l'alerte n'est pas configurée/activée).
+      if (existing.status !== 'blocked' && updated.status === 'blocked') {
+        const slackConfig = await fastify.prisma.slackConfig.findFirst()
+        if (slackConfig?.blockedEnabled && slackConfig.blockedChannelId) {
+          postSlackMessage(slackConfig.botToken, slackConfig.blockedChannelId, formatBlockedItemMessage({ itemKey: updated.key, itemDesc: updated.desc }))
+            .catch(() => {})
+        }
+      }
+
       return { item: updated }
     }
   )

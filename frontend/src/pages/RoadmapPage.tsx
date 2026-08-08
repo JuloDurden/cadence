@@ -5,12 +5,13 @@ import { Header } from '../components/layout/Header'
 import { computeSprintEndDate, effectiveCapacity, teamCapacity, capacityLossBreakdown, describeCapacityLoss } from '../utils/sprintCapacity'
 import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
-import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade, buildSprintCloseNotification, buildDependencyBlockNotification } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
 import { isReadOnlyForRole } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { getEpicSP, attachItemsToEpics } from '../utils/hierarchyScore'
+import { api } from '../services/api'
 import type { RoadmapGoal } from '../types'
 
 const COLORS = [
@@ -129,6 +130,11 @@ export function RoadmapPage() {
     if (historyEntry) dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     const payload = { ...state, sprints: updatedSprints }
     saveToServer(historyEntry ? withHistoryEntry(payload, historyEntry) : payload)
+    // Phase 5 (roadmap v1), Intégration Slack : alerte silencieuse, voir PlanningPage.tsx (même logique).
+    if (sp) {
+      const depNotif = buildDependencyBlockNotification({ ...state, sprints: updatedSprints }, sp)
+      if (depNotif) api.notifySlackDependencyBlock(depNotif).catch(() => {})
+    }
   }
   async function handleClose(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
@@ -151,6 +157,8 @@ export function RoadmapPage() {
     const historyEntry = sprintLifecycleHistoryEntry('close', updated, userName)
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     saveToServer(withHistoryEntry({ ...state, sprints: updatedSprints }, historyEntry))
+    // Phase 5 (roadmap v1), Intégration Slack : alerte silencieuse, voir PlanningPage.tsx (même logique).
+    api.notifySlackSprintClose(buildSprintCloseNotification(state, updated)).catch(() => {})
   }
   function handleReopen(sprintId: string) {
     const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return

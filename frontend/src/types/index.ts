@@ -642,6 +642,31 @@ export interface GitHubPullRequestSummary {
   url: string
 }
 
+// Phase 5 (roadmap v1), Intégration Slack, 2026-08-08 : configuration du workspace Slack lié (voir
+// backend/src/routes/slack.ts). 3 notifications indépendantes, chacune avec son propre canal et
+// interrupteur (décision Julien, AskUserQuestion : cloture de sprint, alertes bloquants/
+// dépendances, résumé Daily manuel). Le jeton en clair n'est jamais renvoyé après enregistrement,
+// même logique que GitHubConfig.
+export interface SlackChannelConfig {
+  channelId: string | null
+  channelName: string | null
+  enabled: boolean
+}
+
+export interface SlackConfig {
+  teamName: string | null
+  tokenPreview: string
+  updatedAt: string
+  sprintClose: SlackChannelConfig
+  blocked: SlackChannelConfig
+  daily: SlackChannelConfig
+}
+
+export interface SlackChannel {
+  id: string
+  name: string
+}
+
 // ── Sprint Review ─────────────────────────────────────────────────────────────
 
 export type SRBadge = 'accepted' | 'refused' | 'pending'

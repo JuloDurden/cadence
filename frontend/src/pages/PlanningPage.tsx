@@ -10,12 +10,13 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { computeSprintEndDate, teamCapacity } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
-import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade } from '../utils/sprintLifecycle'
+import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade, buildSprintCloseNotification, buildDependencyBlockNotification } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
 import { isReadOnlyForRole } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { attachItemsToEpics } from '../utils/hierarchyScore'
+import { api } from '../services/api'
 import type { Item, Sprint, HistoryEntry } from '../types'
 
 type View = 'grid' | 'swimlanes'
@@ -140,6 +141,12 @@ export function PlanningPage() {
     if (historyEntry) dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     const payload = { ...state, sprints: updatedSprints }
     saveToServer(historyEntry ? withHistoryEntry(payload, historyEntry) : payload)
+    // Phase 5 (roadmap v1), Intégration Slack : alerte silencieuse si des items de ce sprint ont
+    // une dépendance non terminée (voir sprintLifecycle.ts). N'affecte jamais l'activation elle-même.
+    if (sp) {
+      const depNotif = buildDependencyBlockNotification({ ...state, sprints: updatedSprints }, sp)
+      if (depNotif) api.notifySlackDependencyBlock(depNotif).catch(() => {})
+    }
   }
 
   async function handleClose(sprintId: string) {
@@ -162,6 +169,8 @@ export function PlanningPage() {
     const historyEntry = sprintLifecycleHistoryEntry('close', updated, userName)
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
     saveToServer(withHistoryEntry({ ...state, sprints: updatedSprints }, historyEntry))
+    // Phase 5 (roadmap v1), Intégration Slack : alerte silencieuse, n'affecte jamais la clôture elle-même.
+    api.notifySlackSprintClose(buildSprintCloseNotification(state, updated)).catch(() => {})
   }
 
   function handleReopen(sprintId: string) {
