@@ -1,10 +1,11 @@
-import { useState, useRef, useCallback, useMemo } from 'react'
-import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore, TeamMember } from '../../types'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import type { Item, CadenceState, CheckItem, BDDCriterion, ItemType, BugSeverity, Deadline, Note, NoteAttachment, MoscowValue, ScoringFramework, WSJFScore, RICEScore, TeamMember, GitHubCommitSummary, GitHubPullRequestSummary } from '../../types'
 import { useCadence } from '../../context/StateContext'
 import { visibleBaseTags } from '../../data/baseTags'
 import { statusOptionsForItemModal } from '../../utils/kanbanStages'
 import type { UserRole } from '../../types'
 import { canToggleBacklogAssignee } from '../../utils/permissions'
+import { api } from '../../services/api'
 
 /* ─── Constants ──────────────────────────────────────────────────── */
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
@@ -189,6 +190,10 @@ const ICO_IMAGE      = '<rect x="3" y="3" width="18" height="18" rx="2"/><circle
 const ICO_PDF_ATTACH = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h3"/>'
 const ICO_LINK_ATT   = '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
 const ICO_TRASH      = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>'
+// Phase 5 (roadmap v1), Intégration GitHub, 2026-08-08 : icône "code" (chevrons), pas le logo
+// GitHub lui-même (cohérent avec le reste des icônes de ce fichier, toutes des glyphes Lucide
+// génériques plutôt que des logos de marque).
+const ICO_CODE       = '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'
 
 // Icônes des modes d'affichage
 const ICO_VIEW_MODAL    = '<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="7" y="7" width="10" height="10" rx="1"/>'
@@ -197,7 +202,7 @@ const ICO_CHEVRON_DOWN  = '<path d="M6 9l6 6 6-6"/>'
 const ICO_VIEW_FULLPAGE = '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>'
 
 type ModalView = 'modal' | 'side' | 'fullpage'
-type Tab = 'general' | 'us' | 'deps' | 'priority' | 'team' | 'dordod' | 'notes'
+type Tab = 'general' | 'us' | 'deps' | 'priority' | 'team' | 'dordod' | 'notes' | 'github'
 
 const SEV_OPTS: { value: BugSeverity; label: string; color: string }[] = [
   { value: 'critical', label: 'Critique', color: '#FF2929' },
@@ -367,6 +372,28 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
   const [dodInput, setDodInput] = useState('')
   const dorDone = dor.filter(x => x.done).length
   const dodDone = dod.filter(x => x.done).length
+
+  /* GitHub (Phase 5, roadmap v1) : commits/PR dont le message/titre contient la Clé de l'item,
+   * voir backend/src/routes/github.ts. Chargé au premier passage sur l'onglet uniquement
+   * (`ghState === null`), pas au montage de la modale : la plupart des ouvertures ne visitent
+   * jamais cet onglet, inutile d'appeler l'API GitHub systématiquement. `notConfigured`
+   * distingue "aucun dépôt lié" (404, pas une erreur pour l'utilisateur) d'une vraie erreur. */
+  const [ghState, setGhState] = useState<{
+    commits?: GitHubCommitSummary[]; pullRequests?: GitHubPullRequestSummary[]
+    notConfigured?: boolean; error?: string
+  } | null>(null)
+
+  useEffect(() => {
+    if (tab !== 'github' || !item?.key || ghState) return
+    Promise.all([api.getGitHubCommits(item.key), api.getGitHubPullRequests(item.key)])
+      .then(([c, p]) => setGhState({ commits: c.commits, pullRequests: p.pullRequests }))
+      .catch(err => {
+        const msg = err instanceof Error ? err.message : ''
+        setGhState(msg.includes('404')
+          ? { notConfigured: true }
+          : { error: 'Impossible de récupérer les commits/Pull Requests GitHub.' })
+      })
+  }, [tab, item?.key, ghState])
 
   /* ── Criterion helpers ── */
   function addCriterion() {
@@ -575,9 +602,13 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
     { id: 'team',     label: 'Équipe',              icon: ICO_TEAM },
     { id: 'dordod',   label: 'DoD / DoR',           icon: ICO_CHECK },
     { id: 'notes',    label: 'Notes',               icon: ICO_NOTE,  badge: notes.length > 0 ? notes.length : undefined },
+    { id: 'github',   label: 'GitHub',              icon: ICO_CODE },
   ]
   const visibleTabIds = getVisibleTabs(iType)
-  const TABS = ALL_TABS.filter(t => visibleTabIds.includes(t.id))
+  // 'github' n'a pas de sens pour un item pas encore créé (pas de Clé à rechercher côté GitHub),
+  // filtré séparément plutôt qu'ajouté à getVisibleTabs(), qui ne dépend que du type d'item.
+  const TABS = ALL_TABS.filter(t => visibleTabIds.includes(t.id) || t.id === 'github')
+    .filter(t => t.id !== 'github' || !isNew)
 
   /* ── Render tab content ── */
   function renderTab() {
@@ -1219,6 +1250,64 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
             </button>
           </div>
         </div>
+        )}
+      </div>
+    )
+
+    /* ── GITHUB ── */
+    // Lecture seule (consultation uniquement, voir backend/src/routes/github.ts) : aucun rôle
+    // n'a de droit d'édition particulier ici, contrairement aux autres onglets.
+    if (tab === 'github') return (
+      <div className="modal-tab-body">
+        {!ghState ? (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 12 }}>Chargement…</div>
+        ) : ghState.notConfigured ? (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 12 }} data-testid="github-not-configured">
+            Aucun dépôt GitHub connecté. Un Admin peut en connecter un depuis les Réglages.
+          </div>
+        ) : ghState.error ? (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--danger)', fontSize: 12 }} data-testid="github-error">
+            {ghState.error}
+          </div>
+        ) : (
+          <>
+            <div className="us-section-label">COMMITS ({(ghState.commits ?? []).length})</div>
+            {(ghState.commits ?? []).length === 0 ? (
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 20 }}>Aucun commit trouvé pour la Clé {item?.key}.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }} data-testid="github-commits-list">
+                {(ghState.commits ?? []).map(c => (
+                  <a key={c.sha} href={c.url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{c.sha.slice(0, 7)}</span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.message || '(sans message)'}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{c.author}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            <div className="us-section-label">PULL REQUESTS ({(ghState.pullRequests ?? []).length})</div>
+            {(ghState.pullRequests ?? []).length === 0 ? (
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucune Pull Request trouvée pour la Clé {item?.key}.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} data-testid="github-prs-list">
+                {(ghState.pullRequests ?? []).map(pr => (
+                  <a key={pr.number} href={pr.url} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none' }}>
+                    <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>#{pr.number}</span>
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pr.title}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 99, flexShrink: 0,
+                      background: pr.merged ? 'var(--primary-light)' : pr.state === 'open' ? 'var(--success-light, #dcfce7)' : 'var(--surface2)',
+                      color: pr.merged ? 'var(--primary)' : pr.state === 'open' ? 'var(--success, #16a34a)' : 'var(--text-muted)' }}>
+                      {pr.merged ? 'Fusionnée' : pr.state === 'open' ? 'Ouverte' : 'Fermée'}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{pr.author}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     )

@@ -64,6 +64,73 @@ test.describe('Backlog', () => {
 
 });
 
+// Onglet GitHub (ItemModal) (v0.97.11, 2026-08-08, Phase 5 roadmap v1) : commits/Pull Requests
+// dont le message/titre contient la Clé de l'item, voir backend/src/routes/github.ts. Chargé
+// seulement à l'ouverture de l'onglet (pas au montage de la modale), donc les 2 routes de
+// consultation peuvent être mockées avant même d'ouvrir l'item, sans `page.reload()` (contrairement
+// aux sections de Réglages ci-dessus, chargées au montage de la page).
+test.describe('Onglet GitHub (ItemModal) (v0.97.11)', () => {
+
+  async function mockGitHubLookup(page, { commits = [], pullRequests = [], notConfigured = false } = {}) {
+    await page.route('**/api/github-config/commits/*', r => notConfigured
+      ? r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Aucun dépôt GitHub connecté' }) })
+      : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ commits }) }));
+    await page.route('**/api/github-config/prs/*', r => notConfigured
+      ? r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Aucun dépôt GitHub connecté' }) })
+      : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ pullRequests }) }));
+  }
+
+  test('l\'onglet GitHub est absent pour un nouvel item (pas encore de Clé)', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await page.click('[data-testid="btn-add-menu"]');
+    await page.click('[data-testid="menu-new-item"]');
+    await expect(page.locator('[data-testid="item-modal"]')).toBeVisible();
+    await expect(page.locator('[data-testid="modal-tab-github"]')).toHaveCount(0);
+  });
+
+  test('l\'onglet GitHub est présent pour un item existant', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockGitHubLookup(page, {});
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await expect(page.locator('[data-testid="modal-tab-github"]')).toBeVisible();
+  });
+
+  test('aucun dépôt connecté affiche un message dédié, pas une erreur', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockGitHubLookup(page, { notConfigured: true });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await page.locator('[data-testid="modal-tab-github"]').click();
+
+    await expect(page.locator('[data-testid="github-not-configured"]')).toBeVisible();
+    await expect(page.locator('[data-testid="github-error"]')).toHaveCount(0);
+  });
+
+  test('affiche les commits et Pull Requests retrouvés pour la Clé de l\'item', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockGitHubLookup(page, {
+      commits: [{ sha: 'abc1234def', message: 'BUG-001 correction du calcul', author: 'Julien', date: '2026-08-08T09:00:00.000Z', url: 'https://github.com/juloclavel/cadence-test/commit/abc1234def' }],
+      pullRequests: [{ number: 12, title: 'BUG-001 fix', state: 'open', merged: false, author: 'Julien', url: 'https://github.com/juloclavel/cadence-test/pull/12' }],
+    });
+    const row = page.locator('[data-testid="backlog-table"] tr').filter({ hasText: 'BUG-001' });
+    await row.locator('button[title="Modifier"]').click();
+    await page.locator('[data-testid="modal-tab-github"]').click();
+
+    const commitsList = page.locator('[data-testid="github-commits-list"]');
+    await expect(commitsList).toBeVisible();
+    await expect(commitsList).toContainText('abc1234');
+    await expect(commitsList).toContainText('BUG-001 correction du calcul');
+
+    const prsList = page.locator('[data-testid="github-prs-list"]');
+    await expect(prsList).toBeVisible();
+    await expect(prsList).toContainText('#12');
+    await expect(prsList).toContainText('BUG-001 fix');
+    await expect(prsList).toContainText('Ouverte');
+  });
+
+});
+
 test.describe('Backlog — Epic (HierarchyNode, Phase 1 sous-chantier 1, 2026-07-28)', () => {
 
   // Actions Epic/Initiative réservées PO/Admin (canManageBacklog) — voir la note plus haut.

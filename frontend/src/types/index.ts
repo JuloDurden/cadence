@@ -615,6 +615,33 @@ export interface ApiTokenCreateResult {
   apiToken: ApiToken
 }
 
+// Phase 5 (roadmap v1), Intégration GitHub, 2026-08-08 : configuration du dépôt lié (voir
+// backend/src/routes/github.ts). Le jeton en clair n'est jamais renvoyé après enregistrement,
+// seul un aperçu tronqué (`tokenPreview`), même logique que ApiToken ci-dessus.
+export interface GitHubConfig {
+  owner: string
+  repo: string
+  tokenPreview: string
+  updatedAt: string
+}
+
+export interface GitHubCommitSummary {
+  sha: string
+  message: string
+  author: string
+  date: string
+  url: string
+}
+
+export interface GitHubPullRequestSummary {
+  number: number
+  title: string
+  state: string
+  merged: boolean
+  author: string
+  url: string
+}
+
 // ── Sprint Review ─────────────────────────────────────────────────────────────
 
 export type SRBadge = 'accepted' | 'refused' | 'pending'

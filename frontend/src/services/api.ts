@@ -1,4 +1,4 @@
-import type { ApiToken, ApiTokenCreateResult, AuthUser, Invitation, ManagedUser, PresentationLink, UserRole } from '../types'
+import type { ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, ManagedUser, PresentationLink, UserRole } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
@@ -116,4 +116,13 @@ export const api = {
   createApiToken: (name: string) =>
     request<ApiTokenCreateResult>('/api/api-tokens', { method: 'POST', body: JSON.stringify({ name }) }),
   revokeApiToken: (id: string) => request<void>(`/api/api-tokens/${id}`, { method: 'DELETE' }),
+  // Phase 5 (roadmap v1), Intégration GitHub : configuration du dépôt lié (voir
+  // backend/src/routes/github.ts). Gestion réservée Admin côté serveur, consultation des
+  // commits/PR ouverte à tout compte connecté.
+  getGitHubConfig: () => request<{ config: GitHubConfig | null }>('/api/github-config'),
+  saveGitHubConfig: (input: { owner: string; repo: string; token?: string }) =>
+    request<{ config: GitHubConfig }>('/api/github-config', { method: 'PUT', body: JSON.stringify(input) }),
+  deleteGitHubConfig: () => request<void>('/api/github-config', { method: 'DELETE' }),
+  getGitHubCommits: (key: string) => request<{ commits: GitHubCommitSummary[] }>(`/api/github-config/commits/${encodeURIComponent(key)}`),
+  getGitHubPullRequests: (key: string) => request<{ pullRequests: GitHubPullRequestSummary[] }>(`/api/github-config/prs/${encodeURIComponent(key)}`),
 }

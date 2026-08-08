@@ -108,6 +108,25 @@ model ApiToken {
   @@map("api_tokens")
 }
 
+// Phase 5 (roadmap v1), Integration GitHub, 2026-08-08 : config d'un seul depot lie au workspace
+// (singleton, meme principe que WorkspaceState/PresentationLink - un seul workspace Cadence dans
+// ce prototype). Le jeton (Personal Access Token GitHub, cote repo/organisation, pas personnel a
+// un compte Cadence) n'est JAMAIS renvoye en clair par l'API une fois enregistre (voir
+// routes/github.ts) : seul un apercu tronque est expose pour verification visuelle, meme logique
+// que le jeton en clair d'ApiToken (jamais reaffiche apres coup, mais ici parce qu'on en a besoin
+// cote serveur pour appeler l'API GitHub, donc stocke en clair en base plutot que hache - meme
+// posture que JWT_SECRET dans backend/.env, ce prototype ne chiffre aucun secret au repos).
+// Gestion reservee Admin (secret d'organisation, pas personnel comme un jeton MCP).
+model GitHubConfig {
+  id        String   @id @default(cuid())
+  owner     String
+  repo      String
+  token     String
+  updatedAt DateTime @updatedAt
+
+  @@map("github_config")
+}
+
 // Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
 // ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
 // STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste

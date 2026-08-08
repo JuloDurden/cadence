@@ -15,7 +15,14 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.97.10',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - MCP Claude (Cadence) : écriture (création/édition d\'items et d\'Epics/Initiatives), garde-fous par rôle',current:true,changes:[
+  {version:'v0.97.11',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - Intégration GitHub : dépôt lié en Réglages, commits et Pull Requests retrouvés depuis un item',current:true,changes:[
+    {tag:'feat', text:'Nouvelle section "Intégration GitHub" en Réglages, réservée au rôle Admin (secret d\'organisation, contrairement aux jetons API MCP personnels) : propriétaire, nom du dépôt et jeton personnel GitHub (scope lecture "Contents" + "Pull requests" suffit), avec vérification de l\'accès au dépôt avant tout enregistrement'},
+    {tag:'feat', text:'Un seul dépôt lié au workspace à la fois (comme le lien de partage du mode présentation), le jeton en clair n\'est plus jamais renvoyé une fois enregistré, seul un aperçu tronqué reste affiché'},
+    {tag:'feat', text:'Nouvel onglet "GitHub" dans la fiche d\'un item existant : liste les commits et Pull Requests dont le message ou le titre contient sa Clé (ex. "PME2-001"), avec lien direct vers GitHub. Consultation ouverte à tout compte connecté, chargée seulement à l\'ouverture de l\'onglet'},
+    {tag:'ux', text:'État "Aucun dépôt connecté" distinct d\'une vraie erreur GitHub (jeton invalide, dépôt inaccessible), pour ne pas afficher un message d\'erreur tant qu\'aucun Admin n\'a encore configuré l\'intégration'},
+    {tag:'test', text:'Vérifié en conditions réelles avec un dépôt GitHub de test et un jeton personnel : commit et Pull Request portant la Clé d\'un item réel retrouvés dans l\'onglet GitHub de cet item'},
+  ]},
+  {version:'v0.97.10',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 5 (roadmap v1) - MCP Claude (Cadence) : écriture (création/édition d\'items et d\'Epics/Initiatives), garde-fous par rôle',current:false,changes:[
     {tag:'feat', text:'Le MCP Cadence peut désormais créer et modifier des items du Backlog et des Epics/Initiatives, en plus de la lecture. Aucune suppression dans cette version'},
     {tag:'feat', text:'Nouvelles routes ciblées par action (`POST/PATCH /api/items`, `POST/PATCH /api/hierarchy-nodes`) plutôt qu\'un patch générique de tout le workspace via `PUT /api/state` : chaque action vérifie désormais le rôle côté serveur, une première dans ce projet (`PUT /api/state` n\'a jamais eu ce contrôle, seul le frontend masquait les actions selon le rôle)'},
     {tag:'feat', text:'Les règles reproduisent exactement celles de l\'application (`utils/permissions.ts`) : PO et Admin créent et éditent tous les champs d\'un item ou d\'un Epic/Initiative ; un Dev est limité au statut, aux SP, à la DoD, aux dépendances et à sa propre auto-assignation ; Scrum Master et Stakeholder n\'ont accès à aucun outil d\'écriture'},

@@ -398,4 +398,99 @@ test.describe('Réglages', () => {
 
   });
 
+  // Intégration GitHub (v0.97.11, 2026-08-08, Phase 5 roadmap v1) : réservée Admin (secret
+  // d'organisation, contrairement aux jetons API MCP personnels ci-dessus). `GET /api/github-config`
+  // mocké par `goTo()` (voir helpers.js) ne couvre pas `/api/github-config` : même stratégie que les
+  // 2 blocs précédents, mock stateful enregistré APRÈS `goTo()` puis `page.reload()`.
+  test.describe('Intégration GitHub (v0.97.11)', () => {
+
+    async function mockGitHubConfigApi(page, initialConfig = null) {
+      let config = initialConfig;
+      await page.route('**/api/github-config', async r => {
+        const method = r.request().method();
+        if (method === 'GET') {
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'PUT') {
+          const body = r.request().postDataJSON();
+          if (body.owner === 'introuvable') {
+            return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Dépôt introuvable ou jeton sans accès' }) });
+          }
+          config = { owner: body.owner, repo: body.repo, tokenPreview: '••••fake', updatedAt: '2026-08-08T10:00:00.000Z' };
+          return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ config }) });
+        }
+        if (method === 'DELETE') {
+          config = null;
+          return r.fulfill({ status: 204 });
+        }
+        return r.continue();
+      });
+    }
+
+    test('la section est absente pour un rôle non Admin (PO)', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'PO' });
+      await expect(page.locator('[data-testid="github-section"]')).toHaveCount(0);
+    });
+
+    test('affiche le bouton de connexion quand aucun dépôt n\'est configuré', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockGitHubConfigApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="github-section"]')).toBeVisible();
+      await expect(page.locator('[data-testid="github-connect-btn"]')).toBeVisible();
+    });
+
+    test('connecter un dépôt affiche l\'état connecté avec l\'aperçu du jeton', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockGitHubConfigApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="github-connect-btn"]').click();
+      await page.locator('[data-testid="github-owner-input"]').fill('juloclavel');
+      await page.locator('[data-testid="github-repo-input"]').fill('cadence-test');
+      await page.locator('[data-testid="github-token-input"]').fill('ghp_fake');
+      await page.locator('[data-testid="github-save-btn"]').click();
+
+      const connected = page.locator('[data-testid="github-config-connected"]');
+      await expect(connected).toBeVisible();
+      await expect(connected).toContainText('juloclavel/cadence-test');
+      await expect(connected).toContainText('••••fake');
+    });
+
+    test('une erreur de connexion affiche le message renvoyé par le serveur', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockGitHubConfigApi(page, null);
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await page.locator('[data-testid="github-connect-btn"]').click();
+      await page.locator('[data-testid="github-owner-input"]').fill('introuvable');
+      await page.locator('[data-testid="github-repo-input"]').fill('cadence-test');
+      await page.locator('[data-testid="github-token-input"]').fill('ghp_fake');
+      await page.locator('[data-testid="github-save-btn"]').click();
+
+      await expect(page.locator('[data-testid="github-save-error"]')).toContainText('Dépôt introuvable ou jeton sans accès');
+      await expect(page.locator('[data-testid="github-config-connected"]')).not.toBeVisible();
+    });
+
+    test('déconnecter retire la configuration après confirmation', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await mockGitHubConfigApi(page, { owner: 'juloclavel', repo: 'cadence-test', tokenPreview: '••••fake', updatedAt: '2026-08-08T09:00:00.000Z' });
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('[data-testid="github-config-connected"]')).toBeVisible();
+      await page.locator('[data-testid="github-disconnect-btn"]').click();
+      await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
+      await page.locator('[data-testid="dialog-confirm"]').click();
+
+      await expect(page.locator('[data-testid="github-config-connected"]')).not.toBeVisible();
+      await expect(page.locator('[data-testid="github-connect-btn"]')).toBeVisible();
+    });
+
+  });
+
 });
