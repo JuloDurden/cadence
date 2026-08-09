@@ -62,10 +62,16 @@ export async function validateAnthropicKey(config: AiConfigRow): Promise<void> {
   await anthropicCall(config, { messages: [{ role: 'user', content: 'Bonjour' }], max_tokens: 1 })
 }
 
+// max_tokens releve de 1536 a 4096 le 2026-08-09 (3e retour Julien) : une demande de creation
+// d'items "avec tous leurs details" (titre, role/besoin/benefice, plusieurs criteres GIVEN/WHEN/
+// THEN) genere un appel d'outil volumineux, tronque a 1536 - la troncature en cours de generation
+// d'un tool_use ne renvoie ni texte ni outil exploitable (content vide), ce que la boucle agentique
+// de routes/ai.ts interpretait a tort comme "reponse terminee, rien a faire" plutot que "tronque,
+// il faut continuer" (voir la verification de stop_reason ajoutee a cote de cet appel).
 export async function callWithTools(
   config: AiConfigRow, system: string, messages: AnthropicMessage[], tools: AnthropicTool[]
 ): Promise<AnthropicResponse> {
-  return anthropicCall(config, { system, messages, tools, max_tokens: 1536 })
+  return anthropicCall(config, { system, messages, tools, max_tokens: 4096 })
 }
 
 /** Meme logique que maskToken (github.ts) / maskSlackToken (slack.ts) : jamais la cle en clair une
@@ -202,6 +208,74 @@ export const UPDATE_HIERARCHY_NODE_TOOL: AnthropicTool = {
       sp: { type: 'number' },
     },
     required: ['key'],
+    additionalProperties: false,
+  },
+}
+
+/* ── Outils de LECTURE ──────────────────────────────────────────────────────────────────────────
+   Ajoutes 2026-08-09 suite a un retour Julien apres usage reel : sans ces outils, le chat n'a acces
+   qu'aux quelques listes (noms/libelles) injectees dans le prompt systeme, jamais au detail d'un
+   item existant ni a la liste des Epics/items - il ne peut donc ni retrouver le contenu d'un item
+   pour l'estimer, ni reperer quels Epics sont vides pour une demande en masse ("peuple tous les
+   Epics vides"), et le dit explicitement plutot que d'inventer. Memes 4 outils que le serveur MCP
+   (mcp/src/tools.ts : list_items/get_item/list_hierarchy/search_backlog), disponibles ici a TOUS
+   les roles (y compris Scrum Master/Stakeholder) puisqu'ils ne font que lire - contrairement aux 5
+   outils d'ecriture ci-dessus, filtres par role dans routes/ai.ts. */
+
+export const LIST_ITEMS_TOOL: AnthropicTool = {
+  name: 'list_items',
+  description: 'Liste les items du Backlog (User Stories, Bugs, Taches, Spikes), avec filtres optionnels. Utilise "current" comme valeur de sprint pour le sprint en cours.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      sprint: { type: 'string', description: 'Libelle du sprint, ou "current" pour le sprint en cours' },
+      status: { type: 'string', description: 'Libelle du statut Kanban' },
+      clientName: { type: 'string' },
+      epicKey: { type: 'string', description: "Cle de l'Epic ou de l'Initiative parent" },
+      assignee: { type: 'string', description: "Nom (ou partie du nom) d'un membre de l'equipe" },
+      tag: { type: 'string' },
+      type: { type: 'string', description: 'story, bug, task ou spike' },
+      priority: { type: 'string', description: 'critical, high, medium ou low' },
+      limit: { type: 'number', description: 'Par defaut 50, max 200' },
+    },
+    additionalProperties: false,
+  },
+}
+
+export const GET_ITEM_TOOL: AnthropicTool = {
+  name: 'get_item',
+  description: "Detail complet d'un item du Backlog (User Story role/besoin/benefice, criteres d'acceptation, dependances...) a partir de sa Cle. A utiliser avant toute estimation de SP ou modification pour connaitre le contenu exact de l'item.",
+  input_schema: {
+    type: 'object',
+    properties: { key: { type: 'string', description: 'Cle de l\'item, ex. "FAX-012"' } },
+    required: ['key'],
+    additionalProperties: false,
+  },
+}
+
+export const LIST_HIERARCHY_TOOL: AnthropicTool = {
+  name: 'list_hierarchy',
+  description: "Liste les Epics et Initiatives avec, pour chacun, son SP et son nombre d'items rattaches - a utiliser pour reperer les Epics vides (0 item rattache) avant une demande en masse.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      level: { type: 'string', description: 'epic ou initiative' },
+      clientName: { type: 'string' },
+    },
+    additionalProperties: false,
+  },
+}
+
+export const SEARCH_BACKLOG_TOOL: AnthropicTool = {
+  name: 'search_backlog',
+  description: "Recherche libre dans le Backlog (titre, role/besoin/benefice de la User Story), insensible aux accents et a la casse - utile pour trouver des items comparables lors d'une estimation de SP.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string' },
+      limit: { type: 'number', description: 'Par defaut 30, max 200' },
+    },
+    required: ['query'],
     additionalProperties: false,
   },
 }

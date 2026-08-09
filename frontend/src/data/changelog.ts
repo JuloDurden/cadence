@@ -15,7 +15,18 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.98',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 6 (roadmap v1) - Compagnon IA, sous-chantier 1 : aide à la rédaction et à la création d\'items via un chat (API Claude)',current:true,changes:[
+  {version:'v0.98.1',date:'9 Août 2026',dateISO:'2026-08-09',title:'Phase 6 (roadmap v1) - Compagnon IA, sous-chantier 1 : lecture du Backlog par le chat, correctifs et panneau retravaillé',current:true,changes:[
+    {tag:'feat', text:'Le chat dispose désormais de 4 outils de lecture (mêmes que le serveur MCP Cadence) : lister les items avec filtres, le détail complet d\'un item, la liste des Epics/Initiatives avec leur SP et leur nombre d\'items rattachés, et une recherche libre dans le Backlog. Accessibles à tous les rôles (lecture seule), il peut ainsi répondre sur le contenu réel du Backlog ou repérer les Epics vides plutôt que de le demander à l\'utilisateur'},
+    {tag:'feat', text:'Le chat connaît désormais la liste des tags prédéfinis (Réglages) et réutilise un tag existant plutôt que d\'en proposer un nouveau proche d\'un tag déjà standardisé par l\'équipe'},
+    {tag:'fix', text:'Une demande nécessitant de nombreuses étapes (ex. peupler plusieurs Epics vides) pouvait afficher "Réponse vide" : plafond d\'itérations de la boucle agentique relevé de 6 à 25, budget de tokens par appel relevé de 1536 à 4096, et une réponse tronquée par ce budget est désormais reconnue comme non terminée plutôt que comme une fin de conversation normale - un message explicite invite à poursuivre plutôt que de se taire'},
+    {tag:'feat', text:'Chaque message du chat peut être copié ; un message envoyé peut être modifié, ce qui reprend la conversation à partir de ce point avec le texte corrigé'},
+    {tag:'ux', text:'Le champ de saisie du chat s\'agrandit avec le texte tapé, jusqu\'à une hauteur maximale avec défilement interne'},
+    {tag:'feat', text:'Le panneau de chat peut être redimensionné (largeur, en ancré à droite), détaché en fenêtre flottante déplaçable et redimensionnable, ou réduit à une pastille sans perdre la conversation en cours'},
+    {tag:'feat', text:'La conversation et les préférences du panneau (mode, taille, position, réduit) sont désormais conservées d\'une session à l\'autre, y compris après un rechargement de page'},
+    {tag:'ux', text:'Les actions Copier/Modifier/Effacer/Détacher/Ancrer du panneau de chat passent d\'un libellé texte à une icône'},
+    {tag:'test', text:'Vérifié en conditions réelles avec une clé API Anthropic : peuplement en masse d\'Epics vides via les outils de lecture, estimation de SP d\'un item existant, copie et modification de messages, redimensionnement/détachement/réduction du panneau, persistance après rechargement de page'},
+  ]},
+  {version:'v0.98',date:'8 Août 2026',dateISO:'2026-08-08',title:'Phase 6 (roadmap v1) - Compagnon IA, sous-chantier 1 : aide à la rédaction et à la création d\'items via un chat (API Claude)',current:false,changes:[
     {tag:'feat', text:'Nouveau panneau de chat global "Compagnon IA", accessible depuis n\'importe quelle page via un bouton dédié dans l\'en-tête. Aide à rédiger des User Stories, Bugs, Epics/Initiatives, et peut les créer ou les modifier directement dans le Backlog sur demande'},
     {tag:'feat', text:'Nouvelle section "Compagnon IA" en Réglages, réservée au rôle Admin : clé API Anthropic et modèle utilisé (Claude Sonnet 5 par défaut), vérifiés par un appel réel avant tout enregistrement, comme GitHub/Slack/Jira'},
     {tag:'feat', text:'Les droits d\'écriture du chat reproduisent exactement ceux du MCP Cadence et du reste de l\'application : PO/Admin créent et éditent tout, un Dev est limité au statut/SP/DoD/dépendances/auto-assignation, Scrum Master et Stakeholder peuvent seulement se faire aider à la rédaction en texte, sans droit de création'},

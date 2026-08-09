@@ -105,4 +105,104 @@ test.describe('Compagnon IA - panneau de chat (v0.98)', () => {
     await expect(page.locator('[data-testid="chat-message-assistant"]')).toHaveCount(0);
   });
 
+  // v0.98.1 (2026-08-09) : lecture du Backlog, correctifs "Réponse vide", et panneau retravaillé
+  // (copier/éditer un message, redimensionnement/détachement/réduction, persistance) - voir
+  // CHANGELOG.
+
+  test('copier un message copie son contenu dans le presse-papier', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockAiChatApi(page, () => ({ reply: 'Voici la réponse à copier.' }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Bonjour');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toBeVisible();
+
+    await page.locator('[data-testid="chat-message-assistant"] button[aria-label="Copier"]').click();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toBe('Voici la réponse à copier.');
+  });
+
+  test('modifier un message envoyé tronque la conversation et la relance depuis ce point', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    let call = 0;
+    await mockAiChatApi(page, () => {
+      call++;
+      return { reply: call === 1 ? 'Première réponse.' : 'Deuxième réponse.' };
+    });
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Version initiale');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Première réponse.');
+
+    await page.locator('[data-testid="chat-message-user"] button[aria-label="Modifier"]').click();
+    await page.locator('[data-testid="chat-edit-input"]').fill('Version corrigée');
+    await page.locator('[data-testid="chat-edit-save-btn"]').click();
+
+    await expect(page.locator('[data-testid="chat-message-user"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="chat-message-user"]')).toContainText('Version corrigée');
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Deuxième réponse.');
+  });
+
+  test('la poignée de redimensionnement agrandit le panneau ancré', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+
+    const panel = page.locator('[data-testid="chat-panel"]');
+    const before = await panel.boundingBox();
+    const handle = page.locator('[data-testid="chat-panel-resize-handle"]');
+    const handleBox = await handle.boundingBox();
+
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x - 120, handleBox.y + 100);
+    await page.mouse.up();
+
+    const after = await panel.boundingBox();
+    expect(after.width).toBeGreaterThan(before.width + 60);
+  });
+
+  test('détacher passe en fenêtre flottante, réduire masque le panneau sans perdre la conversation', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockAiChatApi(page, () => ({ reply: 'Réponse.' }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Bonjour');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toBeVisible();
+
+    await page.locator('[data-testid="chat-panel"] button[aria-label="Détacher"]').click();
+    await expect(page.locator('[data-testid="chat-panel-float-resize-handle"]')).toBeVisible();
+    await expect(page.locator('[data-testid="chat-panel"] button[aria-label="Ancrer"]')).toBeVisible();
+
+    await page.locator('[data-testid="chat-panel"] button[aria-label="Réduire"]').click();
+    await expect(page.locator('[data-testid="chat-panel"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="chat-panel-collapsed"]')).toBeVisible();
+
+    await page.locator('[data-testid="chat-panel-collapsed"]').click();
+    await expect(page.locator('[data-testid="chat-panel"]')).toBeVisible();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Réponse.');
+  });
+
+  test('la conversation et les préférences du panneau survivent à un rechargement de page', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockAiChatApi(page, () => ({ reply: 'Réponse persistée.' }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Message à retrouver');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Réponse persistée.');
+    await page.locator('[data-testid="chat-panel"] button[aria-label="Détacher"]').click();
+
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+
+    await expect(page.locator('[data-testid="chat-message-user"]')).toContainText('Message à retrouver');
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Réponse persistée.');
+    await expect(page.locator('[data-testid="chat-panel-float-resize-handle"]')).toBeVisible();
+  });
+
 });
