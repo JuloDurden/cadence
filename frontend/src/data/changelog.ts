@@ -15,7 +15,11 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.98.1',date:'9 Août 2026',dateISO:'2026-08-09',title:'Phase 6 (roadmap v1) - Compagnon IA, sous-chantier 1 : lecture du Backlog par le chat, correctifs et panneau retravaillé',current:true,changes:[
+  {version:'v0.98.2',date:'10 Août 2026',dateISO:'2026-08-10',title:'Phase 6 (roadmap v1) - Compagnon IA : rendu markdown des réponses, indicateur de saisie animé',current:true,changes:[
+    {tag:'feat', text:'Les réponses de l\'assistant (tableaux, gras, listes, titres, code, liens...) sont désormais rendues en markdown plutôt qu\'en texte brut. Un message envoyé par l\'utilisateur reste affiché tel que tapé, sans jamais être réinterprété'},
+    {tag:'ux', text:'Le texte fixe "Le Compagnon IA rédige..." affiché pendant l\'attente d\'une réponse est remplacé par 3 points animés, pour distinguer une réponse encore en cours d\'une réponse bloquée'},
+  ]},
+  {version:'v0.98.1',date:'9 Août 2026',dateISO:'2026-08-09',title:'Phase 6 (roadmap v1) - Compagnon IA, sous-chantier 1 : lecture du Backlog par le chat, correctifs et panneau retravaillé',current:false,changes:[
     {tag:'feat', text:'Le chat dispose désormais de 4 outils de lecture (mêmes que le serveur MCP Cadence) : lister les items avec filtres, le détail complet d\'un item, la liste des Epics/Initiatives avec leur SP et leur nombre d\'items rattachés, et une recherche libre dans le Backlog. Accessibles à tous les rôles (lecture seule), il peut ainsi répondre sur le contenu réel du Backlog ou repérer les Epics vides plutôt que de le demander à l\'utilisateur'},
     {tag:'feat', text:'Le chat connaît désormais la liste des tags prédéfinis (Réglages) et réutilise un tag existant plutôt que d\'en proposer un nouveau proche d\'un tag déjà standardisé par l\'équipe'},
     {tag:'fix', text:'Une demande nécessitant de nombreuses étapes (ex. peupler plusieurs Epics vides) pouvait afficher "Réponse vide" : plafond d\'itérations de la boucle agentique relevé de 6 à 25, budget de tokens par appel relevé de 1536 à 4096, et une réponse tronquée par ce budget est désormais reconnue comme non terminée plutôt que comme une fin de conversation normale - un message explicite invite à poursuivre plutôt que de se taire'},

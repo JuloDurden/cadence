@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import type { Components } from 'react-markdown'
 import { useChat } from '../../context/ChatContext'
 import type { AiToolCall, ChatMessage } from '../../types'
 
@@ -43,6 +46,57 @@ const SVG = {
   detach:    '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 14v1"/><path d="M15 19v2"/><path d="M15 3v2"/><path d="M15 9v1"/>',
   dock:      '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m8 9 3 3-3 3"/>',
   check:     '<path d="M20 6 9 17l-5-5"/>',
+}
+
+// Rendu markdown des bulles assistant (2026-08-10, 8e retour Julien) : les réponses du Compagnon
+// IA contiennent souvent du markdown (tableaux, gras, listes...) que Claude produit naturellement,
+// affiché jusqu'ici en texte brut. react-markdown + remark-gfm (tableaux, GFM) plutôt qu'un parseur
+// maison : le format n'est pas trivial (tableaux notamment), autant réutiliser une bibliothèque
+// éprouvée comme déjà fait ailleurs pour des besoins non triviaux (exceljs, react-grid-layout).
+// Seules les bulles ASSISTANT sont rendues en markdown - une bulle utilisateur reste le texte brut
+// tel que tapé (voir la ligne `isUser ? ... : <ReactMarkdown>` plus bas), pour ne jamais réinterpréter
+// la saisie de Julien à son insu. `components` casse les styles par défaut du navigateur (marges de
+// <table>/<h1>...) pour rester cohérent avec la bulle (fond coloré, texte compact) plutôt que des
+// couleurs figées qui ne s'adapteraient pas au fond variable (utilisateur/assistant/erreur).
+const MARKDOWN_COMPONENTS: Components = {
+  p:  ({ children }) => <p style={{ margin: '0 0 6px 0' }}>{children}</p>,
+  ul: ({ children }) => <ul style={{ margin: '0 0 6px 0', paddingLeft: 18 }}>{children}</ul>,
+  ol: ({ children }) => <ol style={{ margin: '0 0 6px 0', paddingLeft: 18 }}>{children}</ol>,
+  li: ({ children }) => <li style={{ marginBottom: 2 }}>{children}</li>,
+  h1: ({ children }) => <div style={{ fontWeight: 700, fontSize: 14, margin: '2px 0 6px' }}>{children}</div>,
+  h2: ({ children }) => <div style={{ fontWeight: 700, fontSize: 13.5, margin: '2px 0 6px' }}>{children}</div>,
+  h3: ({ children }) => <div style={{ fontWeight: 700, fontSize: 13, margin: '2px 0 6px' }}>{children}</div>,
+  h4: ({ children }) => <div style={{ fontWeight: 700, fontSize: 12.5, margin: '2px 0 6px' }}>{children}</div>,
+  blockquote: ({ children }) => (
+    <blockquote style={{ margin: '0 0 6px 0', paddingLeft: 8, borderLeft: '2px solid currentColor', opacity: 0.85 }}>{children}</blockquote>
+  ),
+  a: ({ children, href }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{children}</a>
+  ),
+  hr: () => <hr style={{ border: 'none', borderTop: '1px solid currentColor', opacity: 0.25, margin: '8px 0' }} />,
+  // `className` porte "language-xxx" pour un bloc de code balisé (```js ... ```) - dans ce cas le
+  // fond/padding vient déjà de `pre` ci-dessous, la pastille ne s'applique qu'au code EN LIGNE
+  // (`` `update_item` ``), sans quoi un bloc de code afficherait une pastille dans une pastille.
+  code: ({ className, children }) => {
+    if (/language-/.test(className ?? '')) {
+      return <code className={className} style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5 }}>{children}</code>
+    }
+    return (
+      <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 11.5, background: 'rgba(0,0,0,.12)', borderRadius: 4, padding: '1px 4px' }}>
+        {children}
+      </code>
+    )
+  },
+  pre: ({ children }) => (
+    <pre style={{ margin: '0 0 6px 0', padding: '8px 10px', borderRadius: 6, background: 'rgba(0,0,0,.12)', overflowX: 'auto' }}>{children}</pre>
+  ),
+  table: ({ children }) => (
+    <div style={{ overflowX: 'auto', margin: '0 0 6px 0' }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 11.5 }}>{children}</table>
+    </div>
+  ),
+  th: ({ children }) => <th style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid rgba(127,127,127,.4)', fontWeight: 700 }}>{children}</th>,
+  td: ({ children }) => <td style={{ textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid rgba(127,127,127,.25)' }}>{children}</td>,
 }
 
 interface PanelPrefs {
@@ -153,12 +207,16 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     <div data-testid={`chat-message-${message.role}`} style={{ alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '90%', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div
         style={{
-          padding: '8px 12px', borderRadius: 10, fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'pre-wrap',
+          padding: '8px 12px', borderRadius: 10, fontSize: 12.5, lineHeight: 1.5,
           background: isUser ? 'var(--primary)' : (message.error ? 'var(--danger-light, #fee2e2)' : 'var(--surface2)'),
           color: isUser ? '#fff' : (message.error ? 'var(--danger, #dc2626)' : 'var(--text)'),
         }}
       >
-        {message.content}
+        {isUser ? (
+          <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
+        ) : (
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{message.content}</ReactMarkdown>
+        )}
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
             {message.toolCalls.map((tc, i) => (
@@ -366,8 +424,9 @@ export function ChatPanel() {
         )}
         {messages.map(m => <MessageBubble key={m.id} message={m} />)}
         {sending && (
-          <div style={{ alignSelf: 'flex-start', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-            Le Compagnon IA rédige…
+          <div data-testid="chat-typing-indicator" style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            Le Compagnon IA rédige
+            <span className="chat-typing"><span /><span /><span /></span>
           </div>
         )}
       </div>

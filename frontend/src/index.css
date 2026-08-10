@@ -644,6 +644,16 @@ option { font-weight: 400; }
 .skel-bar { background: var(--border); border-radius: 4px; animation: skel-pulse 1.4s ease-in-out infinite; }
 @keyframes skel-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 
+/* Indicateur "en train de réfléchir" du Compagnon IA (ChatPanel.tsx), 2026-08-10 : remplace le
+   texte fixe "Le Compagnon IA rédige..." (retour Julien - rien ne permettait de distinguer une
+   réponse encore en cours d'une réponse bloquée) par 3 points qui rebondissent en cascade, même
+   principe de pulsation discrète que .skel-bar ci-dessus. */
+.chat-typing { display: inline-flex; align-items: center; gap: 3px; }
+.chat-typing span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .35; animation: chat-typing-bounce 1.2s ease-in-out infinite; }
+.chat-typing span:nth-child(2) { animation-delay: .15s; }
+.chat-typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes chat-typing-bounce { 0%, 60%, 100% { opacity: .35; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+
 /* ─── Planning ──────────────────────────────────────────────────────────── */
 .planning-grid { display: flex; gap: 14px; align-items: flex-start; padding-bottom: 16px; }
 .planning-col  { flex: 0 0 380px; min-width: 380px; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; max-height: calc(100vh - 130px); border: 2px solid transparent; transition: border-color .15s; }

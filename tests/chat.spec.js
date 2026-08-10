@@ -205,4 +205,55 @@ test.describe('Compagnon IA - panneau de chat (v0.98)', () => {
     await expect(page.locator('[data-testid="chat-panel-float-resize-handle"]')).toBeVisible();
   });
 
+  // v0.98.2 (2026-08-10) : les réponses de l'assistant contiennent souvent du markdown (tableaux,
+  // gras...) produit naturellement par Claude, affiché jusque-là en texte brut (pipes/astérisques
+  // littéraux). Rendu via react-markdown + remark-gfm, uniquement pour les bulles ASSISTANT (une
+  // bulle utilisateur reste le texte brut tel que tapé, voir ChatPanel.tsx). Le texte fixe "Le
+  // Compagnon IA rédige..." affiché pendant l'attente devient un indicateur animé.
+
+  test('un tableau markdown dans la réponse de l\'assistant est rendu comme un vrai tableau', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockAiChatApi(page, () => ({
+      reply: '| Item | SP |\n| --- | --- |\n| FAX-038 | 5 |\n| FAX-039 | 8 |\n\n**Total : 13 SP**',
+    }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Résume les SP');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    const bubble = page.locator('[data-testid="chat-message-assistant"]');
+    await expect(bubble.locator('table')).toBeVisible();
+    await expect(bubble.locator('table')).not.toContainText('---');
+    await expect(bubble.locator('td').first()).toContainText('FAX-038');
+    await expect(bubble.locator('strong')).toContainText('Total : 13 SP');
+  });
+
+  test('un message utilisateur contenant des caractères markdown reste affiché tel quel', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockAiChatApi(page, () => ({ reply: 'Reçu.' }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Le champ *sp* et le tag **urgent**');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    await expect(page.locator('[data-testid="chat-message-user"]')).toContainText('Le champ *sp* et le tag **urgent**');
+    await expect(page.locator('[data-testid="chat-message-user"] strong')).toHaveCount(0);
+  });
+
+  test('un indicateur de saisie animé s\'affiche pendant que l\'assistant répond, puis disparaît', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await page.route('**/api/ai-chat', async r => {
+      await new Promise(res => setTimeout(res, 400));
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reply: 'Voilà.', toolCalls: [] }) });
+    });
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Bonjour');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    await expect(page.locator('[data-testid="chat-typing-indicator"]')).toBeVisible();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Voilà.');
+    await expect(page.locator('[data-testid="chat-typing-indicator"]')).toHaveCount(0);
+  });
+
 });
