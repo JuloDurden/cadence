@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import type { ReactNode } from 'react'
 import { useCadence } from './StateContext'
 import { api } from '../services/api'
+import { matchChatCommand } from '../data/chatCommands'
 import type { AiToolCall, ChatMessage } from '../types'
 
 // Phase 6 (roadmap v1), Compagnon IA, sous-chantier 1 (aide à la rédaction/création d'items),
@@ -111,9 +112,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Envoie `history` (déjà mis à jour dans `messages`) à l'API et ajoute la réponse - factorisé
   // pour être partagé par sendMessage (nouveau message) et editMessage (message modifié, historique
   // tronqué à partir de ce point) ci-dessous : même appel, seule la construction de `history` change.
+  // `apiContent` (commande slash, voir data/chatCommands.ts) prend le pas sur `content` pour l'API
+  // uniquement - l'affichage dans la bulle reste toujours `content`.
   const postHistory = useCallback((history: ChatMessage[]) => {
     setSending(true)
-    api.sendChatMessage(history.map(m => ({ role: m.role, content: m.content })))
+    api.sendChatMessage(history.map(m => ({ role: m.role, content: m.apiContent ?? m.content })))
       .then(({ reply, toolCalls }) => {
         applyToolCalls(toolCalls)
         setMessages(prev => [...prev, { id: uid(), role: 'assistant', content: reply || '(Réponse vide.)', toolCalls }])
@@ -128,7 +131,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const trimmed = text.trim()
     if (!trimmed || sending) return
 
-    const userMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed }
+    const command = matchChatCommand(trimmed)
+    const userMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed, apiContent: command?.prompt }
     const history = [...messages, userMsg]
     setMessages(history)
     postHistory(history)
@@ -144,7 +148,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const idx = messages.findIndex(m => m.id === id)
     if (idx === -1) return
 
-    const editedMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed }
+    const command = matchChatCommand(trimmed)
+    const editedMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed, apiContent: command?.prompt }
     const history = [...messages.slice(0, idx), editedMsg]
     setMessages(history)
     postHistory(history)

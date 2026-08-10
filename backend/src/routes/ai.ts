@@ -261,15 +261,76 @@ function assigneeNamesFor(state: CadenceState, assignees: string[]): string {
   return assignees.map(id => state.team.find(m => m.id === id)?.name ?? id).join(', ')
 }
 
+/** Un statut Kanban "termine" est celui marque isDone en Reglages, jamais devine sur son libelle
+ *  (personnalisable) - ajoute 2026-08-10 suite a un retour Julien : le chat confondait items
+ *  "non termines" et items simplement non assignes faute de ce signal. */
+function isDoneStatus(state: CadenceState, statusId: string): boolean {
+  return state.kanbanCols.find(c => c.id === statusId)?.isDone === true
+}
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+/** Formate Item.deadline/HierarchyNode.deadline ({date, type}) - ajoute 2026-08-10 suite a un
+ *  retour Julien : ce champ (affiche dans ItemModal sous "DATE DE LIVRAISON") n'etait porte par
+ *  aucun type ni outil cote backend, le chat niait categoriquement son existence meme quand
+ *  Julien lui demandait le detail d'un item qui en avait une (ex. AGA-030). Voir backlogWrite.ts. */
+function deadlineFor(entity: { deadline?: { date: string; type: string } }): string | undefined {
+  if (!entity.deadline?.date) return undefined
+  const typeLabel = entity.deadline.type === 'imposed' ? 'imposee' : entity.deadline.type === 'negotiable' ? 'negociable' : undefined
+  return `${entity.deadline.date}${typeLabel ? ` (${typeLabel})` : ''}`
+}
+
+/** Checklist (DoR/DoD) "complete" : au moins une entree ET toutes cochees - une checklist vide ou
+ *  jamais renseignee compte comme incomplete, pas comme "rien a faire" (ajoute 2026-08-10, prep.
+ *  sous-chantier 3 "detection d'anomalies", retour Julien). */
+function checklistComplete(checklist: { done: boolean }[] | undefined): boolean {
+  return !!checklist && checklist.length > 0 && checklist.every(c => c.done)
+}
+
+function hasStoryContent(item: Item): boolean {
+  return Boolean(item.role?.trim() || item.need?.trim() || item.benefit?.trim())
+}
+
+/** Deadline dans les 7 prochains jours (bornes incluses) et item pas encore termine - meme fenetre
+ *  que celle demandee par Julien pour "/deadline" ("dans les 7 prochains jours"), volontairement
+ *  fixe plutot que parametrable (coherent avec overdueOnly, deja fixe sur "aujourd'hui"). */
+function isDueSoon(state: CadenceState, item: Item): boolean {
+  if (!item.deadline?.date || isDoneStatus(state, item.status)) return false
+  const today = new Date(todayISO())
+  const due = new Date(item.deadline.date)
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000)
+  return diffDays >= 0 && diffDays <= 7
+}
+
+/** Au moins une dependance de l'item pointe vers un item deja termine - potentiellement une
+ *  dependance obsolete, plus besoin de bloquer sur un travail deja livre. */
+function hasStaleDependency(state: CadenceState, item: Item): boolean {
+  return (item.deps ?? []).some(id => {
+    const dep = state.items.find(i => i.id === id)
+    return dep !== undefined && isDoneStatus(state, dep.status)
+  })
+}
+
 function itemLineFor(state: CadenceState, item: Item): string {
-  return `${item.key} [${statusLabelFor(state, item.status)}] ${item.desc}, ${item.sp} SP, priorite ${item.priority}, `
+  const deadline = deadlineFor(item)
+  const depsCount = item.deps?.length ?? 0
+  return `${item.key} [${statusLabelFor(state, item.status)}${isDoneStatus(state, item.status) ? ', termine' : ''}] ${item.desc}, ${item.sp} SP, priorite ${item.priority}, `
     + `client ${clientNameFor(state, item.clientId)}, sprint ${sprintLabelFor(state, item.sprintId)}, Epic ${epicKeyFor(state, item.epicId)}, `
     + `assigne(s) : ${assigneeNamesFor(state, item.assignees)}`
+    + (deadline ? `, date de livraison : ${deadline}` : '')
+    + (depsCount > 0 ? `, ${depsCount} dependance(s)` : '')
 }
 
 interface ListItemsInput {
   sprint?: string; status?: string; clientName?: string; epicKey?: string
-  assignee?: string; tag?: string; type?: string; priority?: string; limit?: number
+  assignee?: string; tag?: string; type?: string; priority?: string
+  unassigned?: boolean; hasDeps?: boolean; hasDeadline?: boolean; overdueOnly?: boolean; dueSoon?: boolean
+  done?: boolean; blocked?: boolean
+  hasSp?: boolean; hasStory?: boolean; hasAcceptance?: boolean; dorComplete?: boolean; dodComplete?: boolean
+  depOnDone?: boolean
+  limit?: number
 }
 
 function executeListItems(state: CadenceState, input: ListItemsInput): string {
@@ -288,8 +349,24 @@ function executeListItems(state: CadenceState, input: ListItemsInput): string {
   if (input.tag) items = items.filter(i => i.tags.some(t => normalize(t) === normalize(input.tag!)))
   if (input.type) items = items.filter(i => normalize(i.type ?? 'story') === normalize(input.type!))
   if (input.priority) items = items.filter(i => normalize(i.priority) === normalize(input.priority!))
+  if (input.unassigned) items = items.filter(i => i.assignees.length === 0)
+  if (input.hasDeps !== undefined) items = items.filter(i => ((i.deps?.length ?? 0) > 0) === input.hasDeps)
+  if (input.hasDeadline !== undefined) items = items.filter(i => Boolean(i.deadline?.date) === input.hasDeadline)
+  if (input.overdueOnly) {
+    const today = todayISO()
+    items = items.filter(i => Boolean(i.deadline?.date) && i.deadline!.date < today && !isDoneStatus(state, i.status))
+  }
+  if (input.dueSoon) items = items.filter(i => isDueSoon(state, i))
+  if (input.done !== undefined) items = items.filter(i => isDoneStatus(state, i.status) === input.done)
+  if (input.blocked) items = items.filter(i => i.status === 'blocked')
+  if (input.hasSp !== undefined) items = items.filter(i => (i.sp > 0) === input.hasSp)
+  if (input.hasStory !== undefined) items = items.filter(i => hasStoryContent(i) === input.hasStory)
+  if (input.hasAcceptance !== undefined) items = items.filter(i => ((i.criteria?.length ?? 0) > 0) === input.hasAcceptance)
+  if (input.dorComplete !== undefined) items = items.filter(i => checklistComplete(i.dor) === input.dorComplete)
+  if (input.dodComplete !== undefined) items = items.filter(i => checklistComplete(i.dod) === input.dodComplete)
+  if (input.depOnDone) items = items.filter(i => hasStaleDependency(state, i))
 
-  const max = Math.min(input.limit ?? 50, 200)
+  const max = Math.min(input.limit ?? 50, 1000)
   const truncated = items.length > max
   const lines = items.slice(0, max).map(i => itemLineFor(state, i))
   const header = `${items.length} item(s) trouve(s)${truncated ? `, ${max} affiche(s)` : ''} :`
@@ -303,17 +380,25 @@ function executeGetItem(state: CadenceState, input: { key?: string }): string {
 
   const criteria = (item.criteria ?? []).map((c, idx) => `  ${idx + 1}. GIVEN ${c.given} WHEN ${c.when} THEN ${c.then}`).join('\n')
   const deps = (item.deps ?? []).map(id => state.items.find(i => i.id === id)?.key ?? id).join(', ')
+  const deadline = deadlineFor(item)
   const lines = [
     `${item.key}, ${item.desc}`,
-    `Statut : ${statusLabelFor(state, item.status)} - Type : ${item.type ?? 'story'} - Priorite : ${item.priority} - ${item.sp} SP`,
+    `Statut : ${statusLabelFor(state, item.status)}${isDoneStatus(state, item.status) ? ' (termine)' : ''} - Type : ${item.type ?? 'story'} - Priorite : ${item.priority} - ${item.sp} SP`,
     `Client : ${clientNameFor(state, item.clientId)} - Sprint : ${sprintLabelFor(state, item.sprintId)} - Epic/Initiative : ${epicKeyFor(state, item.epicId)}`,
     `Assigne(s) : ${assigneeNamesFor(state, item.assignees)}`,
+    item.severity ? `Severite : ${item.severity}` : undefined,
+    // Ligne explicite meme en l'absence de deadline (au lieu d'omettre la ligne) : evite au chat
+    // de conclure a tort que le champ n'existe pas ou n'est jamais renseigne dans l'application.
+    `Date de livraison : ${deadline ?? '(non renseignee)'}`,
     item.tags.length > 0 ? `Tags : ${item.tags.join(', ')}` : undefined,
     item.role || item.need || item.benefit
       ? `User Story : en tant que ${item.role ?? '?'}, je souhaite ${item.need ?? '?'}, afin de ${item.benefit ?? '?'}`
       : undefined,
     criteria ? `Criteres d'acceptation :\n${criteria}` : undefined,
-    deps ? `Depend de : ${deps}` : undefined,
+    // Meme logique que la deadline ci-dessus : ligne toujours presente, jamais omise.
+    `Depend de : ${deps || '(aucune dependance)'}`,
+    item.dor?.length ? `Definition of Ready : ${item.dor.map(c => `${c.done ? '[fait]' : '[a faire]'} ${c.text}`).join(' ; ')}` : undefined,
+    item.dod?.length ? `Definition of Done : ${item.dod.map(c => `${c.done ? '[fait]' : '[a faire]'} ${c.text}`).join(' ; ')}` : undefined,
   ].filter((l): l is string => Boolean(l))
   return lines.join('\n')
 }
@@ -324,9 +409,17 @@ function executeListHierarchy(state: CadenceState, input: { level?: string; clie
   if (input.clientName) nodes = nodes.filter(n => normalize(clientNameFor(state, n.clientId)).includes(normalize(input.clientName!)))
 
   const lines = nodes.map(n => {
-    const childCount = state.items.filter(i => i.epicId === n.id).length
+    const children = state.items.filter(i => i.epicId === n.id)
+    const childrenSp = children.reduce((sum, i) => sum + i.sp, 0)
+    const deadline = deadlineFor(n)
+    // Ecart de SP (2026-08-10, prep. sous-chantier 3) : signale seulement si l'Epic a un SP propre
+    // renseigne ET qu'il differe de la somme de ses items - un Epic sans SP propre (n.sp undefined)
+    // n'est pas une anomalie, juste jamais chiffre au niveau Epic (cas courant, pas signale).
+    const spGap = n.sp !== undefined && n.sp !== childrenSp ? ` [ECART SP : ${n.sp} vs ${childrenSp} SP somme des items]` : ''
     return `${n.key} [${n.level}] ${n.desc}, client ${clientNameFor(state, n.clientId)}, sprint ${sprintLabelFor(state, n.sprintId)}, `
-      + `${n.sp ?? '?'} SP, ${childCount} item(s) rattache(s)${childCount === 0 ? ' [VIDE]' : ''}`
+      + `${n.sp ?? '?'} SP, ${children.length} item(s) rattache(s)${children.length === 0 ? ' [VIDE]' : ''}`
+      + (deadline ? `, date de livraison : ${deadline}` : '')
+      + spGap
   })
   return lines.join('\n') || 'Aucun Epic/Initiative.'
 }
@@ -337,7 +430,7 @@ function executeSearchBacklog(state: CadenceState, input: { query?: string; limi
   const matches = state.items.filter(i =>
     normalize(i.desc).includes(q) || normalize(i.role ?? '').includes(q) || normalize(i.need ?? '').includes(q) || normalize(i.benefit ?? '').includes(q)
   )
-  const max = Math.min(input.limit ?? 30, 200)
+  const max = Math.min(input.limit ?? 30, 1000)
   const lines = matches.slice(0, max).map(i => itemLineFor(state, i))
   return [`${matches.length} resultat(s) pour "${input.query}" :`, ...lines].join('\n')
 }
@@ -393,22 +486,32 @@ function visibleTags(state: CadenceState): string[] {
  * listes de noms et repondait "Reponse vide" ou demandait a l'utilisateur des infos qu'il aurait pu
  * recuperer lui-meme (contenu d'un item, Epics vides, SP d'un Epic...) - voir aussi le relevement du
  * plafond d'iterations ci-dessous dans la boucle agentique.
+ *
+ * Date du jour et statuts "termine" ajoutes 2026-08-10 (retour Julien, pre-travail du sous-chantier
+ * 3 "detection d'anomalies") : sans la date du jour, impossible de raisonner sur une deadline
+ * depassee ou proche (Claude n'a par defaut aucun acces a l'horloge systeme) ; sans la liste des
+ * statuts marques "termine" (KanbanCol.isDone, personnalisable en Reglages), le chat confondait
+ * "non termine" et "non assigne" en devinant sur le libelle du statut plutot qu'en s'appuyant sur ce
+ * flag. Les deux alimentent aussi les nouveaux filtres de list_items (done/overdueOnly).
  */
 function buildSystemPrompt(state: CadenceState, role: string): string {
   const clients = state.clients.map(c => c.name).join(', ') || '(aucun)'
   const sprints = state.sprints.map(s => `${s.label}${s.closed ? '' : ' (ouvert)'}`).join(', ') || '(aucun)'
   const statuses = state.kanbanCols.map(c => c.label).join(', ') || '(aucun)'
+  const doneStatuses = state.kanbanCols.filter(c => c.isDone).map(c => c.label).join(', ') || '(aucun statut marque "termine")'
   const epics = state.hierarchyNodes.slice(0, 40).map(n => `${n.key} (${n.desc})`).join(', ') || '(aucun)'
   const tags = visibleTags(state).join(', ') || '(aucun)'
 
   const lines = [
     "Tu es le Compagnon IA de Cadence, un outil de gestion de backlog agile (Scrum). Tu aides a la redaction et a la creation d'items du Backlog (User Stories, Bugs, Taches, Spikes) et d'Epics/Initiatives, et tu peux estimer leur charge de travail en Story Points. Reponds toujours en francais, dans un ton professionnel et concis.",
+    `Date du jour : ${todayISO()} (format AAAA-MM-JJ, comme les dates de livraison).`,
     `Clients existants : ${clients}`,
     `Sprints existants : ${sprints}`,
-    `Statuts Kanban existants : ${statuses}`,
+    `Statuts Kanban existants : ${statuses}. Parmi eux, statut(s) marque(s) "termine" : ${doneStatuses} - pour toute question de type "termine"/"non termine", base-toi sur cette liste (ou le filtre \`done\` de list_items), jamais sur une supposition a partir du libelle.`,
     `Epics/Initiatives existants (40 premiers) : ${epics}`,
     `Tags suggeres (Reglages) : ${tags}. Reutilise un tag existant de cette liste (memes accents/casse) quand il correspond, plutot que d'en creer un nouveau proche d'un existant (ex. "Perf" alors que "Performance" existe deja).`,
     "Avant de creer/modifier un item ou de repondre a une question sur le contenu du Backlog, utilise les outils de lecture (list_items, get_item, list_hierarchy, search_backlog) pour recuperer les informations dont tu as besoin, plutot que de les demander a l'utilisateur ou de les supposer. Pour une demande en masse (ex. \"tous les Epics vides\"), commence par list_hierarchy pour les identifier, puis traite-les un par un avec les outils d'ecriture.",
+    "list_items accepte des filtres dedies pour les questions courantes plutot que de tout lister et compter a la main : `unassigned` (sans assigne), `hasDeps`/`hasDeadline` (avec ou sans dependance/date de livraison), `overdueOnly` (date de livraison depassee et pas termine), `dueSoon` (date de livraison dans les 7 prochains jours et pas termine), `done` (termine ou non, voir statuts ci-dessus), `blocked` (statut Bloque), `hasSp` (avec ou sans Story Points), `hasStory` (role/besoin/benefice renseignes), `hasAcceptance` (au moins un critere d'acceptation), `dorComplete`/`dodComplete` (Definition of Ready/Done entierement cochee), `depOnDone` (au moins une dependance vers un item deja termine, potentiellement obsolete). Pour un balayage complet du Backlog (audit, detection d'anomalies), passe `limit: 1000` explicitement (defaut 50). get_item detaille toujours la date de livraison et les dependances d'un item, meme absentes (jamais silencieusement omises). list_hierarchy signale un ecart entre le SP propre d'un Epic/Initiative et la somme des SP de ses items.",
     "Quand une demande implique de creer ou modifier un item/Epic/Initiative, utilise les outils a ta disposition plutot que de te contenter de decrire le resultat en texte. Designe toujours un client, un sprint, un statut ou un Epic par son NOM ou LIBELLE exact tel que liste ci-dessus, jamais par un identifiant technique interne.",
     "Estimation en Story Points (suite de Fibonacci : 1, 2, 3, 5, 8, 13, 21) : commence par get_item pour connaitre le titre, la description et les dependances de l'item a estimer, puis si besoin search_backlog ou list_items (meme Epic, tags similaires) pour trouver des items deja estimes et estimer PAR COMPARAISON plutot que dans l'absolu. Applique le resultat via update_item (champ sp) plutot que de te contenter de l'annoncer en texte.",
   ]

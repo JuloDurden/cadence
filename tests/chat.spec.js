@@ -256,4 +256,129 @@ test.describe('Compagnon IA - panneau de chat (v0.98)', () => {
     await expect(page.locator('[data-testid="chat-typing-indicator"]')).toHaveCount(0);
   });
 
+  // v0.98.3 (2026-08-10) : sous-chantier 3 (détection d'anomalies) - 12 commandes slash (données
+  // dans data/chatCommands.ts, expansion purement côté client, voir ChatContext.tsx), popover d'aide
+  // et infobulle rotative dans le panneau (ChatPanel.tsx). Voir aussi CHANGELOG et
+  // docs/roadmap-v1.md, Phase 6.
+
+  test('une commande slash affiche la commande courte dans la bulle mais envoie le prompt complet à l\'API', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    let sentBody;
+    await page.route('**/api/ai-chat', async r => {
+      sentBody = r.request().postDataJSON();
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reply: 'Aucun item concerné.', toolCalls: [] }) });
+    });
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('/points');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    await expect(page.locator('[data-testid="chat-message-user"]')).toHaveText('/points');
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Aucun item concerné.');
+
+    const lastSent = sentBody.messages[sentBody.messages.length - 1].content;
+    expect(lastSent).not.toBe('/points');
+    expect(lastSent).toContain('Story Points');
+  });
+
+  test('/audit envoie un prompt qui couvre toutes les catégories d\'anomalies', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    let sentBody;
+    await page.route('**/api/ai-chat', async r => {
+      sentBody = r.request().postDataJSON();
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reply: '## Sans Story Points\n\nAucun item concerné.', toolCalls: [] }) });
+    });
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('/audit');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    await expect(page.locator('[data-testid="chat-message-user"]')).toHaveText('/audit');
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Sans Story Points');
+
+    const lastSent = sentBody.messages[sentBody.messages.length - 1].content;
+    expect(lastSent).toContain('Story Points');
+    expect(lastSent).toContain('bloques');
+    expect(lastSent).toContain('sprint en cours');
+  });
+
+  test('un texte qui ressemble à une commande sans correspondance exacte part tel quel', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    let sentBody;
+    await page.route('**/api/ai-chat', async r => {
+      sentBody = r.request().postDataJSON();
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ reply: 'Réponse.', toolCalls: [] }) });
+    });
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('/points manquants sur le sprint 2');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Réponse.');
+
+    const lastSent = sentBody.messages[sentBody.messages.length - 1].content;
+    expect(lastSent).toBe('/points manquants sur le sprint 2');
+  });
+
+  test('le bouton Aide affiche le popover des commandes rapides, un clic en dehors le referme', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+
+    const popover = page.locator('[data-testid="chat-commands-help"]');
+    await expect(popover).not.toBeVisible();
+
+    await page.locator('[data-testid="chat-help-btn"]').click();
+    await expect(popover).toBeVisible();
+    await expect(popover).toContainText('/audit');
+    await expect(popover).toContainText('/blocked');
+
+    await page.mouse.click(10, 10);
+    await expect(popover).not.toBeVisible();
+  });
+
+  test('cliquer sur l\'astuce insère une commande valide dans le champ de saisie', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+
+    // Ne pas comparer à un texte d'astuce lu séparément avant le clic : tipIndex peut changer entre
+    // la lecture et le clic (re-render déclenché entre-temps), rendant une comparaison exacte
+    // intrinsèquement instable. On vérifie plutôt que le clic insère bien UNE commande valide.
+    const tip = page.locator('[data-testid="chat-tip"]');
+    await expect(tip).toBeVisible();
+
+    await tip.click();
+    const value = await page.locator('[data-testid="chat-input"]').inputValue();
+    expect(value).toMatch(/^\/[a-z]+$/);
+  });
+
+  // Bug applicatif trouvé et corrigé le 2026-08-10 (pas un test flaky) : ChatPanel est toujours
+  // monté (App.tsx), même quand `open` vaut false, donc ses hooks tournent dès le chargement de
+  // l'appli, avant tout clic sur le bouton Compagnon IA. L'effet de rotation se déclenchait une 1re
+  // fois AU MONTAGE (avec `open` encore à false), pas seulement à la vraie ouverture - et en
+  // StrictMode (mode dev, celui de `npm run dev` utilisé par les tests), React rejoue ce montage une
+  // 2e fois. Corrigé dans ChatPanel.tsx (comparaison à la valeur précédente via refs, insensible au
+  // nombre de fois où StrictMode rejoue l'effet au montage). Reproduit et confirmé avec un script
+  // Playwright autonome (8 lancers : 2 dérives avec l'ancien code, 0 avec le correctif).
+  //
+  // Le test d'origine ajoutait en plus une assertion "l'astuce ne bouge pas pendant 9,5s d'inactivité
+  // après l'ouverture" - retirée (retour Julien, 2026-08-10) : elle capturait `before` immédiatement
+  // après l'ouverture, sans laisser le temps à LA SEULE rotation légitime (celle déclenchée par le
+  // passage à `open: true`) de s'appliquer, ce qui pouvait capter une valeur transitoire puis la voir
+  // "changer" un instant plus tard - un faux positif du test, pas un vrai comportement observable par
+  // un utilisateur. L'assertion qui compte reste déterministe et suffisante : l'astuce change bien à
+  // la réduction/agrandissement.
+  test('l\'astuce change à la réduction/agrandissement du panneau', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+
+    const tip = page.locator('[data-testid="chat-tip"]');
+    await expect(tip).toBeVisible();
+    const before = await tip.textContent();
+
+    await page.locator('[data-testid="chat-panel"] button[aria-label="Réduire"]').click();
+    await page.locator('[data-testid="chat-panel-collapsed"]').click();
+
+    const after = await page.locator('[data-testid="chat-tip"]').textContent();
+    expect(after).not.toBe(before);
+  });
+
 });

@@ -739,6 +739,11 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  // Sous-chantier 3 (detection d'anomalies), 2026-08-10 : quand `content` est une commande slash
+  // tapee par l'utilisateur (ex. "/points", voir data/chatCommands.ts), `apiContent` porte le
+  // prompt complet reellement envoye a l'API - `content` reste l'affichage court dans sa bulle.
+  // Absent pour un message normal (l'API recoit alors `content` tel quel).
+  apiContent?: string
   toolCalls?: AiToolCall[]
   error?: boolean
 }

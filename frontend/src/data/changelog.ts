@@ -15,7 +15,16 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.98.2',date:'10 Août 2026',dateISO:'2026-08-10',title:'Phase 6 (roadmap v1) - Compagnon IA : rendu markdown des réponses, indicateur de saisie animé',current:true,changes:[
+  {version:'v0.98.3',date:'10 Août 2026',dateISO:'2026-08-10',title:'Phase 6 (roadmap v1) - Compagnon IA, sous-chantier 3 : détection d\'anomalies via le chat',current:true,changes:[
+    {tag:'fix', text:'Plusieurs champs affichés dans ItemModal (date de livraison, sévérité, MoSCoW, WSJF, RICE sur les items ; date de livraison sur les Epics/Initiatives ; statut "terminé" des colonnes Kanban) n\'étaient portés par aucun type ni outil côté chat : il niait leur existence même quand on lui demandait explicitement le détail d\'un item qui en avait un. Tous ajoutés ; get_item affiche désormais toujours la date de livraison et les dépendances d\'un item, y compris "(non renseignée)"/"(aucune dépendance)" plutôt que d\'omettre la ligne'},
+    {tag:'feat', text:'Date du jour et liste des statuts Kanban marqués "terminé" injectées dans le prompt système : le chat peut désormais raisonner sur une deadline dépassée/proche et distinguer fiablement "terminé" de "non terminé" sans deviner sur le libellé du statut'},
+    {tag:'feat', text:'8 nouveaux filtres sur l\'outil de lecture list_items, pour répondre directement aux questions de détection d\'anomalies plutôt que de tout lister et compter à la main : sans Story Points, sans User Story, sans critère d\'acceptation, Definition of Ready/Done incomplète, deadline proche (7 jours), statut Bloqué, dépendance vers un item déjà terminé. Plafond du nombre d\'items renvoyés relevé de 200 à 1000 pour permettre un balayage complet du Backlog'},
+    {tag:'feat', text:'L\'outil de lecture list_hierarchy signale désormais un écart entre le SP propre d\'un Epic/Initiative et la somme des SP de ses items rattachés'},
+    {tag:'feat', text:'12 commandes rapides dans le chat (/points, /story, /acceptance, /ready, /done, /assign, /deadline, /blocked, /epic, /sprint, /stale), chacune un raccourci vers une des détections ci-dessus, plus /audit qui les lance toutes et ressort une synthèse structurée par catégorie. La bulle affiche la commande telle que tapée (ex. "/audit"), le détail de la demande part à l\'assistant en arrière-plan'},
+    {tag:'ux', text:'Icône d\'aide dans l\'en-tête du panneau de chat, avec la liste des commandes rapides et leur description ; astuce affichée au-dessus du champ de saisie, qui change à chaque ouverture/fermeture ou réduction/agrandissement du panneau (cliquer dessus préremplit la commande)'},
+    {tag:'test', text:'Vérifié en conditions réelles : /audit sur un Backlog réel'},
+  ]},
+  {version:'v0.98.2',date:'10 Août 2026',dateISO:'2026-08-10',title:'Phase 6 (roadmap v1) - Compagnon IA : rendu markdown des réponses, indicateur de saisie animé',current:false,changes:[
     {tag:'feat', text:'Les réponses de l\'assistant (tableaux, gras, listes, titres, code, liens...) sont désormais rendues en markdown plutôt qu\'en texte brut. Un message envoyé par l\'utilisateur reste affiché tel que tapé, sans jamais être réinterprété'},
     {tag:'ux', text:'Le texte fixe "Le Compagnon IA rédige..." affiché pendant l\'attente d\'une réponse est remplacé par 3 points animés, pour distinguer une réponse encore en cours d\'une réponse bloquée'},
   ]},

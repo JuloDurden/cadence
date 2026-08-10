@@ -229,14 +229,27 @@ export const LIST_ITEMS_TOOL: AnthropicTool = {
     type: 'object',
     properties: {
       sprint: { type: 'string', description: 'Libelle du sprint, ou "current" pour le sprint en cours' },
-      status: { type: 'string', description: 'Libelle du statut Kanban' },
+      status: { type: 'string', description: 'Libelle du statut Kanban exact' },
       clientName: { type: 'string' },
       epicKey: { type: 'string', description: "Cle de l'Epic ou de l'Initiative parent" },
       assignee: { type: 'string', description: "Nom (ou partie du nom) d'un membre de l'equipe" },
       tag: { type: 'string' },
       type: { type: 'string', description: 'story, bug, task ou spike' },
       priority: { type: 'string', description: 'critical, high, medium ou low' },
-      limit: { type: 'number', description: 'Par defaut 50, max 200' },
+      unassigned: { type: 'boolean', description: 'true pour ne garder que les items sans aucun assigne' },
+      hasDeps: { type: 'boolean', description: 'true pour ne garder que les items ayant au moins une dependance, false pour ceux sans aucune' },
+      hasDeadline: { type: 'boolean', description: 'true pour ne garder que les items avec une date de livraison renseignee, false pour ceux sans' },
+      overdueOnly: { type: 'boolean', description: "true pour ne garder que les items dont la date de livraison est deja passee et le statut pas encore termine" },
+      dueSoon: { type: 'boolean', description: 'true pour ne garder que les items dont la date de livraison tombe dans les 7 prochains jours (incluse) et le statut pas encore termine' },
+      done: { type: 'boolean', description: 'true pour ne garder que les items dans un statut marque "termine" (colonne Kanban isDone), false pour les non-termines - a utiliser plutot que de filtrer sur `status` par libelle pour ce genre de question' },
+      blocked: { type: 'boolean', description: 'true pour ne garder que les items actuellement au statut Bloque' },
+      hasSp: { type: 'boolean', description: 'true pour ne garder que les items avec des Story Points (> 0), false pour ceux a 0 SP' },
+      hasStory: { type: 'boolean', description: "true pour ne garder que les items dont le role/besoin/benefice (User Story) est renseigne, false pour ceux ou les 3 champs sont vides - a combiner avec type: \"story\" pour ne cibler que les User Stories" },
+      hasAcceptance: { type: 'boolean', description: "true pour ne garder que les items ayant au moins un critere d'acceptation, false pour ceux sans aucun" },
+      dorComplete: { type: 'boolean', description: 'true pour ne garder que les items dont la Definition of Ready est complete (toutes les cases cochees), false pour ceux vides ou incomplets' },
+      dodComplete: { type: 'boolean', description: 'true pour ne garder que les items dont la Definition of Done est complete (toutes les cases cochees), false pour ceux vides ou incomplets' },
+      depOnDone: { type: 'boolean', description: "true pour ne garder que les items ayant au moins une dependance pointant vers un item deja termine (dependance potentiellement obsolete)" },
+      limit: { type: 'number', description: 'Par defaut 50, max 1000 - passer explicitement une limite haute (ex. 1000) pour un balayage complet du Backlog (audit, detection d\'anomalies)' },
     },
     additionalProperties: false,
   },
@@ -244,7 +257,7 @@ export const LIST_ITEMS_TOOL: AnthropicTool = {
 
 export const GET_ITEM_TOOL: AnthropicTool = {
   name: 'get_item',
-  description: "Detail complet d'un item du Backlog (User Story role/besoin/benefice, criteres d'acceptation, dependances...) a partir de sa Cle. A utiliser avant toute estimation de SP ou modification pour connaitre le contenu exact de l'item.",
+  description: "Detail complet d'un item du Backlog (User Story role/besoin/benefice, criteres d'acceptation, dependances, date de livraison, severite, DoR/DoD...) a partir de sa Cle. A utiliser avant toute estimation de SP ou modification pour connaitre le contenu exact de l'item.",
   input_schema: {
     type: 'object',
     properties: { key: { type: 'string', description: 'Cle de l\'item, ex. "FAX-012"' } },
@@ -255,7 +268,7 @@ export const GET_ITEM_TOOL: AnthropicTool = {
 
 export const LIST_HIERARCHY_TOOL: AnthropicTool = {
   name: 'list_hierarchy',
-  description: "Liste les Epics et Initiatives avec, pour chacun, son SP et son nombre d'items rattaches - a utiliser pour reperer les Epics vides (0 item rattache) avant une demande en masse.",
+  description: "Liste les Epics et Initiatives avec, pour chacun, son SP, son nombre d'items rattaches, et un signalement si son SP ne correspond pas a la somme des SP de ses items - a utiliser pour reperer les Epics vides (0 item rattache) avant une demande en masse, ou un ecart de SP a corriger.",
   input_schema: {
     type: 'object',
     properties: {
@@ -273,7 +286,7 @@ export const SEARCH_BACKLOG_TOOL: AnthropicTool = {
     type: 'object',
     properties: {
       query: { type: 'string' },
-      limit: { type: 'number', description: 'Par defaut 30, max 200' },
+      limit: { type: 'number', description: 'Par defaut 30, max 1000' },
     },
     required: ['query'],
     additionalProperties: false,

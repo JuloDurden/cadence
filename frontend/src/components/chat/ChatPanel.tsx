@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 import { useChat } from '../../context/ChatContext'
+import { CHAT_COMMANDS } from '../../data/chatCommands'
 import type { AiToolCall, ChatMessage } from '../../types'
 
 // Phase 6 (roadmap v1), Compagnon IA, sous-chantier 1, 2026-08-08 : panneau de chat global, monté
@@ -46,6 +47,45 @@ const SVG = {
   detach:    '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 14v1"/><path d="M15 19v2"/><path d="M15 3v2"/><path d="M15 9v1"/>',
   dock:      '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/><path d="m8 9 3 3-3 3"/>',
   check:     '<path d="M20 6 9 17l-5-5"/>',
+  circleHelp: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+}
+
+// Sous-chantier 3 (detection d'anomalies), 2026-08-10 : commandes slash (data/chatCommands.ts) -
+// popover d'aide (liste complete, a la demande) + infobulle rotative (decouverte passive), les 2
+// choisis par Julien plutot qu'une seule des deux pistes proposees.
+function useClickOutside(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [ref, onClose])
+}
+
+function CommandsHelpPopover({ onClose }: { onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useClickOutside(ref, onClose)
+  return (
+    <div
+      ref={ref} data-testid="chat-commands-help"
+      style={{
+        position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 300, maxHeight: 360, overflowY: 'auto',
+        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+        boxShadow: '0 8px 24px rgba(0,0,0,.2)', zIndex: 10002, padding: '10px 0',
+      }}
+    >
+      <div style={{ padding: '0 12px 8px', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        Commandes rapides
+      </div>
+      {CHAT_COMMANDS.map(c => (
+        <div key={c.cmd} style={{ padding: '5px 12px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'ui-monospace, Menlo, monospace' }}>{c.cmd}</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.4 }}>{c.description}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // Rendu markdown des bulles assistant (2026-08-10, 8e retour Julien) : les réponses du Compagnon
@@ -243,6 +283,8 @@ export function ChatPanel() {
   const { open, closePanel, messages, sending, sendMessage, clearConversation } = useChat()
   const [input, setInput] = useState('')
   const [prefs, setPrefs] = useState<PanelPrefs>(loadPanelPrefs)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [tipIndex, setTipIndex] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -261,6 +303,34 @@ export function ChatPanel() {
 
   useEffect(() => {
     if (open && !prefs.collapsed) setTimeout(() => inputRef.current?.focus(), 30)
+  }, [open, prefs.collapsed])
+
+  // Infobulle rotative (2026-08-10, sous-chantier 3) : decouverte passive des commandes, en plus du
+  // popover d'aide a la demande (voir CommandsHelpPopover). D'abord un minuteur fixe (9s), juge trop
+  // frequent - "j'ai peur que le roulement fasse saturer" - et remplace (retour Julien apres test
+  // reel) par un changement d'astuce a chaque ouverture/fermeture ou reduction/agrandissement du
+  // panneau, jamais pendant qu'il reste ouvert sans y toucher.
+  //
+  // Bug reel trouve apres coup (pas juste un test flaky) : ChatPanel est toujours monte (App.tsx),
+  // meme quand `open` vaut false - ses hooks tournent donc des le chargement de l'appli, avant tout
+  // clic sur le bouton Compagnon IA. Un simple `useEffect(() => setTipIndex(...), [open, collapsed])`
+  // se declenche donc une premiere fois AU MONTAGE (avec `open` encore a false), pas seulement a la
+  // vraie ouverture - et en StrictMode (mode dev), React rejoue ce montage une deuxieme fois, donc
+  // l'astuce avait deja avance de 2 avant meme le premier clic. Le vrai passage a `open: true`
+  // avancait alors une 3e fois, avec un delai variable selon la machine - d'ou l'astuce parfois
+  // surprise "encore en train de changer" juste apres l'ouverture (observe en test reel par Julien,
+  // jamais reproduit en environnement isole car mon script de repro lisait toujours trop tard pour
+  // capter l'etat transitoire). Fix : comparer a la valeur precedente reellement vue (refs), pas a un
+  // simple booleen "premier passage" - insensible au nombre de fois ou StrictMode rejoue l'effet au
+  // montage, puisque `open`/`collapsed` n'ont, eux, pas change entre ces rejeux.
+  const prevOpenRef = useRef(open)
+  const prevCollapsedRef = useRef(prefs.collapsed)
+  useEffect(() => {
+    if (prevOpenRef.current !== open || prevCollapsedRef.current !== prefs.collapsed) {
+      setTipIndex(i => (i + 1) % CHAT_COMMANDS.length)
+    }
+    prevOpenRef.current = open
+    prevCollapsedRef.current = prefs.collapsed
   }, [open, prefs.collapsed])
 
   if (!open) return null
@@ -390,6 +460,15 @@ export function ChatPanel() {
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Aide à la rédaction et à la création d'items</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ position: 'relative', display: 'flex' }}>
+            <button
+              onClick={() => setHelpOpen(o => !o)} data-testid="chat-help-btn" title="Commandes rapides" aria-label="Aide"
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+            >
+              <Svg d={SVG.circleHelp} size={15} />
+            </button>
+            {helpOpen && <CommandsHelpPopover onClose={() => setHelpOpen(false)} />}
+          </div>
           {messages.length > 0 && (
             <button
               onClick={clearConversation} data-testid="chat-clear-btn" title="Effacer" aria-label="Effacer"
@@ -431,24 +510,36 @@ export function ChatPanel() {
         )}
       </div>
 
-      <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'flex-end', flexShrink: 0 }}>
-        <textarea
-          ref={inputRef}
-          data-testid="chat-input"
-          rows={1}
-          placeholder="Écrire un message..."
-          value={input}
-          onChange={e => { setInput(e.target.value); autosizeInput(e.target) }}
-          onKeyDown={handleKeyDown}
+      <div style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        <button
+          type="button" onClick={() => setInput(CHAT_COMMANDS[tipIndex].cmd)} data-testid="chat-tip"
+          title="Cliquer pour utiliser cette commande"
           style={{
-            flex: 1, resize: 'none', borderRadius: 8, border: '1px solid var(--border)', padding: '8px 10px',
-            fontSize: 12.5, fontFamily: 'inherit', background: 'var(--bg)', color: 'var(--text)',
-            minHeight: 34, maxHeight: INPUT_MAX_HEIGHT, overflowY: 'auto',
+            display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+            padding: '6px 14px 0', fontSize: 11, color: 'var(--text-muted)',
           }}
-        />
-        <button className="hdr-btn primary" data-testid="chat-send-btn" disabled={!input.trim() || sending} onClick={handleSend}>
-          Envoyer
+        >
+          Astuce : <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontWeight: 700 }}>{CHAT_COMMANDS[tipIndex].cmd}</span> - {CHAT_COMMANDS[tipIndex].description}
         </button>
+        <div style={{ padding: '8px 14px 12px', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <textarea
+            ref={inputRef}
+            data-testid="chat-input"
+            rows={1}
+            placeholder="Écrire un message... (ou une commande, ex. /audit)"
+            value={input}
+            onChange={e => { setInput(e.target.value); autosizeInput(e.target) }}
+            onKeyDown={handleKeyDown}
+            style={{
+              flex: 1, resize: 'none', borderRadius: 8, border: '1px solid var(--border)', padding: '8px 10px',
+              fontSize: 12.5, fontFamily: 'inherit', background: 'var(--bg)', color: 'var(--text)',
+              minHeight: 34, maxHeight: INPUT_MAX_HEIGHT, overflowY: 'auto',
+            }}
+          />
+          <button className="hdr-btn primary" data-testid="chat-send-btn" disabled={!input.trim() || sending} onClick={handleSend}>
+            Envoyer
+          </button>
+        </div>
       </div>
 
       {prefs.mode === 'floating' && (

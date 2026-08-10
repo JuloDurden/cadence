@@ -12,30 +12,43 @@ import { FastifyInstance } from 'fastify'
 // deux runtimes), donc pas de "vraie" duplication évitable ici, juste la continuation d'un choix
 // déjà fait ailleurs. À tenir manuellement à jour si ces types changent côté frontend.
 
+// `deadline`/`severity`/`moscow`/`wsjf`/`rice` ajoutes 2026-08-10 (retour Julien, pre-travail du
+// sous-chantier 3 "detection d'anomalies") : ces champs existent bien dans Item (frontend/src/
+// types/index.ts) et sont affiches dans ItemModal.tsx, mais n'avaient jamais ete portes ici - le
+// chat (routes/ai.ts) n'avait donc aucun moyen de savoir qu'un item avait une deadline, meme quand
+// Julien lui posait la question directement (ex. AGA-030). Meme constat pour KanbanCol.isDone
+// ci-dessous : sans lui, aucun moyen fiable de distinguer un statut "termine" d'un statut en cours
+// autrement qu'en devinant sur le libelle.
 export interface Item {
   id: string; key: string; desc: string; sp: number; status: string
   clientId: string; sprintId: string | null; priority: string
   assignees: string[]; tags: string[]
   type?: string
+  severity?: string
   epicId?: string | null
   role?: string; need?: string; benefit?: string
   criteria?: { id: string; given: string; when: string; then: string }[]
   deps?: string[]
   dor?: { id: string; text: string; done: boolean }[]
   dod?: { id: string; text: string; done: boolean }[]
+  deadline?: { date: string; type: string }
+  moscow?: string
+  wsjf?: { businessValue: number; timeCriticality: number; riskReduction: number }
+  rice?: { reach: number; impact: number; confidence: number; effort: number }
   createdAt: string
 }
 
 export interface HierarchyNode {
   id: string; key: string; level: string; parentId: string | null; desc: string
   clientId?: string; sprintId?: string | null; sp?: number; status?: string
+  deadline?: { date: string; type: string }
   createdAt: string
 }
 
 export interface Sprint { id: string; label: string; closed: boolean; active?: boolean }
 export interface TeamMember { id: string; name: string; linkedUserId?: string }
 export interface Client { id: string; name: string; prefix: string }
-export interface KanbanCol { id: string; label: string; isDefault?: boolean }
+export interface KanbanCol { id: string; label: string; isDone?: boolean; isDefault?: boolean }
 
 export interface CadenceState {
   items: Item[]
