@@ -238,10 +238,16 @@ export interface ItemsFirstHierarchy<T> {
  * être rattaché directement à une Initiative (`item.epicId === initiative.id`, sans Epic) —
  * voir `getItemInitiativeId()`. Premier usage : SprintReviewPage.tsx, section "Incrément
  * livré", regroupement par Epic/Initiative.
+ *
+ * `getEpicId` optionnel (2026-08-10, sous-chantier 4 Auto-planning, même raison que
+ * `groupItemsByEpic()` ci-dessus) : AutoPlanningPage.tsx mélange des `Item` et des
+ * `VirtualItem` dans une même liste, ce dernier n'ayant pas de champ `epicId` du tout : passer
+ * un extracteur explicite évite d'imposer ce champ à tous les types consommateurs.
  */
-export function buildItemsFirstHierarchy<T extends { epicId?: string | null }>(
+export function buildItemsFirstHierarchy<T>(
   items: T[],
   hierarchyNodes: HierarchyNode[],
+  getEpicId: (item: T) => string | null | undefined = (item) => (item as { epicId?: string | null }).epicId,
 ): ItemsFirstHierarchy<T> {
   const epicById = new Map(hierarchyNodes.filter(n => n.level === 'epic').map(n => [n.id, n]))
   const initiativeById = new Map(hierarchyNodes.filter(n => n.level === 'initiative').map(n => [n.id, n]))
@@ -251,7 +257,7 @@ export function buildItemsFirstHierarchy<T extends { epicId?: string | null }>(
   const orphans: T[] = []
 
   for (const item of items) {
-    const eid = item.epicId
+    const eid = getEpicId(item)
     const epic = eid ? epicById.get(eid) : undefined
     const initiative = eid ? initiativeById.get(eid) : undefined
     if (epic) {
@@ -270,7 +276,7 @@ export function buildItemsFirstHierarchy<T extends { epicId?: string | null }>(
   const standaloneEpicOrder: string[] = []
   const handledEpicIds = new Set<string>()
   for (const item of items) {
-    const eid = item.epicId
+    const eid = getEpicId(item)
     if (!eid) continue
     const epic = epicById.get(eid)
     if (epic) {

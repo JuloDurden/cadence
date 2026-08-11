@@ -7,7 +7,7 @@ import { effectiveCapacity } from '../utils/sprintCapacity'
 import { fmtDate, fmtDateShort, localIso } from '../utils/dates'
 import { topoSort, computeMoveBadge, isItemHighlighted, nextScenarioIdx, isSlotNonEmpty } from '../utils/autoPlanning'
 import { withHistoryEntry } from '../utils/history'
-import { groupItemsByEpic } from '../utils/hierarchyScore'
+import { buildItemsFirstHierarchy, getItemInitiativeId, getHierarchyNodeSP } from '../utils/hierarchyScore'
 import { canExploreWhatIf, canApplyScenario } from '../utils/permissions'
 import type { Item, Sprint, Scenario, ScenarioSlot, ScenarioViolation, VirtualItem, ScenarioItemOverride, HistoryEntry, HierarchyNode } from '../types'
 
@@ -38,15 +38,32 @@ function Ico({ d, size = 13, stroke = 'currentColor' }: { d: string; size?: numb
 }
 
 // ── Criteria config ────────────────────────────────────────────────────────
-type CritId = 'priority' | 'client' | 'socle' | 'debt'
+// `epic` ajouté 2026-08-10 (sous-chantier 4, roadmap v1 Phase 6) : jusqu'ici la génération de
+// scénario ignorait complètement Epics/Initiatives, deux items d'un même Epic pouvaient
+// atterrir dans des sprints sans rapport. Critère "supplémentaire" au sens de Julien - pas une
+// contrainte dure comme les dépendances - qui vient s'ajouter aux 4 existants sans les
+// remplacer, avec le même mécanisme (case à cocher + ordre par glisser-déposer).
+type CritId = 'priority' | 'client' | 'socle' | 'debt' | 'epic'
 const CRIT_DEFS: Record<CritId, { title: string; desc: string }> = {
   priority: { title: 'Priorité',            desc: 'Les items critiques et high sont placés en premier.' },
   client:   { title: 'Importance client',   desc: 'Les clients les plus importants remplissent les premiers sprints.' },
   socle:    { title: 'Socle commun en tête',desc: 'Les items sans client associé sont prioritaires.' },
   debt:     { title: 'Dette technique',     desc: 'Les Bugs sont placés en priorité.' },
+  epic:     { title: 'Cohésion Epic/Initiative', desc: 'Les items d\'un même Epic ou d\'une même Initiative restent regroupés, dans le même sprint autant que possible.' },
 }
-const CRIT_ORDER: CritId[] = ['priority', 'client', 'socle', 'debt']
+const CRIT_ORDER: CritId[] = ['priority', 'client', 'socle', 'debt', 'epic']
 const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+
+// Migration des scénarios déjà persistés (localStorage) créés avant l'ajout d'un critère : sans
+// ceci, `sc.criteriaOrder` (figé au moment de la création du scénario) n'aurait jamais le nouvel
+// id, et la case à cocher correspondante n'apparaîtrait jamais dans la liste (qui itère
+// `sc.criteriaOrder`, pas la constante `CRIT_ORDER` - voir plus bas). Ajouté désactivé par
+// défaut : un scénario existant ne change pas de comportement tant que Julien ne l'active pas
+// lui-même.
+function ensureAllCriteria(sc: Scenario): Scenario {
+  const missing = CRIT_ORDER.filter(c => !sc.criteriaOrder.includes(c))
+  return missing.length === 0 ? sc : { ...sc, criteriaOrder: [...sc.criteriaOrder, ...missing] }
+}
 
 // ── Scenario colors palette ────────────────────────────────────────────────
 const SCENARIO_COLORS = ['#378ADD','#7F77DD','#1D9E75','#D85A30','#D4537E','#BA7517']
@@ -132,7 +149,7 @@ export function AutoPlanningPage() {
 
   if (_scenarios.length === 0) {
     const current = makeCurrentScenario()
-    const persisted = loadPersistedScenarios()
+    const persisted = loadPersistedScenarios().map(ensureAllCriteria)
     _scenarios = [current, ...persisted]
     const savedActiveId = localStorage.getItem(STORAGE_KEY_ACTIVE)
     _activeScenarioId = savedActiveId && _scenarios.some(s => s.id === savedActiveId) ? savedActiveId : 'current'
@@ -312,7 +329,127 @@ export function AutoPlanningPage() {
       if (succs.length === 1) placeOne(succs[0])
     }
 
+    // Placement atomique des groupes Epic/Initiative (2026-08-11, retour Julien après un 2e essai
+    // réel) : même avec le tri qui les regroupe déjà (sortItemsForScenario), le remplissage restait
+    // item par item ci-dessous (placeOne) - un groupe qui ne tenait plus tout entier dans le sprint
+    // en cours d'était placé quand même partiellement (premier arrivé, premier casé), coupé en 2
+    // même quand des items SANS Epic, plus petits, auraient pu combler exactement ce qui restait à
+    // la place. Avant la boucle habituelle, on tente donc de caser chaque groupe D'UN SEUL BLOC dans
+    // le premier sprint qui a la place pour la totalité de son SP - s'il ne rentre nulle part dans
+    // la fenêtre de recherche (200 sprints), on laisse ses membres non placés : ils repassent par
+    // placeOne() ci-dessous comme avant (même filet de sécurité qu'aujourd'hui, y compris la
+    // violation "capacité insuffisante"). Les items SANS Epic ne sont jamais concernés ici, ils
+    // gardent leur logique actuelle et viennent naturellement combler les trous laissés par un
+    // groupe basculé au sprint suivant.
+    function placeGroupAtomically(groupItems: Item[]): boolean {
+      const totalSp = groupItems.reduce((s, it) => s + it.sp, 0)
+      const minIdx = Math.max(startPlaceIdx, ...groupItems.map(it =>
+        (it.deps ?? []).reduce((mx, dk) => placedAt[dk] !== undefined ? Math.max(mx, placedAt[dk] + 1) : mx, 0)
+      ))
+      for (let i = minIdx; i < minIdx + 200; i++) {
+        ensureSlot(i)
+        const sl   = slots[i]
+        const used = sl.used + sl.assigned.reduce((s, it) => s + it.sp, 0)
+        if (used + totalSp <= sl.cap) {
+          for (const it of groupItems) {
+            sl.assigned.push(it); placedAt[it.key] = i; placedSet.add(it.key)
+            const hasDeadline = !!it.deadline?.date && it.deadline.type !== 'none'
+            if (hasDeadline && sl.endDate && it.deadline!.date < sl.endDate)
+              violations.push({ key: it.key, desc: it.desc, type: 'deadline', detail: `deadline ${fmtDate(it.deadline!.date)}, placé en Sprint ${sl.number}` })
+          }
+          return true
+        }
+      }
+      return false
+    }
+
+    // Niveau Initiative (2026-08-11, retour Julien après un 3e essai réel) : chaque Epic reste
+    // bien entier (voir passe ci-dessous), mais plusieurs Epics d'une même Initiative pouvaient
+    // encore atterrir dans des sprints différents - l'Initiative apparaît "coupée" même si aucun
+    // Epic individuel ne l'est. Règle proposée par Julien, reprise telle quelle : si la somme de
+    // TOUS les items de l'Initiative (ses Epics ET ses items rattachés directement) tient dans un
+    // seul sprint, on la tente d'un bloc (réutilise placeGroupAtomically, même mécanisme que pour
+    // un Epic) ; sinon on la laisse se répartir en gardant simplement chaque Epic entier - c'est
+    // exactement ce que fait la passe Epic juste après, aucun traitement spécial à écrire pour ce
+    // cas : `placeGroupAtomically` échoue naturellement (aucun sprint, existant ou neuf, n'a assez
+    // de place pour la totalité) sans rien placer, laissant tous les membres de l'Initiative
+    // disponibles pour la passe Epic.
+    if (sc.criteriaActive['epic']) {
+      const byInitiative = new Map<string, Item[]>()
+      const initiativeOrder: string[] = []
+      for (const item of sortedItems) {
+        const initId = getItemInitiativeId(item, state.hierarchyNodes)
+        if (!initId) continue
+        if (!byInitiative.has(initId)) { byInitiative.set(initId, []); initiativeOrder.push(initId) }
+        byInitiative.get(initId)!.push(item)
+      }
+      for (const initId of initiativeOrder) {
+        const members = byInitiative.get(initId)!.filter(it => !placedSet.has(it.key))
+        if (members.length > 0) placeGroupAtomically(members)
+      }
+    }
+
+    if (sc.criteriaActive['epic']) {
+      const byGroup = new Map<string, Item[]>()
+      const groupOrder: string[] = []
+      for (const item of sortedItems) {
+        const gid = item.epicId
+        if (!gid) continue
+        if (!byGroup.has(gid)) { byGroup.set(gid, []); groupOrder.push(gid) }
+        byGroup.get(gid)!.push(item)
+      }
+      for (const gid of groupOrder) {
+        const members = byGroup.get(gid)!.filter(it => !placedSet.has(it.key))
+        if (members.length > 0) placeGroupAtomically(members)
+      }
+    }
+
     for (const item of sortedItems) { if (!placedSet.has(item.key)) placeOne(item) }
+
+    // Violation 'epic-split' (sous-chantier 4, 2026-08-10) : signalée seulement si le critère de
+    // cohésion est actif - un Epic/Initiative réparti sur plusieurs sprints n'est un problème que
+    // si Julien a explicitement demandé à les garder groupés ; sinon c'est un comportement normal
+    // (contrainte de capacité), pas une anomalie à signaler. Le tri les place déjà côte à côte
+    // quand c'est possible (voir sortItemsForScenario) : cette violation couvre le cas où le
+    // groupe est trop gros pour tenir dans un seul sprint.
+    if (sc.criteriaActive['epic']) {
+      const slotsByGroup = new Map<string, Set<number>>()
+      for (const item of itemsToPlace) {
+        if (!item.epicId) continue
+        const idx = placedAt[item.key]
+        if (idx === undefined) continue
+        if (!slotsByGroup.has(item.epicId)) slotsByGroup.set(item.epicId, new Set())
+        slotsByGroup.get(item.epicId)!.add(idx)
+      }
+      for (const [groupId, idxSet] of slotsByGroup) {
+        if (idxSet.size <= 1) continue
+        const node = state.hierarchyNodes.find((n: HierarchyNode) => n.id === groupId)
+        if (!node) continue
+        const sprintLabels = [...idxSet].sort((x, y) => x - y).map(i => slots[i]?.label ?? `Sprint ${i + 1}`)
+        violations.push({ key: node.key, desc: node.desc, type: 'epic-split', detail: `réparti sur ${idxSet.size} sprints (${sprintLabels.join(', ')})` })
+      }
+
+      // Même vérification, agrégée cette fois par Initiative effective (directe ou via l'Epic
+      // parent - voir getItemInitiativeId) : un Epic peut rester entier tout en atterrissant dans
+      // un sprint différent d'un AUTRE Epic de la même Initiative, qui apparaît alors répartie
+      // sans qu'aucun Epic pris individuellement ne le soit (cas remonté par Julien, 2026-08-11).
+      const slotsByInitiative = new Map<string, Set<number>>()
+      for (const item of itemsToPlace) {
+        const initId = getItemInitiativeId(item, state.hierarchyNodes)
+        if (!initId) continue
+        const idx = placedAt[item.key]
+        if (idx === undefined) continue
+        if (!slotsByInitiative.has(initId)) slotsByInitiative.set(initId, new Set())
+        slotsByInitiative.get(initId)!.add(idx)
+      }
+      for (const [initId, idxSet] of slotsByInitiative) {
+        if (idxSet.size <= 1) continue
+        const node = state.hierarchyNodes.find((n: HierarchyNode) => n.id === initId)
+        if (!node) continue
+        const sprintLabels = [...idxSet].sort((x, y) => x - y).map(i => slots[i]?.label ?? `Sprint ${i + 1}`)
+        violations.push({ key: node.key, desc: node.desc, type: 'epic-split', detail: `réparti sur ${idxSet.size} sprints (${sprintLabels.join(', ')})` })
+      }
+    }
 
     updateScenario(sc.id, { slots: slots.filter(s => isSlotNonEmpty(s)), newCount, violations, generated: true })
   }
@@ -334,28 +471,103 @@ export function AutoPlanningPage() {
     updateScenario(sc.id, { slots, generated: true, newCount: 0, violations: [] })
   }
 
+  // Diff d'un seul critère (hors 'epic', qui n'est pas un critère par-item mais par-groupe -
+  // voir plus bas) - extrait de sortItemsForScenario pour être réutilisé à la fois dans la
+  // boucle de tri principale ET dans le calcul du "représentant" de chaque groupe Epic/Initiative.
+  function criterionDiff(a: Item, b: Item, cid: CritId, sc: Scenario): number {
+    if (cid === 'priority') return (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)
+    if (cid === 'client') {
+      const filteredOrder = sc.clientOrder.filter(id => planningClientIds.has(id))
+      const ia = filteredOrder.indexOf(a.clientId), ib = filteredOrder.indexOf(b.clientId)
+      return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib)
+    }
+    if (cid === 'socle') return (!a.clientId ? 0 : 1) - (!b.clientId ? 0 : 1)
+    if (cid === 'debt')  return (a.type === 'bug' ? 0 : 1) - (b.type === 'bug' ? 0 : 1)
+    return 0
+  }
+  function compareByCriteria(a: Item, b: Item, criteria: CritId[], sc: Scenario): number {
+    for (const cid of criteria) {
+      const diff = criterionDiff(a, b, cid, sc)
+      if (diff !== 0) return diff
+    }
+    return 0
+  }
+
   function sortItemsForScenario(items: Item[], sc: Scenario): Item[] {
     const topo        = topoSort(items)
-    const activeOrder = sc.criteriaOrder.filter(id => sc.criteriaActive[id])
-    return topo.sort((a, b) => {
+    const activeOrder = sc.criteriaOrder.filter(id => sc.criteriaActive[id]) as CritId[]
+    const nonEpicOrder = activeOrder.filter(cid => cid !== 'epic')
+    const epicActive  = activeOrder.includes('epic')
+
+    // Représentant de chaque groupe (Epic ou Initiative - `item.epicId` pointe indifféremment
+    // vers l'un ou l'autre, voir hierarchyScore.ts), pour départager DEUX groupes différents :
+    // son item le mieux classé selon les AUTRES critères actifs, dans leur ordre actuel - pas
+    // figé sur la priorité : si Julien active "Importance client" en tête, les groupes se
+    // classent par client, conformément à sa demande (retour 2026-08-11).
+    const groupBest = new Map<string, Item>()
+    if (epicActive) {
+      for (const item of items) {
+        const gid = item.epicId
+        if (!gid) continue
+        const cur = groupBest.get(gid)
+        if (!cur || compareByCriteria(item, cur, nonEpicOrder, sc) < 0) groupBest.set(gid, item)
+      }
+    }
+
+    const candidate = [...topo].sort((a, b) => {
       const dlRank = (i: Item) => i.deadline?.type === 'imposed' ? 0 : i.deadline?.type === 'negotiable' ? 1 : 2
       const ra = dlRank(a), rb = dlRank(b)
       if (ra !== rb) return ra - rb
       if (ra < 2) { const da = a.deadline?.date ?? '9999', db = b.deadline?.date ?? '9999'; if (da !== db) return da.localeCompare(db) }
       for (const cid of activeOrder) {
         let diff = 0
-        if (cid === 'priority') diff = (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)
-        else if (cid === 'client') {
-          const filteredOrder = sc.clientOrder.filter(id => planningClientIds.has(id))
-          const ia = filteredOrder.indexOf(a.clientId), ib = filteredOrder.indexOf(b.clientId)
-          diff = (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib)
+        if (cid === 'epic') {
+          const ga = a.epicId, gb = b.epicId
+          if (ga && gb && ga === gb) { diff = 0 }
+          else {
+            // "Groupé" avant "non groupé" (retour Julien 2026-08-11 : caler un maximum d'Epics
+            // d'abord, remplir ensuite avec les items sans Epic) - même principe que le critère
+            // 'socle' existant ("sans client" prioritaire), juste inversé.
+            diff = (ga ? 0 : 1) - (gb ? 0 : 1)
+            if (diff === 0) {   // deux groupes DIFFÉRENTS : décidé par les autres critères actifs
+              const ra2 = ga ? (groupBest.get(ga) ?? a) : a
+              const rb2 = gb ? (groupBest.get(gb) ?? b) : b
+              diff = compareByCriteria(ra2, rb2, nonEpicOrder, sc)
+            }
+          }
+        } else {
+          diff = criterionDiff(a, b, cid, sc)
         }
-        else if (cid === 'socle') diff = (!a.clientId ? 0 : 1) - (!b.clientId ? 0 : 1)
-        else if (cid === 'debt')  diff = (a.type === 'bug' ? 0 : 1) - (b.type === 'bug' ? 0 : 1)
         if (diff !== 0) return diff
       }
       return 0
     })
+
+    if (!epicActive) return candidate
+
+    // Regroupement final, garanti (2026-08-11, retour Julien après le premier essai réel : sans
+    // ça, "caler les items sans Epic d'abord puis tous les Epics à la suite" restait possible, et
+    // un Epic pouvait quand même se retrouver réparti sur plusieurs sprints). Le comparateur
+    // ci-dessus donne un bon ordre de base mais ne GARANTIT pas à lui seul que deux items du même
+    // groupe restent côte à côte : un critère positionné avant 'epic' dans la liste (ex.
+    // Priorité) peut les départager avant même d'atteindre la branche 'epic' ci-dessus. Passe
+    // stable supplémentaire : chaque groupe prend la position de son PREMIER item dans l'ordre
+    // candidat, tous ses autres membres sont ramenés juste derrière, dans leur ordre relatif
+    // d'origine - c'est cette passe, pas le simple tri comparatif, qui empêche réellement un
+    // Epic/Initiative de se retrouver réparti sur plusieurs sprints.
+    const seen = new Set<string>()
+    const clustered: Item[] = []
+    for (const item of candidate) {
+      if (seen.has(item.key)) continue
+      seen.add(item.key)
+      clustered.push(item)
+      const gid = item.epicId
+      if (!gid) continue
+      for (const other of candidate) {
+        if (other.epicId === gid && !seen.has(other.key)) { seen.add(other.key); clustered.push(other) }
+      }
+    }
+    return clustered
   }
 
   // ── Add / remove / fork ────────────────────────────────────────────────
@@ -1011,14 +1223,29 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
   }
   const hovChain = hoveredId ? depChain(hoveredId) : null
 
-  // ── Epic map ─────────────────────────────────────────────────────────────
+  // ── Epic/Initiative maps ────────────────────────────────────────────────
   const epicMap = new Map<string, HierarchyNode>(
     state.hierarchyNodes.filter((n: HierarchyNode) => n.level === 'epic').map((n: HierarchyNode): [string, HierarchyNode] => [n.id, n])
   )
-  const epicChildCount = new Map<string, number>()
+  const initiativeMap = new Map<string, HierarchyNode>(
+    state.hierarchyNodes.filter((n: HierarchyNode) => n.level === 'initiative').map((n: HierarchyNode): [string, HierarchyNode] => [n.id, n])
+  )
+  const itemsByGroupId = new Map<string, Item[]>()
   ;(state.items as Item[]).filter((i: Item) => i.epicId).forEach((i: Item) => {
-    epicChildCount.set(i.epicId!, (epicChildCount.get(i.epicId!) ?? 0) + 1)
+    if (!itemsByGroupId.has(i.epicId!)) itemsByGroupId.set(i.epicId!, [])
+    itemsByGroupId.get(i.epicId!)!.push(i)
   })
+  const epicChildCount = new Map<string, number>()
+  itemsByGroupId.forEach((its, id) => epicChildCount.set(id, its.length))
+
+  // SP total d'un Epic (score arbitraire s'il est renseigné, sinon somme de ses items - même
+  // convention que le Backlog, `getHierarchyNodeSP()`) - retour Julien, 2026-08-11 : affiché à côté
+  // du titre dans les en-têtes de groupe. Le score d'une Initiative n'est PAS calculé ici en global :
+  // affiché par slot (voir `spHere` plus bas, sur `Row['initiative']`), car une Initiative peut être
+  // dispatchée sur plusieurs sprints en gardant ses Epics entiers - le score global tromperait sur
+  // chaque sprint où elle n'apparaît que partiellement.
+  const epicSP = new Map<string, number>()
+  epicMap.forEach((epic, id) => epicSP.set(id, getHierarchyNodeSP(epic, (itemsByGroupId.get(id) ?? []).map(i => i.sp))))
 
   return (
     <div style={{ minHeight: 100 }}>
@@ -1054,25 +1281,51 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
             const pct   = slot.cap > 0 ? Math.min(Math.round(total / slot.cap * 100), 100) : 0
             const over  = total > slot.cap
 
-            // ── Grouper les items par epicId (sous-chantier 2, utilitaire partagé) ──────
-            // `groupItemsByEpic()` (items-first) : un slot de scénario n'a pas de notion
-            // stable d'"Epics qui devraient être là" comme un sprint réel, donc pas
-            // d'Epic vide à afficher ici, contrairement à Release Planning. Extracteur
-            // explicite car `slot.assigned` mélange `Item` et `VirtualItem` (ce dernier
+            // ── Grouper les items par Epic puis Initiative (sous-chantier 4, 2026-08-10) ────
+            // `buildItemsFirstHierarchy()` (items-first, 2 niveaux) plutôt que l'ancien
+            // `groupItemsByEpic()` (1 niveau, Epic seulement) : un item rattaché DIRECTEMENT à
+            // une Initiative (sans Epic intermédiaire, cas prévu par le modèle - voir
+            // hierarchyScore.ts) s'affichait jusqu'ici comme orphelin, jamais sous son
+            // Initiative - trou identifié dans corrections futures.md ("Vérifier si les
+            // initiatives et les Epics sont pris en compte"). Extracteur explicite, même raison
+            // que l'ancien appel : `slot.assigned` mélange `Item` et `VirtualItem` (ce dernier
             // n'a pas de champ epicId).
-            type Row = { kind: 'epic'; epicId: string } | { kind: 'item'; item: Item | VirtualItem; inEpic?: string }
-            const { groups: epicGroups, orphans: noEpicItems } = groupItemsByEpic<Item | VirtualItem>(
+            type Row =
+              | { kind: 'initiative'; initiativeId: string; spHere: number }
+              | { kind: 'epic'; epicId: string; inInitiative?: string }
+              | { kind: 'item'; item: Item | VirtualItem; inEpic?: string; inInitiative?: string }
+            const hierarchy = buildItemsFirstHierarchy<Item | VirtualItem>(
               slot.assigned,
               state.hierarchyNodes,
               (it) => !it.id.startsWith('virt-') ? (it as Item).epicId : undefined,
             )
-            const storiesHereByEpicId = new Map(epicGroups.map(g => [g.epicId, g.items.length]))
+            const storiesHereByEpicId = new Map<string, number>()
+            hierarchy.standaloneEpics.forEach(g => storiesHereByEpicId.set(g.epicId, g.items.length))
+            hierarchy.initiativeSections.forEach(sec => sec.epics.forEach(g => storiesHereByEpicId.set(g.epicId, g.items.length)))
             const rows: Row[] = [
-              ...noEpicItems.map(it => ({ kind: 'item' as const, item: it })),
-              ...epicGroups.flatMap(({ epicId, items }) => [
+              ...hierarchy.orphans.map(it => ({ kind: 'item' as const, item: it })),
+              ...hierarchy.standaloneEpics.flatMap(({ epicId, items }) => [
                 { kind: 'epic' as const, epicId },
                 ...items.map(it => ({ kind: 'item' as const, item: it, inEpic: epicId })),
               ]),
+              // `spHere` (retour Julien, 2026-08-11) : score de l'Initiative RÉELLEMENT présent dans
+              // CE sprint, pas son score global - une Initiative trop grosse pour un seul sprint se
+              // répartit en gardant chaque Epic entier (voir generateScenario), donc le score global
+              // afficherait à tort la totalité sur chaque sprint où elle apparaît partiellement. Les
+              // Epics ne sont eux jamais scindés : `epicSP` (score global) reste donc exact pour un
+              // Epic présent ici, pas besoin d'un équivalent "par sprint" à ce niveau.
+              ...hierarchy.initiativeSections.flatMap(sec => {
+                const spHere = sec.epics.reduce((s, g) => s + (epicSP.get(g.epicId) ?? 0), 0)
+                  + sec.directItems.reduce((s, it) => s + it.sp, 0)
+                return [
+                  { kind: 'initiative' as const, initiativeId: sec.initiative.id, spHere },
+                  ...sec.directItems.map(it => ({ kind: 'item' as const, item: it, inInitiative: sec.initiative.id })),
+                  ...sec.epics.flatMap(({ epicId, items }) => [
+                    { kind: 'epic' as const, epicId, inInitiative: sec.initiative.id },
+                    ...items.map(it => ({ kind: 'item' as const, item: it, inEpic: epicId, inInitiative: sec.initiative.id })),
+                  ]),
+                ]
+              }),
             ]
 
             return (
@@ -1115,6 +1368,20 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                     )
                   })}
                   {rows.map((row, rowIdx) => {
+                    if (row.kind === 'initiative') {
+                      const initiative = initiativeMap.get(row.initiativeId)
+                      if (!initiative) return null
+                      const initClient = state.clients.find((c: any) => c.id === initiative.clientId)
+                      return (
+                        <div key={'ihdr-' + row.initiativeId}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px 3px', marginTop: rowIdx > 0 ? 7 : 0, borderBottom: '1.5px solid var(--border)', background: 'var(--surface2)', fontSize: 10 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: initClient?.color ?? 'var(--text-muted)', flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>{initiative.key}</span>
+                          <span style={{ flex: 1, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'uppercase', fontSize: 9, letterSpacing: '.02em' }}>{initiative.desc}</span>
+                          <span style={{ fontSize: 8, color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>{row.spHere} SP</span>
+                        </div>
+                      )
+                    }
                     if (row.kind === 'epic') {
                       const epic = epicMap.get(row.epicId)
                       if (!epic) return null
@@ -1123,15 +1390,16 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                       const epicClient   = state.clients.find((c: any) => c.id === epic.clientId)
                       return (
                         <div key={'ehdr-' + row.epicId}
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px 3px', marginTop: rowIdx > 0 ? 5 : 0, borderBottom: '1.5px solid var(--border)', fontSize: 10 }}>
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px 3px', paddingLeft: row.inInitiative ? 22 : 12, marginTop: rowIdx > 0 ? 5 : 0, borderBottom: '1.5px solid var(--border)', fontSize: 10 }}>
                           <div style={{ width: 8, height: 8, borderRadius: 2, background: epicClient?.color ?? 'var(--primary)', flexShrink: 0 }} />
                           <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>{epic.key}</span>
                           <span style={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.desc}</span>
                           <span style={{ fontSize: 8, color: 'var(--text-muted)', flexShrink: 0 }}>{storiesHere}/{storiesTotal}</span>
+                          <span style={{ fontSize: 8, color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>{epicSP.get(row.epicId) ?? 0} SP</span>
                         </div>
                       )
                     }
-                    const { item, inEpic } = row
+                    const { item, inEpic, inInitiative } = row
                     const isVirt       = item.id.startsWith('virt-')
                     const realItem     = isVirt ? null : state.items.find((i: Item) => i.id === item.id)
                     const fullItem     = isVirt ? null : byId.get(item.id) ?? realItem
@@ -1165,7 +1433,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                         onMouseEnter={() => !isVirt && setHoveredId(item.id)}
                         onMouseLeave={() => setHoveredId(null)}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', borderBottom: '1px solid var(--surface2)', fontSize: 10,
-                          paddingLeft: inEpic ? 22 : 12,
+                          paddingLeft: inEpic && inInitiative ? 32 : (inEpic || inInitiative) ? 22 : 12,
                           background: isHov ? 'rgba(59,130,246,.10)'
                             : inChain ? 'rgba(59,130,246,.05)'
                             : isHighlighted ? (state.clients.find((c: any) => c.id === item.clientId)?.color ?? 'var(--primary)') + '12'

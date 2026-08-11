@@ -266,7 +266,7 @@ export interface ScenarioSlot {
 }
 
 export interface ScenarioViolation {
-  key: string; desc: string; detail: string; type: 'deadline' | 'dep'
+  key: string; desc: string; detail: string; type: 'deadline' | 'dep' | 'epic-split'
 }
 
 export interface Scenario {

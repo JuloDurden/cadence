@@ -56,7 +56,7 @@ test.describe('What-if — Scénarios', () => {
     await expect(page.locator('select').filter({ hasText: 'Comparer avec' })).toBeVisible();
   });
 
-  test('les 4 critères sont présents dans un scénario', async ({ page }) => {
+  test('les 5 critères sont présents dans un scénario', async ({ page }) => {
     await goTo(page, '/auto', { role: 'PO' });
     await page.getByRole('button', { name: 'Nouveau scénario' }).click();
     // .first() car État actuel a aussi un label "Priorité" dans son panneau de filtres
@@ -64,6 +64,8 @@ test.describe('What-if — Scénarios', () => {
     await expect(page.getByText('Importance client', { exact: true })).toBeVisible();
     await expect(page.getByText('Socle commun en tête', { exact: true })).toBeVisible();
     await expect(page.getByText('Dette technique', { exact: true })).toBeVisible();
+    // v0.98.4, sous-chantier 4 (roadmap v1), 5e critère : cohésion Epic/Initiative
+    await expect(page.getByText('Cohésion Epic/Initiative', { exact: true })).toBeVisible();
   });
 
   test('le panneau de capacités par sprint est accessible', async ({ page }) => {
@@ -105,7 +107,7 @@ test.describe('What-if — Scénarios', () => {
     // Duplique la vérification de tests/changelog.spec.js — volontaire, pour un
     // repère rapide depuis ce fichier ; garder les deux synchronisées à chaque bump.
     await goTo(page, '/changelog');
-    await expect(page.locator('.cl-card.current')).toContainText('v0.98.3');
+    await expect(page.locator('.cl-card.current')).toContainText('v0.98.4');
   });
 
 });

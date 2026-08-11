@@ -135,4 +135,44 @@ test.describe('Auto-planning — ProposalPanel v0.84.0', () => {
     expect(errors).toHaveLength(0);
   });
 
+  // ── Critère "Cohésion Epic/Initiative" (v0.98.4, sous-chantier 4 roadmap v1) ──────────────
+
+  // Le critère est désactivé par défaut sur un nouveau scénario (criteriaActive: { priority: true }
+  // uniquement) : on l'active explicitement via sa case à cocher avant de générer.
+  async function activateEpicCohesion(page) {
+    await goTo(page, '/auto', { role: 'PO' });
+    await page.getByRole('button', { name: 'Nouveau scénario' }).click();
+    await page.getByText('Cohésion Epic/Initiative', { exact: true }).click();
+    const row = page.getByText('Cohésion Epic/Initiative', { exact: true }).locator('..');
+    await row.getByRole('checkbox').check();
+    await page.getByRole('button', { name: 'Générer' }).first().click();
+    await expect(page.locator('.page-content').getByText(/\d+\/\d+ SP/).first()).toBeVisible();
+  }
+
+  test('pas d\'erreur JS avec "Cohésion Epic/Initiative" comme seul critère actif', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await activateEpicCohesion(page);
+    await page.waitForTimeout(300);
+    expect(errors).toHaveLength(0);
+  });
+
+  test('l\'en-tête Epic affiche son score en SP', async ({ page }) => {
+    await generateScenario(page);
+    // FAX-007 (i7) a un score propre de 30 SP (data/demo.ts), affiché à côté de son titre si
+    // l'Epic apparaît dans la proposition générée.
+    const fax007header = page.locator('.page-content').getByText('FAX-007');
+    if (await fax007header.count() === 0) return;
+    await expect(page.locator('.page-content')).toContainText('30 SP');
+  });
+
+  test('avec "Cohésion Epic/Initiative" seul actif, un Epic placé n\'est jamais scindé sur 2 sprints', async ({ page }) => {
+    await activateEpicCohesion(page);
+    // MAN-014 (EPIC Portage v3 MANFIFE, 20 SP) n'a pas d'items rattachés dans les données de
+    // démo : on vérifie plus généralement qu'aucune alerte "réparti sur N sprints" (violation
+    // 'epic-split') n'apparaît, preuve que le placement atomique a tenu quand le critère est actif.
+    const text = await page.locator('.page-content').textContent();
+    expect(text).not.toMatch(/réparti sur \d+ sprints/);
+  });
+
 });
