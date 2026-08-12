@@ -49,6 +49,10 @@ async function anthropicCall(
     if (res.status === 401) throw new Error('Cle API Anthropic invalide ou revoquee')
     if (res.status === 429) throw new Error('Limite de requetes Anthropic atteinte, reessayez dans quelques instants')
     if (res.status === 404) throw new Error(`Modele Anthropic "${config.model}" introuvable : verifiez l'identifiant`)
+    // 529 (retour Julien, 2026-08-12) : surcharge temporaire cote Anthropic (pas un bug Cadence),
+    // deja documentee comme "overloaded_error" - meme traitement "message clair" que 401/429/404
+    // plutot que de laisser remonter le JSON brut de l'API dans le chat.
+    if (res.status === 529) throw new Error('API Anthropic temporairement surchargee, reessayez dans quelques instants')
     throw new Error(`API Anthropic ${res.status} : ${text.slice(0, 300)}`)
   }
   return res.json() as Promise<AnthropicResponse>
@@ -291,4 +295,72 @@ export const SEARCH_BACKLOG_TOOL: AnthropicTool = {
     required: ['query'],
     additionalProperties: false,
   },
+}
+
+/* ── Planification de sprints (Phase 6, sous-chantier 4, etape 2/2, 2026-08-12) ────────────────────
+   simulate_sprint_plan / apply_sprint_plan reproduisent exactement l'algorithme d'Auto-planning
+   (lib/sprintPlanner.ts, portage fidele de AutoPlanningPage.tsx) plutot que de laisser Claude
+   raisonner librement - decision Julien (AskUserQuestion) : le resultat doit etre identique a
+   Auto-planning (jamais un Epic/Initiative coupe quand le critere est actif, capacite de sprint
+   reellement respectee), pas une estimation approximative. Les deux outils partagent le MEME schema
+   d'entree : apply_sprint_plan recalcule le plan a partir des memes parametres plutot que de
+   referencer un plan simule precedemment (le chat est sans etat cote serveur, voir routes/ai.ts). */
+
+const SPRINT_PLAN_PARAMS = {
+  criteria: {
+    type: 'array', items: { type: 'string' },
+    description: "Liste ORDONNEE des criteres actifs (l'ordre = ordre de priorite entre eux), parmi : \"priority\" (Priorite : items critiques/high en premier), \"client\" (Importance client : necessite clientOrder), \"socle\" (Socle commun en tete : items sans client en premier), \"debt\" (Dette technique : Bugs en premier), \"epic\" (Cohesion Epic/Initiative : garde les items d'un meme Epic/Initiative dans le meme sprint, place les groupes en bloc). Par defaut, seule \"priority\".",
+  },
+  clientOrder: { type: 'array', items: { type: 'string' }, description: "Noms de clients dans l'ordre d'importance decroissante, utilise seulement si \"client\" est dans criteria." },
+  velocityFactor: { type: 'number', description: 'Multiplicateur applique a la capacite de chaque sprint, 1 = normal, 0.8 = 80%. Par defaut 1.' },
+  capacityOverrides: {
+    type: 'array',
+    description: 'Force la capacite (en SP) d\'un sprint precis, ex. pour une absence connue.',
+    items: {
+      type: 'object',
+      properties: { sprintLabel: { type: 'string' }, capacity: { type: 'number' }, note: { type: 'string' } },
+      required: ['sprintLabel', 'capacity'],
+    },
+  },
+  virtualItems: {
+    type: 'array',
+    description: "Items fictifs a inclure dans le plan (n'existent pas reellement dans le Backlog, sauf si le plan est ensuite applique via apply_sprint_plan, qui les cree alors pour de vrai).",
+    items: {
+      type: 'object',
+      properties: {
+        tempKey: { type: 'string', description: 'Identifiant temporaire choisi par toi pour cette demande (ex. "V1"), pour le referencer dans les deps d\'un autre item fictif de la meme demande.' },
+        desc: { type: 'string' }, sp: { type: 'number' },
+        priority: { type: 'string', description: 'critical, high, medium ou low' },
+        clientName: { type: 'string' }, type: { type: 'string', description: 'story, bug, task ou spike' },
+        deps: { type: 'array', items: { type: 'string' }, description: "Cles d'items reels, ou tempKey d'autres items fictifs de cette meme demande, dont celui-ci depend" },
+      },
+      required: ['tempKey', 'desc', 'sp'],
+    },
+  },
+  itemOverrides: {
+    type: 'array',
+    description: 'Modifie un item reel UNIQUEMENT pour ce plan (jamais ecrit dans le Backlog, meme via apply_sprint_plan), pour simuler "et si ce statut/cette priorite/ces SP/ces deps etaient differents".',
+    items: {
+      type: 'object',
+      properties: {
+        key: { type: 'string', description: "Cle de l'item, ex. \"FAX-012\"" },
+        status: { type: 'string' }, priority: { type: 'string' }, sp: { type: 'number' },
+        deps: { type: 'array', items: { type: 'string' }, description: 'Remplace completement les dependances de cet item pour la simulation' },
+      },
+      required: ['key'],
+    },
+  },
+  fromSprintLabel: { type: 'string', description: 'Ne planifier qu\'a partir de ce sprint (inclus), ou "current" pour le sprint en cours. Par defaut, tous les sprints ouverts depuis le debut.' },
+}
+
+export const SIMULATE_SPRINT_PLAN_TOOL: AnthropicTool = {
+  name: 'simulate_sprint_plan',
+  description: "Simule un plan de sprints (quel item dans quel sprint) en reproduisant exactement l'algorithme de la page Auto-planning, sans rien ecrire. A utiliser pour repondre a toute demande de planification (\"planifie le prochain sprint\", \"et si on priorisait le client X\"). N'ecrit rien : pour ecrire reellement le plan, utilise apply_sprint_plan (reserve PO/Admin) apres accord explicite de l'utilisateur.",
+  input_schema: { type: 'object', properties: SPRINT_PLAN_PARAMS, additionalProperties: false },
+}
+
+export const APPLY_SPRINT_PLAN_TOOL: AnthropicTool = {
+  name: 'apply_sprint_plan',
+  description: "Calcule ET ECRIT REELLEMENT un plan de sprints : reaffecte les items reels aux sprints calcules, cree les nouveaux sprints necessaires, materialise les items fictifs en vrais items du Backlog. Reserve aux comptes PO ou Admin (comme le bouton \"Appliquer\" d'Auto-planning). A n'utiliser qu'apres avoir montre le resultat via simulate_sprint_plan ET obtenu un accord explicite de l'utilisateur (\"applique\", \"vas-y\", \"oui\") - jamais sur une simple demande de planification, qui doit d'abord passer par simulate_sprint_plan.",
+  input_schema: { type: 'object', properties: SPRINT_PLAN_PARAMS, additionalProperties: false },
 }

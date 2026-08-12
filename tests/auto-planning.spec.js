@@ -175,4 +175,20 @@ test.describe('Auto-planning — ProposalPanel v0.84.0', () => {
     expect(text).not.toMatch(/réparti sur \d+ sprints/);
   });
 
+  // retour Julien (2026-08-12) : sur un scénario par défaut (sans "Cohésion Epic/Initiative"), un
+  // Epic peut légitimement être scindé sur plusieurs sprints par le seul jeu de la capacité - le
+  // badge affichait alors à tort le score TOTAL de l'Epic sur CHAQUE sprint où il apparaissait,
+  // comme si l'intégralité y était présente. Format désormais "X/Y SP" (part présente dans ce
+  // sprint / score total), toujours avec un "/" même quand l'Epic n'est pas scindé (X == Y dans ce
+  // cas) - voir AutoPlanningPage.tsx, spHereByEpicId.
+  test('l\'en-tête Epic affiche le score au format "part du sprint / total" (X/Y SP), jamais un nombre seul', async ({ page }) => {
+    await generateScenario(page);
+    // FAX-007 (i7, 30 SP au total, data/demo.ts) - même Epic que le test précédent.
+    const fax007header = page.locator('.page-content').getByText('FAX-007');
+    if (await fax007header.count() === 0) return;
+    const headerRow = fax007header.first().locator('..');
+    const rowText = await headerRow.textContent();
+    expect(rowText).toMatch(/\d+\/30 SP/);
+  });
+
 });

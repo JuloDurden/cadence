@@ -25,6 +25,11 @@ function toolCallLabel(tc: AiToolCall): string {
     case 'item_updated': return `Item mis à jour : ${tc.item.key}`
     case 'node_created': return `${tc.node.level === 'initiative' ? 'Initiative créée' : 'Epic créé'} : ${tc.node.key}`
     case 'node_updated': return `${tc.node.level === 'initiative' ? 'Initiative mise à jour' : 'Epic mis à jour'} : ${tc.node.key}`
+    case 'sprint_plan_applied': {
+      const parts = [`${tc.newSprints.length} sprint(s) créé(s)`, `${tc.changedItems.length} item(s) réaffecté(s)`]
+      if (tc.newItems.length > 0) parts.push(`${tc.newItems.length} item(s) fictif(s) créé(s)`)
+      return `Plan de sprints appliqué : ${parts.join(', ')}`
+    }
   }
 }
 

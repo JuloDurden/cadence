@@ -27,6 +27,12 @@ type Action =
   | { type: 'ADD_HIERARCHY_NODE'; payload: import('../types').HierarchyNode; keyCounters?: Record<string, number> }
   | { type: 'UPDATE_HIERARCHY_NODE'; payload: import('../types').HierarchyNode }
   | { type: 'DELETE_HIERARCHY_NODE'; payload: string }
+  // Phase 6, sous-chantier 4 étape 2/2 (2026-08-12) : apply_sprint_plan (Compagnon IA, routes/ai.ts)
+  // peut réaffecter des dizaines d'items et créer plusieurs sprints en une seule action - un merge
+  // ciblé plutôt que réutiliser SET_STATE (qui remplacerait TOUT l'état, y compris ce qui a pu
+  // changer ailleurs entre-temps). Même non-comportement que le bouton "Appliquer" d'Auto-planning
+  // vis-à-vis de Ctrl+Z (SET_STATE n'est pas dans UNDOABLE ci-dessus) : volontairement pas undoable.
+  | { type: 'APPLY_SPRINT_PLAN'; payload: { changedItems: Item[]; newItems: Item[]; newSprints: Sprint[]; keyCounters: Record<string, number> } }
   | { type: 'ADD_SPRINT'; payload: Sprint }
   | { type: 'UPDATE_SPRINT'; payload: Sprint }
   | { type: 'DELETE_SPRINT'; payload: string }
@@ -207,6 +213,19 @@ function reducer(state: CadenceState, action: Action): CadenceState {
     }
     case 'UPDATE_HIERARCHY_NODE': return { ...state, hierarchyNodes: state.hierarchyNodes.map(n => n.id === action.payload.id ? action.payload : n) }
     case 'DELETE_HIERARCHY_NODE': return { ...state, hierarchyNodes: state.hierarchyNodes.filter(n => n.id !== action.payload) }
+    case 'APPLY_SPRINT_PLAN': {
+      const changedById = new Map(action.payload.changedItems.map(i => [i.id, i]))
+      const items = [
+        ...state.items.map(i => changedById.get(i.id) ?? i),
+        ...action.payload.newItems,
+      ]
+      return {
+        ...state,
+        items,
+        sprints: sortSprints([...state.sprints, ...action.payload.newSprints]),
+        itemKeyCounters: action.payload.keyCounters,
+      }
+    }
     case 'ADD_SPRINT': return { ...state, sprints: sortSprints([...state.sprints, action.payload]) }
     case 'UPDATE_SPRINT': return { ...state, sprints: sortSprints(state.sprints.map(s => s.id === action.payload.id ? action.payload : s)) }
     case 'DELETE_SPRINT': return { ...state, sprints: state.sprints.filter(s => s.id !== action.payload) }

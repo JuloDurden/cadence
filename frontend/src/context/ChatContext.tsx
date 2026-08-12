@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useCadence } from './StateContext'
+import { useAuth } from '../hooks/useAuth'
 import { api } from '../services/api'
 import { matchChatCommand } from '../data/chatCommands'
 import type { AiToolCall, ChatMessage } from '../types'
@@ -39,12 +40,27 @@ function extractApiError(err: unknown, fallback: string): string {
 // avec le reste du sous-chantier ("commencer simple"), et la conversation n'a de toute façon aucune
 // valeur multi-appareils/multi-utilisateurs à persister en base. `MAX_STORED_MESSAGES` : garde-fou
 // pour ne pas laisser grossir indéfiniment le localStorage sur une conversation très longue.
-const STORAGE_KEY = 'cadence.chat.messages'
+//
+// Clé scopée par compte connecté (2026-08-12, retour Julien) : sous une clé fixe, la conversation
+// d'un compte restait visible après bascule vers un AUTRE compte (Admin<->Dev, même navigateur) -
+// en plus de la confusion évidente (historique de quelqu'un d'autre affiché), cela expliquait aussi
+// le refus d'application du Compagnon signalé après un aller-retour Dev->Admin : le rôle est bien
+// revérifié côté serveur à CHAQUE appel (donc déjà correct), mais le modèle, voyant dans SA PROPRE
+// conversation un refus qu'il avait formulé plus tôt (pendant la session Dev), le répétait par
+// cohérence avec l'historique plutôt que de re-tenter l'action. `login()`/`logout()` (useAuth.ts)
+// sont des changements d'état purement client (pas de rechargement de page) : `ChatProvider` reste
+// monté, d'où l'effet dédié plus bas qui recharge `messages` depuis la clé du nouveau compte dès que
+// `userId` change.
+const STORAGE_PREFIX = 'cadence.chat.messages'
 const MAX_STORED_MESSAGES = 100
 
-function loadStoredMessages(): ChatMessage[] {
+function storageKeyFor(userId: string): string {
+  return `${STORAGE_PREFIX}.${userId || 'anon'}`
+}
+
+function loadStoredMessages(key: string): ChatMessage[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(key)
     if (!raw) return []
     const parsed: unknown = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed as ChatMessage[] : []
@@ -53,9 +69,9 @@ function loadStoredMessages(): ChatMessage[] {
   }
 }
 
-function persistMessages(messages: ChatMessage[]) {
+function persistMessages(key: string, messages: ChatMessage[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)))
+    localStorage.setItem(key, JSON.stringify(messages.slice(-MAX_STORED_MESSAGES)))
   } catch {
     // Quota localStorage dépassé ou indisponible (navigation privée...) : la conversation continue
     // de fonctionner, simplement sans persistance - jamais bloquant.
@@ -84,19 +100,32 @@ export function useChat() {
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { dispatch } = useCadence()
+  const { userId } = useAuth()
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>(loadStoredMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>(() => loadStoredMessages(storageKeyFor(userId)))
   const [sending, setSending] = useState(false)
 
-  useEffect(() => { persistMessages(messages) }, [messages])
+  useEffect(() => { persistMessages(storageKeyFor(userId), messages) }, [userId, messages])
+
+  // Rechargement au changement de compte (2026-08-12, retour Julien) : `login()`/`logout()` ne
+  // remontent pas ce composant (voir commentaire sur STORAGE_PREFIX plus haut), donc sans cet effet
+  // `messages` garderait la conversation du compte PRÉCÉDENT affichée jusqu'au prochain envoi. Le
+  // premier rendu a déjà chargé la bonne conversation via l'initialiseur de useState ci-dessus - ce
+  // ref évite de la recharger une seconde fois inutilement au montage.
+  const prevUserId = useRef(userId)
+  useEffect(() => {
+    if (prevUserId.current === userId) return
+    prevUserId.current = userId
+    setMessages(loadStoredMessages(storageKeyFor(userId)))
+  }, [userId])
 
   const openPanel = useCallback(() => setOpen(true), [])
   const closePanel = useCallback(() => setOpen(false), [])
   const togglePanel = useCallback(() => setOpen(o => !o), [])
   const clearConversation = useCallback(() => {
     setMessages([])
-    localStorage.removeItem(STORAGE_KEY)
-  }, [])
+    localStorage.removeItem(storageKeyFor(userId))
+  }, [userId])
 
   const applyToolCalls = useCallback((toolCalls: AiToolCall[]) => {
     for (const call of toolCalls) {
@@ -105,6 +134,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         case 'item_updated': dispatch({ type: 'UPDATE_ITEM', payload: call.item }); break
         case 'node_created': dispatch({ type: 'ADD_HIERARCHY_NODE', payload: call.node, keyCounters: call.keyCounters }); break
         case 'node_updated': dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: call.node }); break
+        case 'sprint_plan_applied': dispatch({ type: 'APPLY_SPRINT_PLAN', payload: { changedItems: call.changedItems, newItems: call.newItems, newSprints: call.newSprints, keyCounters: call.keyCounters } }); break
       }
     }
   }, [dispatch])

@@ -4,14 +4,19 @@ import {
   validateAnthropicKey, callWithTools, maskApiKey,
   CREATE_ITEM_TOOL, UPDATE_ITEM_TOOL_FULL, UPDATE_ITEM_TOOL_DEV, CREATE_HIERARCHY_NODE_TOOL, UPDATE_HIERARCHY_NODE_TOOL,
   LIST_ITEMS_TOOL, GET_ITEM_TOOL, LIST_HIERARCHY_TOOL, SEARCH_BACKLOG_TOOL,
+  SIMULATE_SPRINT_PLAN_TOOL, APPLY_SPRINT_PLAN_TOOL,
   type AiConfigRow, type AnthropicMessage, type AnthropicTool, type AnthropicTextBlock, type AnthropicToolUseBlock, type AnthropicToolResultBlock,
 } from '../lib/ai'
 import {
   loadState, saveState, uid, nextKeyForPrefix, allKeys, normalize, getCurrentSprint,
   resolveClientId, resolveEpicId, resolveSprintId, resolveStatus, resolveType, resolvePriority, resolveLevel,
   resolveAssigneeIds, resolveDepKeys, linkedTeamMember,
-  type CadenceState, type Item, type HierarchyNode,
+  type CadenceState, type Item, type HierarchyNode, type Sprint,
 } from '../lib/backlogWrite'
+import {
+  computeSprintPlan, applySprintPlan, getItemInitiativeId, CRIT_IDS,
+  type CritId, type PlanParams, type PlanResult, type PlanPlacedItem, type PlanCapacityOverride, type PlanVirtualItem, type PlanItemOverride,
+} from '../lib/sprintPlanner'
 import { postSlackMessage, formatBlockedItemMessage } from '../lib/slack'
 
 // Phase 6 (roadmap v1), Compagnon IA, sous-chantier 1 (aide a la redaction / creation d'items),
@@ -44,6 +49,11 @@ type AiToolCall =
   | { kind: 'item_updated'; item: Item }
   | { kind: 'node_created'; node: HierarchyNode; keyCounters: Record<string, number> }
   | { kind: 'node_updated'; node: HierarchyNode }
+  // Phase 6, sous-chantier 4 etape 2/2 (2026-08-12) : contrairement aux 4 kinds ci-dessus (un seul
+  // item/node a la fois), apply_sprint_plan peut toucher des dizaines d'items et creer plusieurs
+  // sprints en une seule action - `changedItems`/`newItems`/`newSprints` plutot qu'un objet unique,
+  // pour que ChatContext.tsx (frontend) puisse resynchroniser tout d'un coup sans recharger la page.
+  | { kind: 'sprint_plan_applied'; changedItems: Item[]; newItems: Item[]; newSprints: Sprint[]; keyCounters: Record<string, number> }
 
 interface ToolExecResult { state: CadenceState; text: string; toolCall: AiToolCall }
 
@@ -218,6 +228,187 @@ async function executeUpdateHierarchyNode(fastify: FastifyInstance, state: Caden
   }
 }
 
+/* ── Planification de sprints (Phase 6, sous-chantier 4, etape 2/2, 2026-08-12) ────────────────────
+   simulate_sprint_plan / apply_sprint_plan partagent le meme schema d'entree brut (voir
+   SPRINT_PLAN_PARAMS, lib/ai.ts) et la meme resolution nom -> id (resolvePlanParams) : apply
+   recalcule TOUJOURS le plan a partir des memes parametres bruts plutot que de referencer un plan
+   simule precedemment (le chat est sans etat cote serveur), pour garantir que ce qui est ecrit est
+   exactement ce qui a ete montre a l'utilisateur juste avant. */
+
+interface RawCapacityOverride { sprintLabel?: string; capacity?: number; note?: string }
+interface RawVirtualItem { tempKey?: string; desc?: string; sp?: number; priority?: string; clientName?: string; type?: string; deps?: string[] }
+interface RawItemOverride { key?: string; status?: string; priority?: string; sp?: number; deps?: string[] }
+interface RawPlanInput {
+  criteria?: string[]; clientOrder?: string[]; velocityFactor?: number
+  capacityOverrides?: RawCapacityOverride[]; virtualItems?: RawVirtualItem[]; itemOverrides?: RawItemOverride[]
+  fromSprintLabel?: string
+}
+
+function resolvePlanParams(state: CadenceState, input: RawPlanInput): { params: PlanParams; virtualItems: PlanVirtualItem[] } {
+  const criteriaRaw = (input.criteria ?? ['priority']).filter((c): c is CritId => (CRIT_IDS as string[]).includes(c))
+  const criteria = criteriaRaw.length > 0 ? criteriaRaw : (['priority'] as CritId[])
+
+  const clientOrderIds = (input.clientOrder ?? [])
+    .map(name => state.clients.find(c => normalize(c.name) === normalize(name))?.id)
+    .filter((id): id is string => !!id)
+
+  const capacityOverrides: PlanCapacityOverride[] = (input.capacityOverrides ?? [])
+    .map((o): PlanCapacityOverride | null => {
+      const sprintId = resolveSprintId(state, o.sprintLabel, null)
+      return sprintId && o.capacity !== undefined ? { sprintId, capacity: o.capacity, note: o.note } : null
+    })
+    .filter((o): o is PlanCapacityOverride => !!o)
+
+  const virtualItemsRaw = input.virtualItems ?? []
+  const virtualItems: PlanVirtualItem[] = virtualItemsRaw.map((v, idx) => ({
+    id: 'virt-' + (v.tempKey ?? `v${idx}`),
+    tempKey: v.tempKey ?? `v${idx}`,
+    desc: v.desc?.trim() || '(sans titre)',
+    sp: v.sp ?? 0,
+    priority: resolvePriority(v.priority, 'medium'),
+    clientId: resolveClientId(state, v.clientName, state.clients[0]?.id) ?? '',
+    type: resolveType(v.type, 'story') ?? 'story',
+    deps: [],
+  }))
+  const tempKeyToId = new Map(virtualItems.map(v => [v.tempKey, v.id]))
+  virtualItemsRaw.forEach((v, idx) => {
+    virtualItems[idx].deps = (v.deps ?? [])
+      .map(depRef => tempKeyToId.get(depRef) ?? state.items.find(i => normalize(i.key) === normalize(depRef))?.id)
+      .filter((id): id is string => !!id)
+  })
+
+  const itemOverrides: PlanItemOverride[] = (input.itemOverrides ?? [])
+    .map((o): PlanItemOverride | null => {
+      const item = o.key ? state.items.find(i => normalize(i.key) === normalize(o.key!)) : undefined
+      if (!item) return null
+      return {
+        itemId: item.id,
+        status: o.status ? resolveStatus(state, o.status, item.status) : undefined,
+        priority: o.priority ? resolvePriority(o.priority, item.priority) : undefined,
+        sp: o.sp,
+        deps: o.deps ? resolveDepKeys(state, o.deps, undefined) : undefined,
+      }
+    })
+    .filter((o): o is PlanItemOverride => !!o)
+
+  const fromSprintId = resolveSprintId(state, input.fromSprintLabel, null) ?? undefined
+
+  return {
+    params: { criteria, clientOrderIds, velocityFactor: input.velocityFactor, capacityOverrides, virtualItems, itemOverrides, fromSprintId },
+    virtualItems,
+  }
+}
+
+// Regroupement Epic/Initiative dans le texte (retour Julien, 2026-08-12) : la sortie de
+// simulate_sprint_plan/apply_sprint_plan listait les items d'un sprint a plat, sans distinguer les
+// Epics et Initiatives auxquels ils appartiennent - moins lisible que ProposalPanel
+// (AutoPlanningPage.tsx), qui applique deja ce regroupement "items-first" a 2 niveaux (voir
+// buildItemsFirstHierarchy, utils/hierarchyScore.ts). Portage simplifie ici (texte brut, pas de UI a
+// entretenir) plutot qu'une reutilisation du code frontend - deux runtimes distincts, aucun code
+// partage dans ce projet (voir convention en tete de lib/backlogWrite.ts).
+function formatSlotAssigned(items: PlanPlacedItem[], hierarchyNodes: HierarchyNode[]): string[] {
+  const epicById = new Map(hierarchyNodes.filter(n => n.level === 'epic').map(n => [n.id, n]))
+  const initiativeById = new Map(hierarchyNodes.filter(n => n.level === 'initiative').map(n => [n.id, n]))
+
+  const itemsByEpicId = new Map<string, PlanPlacedItem[]>()
+  const directItemsByInitiativeId = new Map<string, PlanPlacedItem[]>()
+  const orphans: PlanPlacedItem[] = []
+  const initiativeOrder: string[] = []
+  const standaloneEpicOrder: string[] = []
+
+  for (const item of items) {
+    const epic = item.epicId ? epicById.get(item.epicId) : undefined
+    const initId = getItemInitiativeId(item, hierarchyNodes)
+    if (epic) {
+      if (!itemsByEpicId.has(epic.id)) itemsByEpicId.set(epic.id, [])
+      itemsByEpicId.get(epic.id)!.push(item)
+      if (initId && initiativeById.has(initId)) {
+        if (!initiativeOrder.includes(initId)) initiativeOrder.push(initId)
+      } else if (!standaloneEpicOrder.includes(epic.id)) {
+        standaloneEpicOrder.push(epic.id)
+      }
+    } else if (initId && initiativeById.has(initId)) {
+      if (!directItemsByInitiativeId.has(initId)) directItemsByInitiativeId.set(initId, [])
+      directItemsByInitiativeId.get(initId)!.push(item)
+      if (!initiativeOrder.includes(initId)) initiativeOrder.push(initId)
+    } else {
+      orphans.push(item)
+    }
+  }
+
+  const line = (it: PlanPlacedItem, indent: string) => `${indent}- ${it.key} : ${it.desc}, ${it.sp} SP${it.isVirtual ? ' [item fictif]' : ''}`
+  const lines: string[] = []
+
+  for (const it of orphans) lines.push(line(it, '  '))
+
+  for (const epicId of standaloneEpicOrder) {
+    const epic = epicById.get(epicId)!
+    lines.push(`  * ${epic.key} (Epic) ${epic.desc}`)
+    for (const it of itemsByEpicId.get(epicId) ?? []) lines.push(line(it, '    '))
+  }
+
+  for (const initId of initiativeOrder) {
+    const initiative = initiativeById.get(initId)!
+    lines.push(`  * ${initiative.key} (Initiative) ${initiative.desc}`)
+    for (const it of directItemsByInitiativeId.get(initId) ?? []) lines.push(line(it, '    '))
+    const childEpics = [...epicById.values()].filter(e => e.parentId === initId && itemsByEpicId.has(e.id))
+    for (const epic of childEpics) {
+      lines.push(`    * ${epic.key} (Epic) ${epic.desc}`)
+      for (const it of itemsByEpicId.get(epic.id) ?? []) lines.push(line(it, '      '))
+    }
+  }
+
+  return lines
+}
+
+function formatPlanResult(state: CadenceState, plan: PlanResult, applied: boolean): string {
+  const lines: string[] = [applied ? 'Plan applique :' : 'Simulation (rien n\'a ete ecrit dans le Backlog) :']
+  for (const slot of plan.slots) {
+    const used = slot.used + slot.assigned.reduce((s, it) => s + it.sp, 0)
+    lines.push(`\n${slot.label}${slot.isNew ? ' [nouveau sprint]' : ''} - ${used}/${slot.cap} SP :`)
+    if (slot.assigned.length === 0) lines.push('  (rien a placer ici)')
+    else lines.push(...formatSlotAssigned(slot.assigned, state.hierarchyNodes))
+  }
+  if (plan.newSprintsCount > 0) lines.push(`\n${plan.newSprintsCount} nouveau(x) sprint(s) necessaire(s) pour tout placer.`)
+  if (plan.violations.length > 0) {
+    lines.push('\nAlertes :')
+    for (const v of plan.violations) lines.push(`  - ${v.key} (${v.desc}) : ${v.type === 'deadline' ? 'deadline' : 'Epic/Initiative scinde'}, ${v.detail}`)
+  } else {
+    lines.push('\nAucune alerte (deadline ou Epic/Initiative scinde).')
+  }
+  return lines.join('\n')
+}
+
+function executeSimulateSprintPlan(state: CadenceState, input: RawPlanInput): string {
+  const { params } = resolvePlanParams(state, input)
+  const plan = computeSprintPlan(state, params)
+  return formatPlanResult(state, plan, false)
+}
+
+async function executeApplySprintPlan(fastify: FastifyInstance, state: CadenceState, input: RawPlanInput, role: string): Promise<ToolExecResult> {
+  if (role !== 'ADMIN' && role !== 'PO') throw new Error('Reserve aux comptes PO ou Admin (comme le bouton "Appliquer" d\'Auto-planning)')
+  const { params, virtualItems } = resolvePlanParams(state, input)
+  const plan = computeSprintPlan(state, params)
+  const result = applySprintPlan(state, plan, virtualItems, state.itemKeyCounters ?? {}, uid, nextKeyForPrefix)
+  await saveState(fastify, result.nextState)
+
+  const changedItems = result.nextState.items.filter(ni => {
+    const before = state.items.find(i => i.id === ni.id)
+    return !!before && (before.sprintId !== ni.sprintId || before.status !== ni.status)
+  })
+  const newItems = result.nextState.items.filter(ni => !state.items.some(i => i.id === ni.id))
+  const newSprints = result.nextState.sprints.filter(ns => !state.sprints.some(s => s.id === ns.id))
+
+  const summaryParts = [`${result.newSprintsCount} sprint(s) cree(s)`, `${result.reassignedCount} item(s) reaffecte(s)`]
+  if (result.createdCount > 0) summaryParts.push(`${result.createdCount} item(s) fictif(s) cree(s)`)
+  const text = `Plan applique : ${summaryParts.join(', ')}.\n\n${formatPlanResult(state, plan, true)}`
+
+  return {
+    state: result.nextState, text,
+    toolCall: { kind: 'sprint_plan_applied', changedItems, newItems, newSprints, keyCounters: result.nextState.itemKeyCounters ?? {} },
+  }
+}
+
 async function executeTool(
   fastify: FastifyInstance, state: CadenceState, name: string, input: Record<string, unknown>, role: string, userId: string
 ): Promise<ToolExecResult> {
@@ -226,6 +417,7 @@ async function executeTool(
     case 'update_item': return executeUpdateItem(fastify, state, input as UpdateItemInput, role, userId)
     case 'create_hierarchy_node': return executeCreateHierarchyNode(fastify, state, input as CreateNodeInput)
     case 'update_hierarchy_node': return executeUpdateHierarchyNode(fastify, state, input as UpdateNodeInput)
+    case 'apply_sprint_plan': return executeApplySprintPlan(fastify, state, input as RawPlanInput, role)
     default: throw new Error(`Outil inconnu : ${name}`)
   }
 }
@@ -236,7 +428,7 @@ async function executeTool(
    resolveDepKeys, pas des cles - meme convention que resultBlocks ci-dessus). Ne touchent jamais
    `state` ni `saveState` : READ_TOOL_NAMES ci-dessous les detourne de executeTool/toolCalls dans la
    boucle agentique. */
-const READ_TOOL_NAMES = new Set(['list_items', 'get_item', 'list_hierarchy', 'search_backlog'])
+const READ_TOOL_NAMES = new Set(['list_items', 'get_item', 'list_hierarchy', 'search_backlog', 'simulate_sprint_plan'])
 
 function clientNameFor(state: CadenceState, clientId: string | undefined | null): string {
   return state.clients.find(c => c.id === clientId)?.name ?? '(sans client)'
@@ -441,6 +633,7 @@ function executeReadTool(state: CadenceState, name: string, input: Record<string
     case 'get_item': return executeGetItem(state, input as { key?: string })
     case 'list_hierarchy': return executeListHierarchy(state, input as { level?: string; clientName?: string })
     case 'search_backlog': return executeSearchBacklog(state, input as { query?: string; limit?: number })
+    case 'simulate_sprint_plan': return executeSimulateSprintPlan(state, input as RawPlanInput)
     default: throw new Error(`Outil de lecture inconnu : ${name}`)
   }
 }
@@ -496,7 +689,11 @@ function visibleTags(state: CadenceState): string[] {
  */
 function buildSystemPrompt(state: CadenceState, role: string): string {
   const clients = state.clients.map(c => c.name).join(', ') || '(aucun)'
-  const sprints = state.sprints.map(s => `${s.label}${s.closed ? '' : ' (ouvert)'}`).join(', ') || '(aucun)'
+  // Numero systematiquement inclus (2026-08-12, retour Julien) : un sprint a souvent un libelle
+  // personnalise (ex. "INTELLIGENCE") qui masquait completement son numero jusqu'ici - designer un
+  // sprint par "Sprint 3" (convention affichee partout dans l'UI) etait donc impossible a resoudre
+  // de facon fiable. Voir resolveSprintId() (backlogWrite.ts), qui matche desormais aussi par numero.
+  const sprints = state.sprints.map(s => `Sprint ${s.number}${s.label ? ` - ${s.label}` : ''}${s.closed ? '' : ' (ouvert)'}`).join(', ') || '(aucun)'
   const statuses = state.kanbanCols.map(c => c.label).join(', ') || '(aucun)'
   const doneStatuses = state.kanbanCols.filter(c => c.isDone).map(c => c.label).join(', ') || '(aucun statut marque "termine")'
   const epics = state.hierarchyNodes.slice(0, 40).map(n => `${n.key} (${n.desc})`).join(', ') || '(aucun)'
@@ -514,11 +711,26 @@ function buildSystemPrompt(state: CadenceState, role: string): string {
     "list_items accepte des filtres dedies pour les questions courantes plutot que de tout lister et compter a la main : `unassigned` (sans assigne), `hasDeps`/`hasDeadline` (avec ou sans dependance/date de livraison), `overdueOnly` (date de livraison depassee et pas termine), `dueSoon` (date de livraison dans les 7 prochains jours et pas termine), `done` (termine ou non, voir statuts ci-dessus), `blocked` (statut Bloque), `hasSp` (avec ou sans Story Points), `hasStory` (role/besoin/benefice renseignes), `hasAcceptance` (au moins un critere d'acceptation), `dorComplete`/`dodComplete` (Definition of Ready/Done entierement cochee), `depOnDone` (au moins une dependance vers un item deja termine, potentiellement obsolete). Pour un balayage complet du Backlog (audit, detection d'anomalies), passe `limit: 1000` explicitement (defaut 50). get_item detaille toujours la date de livraison et les dependances d'un item, meme absentes (jamais silencieusement omises). list_hierarchy signale un ecart entre le SP propre d'un Epic/Initiative et la somme des SP de ses items.",
     "Quand une demande implique de creer ou modifier un item/Epic/Initiative, utilise les outils a ta disposition plutot que de te contenter de decrire le resultat en texte. Designe toujours un client, un sprint, un statut ou un Epic par son NOM ou LIBELLE exact tel que liste ci-dessus, jamais par un identifiant technique interne.",
     "Estimation en Story Points (suite de Fibonacci : 1, 2, 3, 5, 8, 13, 21) : commence par get_item pour connaitre le titre, la description et les dependances de l'item a estimer, puis si besoin search_backlog ou list_items (meme Epic, tags similaires) pour trouver des items deja estimes et estimer PAR COMPARAISON plutot que dans l'absolu. Applique le resultat via update_item (champ sp) plutot que de te contenter de l'annoncer en texte.",
+    // Phase 6, sous-chantier 4 etape 2/2 (2026-08-12) : le Compagnon IA reproduit desormais
+    // Auto-planning de facon conversationnelle - meme algorithme (lib/sprintPlanner.ts), jamais un
+    // calcul improvise. Auto-planning lui-meme n'est PAS remplace, il reste utilisable normalement.
+    // Instructions eclatees en plusieurs lignes courtes (plutot qu'un seul paragraphe) suite a des
+    // ecarts constates en test reel (Julien, 2026-08-12) : le modele avait reformule/retranscrit le
+    // resultat de l'outil dans un tableau markdown fait main plutot que le relayer fidelement, ce
+    // qui a introduit des totaux incoherents, et avait applique un plan sans attendre de confirmation.
+    "Planification de sprints : pour toute demande de planification (\"planifie le prochain sprint\", \"et si on priorisait le client X\", \"simule un scenario ou...\"), utilise TOUJOURS simulate_sprint_plan plutot que d'estimer toi-meme un placement - c'est le meme algorithme que la page Auto-planning, le resultat doit rester identique a ce qu'elle produirait.",
+    "5 criteres possibles dans `criteria` (liste ORDONNEE, l'ordre = ordre de priorite entre eux) : \"priority\" (Priorite), \"client\" (Importance client, necessite `clientOrder`), \"socle\" (Socle commun en tete), \"debt\" (Dette technique), \"epic\" (Cohesion Epic/Initiative - un Epic ou une Initiative reste groupe dans un seul sprint autant que possible, place en bloc). Par defaut, seule la priorite est active - comme un nouveau scenario cree depuis la page Auto-planning. Designe toujours un sprint par \"Sprint N\" (son numero, tel que liste ci-dessus) plutot que par son seul nom personnalise, qui peut ne pas exister.",
+    "IMPORTANT - fidelite du resultat : ne recalcule JAMAIS toi-meme les totaux, ne reformule ni ne resume les chiffres renvoyes par simulate_sprint_plan dans un tableau reconstruit de memoire - recopie les totaux et cles d'items exactement tels que l'outil les a donnes. Si tu veux presenter les choses plus lisiblement (tableau markdown par exemple), recopie chaque valeur depuis le texte de l'outil, ne les recalcule pas et ne les \"corrige\" pas de toi-meme meme si un total te semble bizarre - dis-le a l'utilisateur plutot que de l'ajuster silencieusement.",
+    "IMPORTANT - ne jamais appliquer sans confirmation : n'appelle JAMAIS apply_sprint_plan dans le meme tour de reponse qu'une simulation, meme si la demande initiale mentionnait deja \"applique\" ou \"planifie et applique\" - montre TOUJOURS le resultat de simulate_sprint_plan et attends un nouveau message explicite de l'utilisateur (\"applique\", \"vas-y\", \"oui\") avant d'appeler apply_sprint_plan.",
+    "IMPORTANT - memes parametres entre simulation et application : quand l'utilisateur confirme, rappelle apply_sprint_plan avec EXACTEMENT les memes valeurs de `criteria`/`clientOrder`/`velocityFactor`/`capacityOverrides`/`virtualItems`/`itemOverrides`/`fromSprintLabel` que le dernier simulate_sprint_plan de cette conversation - jamais reformules ou re-devines de memoire, le resultat ecrit doit correspondre exactement a ce qui a ete montre.",
+    "Les items fictifs (`virtualItems`) affiches par simulate_sprint_plan portent une cle PROVISOIRE (leur `tempKey`, ex. \"V1\") - ce n'est qu'apres apply_sprint_plan qu'ils deviennent de vrais items avec une cle definitive (prefixe du client, ex. \"JIR-004\"). Precise-le si l'utilisateur s'interroge sur cette cle provisoire.",
   ]
   if (role === 'DEV') {
-    lines.push("Ce compte a le role Dev : impossible de creer un item, ni de modifier son contenu produit (titre, description, priorite, client, Epic...). Seuls le statut, les SP, la Definition of Done, les dependances et l'auto-assignation sont modifiables. Pour toute autre demande de creation/modification, explique que seul un Product Owner (ou Admin) peut le faire.")
-  } else if (role === 'SCRUM_MASTER' || role === 'STAKEHOLDER') {
-    lines.push("Ce compte n'a pas de droits d'ecriture sur le Backlog : aide uniquement a la reflexion et a la redaction en texte (par exemple un brouillon de User Story a copier), sans jamais creer ou modifier quoi que ce soit toi-meme. Precise-le si on te demande de creer un item.")
+    lines.push("Ce compte a le role Dev : impossible de creer un item, ni de modifier son contenu produit (titre, description, priorite, client, Epic...). Seuls le statut, les SP, la Definition of Done, les dependances et l'auto-assignation sont modifiables. Pour toute autre demande de creation/modification, explique que seul un Product Owner (ou Admin) peut le faire. Tu peux simuler un plan de sprints (simulate_sprint_plan) mais jamais l'appliquer (apply_sprint_plan est reserve PO/Admin).")
+  } else if (role === 'SCRUM_MASTER') {
+    lines.push("Ce compte n'a pas de droits d'ecriture sur le contenu du Backlog : aide uniquement a la reflexion et a la redaction en texte (par exemple un brouillon de User Story a copier), sans jamais creer ou modifier un item toi-meme. Tu peux en revanche simuler un plan de sprints (simulate_sprint_plan), mais jamais l'appliquer (apply_sprint_plan est reserve PO/Admin).")
+  } else if (role === 'STAKEHOLDER') {
+    lines.push("Ce compte n'a aucun droit d'ecriture sur le Backlog et pas acces a la simulation de plan de sprints : aide uniquement a la reflexion et a la redaction en texte, sans jamais creer/modifier un item ni simuler de planification toi-meme. Precise-le si on te le demande.")
   }
   return lines.join('\n')
 }
@@ -581,9 +793,14 @@ export async function aiRoutes(fastify: FastifyInstance) {
       // Outils de lecture : tous les roles y ont acces (lecture seule, memes donnees que les pages
       // Backlog/Dashboard deja visibles). Outils d'ecriture : filtres par role comme avant.
       const writeTools: AnthropicTool[] = isFullEditor
-        ? [CREATE_ITEM_TOOL, UPDATE_ITEM_TOOL_FULL, CREATE_HIERARCHY_NODE_TOOL, UPDATE_HIERARCHY_NODE_TOOL]
+        ? [CREATE_ITEM_TOOL, UPDATE_ITEM_TOOL_FULL, CREATE_HIERARCHY_NODE_TOOL, UPDATE_HIERARCHY_NODE_TOOL, APPLY_SPRINT_PLAN_TOOL]
         : role === 'DEV' ? [UPDATE_ITEM_TOOL_DEV] : []
-      const tools: AnthropicTool[] = [LIST_ITEMS_TOOL, GET_ITEM_TOOL, LIST_HIERARCHY_TOOL, SEARCH_BACKLOG_TOOL, ...writeTools]
+      // simulate_sprint_plan exclu du seul role Stakeholder (contrairement aux 4 outils de lecture
+      // ci-dessus, ouverts a tous) : meme perimetre que canExploreWhatIf (utils/permissions.ts cote
+      // frontend) sur la page Auto-planning elle-meme - simuler un plan est deja plus qu'une simple
+      // lecture du Backlog existant, coherent avec la restriction deja en place sur cette page.
+      const sprintPlanTools: AnthropicTool[] = role !== 'STAKEHOLDER' ? [SIMULATE_SPRINT_PLAN_TOOL] : []
+      const tools: AnthropicTool[] = [LIST_ITEMS_TOOL, GET_ITEM_TOOL, LIST_HIERARCHY_TOOL, SEARCH_BACKLOG_TOOL, ...sprintPlanTools, ...writeTools]
 
       const system = buildSystemPrompt(state, role)
       const messages: AnthropicMessage[] = (req.body.messages ?? []).map(m => ({ role: m.role, content: m.content }))

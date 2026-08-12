@@ -233,6 +233,12 @@ export function AutoPlanningPage() {
       deps: v.deps ?? [], createdAt: new Date().toISOString(),
     }))
     const allItems = [...effectiveItems, ...virtAsItems]
+    // `Item.deps` stocke des ID reels (voir ItemModal.tsx), jamais des cles - meme correctif que
+    // topoSort() (utils/autoPlanning.ts, voir son commentaire) : `placedAt`/`successors`
+    // ci-dessous restent indexes par CLE (utilise ailleurs pour l'affichage/les violations), donc
+    // on traduit les ID de `item.deps` en cles via cette map avant de les consulter, plutot que de
+    // reindexer tout par ID.
+    const keyById = new Map(allItems.map(it => [it.id, it.key]))
 
     const forkIdx    = sc.forkFrom?.fromSprintIndex ?? 0
     const allSprints = [...state.sprints]
@@ -287,7 +293,11 @@ export function AutoPlanningPage() {
     }
 
     const successors: Record<string, string[]> = {}
-    sortedItems.forEach(item => { (item.deps ?? []).forEach(dk => { successors[dk] = successors[dk] ?? []; successors[dk].push(item.key) }) })
+    sortedItems.forEach(item => { (item.deps ?? []).forEach(depId => {
+      const dk = keyById.get(depId)
+      if (!dk) return
+      successors[dk] = successors[dk] ?? []; successors[dk].push(item.key)
+    }) })
 
     const placedAt: Record<string, number> = {}
     const placedSet = new Set<string>()
@@ -303,9 +313,36 @@ export function AutoPlanningPage() {
       }
     }
 
+    // Garde-fou anti-cycle (2026-08-12) : necessaire a partir du moment ou placeOne() se rappelle
+    // lui-meme sur une dependance non encore placee (voir ci-dessous) - un vrai cycle de dependances
+    // (A depend de B qui depend de A) provoquerait sinon une recursion infinie. `placingNow` marque
+    // les items en cours de placement le temps de leur propre appel ; retomber dessus signale un
+    // cycle, ignore silencieusement (meme tolerance que topoSort face a un cycle).
+    const placingNow = new Set<string>()
+
     function placeOne(item: Item) {
       if (placedSet.has(item.key)) return
-      const minIdx     = Math.max(startPlaceIdx, (item.deps ?? []).reduce((mx, dk) => placedAt[dk] !== undefined ? Math.max(mx, placedAt[dk] + 1) : mx, 0))
+      if (placingNow.has(item.key)) return
+      placingNow.add(item.key)
+      // Garantit qu'une dependance est toujours placee AVANT son dependant (retour Julien,
+      // 2026-08-12), quel que soit l'ordre de sortedItems - sans ce pre-placement recursif, un item
+      // de priorite plus elevee que sa propre dependance pouvait se retrouver traite (et place) en
+      // premier, la dependance atterrissant alors n'importe ou, y compris APRES son dependant.
+      for (const depId of item.deps ?? []) {
+        const dk = keyById.get(depId)
+        if (!dk || placedSet.has(dk)) continue
+        const depItem = allItems.find(it => it.id === depId)
+        if (depItem) placeOne(depItem)
+      }
+      placingNow.delete(item.key)
+      const depKeys    = (item.deps ?? []).map(depId => keyById.get(depId)).filter((k): k is string => !!k)
+      // Assouplissement (retour Julien, 2026-08-12) : une dependance peut desormais partager le
+      // MEME sprint que son dependant (ordre interne au sprint, tres courant en pratique - ex.
+      // "API" puis "UI qui l'appelle" le meme sprint), plus seulement un sprint strictement
+      // anterieur comme avant - `placedAt[dk]` plutot que `placedAt[dk] + 1`. Voir la violation
+      // 'dep' plus bas, qui signale ce cas pour que l'equipe sache qu'un sequencement interne au
+      // sprint est necessaire.
+      const minIdx     = Math.max(startPlaceIdx, depKeys.reduce((mx, dk) => placedAt[dk] !== undefined ? Math.max(mx, placedAt[dk]) : mx, 0))
       const hasDeadline = !!item.deadline?.date && item.deadline.type !== 'none'
       let placed = false
       for (let i = minIdx; i < minIdx + 200; i++) {
@@ -342,10 +379,25 @@ export function AutoPlanningPage() {
     // gardent leur logique actuelle et viennent naturellement combler les trous laissés par un
     // groupe basculé au sprint suivant.
     function placeGroupAtomically(groupItems: Item[]): boolean {
+      // Pre-placement des dependances EXTERNES au groupe (2026-08-12, meme raison que placeOne
+      // ci-dessus) - jamais une dependance qui est elle-meme membre de CE groupe : elle sera de
+      // toute facon placee avec le reste du groupe juste en dessous, la sortir via placeOne casserait
+      // l'atomicite Epic/Initiative que ce mecanisme garantit justement.
+      const groupKeys = new Set(groupItems.map(it => it.key))
+      for (const it of groupItems) {
+        for (const depId of it.deps ?? []) {
+          const dk = keyById.get(depId)
+          if (!dk || placedSet.has(dk) || groupKeys.has(dk)) continue
+          const depItem = allItems.find(x => x.id === depId)
+          if (depItem) placeOne(depItem)
+        }
+      }
       const totalSp = groupItems.reduce((s, it) => s + it.sp, 0)
-      const minIdx = Math.max(startPlaceIdx, ...groupItems.map(it =>
-        (it.deps ?? []).reduce((mx, dk) => placedAt[dk] !== undefined ? Math.max(mx, placedAt[dk] + 1) : mx, 0)
-      ))
+      // Assouplissement identique a placeOne (meme sprint autorise, voir son commentaire).
+      const minIdx = Math.max(startPlaceIdx, ...groupItems.map(it => {
+        const depKeys = (it.deps ?? []).map(depId => keyById.get(depId)).filter((k): k is string => !!k)
+        return depKeys.reduce((mx, dk) => placedAt[dk] !== undefined ? Math.max(mx, placedAt[dk]) : mx, 0)
+      }))
       for (let i = minIdx; i < minIdx + 200; i++) {
         ensureSlot(i)
         const sl   = slots[i]
@@ -405,6 +457,21 @@ export function AutoPlanningPage() {
     }
 
     for (const item of sortedItems) { if (!placedSet.has(item.key)) placeOne(item) }
+
+    // Violation 'dep' (retour Julien, 2026-08-12) : une dépendance peut désormais partager le même
+    // sprint que son dépendant (assouplissement demandé, voir placeOne/placeGroupAtomically
+    // ci-dessus) - avertissement purement informatif (pas un vrai problème comme une deadline ou un
+    // Epic scindé), pour que l'équipe sache qu'un séquencement interne au sprint est nécessaire.
+    // Toujours vérifiée (contrairement à 'epic-split'), les dépendances existent indépendamment des
+    // critères actifs.
+    for (const item of itemsToPlace) {
+      const idx = placedAt[item.key]
+      if (idx === undefined) continue
+      const depKeys = (item.deps ?? []).map(depId => keyById.get(depId)).filter((k): k is string => !!k)
+      const sameSprintDeps = depKeys.filter(dk => placedAt[dk] === idx)
+      if (sameSprintDeps.length === 0) continue
+      violations.push({ key: item.key, desc: item.desc, type: 'dep', detail: `même sprint que sa dépendance ${sameSprintDeps.join(', ')} : à séquencer en interne` })
+    }
 
     // Violation 'epic-split' (sous-chantier 4, 2026-08-10) : signalée seulement si le critère de
     // cohésion est actif - un Epic/Initiative réparti sur plusieurs sprints n'est un problème que
@@ -1302,6 +1369,14 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
             const storiesHereByEpicId = new Map<string, number>()
             hierarchy.standaloneEpics.forEach(g => storiesHereByEpicId.set(g.epicId, g.items.length))
             hierarchy.initiativeSections.forEach(sec => sec.epics.forEach(g => storiesHereByEpicId.set(g.epicId, g.items.length)))
+            // `spHereByEpicId` (retour Julien, 2026-08-12) : score de l'Epic RÉELLEMENT présent dans
+            // CE sprint, pas son score global (`epicSP`) - contrairement à ce que supposait l'ancien
+            // commentaire ici, un Epic PEUT être scindé sur plusieurs sprints quand le critère
+            // "Cohésion Epic" n'est pas actif (placement piloté par la seule capacité) : affichait à
+            // tort le score total de l'Epic sur chaque sprint où il n'apparaît que partiellement.
+            const spHereByEpicId = new Map<string, number>()
+            hierarchy.standaloneEpics.forEach(g => spHereByEpicId.set(g.epicId, g.items.reduce((s, it) => s + it.sp, 0)))
+            hierarchy.initiativeSections.forEach(sec => sec.epics.forEach(g => spHereByEpicId.set(g.epicId, g.items.reduce((s, it) => s + it.sp, 0))))
             const rows: Row[] = [
               ...hierarchy.orphans.map(it => ({ kind: 'item' as const, item: it })),
               ...hierarchy.standaloneEpics.flatMap(({ epicId, items }) => [
@@ -1311,11 +1386,12 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
               // `spHere` (retour Julien, 2026-08-11) : score de l'Initiative RÉELLEMENT présent dans
               // CE sprint, pas son score global - une Initiative trop grosse pour un seul sprint se
               // répartit en gardant chaque Epic entier (voir generateScenario), donc le score global
-              // afficherait à tort la totalité sur chaque sprint où elle apparaît partiellement. Les
-              // Epics ne sont eux jamais scindés : `epicSP` (score global) reste donc exact pour un
-              // Epic présent ici, pas besoin d'un équivalent "par sprint" à ce niveau.
+              // afficherait à tort la totalité sur chaque sprint où elle apparaît partiellement. Somme
+              // sur les items de `g.items` (déjà scopés à ce sprint) plutôt que sur `epicSP` (score
+              // global de l'Epic) - même correctif que `spHereByEpicId` ci-dessus, 2026-08-12 : un Epic
+              // peut lui aussi être scindé (critère "Cohésion Epic" inactif).
               ...hierarchy.initiativeSections.flatMap(sec => {
-                const spHere = sec.epics.reduce((s, g) => s + (epicSP.get(g.epicId) ?? 0), 0)
+                const spHere = sec.epics.reduce((s, g) => s + g.items.reduce((s2, it) => s2 + it.sp, 0), 0)
                   + sec.directItems.reduce((s, it) => s + it.sp, 0)
                 return [
                   { kind: 'initiative' as const, initiativeId: sec.initiative.id, spHere },
@@ -1395,7 +1471,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                           <span style={{ fontFamily: 'monospace', fontSize: 9, color: 'var(--primary)', fontWeight: 700, flexShrink: 0 }}>{epic.key}</span>
                           <span style={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{epic.desc}</span>
                           <span style={{ fontSize: 8, color: 'var(--text-muted)', flexShrink: 0 }}>{storiesHere}/{storiesTotal}</span>
-                          <span style={{ fontSize: 8, color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>{epicSP.get(row.epicId) ?? 0} SP</span>
+                          <span style={{ fontSize: 8, color: 'var(--text-muted)', fontWeight: 700, flexShrink: 0 }}>{spHereByEpicId.get(row.epicId) ?? 0}/{epicSP.get(row.epicId) ?? 0} SP</span>
                         </div>
                       )
                     }

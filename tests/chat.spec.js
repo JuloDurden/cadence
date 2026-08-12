@@ -381,4 +381,54 @@ test.describe('Compagnon IA - panneau de chat (v0.98)', () => {
     expect(after).not.toBe(before);
   });
 
+  // v0.98.6 (2026-08-12), retour Julien : la conversation était persistée sous une clé localStorage
+  // FIXE ('cadence.chat.messages'), partagée par TOUS les comptes connectés sur le même navigateur -
+  // changer de compte affichait la conversation du compte précédent. Clé désormais scopée par
+  // `userId` (ChatContext.tsx, storageKeyFor). `goTo()` recharge entièrement la page (repasse par
+  // /login) à chaque appel : ce test vérifie donc la CLÉ DE STOCKAGE elle-même (la partie qui
+  // fuyait), pas l'effet réactif de rechargement à chaud sans reload (`useEffect` sur `userId`,
+  // nécessaire seulement parce que login()/logout() ne remontent pas ChatProvider dans l'app réelle
+  // - voir commentaire dans ChatContext.tsx), qu'un test end-to-end sur un vrai rechargement de page
+  // ne peut de toute façon pas distinguer d'un simple montage initial.
+  test('la conversation est isolée par compte connecté, pas de fuite entre 2 comptes', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'ADMIN', userId: 'user-admin-e2e' });
+    await mockAiChatApi(page, () => ({ reply: 'Réponse pour Admin.' }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Message envoyé par Admin');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Réponse pour Admin.');
+
+    // Bascule vers un autre compte (Dev) : la conversation d'Admin ne doit apparaître nulle part.
+    await goTo(page, '/backlog', { role: 'DEV', userId: 'user-dev-e2e' });
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-user"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toHaveCount(0);
+
+    // Retour sur Admin : sa conversation est toujours là, intacte.
+    await goTo(page, '/backlog', { role: 'ADMIN', userId: 'user-admin-e2e' });
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-user"]')).toContainText('Message envoyé par Admin');
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Réponse pour Admin.');
+  });
+
+  // v0.98.6 (2026-08-12), retour Julien : une réponse 529 ("Overloaded") de l'API Anthropic - une
+  // surcharge temporaire côté serveur, sans lien avec Cadence - remontait le JSON brut de l'erreur
+  // dans le chat. Le backend (routes/ai.ts) renvoie toute erreur Anthropic en 502 avec un champ
+  // `error` explicite (lib/ai.ts, anthropicCall) : même mécanisme que le test existant "une erreur
+  // serveur (ex. assistant non configuré) s'affiche comme une bulle d'erreur" ci-dessus, avec le
+  // message dédié au cas 529.
+  test('une surcharge temporaire de l\'API Anthropic (529) affiche un message clair, pas le JSON brut', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    await mockAiChatApi(page, () => ({ status: 502, error: 'API Anthropic temporairement surchargee, reessayez dans quelques instants' }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Simule un plan pour les prochains sprints');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    const bubble = page.locator('[data-testid="chat-message-assistant"]');
+    await expect(bubble).toContainText('temporairement surchargee');
+    await expect(bubble).not.toContainText('overloaded_error');
+  });
+
 });

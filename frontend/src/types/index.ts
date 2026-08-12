@@ -758,6 +758,10 @@ export type AiToolCall =
   | { kind: 'item_updated'; item: Item }
   | { kind: 'node_created'; node: HierarchyNode; keyCounters: Record<string, number> }
   | { kind: 'node_updated'; node: HierarchyNode }
+  // Phase 6, sous-chantier 4 étape 2/2 (2026-08-12) : apply_sprint_plan peut toucher des dizaines
+  // d'items et créer plusieurs sprints en une seule action, contrairement aux 4 kinds ci-dessus (un
+  // seul item/node à la fois) - `changedItems`/`newItems`/`newSprints` plutôt qu'un objet unique.
+  | { kind: 'sprint_plan_applied'; changedItems: Item[]; newItems: Item[]; newSprints: Sprint[]; keyCounters: Record<string, number> }
 
 // ── Sprint Review ─────────────────────────────────────────────────────────────
 

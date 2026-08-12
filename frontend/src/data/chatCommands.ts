@@ -76,6 +76,15 @@ export const CHAT_COMMANDS: ChatCommand[] = [
     cmd: '/audit', label: 'Audit complet', description: 'Lance toutes les verifications ci-dessus et fait une synthese.',
     prompt: 'Fais un etat des lieux complet du Backlog. Pour chacune des categories suivantes, indique le nombre d\'items concernes et leur Cle, dans un rapport structure par section (un titre markdown par categorie) : sans Story Points, User Stories sans role/besoin/benefice, sans critere d\'acceptation, Definition of Ready incomplete, Definition of Done incomplete, non termines sans assigne, deadlines depassees, deadlines dans les 7 prochains jours, items actuellement bloques, Epics/Initiatives avec un ecart de SP par rapport a leurs items, items du sprint en cours sans Story Points, items dependant d\'un item deja termine. Termine par un court resume des points les plus urgents.',
   },
+  // Phase 6, sous-chantier 4 etape 2/2 (2026-08-12) : raccourci vers simulate_sprint_plan (voir
+  // backend/src/lib/ai.ts), meme principe que les commandes ci-dessus - un prompt type plutot qu'une
+  // phrase a taper, le modele choisit lui-meme les criteres pertinents selon la suite de la
+  // conversation si l'utilisateur en precise (ex. "/plan puis priorise le client X").
+  {
+    cmd: '/plan', label: 'Planifier les prochains sprints',
+    description: 'Simule un plan de sprints avec les criteres par defaut (identique a un nouveau scenario Auto-planning), sans rien ecrire.',
+    prompt: 'Simule un plan pour les prochains sprints (simulate_sprint_plan), avec le critere Priorite par defaut si je n\'en precise pas d\'autre, et presente le resultat sprint par sprint avec les eventuelles alertes. N\'applique rien tant que je ne te le demande pas explicitement.',
+  },
 ]
 
 export function matchChatCommand(text: string): ChatCommand | undefined {

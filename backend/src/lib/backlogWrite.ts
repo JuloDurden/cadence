@@ -45,10 +45,20 @@ export interface HierarchyNode {
   createdAt: string
 }
 
-export interface Sprint { id: string; label: string; closed: boolean; active?: boolean }
-export interface TeamMember { id: string; name: string; linkedUserId?: string }
-export interface Client { id: string; name: string; prefix: string }
+// `number`/`startDate`/`endDate`/`capacity` ajoutes 2026-08-12 (Phase 6, sous-chantier 4, etape 2/2
+// - planification de sprints par le Compagnon IA) : ces champs existent bien dans Sprint (frontend/
+// src/types/index.ts, meme convention deja notee en tete de fichier) mais n'avaient jamais ete
+// portes ici, seuls label/closed/active etaient necessaires jusqu'a present (resolution par
+// libelle). Le portage de l'algorithme d'Auto-planning (voir sprintPlanner.ts) en a besoin pour
+// calculer une capacite effective et generer un plan identique a celui d'Auto-planning.
+export interface Sprint { id: string; number: number; label: string; startDate: string; endDate: string; capacity: number; closed: boolean; active?: boolean }
+// `spPerDay` ajoute 2026-08-12, meme raison que Sprint ci-dessus : necessaire au calcul de
+// capacite effective (deduction des absences par membre, voir sprintPlanner.ts).
+export interface TeamMember { id: string; name: string; spPerDay?: number; linkedUserId?: string }
+export interface Client { id: string; name: string; prefix: string; excludeFromPlanning?: boolean }
 export interface KanbanCol { id: string; label: string; isDone?: boolean; isDefault?: boolean }
+// Duplique depuis frontend/src/types/index.ts (AbsenceType/Absence) - meme convention.
+export interface Absence { id: string; memberId: string; start: string; end: string }
 
 export interface CadenceState {
   items: Item[]
@@ -57,6 +67,8 @@ export interface CadenceState {
   team: TeamMember[]
   clients: Client[]
   kanbanCols: KanbanCol[]
+  absences?: Absence[]
+  settings?: { defaultCapacity?: number; sprintDuration?: number }
   itemKeyCounters?: Record<string, number>
   [key: string]: unknown // le reste du blob (dailies, retro, nnl...) transite sans y toucher
 }
@@ -120,12 +132,24 @@ export function resolveEpicId(state: CadenceState, key: string | undefined, fall
   return state.hierarchyNodes.find(n => normalize(n.key) === normalize(key))?.id ?? fallback
 }
 
-/** "current" resout le sprint en cours (voir getCurrentSprint) ; toute autre valeur cherche une
- *  correspondance de libellé, insensible accents/casse (ex. "Sprint 3"). */
+/** "current" resout le sprint en cours (voir getCurrentSprint) ; sinon cherche d'abord une
+ *  correspondance de libellé (Sprint.label, insensible accents/casse - ex. un sprint nomme
+ *  "INTELLIGENCE"), puis, a defaut, une correspondance par NUMERO ("Sprint 3", "S3", "3") sur
+ *  Sprint.number - ajoute 2026-08-12 (retour Julien, planification de sprints par le Compagnon IA) :
+ *  un sprint avec un libelle personnalise (frequent, voir capture Auto-planning) n'etait resolvable
+ *  par AUCUN moyen fiable auparavant si le modele s'y referait par son numero, ce qui est pourtant
+ *  la convention affichee partout dans l'UI ("Sprint 3", "Sprint 3 – <libelle>"). */
 export function resolveSprintId(state: CadenceState, label: string | undefined, fallback: string | null): string | null {
   if (!label) return fallback
   if (normalize(label) === 'current') return getCurrentSprint(state)?.id ?? fallback
-  return state.sprints.find(s => normalize(s.label) === normalize(label))?.id ?? fallback
+  const byLabel = state.sprints.find(s => normalize(s.label) === normalize(label))
+  if (byLabel) return byLabel.id
+  const numMatch = normalize(label).match(/(\d+)\s*$/)
+  if (numMatch) {
+    const byNumber = state.sprints.find(s => s.number === parseInt(numMatch[1], 10))
+    if (byNumber) return byNumber.id
+  }
+  return fallback
 }
 
 export function resolveStatus(state: CadenceState, label: string | undefined, fallback: string): string {

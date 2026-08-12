@@ -1,25 +1,35 @@
 import type { Item, ScenarioSlot } from '../types'
 
 // ── Topological sort (Kahn's algorithm) ───────────────────────────────────
+// Bug trouve le 2026-08-12 (portage backend du Compagnon IA, sous-chantier 4 etape 2/2) :
+// `Item.deps` stocke des ID reels (voir ItemModal.tsx addDep(i.id), backlogWrite.ts
+// resolveDepKeys) - cette fonction comparait pourtant ces valeurs a des CLES d'items
+// (`keySet`/`adj`/`inDeg` indexes par `.key`), une comparaison qui ne correspondait donc
+// jamais. Consequence : tous les items avaient un degre entrant de 0 (aucune dependance
+// jamais reconnue), le resultat etait simplement `items` dans son ordre d'origine - le tri
+// topologique etait un no-op silencieux, les dependances jamais respectees dans l'ordre de
+// placement d'Auto-planning. Corrige en indexant par `.id` (la vraie cle de `deps`), le
+// resultat reste un `Item[]` dans le meme ordre relatif qu'avant pour tout le reste de
+// l'appli (aucun autre appelant de cette fonction n'est affecte par ce changement interne).
 export function topoSort(items: Item[]): Item[] {
-  const keySet = new Set(items.map(i => i.key))
+  const idSet = new Set(items.map(i => i.id))
   const inDeg: Record<string, number> = {}
   const adj: Record<string, string[]> = {}
-  items.forEach(i => { inDeg[i.key] = 0; adj[i.key] = [] })
+  items.forEach(i => { inDeg[i.id] = 0; adj[i.id] = [] })
   items.forEach(i => {
-    ;(i.deps ?? []).forEach(dk => {
-      if (!keySet.has(dk)) return
-      adj[dk] = adj[dk] ?? []; adj[dk].push(i.key)
-      inDeg[i.key] = (inDeg[i.key] ?? 0) + 1
+    ;(i.deps ?? []).forEach(depId => {
+      if (!idSet.has(depId)) return
+      adj[depId] = adj[depId] ?? []; adj[depId].push(i.id)
+      inDeg[i.id] = (inDeg[i.id] ?? 0) + 1
     })
   })
-  const queue = items.filter(i => inDeg[i.key] === 0)
+  const queue = items.filter(i => inDeg[i.id] === 0)
   const result: Item[] = []
   while (queue.length) {
     const node = queue.shift()!; result.push(node)
-    ;(adj[node.key] ?? []).forEach(nk => {
-      inDeg[nk]--
-      if (inDeg[nk] === 0) { const it = items.find(i => i.key === nk); if (it) queue.push(it) }
+    ;(adj[node.id] ?? []).forEach(nid => {
+      inDeg[nid]--
+      if (inDeg[nid] === 0) { const it = items.find(i => i.id === nid); if (it) queue.push(it) }
     })
   }
   items.forEach(i => { if (!result.includes(i)) result.push(i) })
