@@ -26,6 +26,40 @@ import { buildBacklogWorkbookBuffer, readWorkbookSheets, applyMapping, applyBack
 import type { RawSheet } from '../utils/excelBacklog'
 import type { KanbanCol, Settings, HistoryEntry, CadenceState } from '../types'
 
+// ─── Onglets (Phase 6bis, roadmap v1, sous-chantier 1 : réorganisation, 2026-08-13) ─────────────
+// Page auparavant un long scroll de <section> ; découpage en onglets une fois les phases qui
+// ajoutent chacune leurs propres réglages passées (Intégrations, Compagnon IA, jetons API, reset
+// total, export/import Excel) — voir docs/roadmap-v1.md, Phase 6bis. Liste retenue plus courte que
+// les 7 onglets évoqués dans le plan initial ("Notifications" retiré : aucune section dédiée
+// n'existe aujourd'hui, seuls des toggles internes à Slack — à réintroduire si un vrai besoin
+// transverse apparaît). Icônes : même idiome que ItemModal.tsx (`Svg`/`ICO_*`, dupliqué par fichier
+// plutôt que partagé, convention déjà en place dans le projet).
+type SettingsTab = 'general' | 'team' | 'integrations' | 'security' | 'import-export' | 'advanced'
+
+function Svg({ d, size = 13 }: { d: string; size?: number }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+    dangerouslySetInnerHTML={{ __html: d }} />
+}
+
+const ICO_SETTINGS = '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>'
+// Reprend l'icône Users de PlanningPage.tsx (même convention "dupliqué par fichier")
+const ICO_USERS = '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
+const ICO_PLUG = '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>'
+// Contour seul de ICO_SHIELD_X (AddWidgetModal.tsx) sans les 2 traits internes (sémantique "bloqué")
+const ICO_SHIELD = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>'
+const ICO_ARROWS = '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/>'
+const ICO_SLIDERS = '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>'
+
+const ALL_SETTINGS_TABS: { id: SettingsTab; label: string; icon: string }[] = [
+  { id: 'general',        label: 'Général',       icon: ICO_SETTINGS },
+  { id: 'team',           label: 'Équipe',         icon: ICO_USERS },
+  { id: 'integrations',   label: 'Intégrations',   icon: ICO_PLUG },
+  { id: 'security',       label: 'Sécurité',       icon: ICO_SHIELD },
+  { id: 'import-export',  label: 'Import/Export',  icon: ICO_ARROWS },
+  { id: 'advanced',       label: 'Avancé',         icon: ICO_SLIDERS },
+]
+
 export function SettingsPage() {
   const { state, dispatch, saveToServer } = useCadence()
   const navigate = useNavigate()
@@ -42,6 +76,20 @@ export function SettingsPage() {
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
   const [sprint1Start, setSprint1Start] = useState(state.sprints[0]?.startDate ?? '')
+
+  // Onglets visibles selon le rôle : un onglet dont tout le contenu est gaté à un rôle ne
+  // s'affiche pas du tout plutôt que d'afficher un onglet vide (même principe que
+  // getVisibleTabs() dans ItemModal.tsx).
+  const visibleTabIds: SettingsTab[] = [
+    'general',
+    ...(isAdmin ? (['team'] as const) : []),
+    ...(isAdmin ? (['integrations'] as const) : []),
+    'security',
+    'import-export',
+    ...((isAdmin || canManagePresentation) ? (['advanced'] as const) : []),
+  ]
+  const SETTINGS_TABS = ALL_SETTINGS_TABS.filter(t => visibleTabIds.includes(t.id))
+  const [tab, setTab] = useState<SettingsTab>('general')
 
   function save() {
     let updatedSprints = state.sprints
@@ -300,6 +348,19 @@ export function SettingsPage() {
 
       <div className="page-content" style={{ maxWidth: 700 }}>
 
+        {/* Onglets — voir commentaire en tête de fichier (Phase 6bis, sous-chantier 1) */}
+        <div className="modal-tabs" style={{ marginBottom: 16, background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
+          {SETTINGS_TABS.map(t => (
+            <button key={t.id} data-testid={`settings-tab-${t.id}`}
+              className={`modal-tab-btn${tab === t.id ? ' active' : ''}`} onClick={() => setTab(t.id)}>
+              <Svg d={t.icon} size={12} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'general' && (<>
+
         {/* Sprint settings */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Configuration des sprints</h3>
@@ -422,9 +483,12 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {/* Utilisateurs (Phase 2, sous-chantier 1) — reserve au role Admin */}
-        {isAdmin && <UsersSettingsSection />}
+        </>)}
 
+        {/* Utilisateurs (Phase 2, sous-chantier 1) — reserve au role Admin */}
+        {tab === 'team' && isAdmin && <UsersSettingsSection />}
+
+        {tab === 'integrations' && (<>
         {/* Intégration GitHub (Phase 5, roadmap v1), réservée Admin (secret d'organisation),
             voir GitHubSection.tsx. */}
         {isAdmin && <GitHubSection />}
@@ -438,17 +502,23 @@ export function SettingsPage() {
         {/* Compagnon IA (Phase 6, roadmap v1), réservée Admin (secret d'organisation), voir
             AiSection.tsx. */}
         {isAdmin && <AiSection />}
+        </>)}
+
+        {tab === 'security' && <ApiTokensSection />}
+
+        {tab === 'advanced' && (<>
 
         {/* Mode présentation (Phase 3) — réservé Admin + PO. Pages/ordre (chantier 2026-08-02)
             affichées avant le lien, pour lire la config avant de la partager. */}
         {canManagePresentation && <PresentationPagesSection />}
         {canManagePresentation && <PresentationLinkSection />}
-        <ApiTokensSection />
 
         {/* Réinitialisation (préparation d'un jeu de démo propre, 2026-08-07, réservé Admin pour les
             2 resets ciblés). Section élargie à Admin + PO (2026-08-07, suite) pour accueillir le
             reset total ci-dessous, réservé PO en plus d'Admin (décision Julien) — les 2 resets
-            ciblés restent chacun gatés `isAdmin` individuellement, périmètre inchangé. */}
+            ciblés restent chacun gatés `isAdmin` individuellement, périmètre inchangé. Le gate de
+            l'onglet lui-même (isAdmin || canManagePresentation) rend ce 2e gate redondant ici, mais
+            conservé par prudence (défensif, même principe qu'ailleurs dans le fichier). */}
         {(isAdmin || canManagePresentation) && (
           <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16, border: '1px solid var(--danger)' }}>
             <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: 'var(--danger)' }}>Réinitialisation</h3>
@@ -493,6 +563,8 @@ export function SettingsPage() {
           </section>
         )}
 
+        </>)}
+
         <ResetAllDataModal
           open={resetAllOpen}
           counts={resetAllCounts}
@@ -501,6 +573,7 @@ export function SettingsPage() {
         />
 
         {/* Import / Export */}
+        {tab === 'import-export' && (
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Import / Export</h3>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
@@ -525,6 +598,7 @@ export function SettingsPage() {
             </label>
           </div>
         </section>
+        )}
 
         {importSheets && (
           <ImportExcelMappingModal

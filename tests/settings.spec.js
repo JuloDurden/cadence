@@ -1,11 +1,72 @@
 const { test, expect } = require('@playwright/test');
 const { goTo } = require('./helpers');
 
+/** Clique sur un onglet des Réglages (voir SettingsPage.tsx, Phase 6bis sous-chantier 1). À
+ *  rappeler après tout `page.reload()` : le tab actif est un simple `useState`, remis à
+ *  "general" par défaut à chaque montage du composant. */
+async function openSettingsTab(page, id) {
+  await page.locator(`[data-testid="settings-tab-${id}"]`).click();
+}
+
 test.describe('Réglages', () => {
 
-  test('affiche les onglets de configuration', async ({ page }) => {
-    await goTo(page, '/settings');
-    await expect(page.locator('.page-content')).toBeVisible();
+  // Onglets (Phase 6bis, roadmap v1, sous-chantier 1, 2026-08-13) : la page, auparavant un long
+  // scroll de <section>, est découpée en 6 onglets (Général/Équipe/Intégrations/Sécurité/
+  // Import-Export/Avancé), certains gatés par rôle (un onglet dont tout le contenu est réservé à
+  // un rôle ne s'affiche pas du tout, voir SettingsPage.tsx `visibleTabIds`).
+  test.describe('Onglets (sous-chantier 1)', () => {
+
+    test('affiche la barre d\'onglets avec "Général" actif par défaut', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="settings-tab-general"]')).toBeVisible();
+      await expect(page.locator('[data-testid="settings-tab-general"]')).toHaveClass(/active/);
+      await expect(page.getByText('Configuration des sprints')).toBeVisible();
+    });
+
+    test('un rôle sans droits (Dev) ne voit que les onglets Général, Sécurité et Import/Export', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'DEV' });
+      await expect(page.locator('[data-testid="settings-tab-general"]')).toBeVisible();
+      await expect(page.locator('[data-testid="settings-tab-security"]')).toBeVisible();
+      await expect(page.locator('[data-testid="settings-tab-import-export"]')).toBeVisible();
+      await expect(page.locator('[data-testid="settings-tab-team"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="settings-tab-integrations"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="settings-tab-advanced"]')).toHaveCount(0);
+    });
+
+    test('un PO voit en plus l\'onglet Avancé, mais pas Équipe ni Intégrations', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'PO' });
+      await expect(page.locator('[data-testid="settings-tab-advanced"]')).toBeVisible();
+      await expect(page.locator('[data-testid="settings-tab-team"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="settings-tab-integrations"]')).toHaveCount(0);
+    });
+
+    test('un Admin voit les 6 onglets', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      for (const id of ['general', 'team', 'integrations', 'security', 'import-export', 'advanced']) {
+        await expect(page.locator(`[data-testid="settings-tab-${id}"]`)).toBeVisible();
+      }
+    });
+
+    test('cliquer sur Sécurité affiche les Jetons API et masque la Configuration des sprints', async ({ page }) => {
+      await goTo(page, '/settings');
+      await openSettingsTab(page, 'security');
+      await expect(page.locator('[data-testid="api-tokens-section"]')).toBeVisible();
+      await expect(page.getByText('Configuration des sprints')).not.toBeVisible();
+    });
+
+    test('cliquer sur Import/Export affiche la section Import / Export', async ({ page }) => {
+      await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
+      await expect(page.getByText('Import / Export')).toBeVisible();
+    });
+
+    test('cliquer sur Équipe affiche la gestion des utilisateurs (Admin)', async ({ page }) => {
+      await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'team');
+      await expect(page.locator('.page-content')).toBeVisible();
+      await expect(page.getByText('Configuration des sprints')).not.toBeVisible();
+    });
+
   });
 
   test('affiche la section Configuration des sprints', async ({ page }) => {
@@ -38,6 +99,7 @@ test.describe('Réglages', () => {
 
   test('affiche la section Import / Export', async ({ page }) => {
     await goTo(page, '/settings');
+    await openSettingsTab(page, 'import-export');
     await expect(page.getByText('Import / Export')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Exporter JSON' })).toBeVisible();
   });
@@ -63,19 +125,25 @@ test.describe('Réglages', () => {
   // Élargie à Admin + PO (2026-08-07, suite, retour Julien : "un bouton pour supprimer tout sauf
   // les comptes utilisateurs") pour accueillir le reset total, voir describe ci-dessous. Les 2
   // boutons ciblés (Product Backlog, Clients) restent réservés Admin, gating individuel inchangé.
+  // Section déplacée sous l'onglet "Avancé" (Phase 6bis, sous-chantier 1, 2026-08-13) : ouvrir cet
+  // onglet est un préalable commun à tous les tests ci-dessous, hors le test "rôle sans droits" qui
+  // vérifie justement que l'onglet lui-même est absent.
   test.describe('Réinitialisation (Admin)', () => {
 
     // Rôle corrigé : PO -> DEV (2026-08-07), depuis l'élargissement de la section à Admin + PO
     // pour le bouton de reset total, un PO voit désormais la section (juste sans les 2 boutons
     // Admin). Seul un rôle sans aucun des deux droits (Dev, Scrum Master, Stakeholder) ne la voit
     // plus du tout ; Dev choisi comme représentant, voir le describe "Réinitialisation totale".
+    // Ni la section ni son onglet "Avancé" ne sont accessibles à ce rôle.
     test('la section Réinitialisation est absente pour un rôle sans droits (Dev)', async ({ page }) => {
       await goTo(page, '/settings', { role: 'DEV' });
+      await expect(page.locator('[data-testid="settings-tab-advanced"]')).toHaveCount(0);
       await expect(page.getByText('Réinitialisation', { exact: true })).toHaveCount(0);
     });
 
     test('affiche la section Réinitialisation avec les 2 boutons pour un Admin', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       await expect(page.getByText('Réinitialisation', { exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="btn-reset-backlog"]')).toBeVisible();
       await expect(page.locator('[data-testid="btn-reset-clients"]')).toBeVisible();
@@ -83,6 +151,7 @@ test.describe('Réglages', () => {
 
     test('le bouton Réinitialiser les clients est désactivé tant que le Product Backlog n\'est pas vide', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       await expect(page.locator('[data-testid="reset-backlog-count"]')).not.toContainText('0 item(s), 0 Epic');
       await expect(page.locator('[data-testid="btn-reset-clients"]')).toBeDisabled();
       await expect(page.locator('[data-testid="reset-clients-count"]')).toContainText('Disponible une fois le Product Backlog vide');
@@ -90,6 +159,7 @@ test.describe('Réglages', () => {
 
     test('annuler la confirmation ne modifie pas le Product Backlog', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       const before = await page.locator('[data-testid="reset-backlog-count"]').textContent();
       await page.locator('[data-testid="btn-reset-backlog"]').click();
       await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
@@ -100,6 +170,7 @@ test.describe('Réglages', () => {
 
     test('confirmer réinitialise le Product Backlog et débloque la réinitialisation des clients', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       await page.locator('[data-testid="btn-reset-backlog"]').click();
       await expect(page.locator('[data-testid="dialog-overlay"]')).toBeVisible();
       await page.locator('[data-testid="dialog-confirm"]').click();
@@ -109,6 +180,7 @@ test.describe('Réglages', () => {
 
     test('confirmer réinitialise la liste des clients une fois le Backlog vide', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       await page.locator('[data-testid="btn-reset-backlog"]').click();
       await page.locator('[data-testid="dialog-confirm"]').click();
       await expect(page.locator('[data-testid="btn-reset-clients"]')).toBeEnabled();
@@ -126,11 +198,13 @@ test.describe('Réglages', () => {
   // renforcée par saisie du mot-clé "SUPPRIMER" (ResetAllDataModal.tsx), pas le simple Oui/Non de
   // DialogContext. Vide données métier (items, Epics/Initiatives, sprints, équipe, clients...) sans
   // toucher aux comptes (hors périmètre du blob JSON testé ici) ni aux réglages personnalisés
-  // (`kanbanCols` vérifié préservé ci-dessous, proxy pour `settings`/`customTags`).
+  // (`kanbanCols` vérifié préservé ci-dessous, proxy pour `settings`/`customTags`). Section sous
+  // l'onglet "Avancé" (Phase 6bis, sous-chantier 1) : ouvrir cet onglet est un préalable commun.
   test.describe('Réinitialisation totale (v0.97.7)', () => {
 
     test('le bouton de reset total est visible pour un PO, sans les 2 boutons réservés Admin', async ({ page }) => {
       await goTo(page, '/settings', { role: 'PO' });
+      await openSettingsTab(page, 'advanced');
       await expect(page.getByText('Réinitialisation', { exact: true })).toBeVisible();
       await expect(page.locator('[data-testid="btn-reset-all"]')).toBeVisible();
       await expect(page.locator('[data-testid="btn-reset-backlog"]')).toHaveCount(0);
@@ -139,6 +213,7 @@ test.describe('Réglages', () => {
 
     test('le bouton de reset total est aussi visible pour un Admin, à côté des 2 boutons ciblés', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       await expect(page.locator('[data-testid="btn-reset-all"]')).toBeVisible();
       await expect(page.locator('[data-testid="btn-reset-backlog"]')).toBeVisible();
       await expect(page.locator('[data-testid="btn-reset-clients"]')).toBeVisible();
@@ -146,6 +221,7 @@ test.describe('Réglages', () => {
 
     test('ouvrir la modal affiche le récapitulatif, le bouton de confirmation reste désactivé tant que le mot-clé n\'est pas exact', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       await page.locator('[data-testid="btn-reset-all"]').click();
 
       const modal = page.locator('[data-testid="reset-all-modal"]');
@@ -164,6 +240,7 @@ test.describe('Réglages', () => {
 
     test('annuler la modal ne modifie rien', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       const before = await page.locator('[data-testid="reset-backlog-count"]').textContent();
 
       await page.locator('[data-testid="btn-reset-all"]').click();
@@ -179,6 +256,7 @@ test.describe('Réglages', () => {
       const kanbanColsBefore = await page.locator('[data-testid="color-picker-trigger"]').count();
       expect(kanbanColsBefore).toBeGreaterThan(0);
 
+      await openSettingsTab(page, 'advanced');
       await page.locator('[data-testid="btn-reset-all"]').click();
       await page.locator('[data-testid="reset-all-keyword-input"]').fill('SUPPRIMER');
       await page.locator('[data-testid="reset-all-confirm-btn"]').click();
@@ -188,11 +266,13 @@ test.describe('Réglages', () => {
       await expect(page.locator('[data-testid="reset-backlog-count"]')).toContainText('0 item(s), 0 Epic(s)/Initiative(s)');
       await expect(page.locator('[data-testid="reset-clients-count"]')).toHaveText('0 client(s)');
       // Réglages préservés : mêmes colonnes Kanban qu'avant (settings/kanbanCols non touchés).
+      await openSettingsTab(page, 'general');
       await expect(page.locator('[data-testid="color-picker-trigger"]')).toHaveCount(kanbanColsBefore);
     });
 
     test('confirmer vide aussi les fiches équipe (page Team), sans supprimer les comptes utilisateurs', async ({ page }) => {
       await goTo(page, '/settings', { role: 'ADMIN' });
+      await openSettingsTab(page, 'advanced');
       await page.locator('[data-testid="btn-reset-all"]').click();
       await page.locator('[data-testid="reset-all-keyword-input"]').fill('SUPPRIMER');
       await page.locator('[data-testid="reset-all-confirm-btn"]').click();
@@ -223,17 +303,20 @@ test.describe('Réglages', () => {
   // correspondance silencieuse (voir ImportExcelMappingModal.tsx / utils/excelBacklog.ts). Le
   // round-trip export -> réimport du même fichier, sans toucher aux suggestions par défaut, sert de
   // test de bout en bout : toutes les Clés déjà présentes dans le fichier doivent matcher les
-  // éléments existants (0 ajout, uniquement des mises à jour).
+  // éléments existants (0 ajout, uniquement des mises à jour). Section sous l'onglet "Import/
+  // Export" (Phase 6bis, sous-chantier 1) : ouvrir cet onglet est un préalable commun.
   test.describe('Export/Import Excel du Backlog (v0.97.8)', () => {
 
     test('affiche les boutons Export/Import Excel', async ({ page }) => {
       await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
       await expect(page.locator('[data-testid="btn-export-excel"]')).toBeVisible();
       await expect(page.locator('[data-testid="input-import-excel"]')).toBeAttached();
     });
 
     test('exporter Excel télécharge un fichier .xlsx nommé avec la date du jour', async ({ page }) => {
       await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
       const [download] = await Promise.all([
         page.waitForEvent('download'),
         page.locator('[data-testid="btn-export-excel"]').click(),
@@ -243,6 +326,7 @@ test.describe('Réglages', () => {
 
     test('réimporter le fichier exporté ouvre la modal de mapping avec les 2 feuilles et des correspondances déjà suggérées', async ({ page }) => {
       await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
       const [download] = await Promise.all([
         page.waitForEvent('download'),
         page.locator('[data-testid="btn-export-excel"]').click(),
@@ -265,6 +349,7 @@ test.describe('Réglages', () => {
 
     test('annuler la modal de mapping ne modifie rien', async ({ page }) => {
       await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
       const [download] = await Promise.all([
         page.waitForEvent('download'),
         page.locator('[data-testid="btn-export-excel"]').click(),
@@ -282,6 +367,7 @@ test.describe('Réglages', () => {
 
     test('confirmer sans modifier les suggestions ne crée aucun nouvel élément (les Clés matchent déjà)', async ({ page }) => {
       await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
       const [download] = await Promise.all([
         page.waitForEvent('download'),
         page.locator('[data-testid="btn-export-excel"]').click(),
@@ -305,7 +391,9 @@ test.describe('Réglages', () => {
   // est fait côté serveur). `GET /api/state` mocké par `goTo()` (voir helpers.js) ne couvre pas
   // `/api/api-tokens` : même stratégie que `presentation-mode.spec.js` pour
   // `/api/presentation-link`, un mock stateful enregistré APRÈS `goTo()` puis `page.reload()` pour
-  // qu'il s'applique dès le premier rendu.
+  // qu'il s'applique dès le premier rendu. Section sous l'onglet "Sécurité" (Phase 6bis,
+  // sous-chantier 1) : l'onglet actif étant un simple `useState`, il est remis à "general" par
+  // chaque `page.reload()`, d'où l'ouverture de l'onglet APRÈS le reload plutôt qu'avant.
   test.describe('Jetons API personnels (MCP) (v0.97.9)', () => {
 
     async function mockApiTokensApi(page, initialTokens = []) {
@@ -337,6 +425,7 @@ test.describe('Réglages', () => {
       await mockApiTokensApi(page, []);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'security');
 
       await expect(page.locator('[data-testid="api-tokens-section"]')).toBeVisible();
       await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(0);
@@ -348,6 +437,7 @@ test.describe('Réglages', () => {
       await mockApiTokensApi(page, []);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'security');
 
       await page.locator('[data-testid="api-token-name-input"]').fill('Claude Desktop');
       await page.locator('[data-testid="api-token-create-btn"]').click();
@@ -372,6 +462,7 @@ test.describe('Réglages', () => {
       ]);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'security');
 
       await expect(page.locator('[data-testid="api-token-row"]')).toHaveCount(1);
       await page.locator('[data-testid="api-token-revoke"]').click();
@@ -389,6 +480,7 @@ test.describe('Réglages', () => {
       ]);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'security');
 
       await page.locator('[data-testid="api-token-revoke"]').click();
       await page.locator('[data-testid="dialog-cancel"]').click();
@@ -401,7 +493,10 @@ test.describe('Réglages', () => {
   // Intégration GitHub (v0.97.11, 2026-08-08, Phase 5 roadmap v1) : réservée Admin (secret
   // d'organisation, contrairement aux jetons API MCP personnels ci-dessus). `GET /api/github-config`
   // mocké par `goTo()` (voir helpers.js) ne couvre pas `/api/github-config` : même stratégie que les
-  // 2 blocs précédents, mock stateful enregistré APRÈS `goTo()` puis `page.reload()`.
+  // 2 blocs précédents, mock stateful enregistré APRÈS `goTo()` puis `page.reload()`. Section sous
+  // l'onglet "Intégrations", lui-même absent pour un rôle non Admin (Phase 6bis, sous-chantier 1) :
+  // le test "rôle non Admin" ci-dessous n'a donc rien à ouvrir, la section reste absente quel que
+  // soit l'onglet actif.
   test.describe('Intégration GitHub (v0.97.11)', () => {
 
     async function mockGitHubConfigApi(page, initialConfig = null) {
@@ -429,6 +524,7 @@ test.describe('Réglages', () => {
 
     test('la section est absente pour un rôle non Admin (PO)', async ({ page }) => {
       await goTo(page, '/settings', { role: 'PO' });
+      await expect(page.locator('[data-testid="settings-tab-integrations"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="github-section"]')).toHaveCount(0);
     });
 
@@ -437,6 +533,7 @@ test.describe('Réglages', () => {
       await mockGitHubConfigApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="github-section"]')).toBeVisible();
       await expect(page.locator('[data-testid="github-connect-btn"]')).toBeVisible();
@@ -447,6 +544,7 @@ test.describe('Réglages', () => {
       await mockGitHubConfigApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="github-connect-btn"]').click();
       await page.locator('[data-testid="github-owner-input"]').fill('juloclavel');
@@ -465,6 +563,7 @@ test.describe('Réglages', () => {
       await mockGitHubConfigApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="github-connect-btn"]').click();
       await page.locator('[data-testid="github-owner-input"]').fill('introuvable');
@@ -481,6 +580,7 @@ test.describe('Réglages', () => {
       await mockGitHubConfigApi(page, { owner: 'juloclavel', repo: 'cadence-test', tokenPreview: '••••fake', updatedAt: '2026-08-08T09:00:00.000Z' });
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="github-config-connected"]')).toBeVisible();
       await page.locator('[data-testid="github-disconnect-btn"]').click();
@@ -498,7 +598,7 @@ test.describe('Réglages', () => {
   // persiste rien, sert à peupler le sélecteur de canaux avant le tout 1er enregistrement) puis
   // "Enregistrer". `GET /api/slack-config` mocké par `goTo()` (voir helpers.js) ne couvre pas
   // `/api/slack-config` : même stratégie que les blocs précédents, mock stateful enregistré APRÈS
-  // `goTo()` puis `page.reload()`.
+  // `goTo()` puis `page.reload()`. Section sous l'onglet "Intégrations" (Phase 6bis, sous-chantier 1).
   test.describe('Intégration Slack (v0.97.12)', () => {
 
     const FAKE_CHANNELS = [{ id: 'C1', name: 'general' }, { id: 'C2', name: 'dev-alerts' }];
@@ -544,6 +644,7 @@ test.describe('Réglages', () => {
       await mockSlackApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="slack-section"]')).toBeVisible();
       await expect(page.locator('[data-testid="slack-connect-btn"]')).toBeVisible();
@@ -554,6 +655,7 @@ test.describe('Réglages', () => {
       await mockSlackApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="slack-connect-btn"]').click();
       await page.locator('[data-testid="slack-token-input"]').fill('xoxb-fake');
@@ -573,6 +675,7 @@ test.describe('Réglages', () => {
       );
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="slack-connect-btn"]').click();
       await page.locator('[data-testid="slack-token-input"]').fill('xoxb-bad');
@@ -587,6 +690,7 @@ test.describe('Réglages', () => {
       await mockSlackApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="slack-connect-btn"]').click();
       await page.locator('[data-testid="slack-token-input"]').fill('xoxb-fake');
@@ -613,6 +717,7 @@ test.describe('Réglages', () => {
       });
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="slack-config-connected"]')).toBeVisible();
       await page.locator('[data-testid="slack-disconnect-btn"]').click();
@@ -630,7 +735,8 @@ test.describe('Réglages', () => {
   // à peupler le sélecteur de projet avant le tout 1er enregistrement) puis choix du projet + du
   // Client Cadence (obligatoire, voir routes/jira.ts) puis "Enregistrer". `GET /api/jira-config`
   // mocké par `goTo()` (voir helpers.js) ne couvre pas `/api/jira-config` : même stratégie que les
-  // 2 blocs précédents, mock stateful enregistré APRÈS `goTo()` puis `page.reload()`.
+  // 2 blocs précédents, mock stateful enregistré APRÈS `goTo()` puis `page.reload()`. Section sous
+  // l'onglet "Intégrations" (Phase 6bis, sous-chantier 1).
   test.describe('Intégration Jira (v0.97.13)', () => {
 
     const FAKE_PROJECTS = [{ key: 'PME2', name: 'PME2 Test' }, { key: 'AGA', name: 'AGANOR' }];
@@ -683,6 +789,7 @@ test.describe('Réglages', () => {
       await mockJiraApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="jira-section"]')).toBeVisible();
       await expect(page.locator('[data-testid="jira-connect-btn"]')).toBeVisible();
@@ -693,6 +800,7 @@ test.describe('Réglages', () => {
       await mockJiraApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="jira-connect-btn"]').click();
       await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
@@ -709,6 +817,7 @@ test.describe('Réglages', () => {
       await mockJiraApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="jira-connect-btn"]').click();
       await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
@@ -730,6 +839,7 @@ test.describe('Réglages', () => {
       await mockJiraApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="jira-connect-btn"]').click();
       await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
@@ -748,6 +858,7 @@ test.describe('Réglages', () => {
       await mockJiraApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="jira-connect-btn"]').click();
       await page.locator('[data-testid="jira-site-input"]').fill('cadence-test.atlassian.net');
@@ -773,6 +884,7 @@ test.describe('Réglages', () => {
       });
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="jira-config-connected"]')).toBeVisible();
       await page.locator('[data-testid="jira-import-btn"]').click();
@@ -790,6 +902,7 @@ test.describe('Réglages', () => {
       });
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="jira-config-connected"]')).toBeVisible();
       await page.locator('[data-testid="jira-disconnect-btn"]').click();
@@ -805,7 +918,7 @@ test.describe('Réglages', () => {
   // Phase 6 (roadmap v1), Compagnon IA, sous-chantier 1, v0.98 : configuration singleton de
   // l'assistant (AiSection.tsx), même mock à 1 étape que Intégration GitHub ci-dessus (une clé
   // collée, vérifiée par un appel réel avant enregistrement, pas de sélection intermédiaire comme
-  // Slack/Jira).
+  // Slack/Jira). Section sous l'onglet "Intégrations" (Phase 6bis, sous-chantier 1).
   test.describe('Compagnon IA (v0.98)', () => {
 
     async function mockAiConfigApi(page, initialConfig = null) {
@@ -841,6 +954,7 @@ test.describe('Réglages', () => {
       await mockAiConfigApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="ai-section"]')).toBeVisible();
       await expect(page.locator('[data-testid="ai-connect-btn"]')).toBeVisible();
@@ -851,6 +965,7 @@ test.describe('Réglages', () => {
       await mockAiConfigApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="ai-connect-btn"]').click();
       await page.locator('[data-testid="ai-model-input"]').fill('claude-sonnet-5');
@@ -868,6 +983,7 @@ test.describe('Réglages', () => {
       await mockAiConfigApi(page, null);
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await page.locator('[data-testid="ai-connect-btn"]').click();
       await page.locator('[data-testid="ai-model-input"]').fill('claude-sonnet-5');
@@ -883,6 +999,7 @@ test.describe('Réglages', () => {
       await mockAiConfigApi(page, { model: 'claude-sonnet-5', tokenPreview: '••••fake', updatedAt: '2026-08-08T09:00:00.000Z' });
       await page.reload();
       await page.waitForLoadState('networkidle');
+      await openSettingsTab(page, 'integrations');
 
       await expect(page.locator('[data-testid="ai-config-connected"]')).toBeVisible();
       await page.locator('[data-testid="ai-disconnect-btn"]').click();
