@@ -104,6 +104,92 @@ test.describe('Réglages', () => {
     await expect(page.getByRole('button', { name: 'Exporter JSON' })).toBeVisible();
   });
 
+  // Apparence étoffée (Phase 6bis, sous-chantier 4, v0.98.8) : thème Système + cartes visuelles,
+  // couleur principale par thème avec aperçu, logo d'équipe, densité, page de démarrage, sidebar
+  // repliée par défaut. Section AppearanceSection.tsx, affichée sous l'onglet "Général" (par
+  // défaut), aucun clic d'onglet nécessaire avant ces tests.
+  test.describe('Apparence étoffée (v0.98.8)', () => {
+
+    test('affiche les 3 cartes de thème, Clair actif par défaut sur le jeu de démo', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="theme-card-system"]')).toBeVisible();
+      await expect(page.locator('[data-testid="theme-card-light"]')).toBeVisible();
+      await expect(page.locator('[data-testid="theme-card-dark"]')).toBeVisible();
+      await expect(page.locator('[data-testid="theme-card-light"]')).toHaveClass(/active/);
+    });
+
+    test('cliquer sur la carte Système la rend active et applique le thème résolu immédiatement', async ({ page }) => {
+      await goTo(page, '/settings');
+      await page.locator('[data-testid="theme-card-system"]').click();
+      await expect(page.locator('[data-testid="theme-card-system"]')).toHaveClass(/active/);
+      await expect(page.locator('[data-testid="theme-card-light"]')).not.toHaveClass(/active/);
+      // Résolu tout de suite (prefers-color-scheme non forcé en test = clair), sans attendre
+      // "Enregistrer" (retour Julien, 2026-08-14 : "le thème Système ne se met à jour qu'en
+      // appliquant").
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    });
+
+    test('cliquer sur Clair puis Sombre applique le thème sur <html> immédiatement, sans "Enregistrer"', async ({ page }) => {
+      await goTo(page, '/settings');
+      await page.locator('[data-testid="theme-card-dark"]').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+      await page.locator('[data-testid="theme-card-light"]').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    });
+
+    // Un seul réglage de couleur visible à la fois, celui du thème effectivement affiché, pas de
+    // bascule manuelle indépendante (retour Julien, 2026-08-14).
+    test('seul le réglage de couleur du thème actuellement affiché est visible', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="primary-color-light"]')).toBeVisible();
+      await expect(page.locator('[data-testid="primary-color-dark"]')).toHaveCount(0);
+
+      await page.locator('[data-testid="theme-card-dark"]').click();
+      await expect(page.locator('[data-testid="primary-color-dark"]')).toBeVisible();
+      await expect(page.locator('[data-testid="primary-color-light"]')).toHaveCount(0);
+    });
+
+    test('choisir une couleur principale claire met à jour l\'aperçu et le champ hexadécimal', async ({ page }) => {
+      await goTo(page, '/settings');
+      await page.locator('[data-testid="primary-color-light"]').fill('#059669');
+      await expect(page.getByText('#059669', { exact: false })).toBeVisible();
+    });
+
+    test('affiche le logo par défaut (initiales) et le bouton de retrait est absent tant qu\'aucun logo n\'est chargé', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="logo-preview"]')).toContainText('ACT');
+      await expect(page.locator('[data-testid="logo-remove-btn"]')).toHaveCount(0);
+    });
+
+    test('la densité par défaut est Confortable, déplacer le curseur change le libellé', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="density-label"]')).toHaveText('Confortable');
+      await page.locator('[data-testid="density-slider"]').fill('0');
+      await expect(page.locator('[data-testid="density-label"]')).toHaveText('Très compact');
+      await page.locator('[data-testid="density-slider"]').fill('4');
+      await expect(page.locator('[data-testid="density-label"]')).toHaveText('Très spacieux');
+    });
+
+    test('changer la page de démarrage envoie la sauvegarde immédiatement, sans cliquer sur "Enregistrer"', async ({ page }) => {
+      await goTo(page, '/settings');
+      const [request] = await Promise.all([
+        page.waitForRequest(r => r.url().includes('/api/state') && r.method() === 'PUT'),
+        page.locator('[data-testid="start-page-select"]').selectOption('/kanban'),
+      ]);
+      const body = request.postDataJSON();
+      expect(body.data.settings.defaultStartPage).toBe('/kanban');
+    });
+
+    test('activer la sidebar repliée par défaut replie immédiatement la Sidebar affichée', async ({ page }) => {
+      await goTo(page, '/settings');
+      const toggle = page.locator('[data-testid="sidebar-collapsed-default-toggle"]');
+      await expect(page.locator('.sidebar')).not.toHaveClass(/collapsed/);
+      await toggle.click();
+      await expect(page.locator('.sidebar')).toHaveClass(/collapsed/);
+    });
+
+  });
+
   test('affiche la section Colonnes Kanban avec un picker de couleur par colonne', async ({ page }) => {
     await goTo(page, '/settings');
     await expect(page.getByText('Colonnes Kanban')).toBeVisible();

@@ -39,6 +39,15 @@ import { canAccessRoute } from './utils/permissions'
 // silencieusement écrasée dès que la réponse arrivait (SET_STATE remplace tout l'état) — bug
 // constaté sur Sprint Review le 2026-07-22 (voir docs/corrections.md), mais la course concerne en
 // réalité toute l'application. On bloque donc l'affichage éditable tant que stateLoaded est faux.
+// Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : page de démarrage réglable
+// (`settings.defaultStartPage`, Réglages). LoginPage navigue toujours vers "/" sans rien savoir de
+// ce réglage, cette route se charge seule de résoudre la vraie destination une fois l'état chargé
+// (AppShell garde déjà l'affichage tant que `stateLoaded` est faux, voir plus bas).
+function StartRedirect() {
+  const { state } = useCadence()
+  return <Navigate to={state.settings?.defaultStartPage || '/backlog'} replace />
+}
+
 function AppShell() {
   const { stateLoaded, undo, redo, canUndo, canRedo } = useCadence()
   useGlobalUndoRedoShortcut({ undo, redo, canUndo, canRedo })
@@ -101,6 +110,7 @@ function AppShell() {
           <Route path="/vision" element={<VisionPage />} />
           <Route path="/roadmap" element={<RoadmapPage />} />
           <Route path="/changelog" element={<ChangelogPage />} />
+          <Route path="/" element={<StartRedirect />} />
           <Route path="*" element={<Navigate to="/backlog" replace />} />
         </Routes>
       </div>

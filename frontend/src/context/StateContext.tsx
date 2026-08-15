@@ -1,10 +1,21 @@
 import { createContext, useContext, useReducer, useCallback, useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
-import type { CadenceState, Item, Sprint, RoadmapGoal } from '../types'
+import type { CadenceState, Item, Sprint, RoadmapGoal, DisplayDensity } from '../types'
 import { DEMO_STATE } from '../data/demo'
 import { api } from '../services/api'
 import { isItemInFrame, frameBounds, ejectPointFromFrame } from '../utils/nnlFrames'
 import { R1_DEFAULT, R2_DEFAULT, zoneFromWorld, clampDistanceToZone } from '../utils/nnlZones'
+
+// Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : 5 crans de densité, valeurs alignées sur
+// les paddings d'origine de .backlog-table td/th et .kanban-card/.kanban-cards (index.css) pour le
+// cran 'comfortable', qui reste le comportement par défaut inchangé.
+export const DENSITY_SCALE: Record<DisplayDensity, { th: string; td: string; cardPad: string; cardsGap: string }> = {
+  'compact-2':   { th: '4px 8px',  td: '2px 8px',  cardPad: '6px 8px',   cardsGap: '3px' },
+  'compact':     { th: '5px 8px',  td: '3px 8px',  cardPad: '8px 10px',  cardsGap: '4px' },
+  'comfortable': { th: '7px 8px',  td: '5px 8px',  cardPad: '10px 12px', cardsGap: '6px' },
+  'spacious':    { th: '9px 10px', td: '7px 10px', cardPad: '13px 15px', cardsGap: '9px' },
+  'spacious-2':  { th: '11px 12px', td: '9px 12px', cardPad: '16px 18px', cardsGap: '12px' },
+}
 
 const UNDOABLE = new Set([
   'ADD_ITEM','UPDATE_ITEM','DELETE_ITEM',
@@ -379,10 +390,46 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
   const [stateLoaded, setStateLoaded] = useState(false)
   const [presentationLinkInvalid, setPresentationLinkInvalid] = useState(false)
 
-  // Apply theme on state change
+  // Apply theme on state change (Phase 6bis, sous-chantier 4, 2026-08-13) : 'system' résolu via
+  // prefers-color-scheme, réévalué en direct si l'OS change de thème pendant que l'onglet est
+  // ouvert (mq 'change'). Couleur principale par thème appliquée en variable CSS inline sur
+  // <html>, seulement si personnalisée (sinon on laisse index.css gérer la valeur d'origine par
+  // thème, --primary-light dérivée en hex 8 chiffres avec alpha, même trucage que le composant
+  // ColorPicker.tsx pour un aperçu rapide sans dépendance supplémentaire).
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', state.settings?.theme ?? 'light')
-  }, [state.settings?.theme])
+    const mode = state.settings?.theme ?? 'light'
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyResolved = () => {
+      const resolved = mode === 'system' ? (mq.matches ? 'dark' : 'light') : mode
+      document.documentElement.setAttribute('data-theme', resolved)
+      const custom = resolved === 'dark' ? state.settings?.primaryColorDark : state.settings?.primaryColorLight
+      if (custom) {
+        document.documentElement.style.setProperty('--primary', custom)
+        document.documentElement.style.setProperty('--primary-light', custom + '1a')
+      } else {
+        document.documentElement.style.removeProperty('--primary')
+        document.documentElement.style.removeProperty('--primary-light')
+      }
+    }
+    applyResolved()
+    if (mode === 'system') {
+      mq.addEventListener('change', applyResolved)
+      return () => mq.removeEventListener('change', applyResolved)
+    }
+  }, [state.settings?.theme, state.settings?.primaryColorLight, state.settings?.primaryColorDark])
+
+  // Densité d'affichage (Phase 6bis, sous-chantier 4) : 4 variables CSS pilotées depuis un seul
+  // réglage à 5 crans, plutôt qu'une variable unique : les paddings d'origine (Backlog/Kanban)
+  // n'ont pas la même échelle de base, un simple facteur multiplicatif les aurait déformés
+  // relativement les uns aux autres.
+  useEffect(() => {
+    const density = state.settings?.density ?? 'comfortable'
+    const scale = DENSITY_SCALE[density] ?? DENSITY_SCALE.comfortable
+    document.documentElement.style.setProperty('--density-th-pad', scale.th)
+    document.documentElement.style.setProperty('--density-td-pad', scale.td)
+    document.documentElement.style.setProperty('--density-card-pad', scale.cardPad)
+    document.documentElement.style.setProperty('--density-cards-gap', scale.cardsGap)
+  }, [state.settings?.density])
 
   // ── Sync Backlog → NNL (Phase 1, sous-chantier 6, point 5, 2026-07-30) ─────
   // Quand l'`epicId` d'un item change (ItemModal, cascade de suppression d'Epic, ou la sync

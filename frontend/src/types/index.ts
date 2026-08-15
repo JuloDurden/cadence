@@ -300,8 +300,32 @@ export interface Scenario {
   locked: boolean                           // sprints hérités (avant fork) sont locked
 }
 
+export type ThemeMode = 'light' | 'dark' | 'system'
+export type DisplayDensity = 'compact-2' | 'compact' | 'comfortable' | 'spacious' | 'spacious-2'
+
 export interface Settings {
-  sprintDuration: number; defaultCapacity: number; theme: 'light' | 'dark'
+  sprintDuration: number; defaultCapacity: number; theme: ThemeMode
+  // Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13), couleur principale : distincte par
+  // thème clair/sombre (une seule couleur ne garantit pas un bon contraste dans les deux, décision
+  // Julien). Absentes = couleurs d'origine du CSS (#4f46e5 clair / #7c7ff5 sombre), pour rester
+  // compatible avec un WorkspaceState existant qui n'a jamais eu ces champs.
+  primaryColorLight?: string
+  primaryColorDark?: string
+  // Logo d'équipe (base64 data URL, même convention que TeamMember.photo), utilisé dans la
+  // Sidebar (Mode présentation et exports PDF/Excel à venir). Absent = repli sur les initiales
+  // "ACT" d'origine.
+  logoDataUrl?: string
+  // Densité d'affichage (5 crans), couvre pour l'instant le Backlog (tableau) et le Kanban
+  // (cartes), les 2 écrans de liste les plus denses ; pas encore branché ailleurs. Absent =
+  // 'comfortable', identique aux paddings d'origine avant ce réglage.
+  density?: DisplayDensity
+  // Page affichée après connexion, résolue par la route "/" (App.tsx). Absent = '/backlog',
+  // comportement d'origine.
+  defaultStartPage?: string
+  // Etat replié de la Sidebar au tout premier chargement, avant toute préférence explicite de
+  // l'utilisateur (voir Sidebar.tsx, qui reste seul maître ensuite via localStorage). Absent =
+  // dépliée, comportement d'origine.
+  sidebarCollapsedDefault?: boolean
   // Phase 3 (roadmap v1), Mode présentation, chantier "Config pages présentables" (2026-08-02) —
   // ids ordonnés (voir data/presentablePages.ts, PresentablePageId) des pages choisies par un
   // Admin/PO pour le mode présentation, dans l'ordre d'affichage voulu. Absent = comportement

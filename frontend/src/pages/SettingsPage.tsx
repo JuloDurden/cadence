@@ -10,6 +10,7 @@ import { computeSprintEndDate } from '../utils/sprintCapacity'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../hooks/useAuth'
 import { useDialog } from '../context/DialogContext'
+import { AppearanceSection } from '../components/settings/AppearanceSection'
 import { UsersSettingsSection } from '../components/settings/UsersSettingsSection'
 import { PresentationLinkSection } from '../components/settings/PresentationLinkSection'
 import { ApiTokensSection } from '../components/settings/ApiTokensSection'
@@ -29,9 +30,9 @@ import type { KanbanCol, Settings, HistoryEntry, CadenceState } from '../types'
 // ─── Onglets (Phase 6bis, roadmap v1, sous-chantier 1 : réorganisation, 2026-08-13) ─────────────
 // Page auparavant un long scroll de <section> ; découpage en onglets une fois les phases qui
 // ajoutent chacune leurs propres réglages passées (Intégrations, Compagnon IA, jetons API, reset
-// total, export/import Excel) — voir docs/roadmap-v1.md, Phase 6bis. Liste retenue plus courte que
+// total, export/import Excel), voir docs/roadmap-v1.md, Phase 6bis. Liste retenue plus courte que
 // les 7 onglets évoqués dans le plan initial ("Notifications" retiré : aucune section dédiée
-// n'existe aujourd'hui, seuls des toggles internes à Slack — à réintroduire si un vrai besoin
+// n'existe aujourd'hui, seuls des toggles internes à Slack, à réintroduire si un vrai besoin
 // transverse apparaît). Icônes : même idiome que ItemModal.tsx (`Svg`/`ICO_*`, dupliqué par fichier
 // plutôt que partagé, convention déjà en place dans le projet).
 type SettingsTab = 'general' | 'team' | 'integrations' | 'security' | 'import-export' | 'advanced'
@@ -109,6 +110,23 @@ export function SettingsPage() {
     saveToServer({ ...state, settings, kanbanCols: cols, sprints: updatedSprints })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  // Apparence (Phase 6bis, sous-chantier 4, retour Julien 2026-08-13 : "je n'ai pas l'impression
+  // que cela s'applique dans l'outil") : contrairement au reste de la page (brouillon local +
+  // bouton "Enregistrer"), chaque changement d'apparence s'applique et se persiste immédiatement,
+  // même logique que le clic sur un thème qui appliquait déjà `data-theme` sans attendre
+  // "Enregistrer". `settings` (brouillon local) est mis à jour en même temps, pour qu'un clic
+  // ultérieur sur "Enregistrer" (Sprint/Kanban/Tags) ne réécrase pas ces changements déjà appliqués
+  // avec une valeur de brouillon devenue périmée. dispatch/saveToServer appelés directement ici
+  // (pas dans le callback de `setSettings`) : un callback d'updater peut être invoqué deux fois par
+  // React (StrictMode), un effet de bord dedans enverrait alors deux PUT /api/state pour un seul
+  // changement, piège déjà rencontré ailleurs dans ce fichier (voir StateContext.tsx).
+  function applyAppearance(patch: Partial<Settings>) {
+    const next = { ...settings, ...patch }
+    setSettings(next)
+    dispatch({ type: 'UPDATE_SETTINGS', payload: next })
+    saveToServer({ ...state, settings: next })
   }
 
   function exportJSON() {
@@ -348,7 +366,7 @@ export function SettingsPage() {
 
       <div className="page-content" style={{ maxWidth: 700 }}>
 
-        {/* Onglets — voir commentaire en tête de fichier (Phase 6bis, sous-chantier 1) */}
+        {/* Onglets, voir commentaire en tête de fichier (Phase 6bis, sous-chantier 1) */}
         <div className="modal-tabs" style={{ marginBottom: 16, background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
           {SETTINGS_TABS.map(t => (
             <button key={t.id} data-testid={`settings-tab-${t.id}`}
@@ -388,24 +406,10 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {/* Theme */}
-        <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Apparence</h3>
-          <div className="form-group">
-            <label className="form-label">Theme</label>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {(['light', 'dark'] as const).map(t => (
-                <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, fontWeight: settings.theme === t ? 700 : 400 }}>
-                  <input type="radio" name="theme" checked={settings.theme === t} onChange={() => {
-                    setSettings(s => ({ ...s, theme: t }))
-                    document.documentElement.setAttribute('data-theme', t)
-                  }} />
-                  {t === 'light' ? 'Clair' : 'Sombre'}
-                </label>
-              ))}
-            </div>
-          </div>
-        </section>
+        {/* Apparence (Phase 6bis, sous-chantier 4) : thème Système + cartes visuelles, couleur
+            principale par thème, logo d'équipe, densité, page de démarrage, sidebar repliée par
+            défaut, voir AppearanceSection.tsx. */}
+        <AppearanceSection settings={settings} onChange={applyAppearance} />
 
         {/* Kanban columns */}
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>

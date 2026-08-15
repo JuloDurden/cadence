@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { useCadence } from '../../context/StateContext'
 import { canAccessRoute } from '../../utils/permissions'
 
 /* ── SVG icons (Lucide, stroke="currentColor") ── */
@@ -91,8 +92,25 @@ export function Sidebar() {
   // sidebar repart dépliée à chaque refresh) — préférence d'écran propre à l'utilisateur/l'appareil,
   // pas un réglage de workspace partagé, même convention que le mode d'affichage de la modale
   // d'item (`modal-view`, ItemModal.tsx) ou l'orientation de la toolbar NNL (NNLToolbar.tsx).
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === 'true')
+  // `settings.sidebarCollapsedDefault` (Phase 6bis, sous-chantier 4, 2026-08-13) ne sert qu'à
+  // amorcer ce localStorage : une fois une préférence explicite enregistrée (n'importe quel clic
+  // sur le bouton replier/déplier), elle prend le dessus et le réglage de Workspace n'est plus
+  // consulté, même logique que ci-dessus.
+  const { state } = useCadence()
+  const [collapsed, setCollapsed] = useState(() => {
+    const stored = localStorage.getItem('sidebar-collapsed')
+    return stored !== null ? stored === 'true' : !!state.settings?.sidebarCollapsedDefault
+  })
   const { userRole } = useAuth()
+
+  // Reflète un changement en direct du réglage de Workspace (Réglages) tant qu'aucune préférence
+  // personnelle explicite n'existe encore (retour Julien, 2026-08-14 : "je n'ai pas l'impression
+  // que cela s'applique dans l'outil"), sans ça le réglage ne se voyait qu'au tout premier
+  // montage de ce composant, jamais pendant une session de test en cours.
+  useEffect(() => {
+    if (localStorage.getItem('sidebar-collapsed') !== null) return
+    setCollapsed(!!state.settings?.sidebarCollapsedDefault)
+  }, [state.settings?.sidebarCollapsedDefault])
 
   useEffect(() => {
     document.body.classList.toggle('sb-collapsed', collapsed)
@@ -110,9 +128,14 @@ export function Sidebar() {
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-      {/* Logo */}
+      {/* Logo (Phase 6bis, sous-chantier 4, 2026-08-13) : logo d'équipe uploadé (Réglages) si
+          présent, repli sur les initiales "ACT" d'origine sinon. */}
       <div className="sidebar-header">
-        <div className="logo-icon">ACT</div>
+        <div className="logo-icon">
+          {state.settings?.logoDataUrl
+            ? <img src={state.settings.logoDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : 'ACT'}
+        </div>
         {!collapsed && (
           <div>
             <div className="logo-text">Cadence</div>

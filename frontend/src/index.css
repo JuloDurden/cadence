@@ -221,7 +221,7 @@ body {
 .logo-icon {
   width: 28px; height: 28px; background: var(--primary); border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-weight: 700; font-size: 10px; flex-shrink: 0;
+  color: #fff; font-weight: 700; font-size: 10px; flex-shrink: 0; overflow: hidden;
 }
 .logo-text { font-size: 13px; font-weight: 700; line-height: 1.2; }
 .logo-sub  { font-size: 10px; color: var(--text-muted); line-height: 1.3; }
@@ -515,8 +515,8 @@ body {
 
 /* ─── Backlog table ─────────────────────────────────────────────────────── */
 .backlog-table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-.backlog-table th { padding: 7px 8px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
-.backlog-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.backlog-table th { padding: var(--density-th-pad, 7px 8px); text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.backlog-table td { padding: var(--density-td-pad, 5px 8px); border-bottom: 1px solid var(--border); vertical-align: middle; }
 .backlog-table tr:last-child td { border-bottom: none; }
 .backlog-table tbody tr:hover { background: var(--surface2); }
 /* Bordures verticales des colonnes retirées à l'essai (2026-07-28, demande de Julien, pas encore
@@ -631,9 +631,9 @@ option { font-weight: 400; }
 .kanban-col-header.reorg-active { cursor: grab; }
 .kanban-col-header.reorg-active:active { cursor: grabbing; }
 .kanban-col-count { border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 600; }
-.kanban-cards { padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; min-height: 80px; border-radius: 0 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px); }
+.kanban-cards { padding: 8px; display: flex; flex-direction: column; gap: var(--density-cards-gap, 6px); overflow-y: auto; flex: 1; min-height: 80px; border-radius: 0 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px); }
 .kanban-empty { padding: 24px 12px; text-align: center; color: var(--text-faint); font-size: 11px; border: 1.5px dashed var(--border); border-radius: 6px; }
-.kanban-card { background: var(--surface); border-radius: 7px; padding: 10px 12px; box-shadow: var(--shadow-xs); transition: box-shadow .15s, transform .1s; border: 1px solid var(--border); }
+.kanban-card { background: var(--surface); border-radius: 7px; padding: var(--density-card-pad, 10px 12px); box-shadow: var(--shadow-xs); transition: box-shadow .15s, transform .1s; border: 1px solid var(--border); }
 .kanban-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .kanban-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; gap: 4px; }
 .kanban-card-desc { font-size: 12px; color: var(--text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
