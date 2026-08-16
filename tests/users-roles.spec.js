@@ -4,7 +4,7 @@
 // de role, et l'affichage du vrai nom/role dans le panneau profil du Header (auparavant "Admin"
 // en dur, voir docs/corrections.md).
 const { test, expect } = require('@playwright/test');
-const { goTo } = require('./helpers');
+const { goTo, openSettingsTab } = require('./helpers');
 
 const MOCK_USERS = [
   { id: 'u-admin', email: 'admin@cadence.local', name: 'Admin', role: 'ADMIN', createdAt: '2026-07-01T00:00:00.000Z' },
@@ -58,6 +58,7 @@ test.describe('Phase 2 — rôles & gestion des utilisateurs', () => {
     await mockUsersApi(page);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await expect(page.locator('[data-testid="users-section"]')).toBeVisible();
     await expect(page.locator('[data-testid="user-row-u-admin"]')).toContainText('Admin');
@@ -78,6 +79,7 @@ test.describe('Phase 2 — rôles & gestion des utilisateurs', () => {
     await mockUsersApi(page);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await page.locator('[data-testid="new-user-name"]').fill('Nouvelle Recrue');
     await page.locator('[data-testid="new-user-email"]').fill('recrue@cadence.local');
@@ -97,6 +99,7 @@ test.describe('Phase 2 — rôles & gestion des utilisateurs', () => {
     await mockUsersApi(page);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await page.locator('[data-testid="user-role-u-po"]').selectOption('SCRUM_MASTER');
     await expect(page.locator('[data-testid="user-role-u-po"]')).toHaveValue('SCRUM_MASTER');
@@ -122,6 +125,7 @@ test.describe('Phase 2.5 — suppression d\'un compte utilisateur (Admin)', () =
     await mockUsersApi(page);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await expect(page.locator('[data-testid="user-delete-u-admin"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="user-delete-u-po"]')).toBeVisible();
@@ -132,6 +136,7 @@ test.describe('Phase 2.5 — suppression d\'un compte utilisateur (Admin)', () =
     await mockUsersApi(page);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await page.locator('[data-testid="user-delete-u-po"]').click();
     await page.locator('[data-testid="dialog-cancel"]').click();
@@ -143,6 +148,7 @@ test.describe('Phase 2.5 — suppression d\'un compte utilisateur (Admin)', () =
     await mockUsersApi(page);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await page.locator('[data-testid="user-delete-u-po"]').click();
     await page.locator('[data-testid="dialog-confirm"]').click();
@@ -154,6 +160,7 @@ test.describe('Phase 2.5 — suppression d\'un compte utilisateur (Admin)', () =
     await mockUsersApi(page);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     // Créer un compte crée automatiquement une fiche Équipe liée (voir handleCreate,
     // UsersSettingsSection.tsx) — le chemin le plus simple pour obtenir un compte réellement lié
@@ -176,6 +183,7 @@ test.describe('Phase 2.5 — suppression d\'un compte utilisateur (Admin)', () =
     // programmatique — voir Header.tsx) : `a[href="/settings"]` n'a jamais existé dans le DOM,
     // corrigé pour cibler le vrai bouton (2026-08-01, test qui n'avait encore jamais tourné).
     await page.locator('[data-testid="settings-shortcut"]').click();
+    await openSettingsTab(page, 'team');
     await page.locator('[data-testid="user-delete-u-new"]').click();
     await page.locator('[data-testid="dialog-confirm"]').click();
     await expect(page.locator('[data-testid="user-row-u-new"]')).toHaveCount(0);

@@ -5,7 +5,7 @@
 // passer par goTo() (qui injecte un token et bypass la page) : c'est justement cette page qui est
 // testée ici, à l'état "pas encore connecté".
 const { test, expect } = require('@playwright/test');
-const { goTo, BASE_URL } = require('./helpers');
+const { goTo, BASE_URL, openSettingsTab } = require('./helpers');
 
 async function gotoLogin(page, query = '') {
   await page.goto(BASE_URL + '/login' + query);
@@ -143,6 +143,7 @@ test.describe('Phase 2.5 — Onboarding : génération des invitations (Réglage
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await expect(page.locator('[data-testid="invitations-section"]')).toBeVisible();
     // Verrouillage Stakeholder (2026-08-01) : le client (rattachement comme Contact, pas fiche
@@ -165,6 +166,7 @@ test.describe('Phase 2.5 — Onboarding : génération des invitations (Réglage
     await page.route('**/api/invitations/inv-2', r => r.fulfill({ status: 204, body: '' }));
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await expect(page.locator('[data-testid="invitation-row-inv-2"]')).toBeVisible();
     await page.locator('[data-testid="invitation-revoke-inv-2"]').click();
@@ -184,6 +186,7 @@ test.describe('Phase 2.5 — Onboarding : génération des invitations (Réglage
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await expect(page.locator('[data-testid="create-invitation"]')).toBeDisabled();
     await page.locator('[data-testid="invite-client-select"]').selectOption('cl1');

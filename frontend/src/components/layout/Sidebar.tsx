@@ -114,9 +114,21 @@ export function Sidebar() {
 
   useEffect(() => {
     document.body.classList.toggle('sb-collapsed', collapsed)
-    localStorage.setItem('sidebar-collapsed', String(collapsed))
     return () => { document.body.classList.remove('sb-collapsed') }
   }, [collapsed])
+
+  // Écrire la préférence explicite seulement au clic (pas ici en effet keyé sur `collapsed`,
+  // qui s'exécute aussi au tout premier montage) : sinon localStorage['sidebar-collapsed']
+  // recevait une valeur dès le chargement de la page, avant même un clic utilisateur, ce qui
+  // faisait passer l'effet de synchronisation ci-dessus en mode "préférence déjà explicite" et
+  // bloquait le reflet en direct du réglage Workspace (bug constaté par Julien, 2026-08-16).
+  // `next` calculé depuis la fermeture (pas dans le callback de `setCollapsed`) : même précaution
+  // StrictMode qu'ailleurs dans ce projet (voir StateContext.tsx, SettingsPage.tsx).
+  function toggleCollapsed() {
+    const next = !collapsed
+    setCollapsed(next)
+    localStorage.setItem('sidebar-collapsed', String(next))
+  }
 
   // Phase 2.5 (roadmap v1) — reflet de `canAccessRoute` (utils/permissions.ts) : masque les liens
   // vers les pages interdites au rôle courant (Stakeholder), plutôt que de laisser une entrée de
@@ -172,7 +184,7 @@ export function Sidebar() {
           <button
             className="sidebar-collapse-btn"
             data-testid="sidebar-collapse-toggle"
-            onClick={() => setCollapsed(c => !c)}
+            onClick={toggleCollapsed}
             title={collapsed ? 'Etendre' : 'Reduire'}
           >
             <Icon id={collapsed ? 'expand' : 'collapse'} />

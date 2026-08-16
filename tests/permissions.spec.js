@@ -4,7 +4,7 @@
 // rôle Admin passe toujours, même quand une action est réservée à un autre rôle (voir
 // `utils/permissions.ts`, `hasRole()`).
 const { test, expect } = require('@playwright/test');
-const { goTo } = require('./helpers');
+const { goTo, openSettingsTab } = require('./helpers');
 
 test.describe('Phase 2 — permissions : Daily (archivage réservé Scrum Master)', () => {
 
@@ -488,6 +488,7 @@ test.describe('Phase 2 — permissions : création de compte crée automatiqueme
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'team');
 
     await page.locator('[data-testid="new-user-name"]').fill('Nouvelle PO');
     await page.locator('[data-testid="new-user-email"]').fill('nouvelle-po@cadence.local');

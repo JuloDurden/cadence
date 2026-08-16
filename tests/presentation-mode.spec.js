@@ -6,7 +6,7 @@
 // (roadmap-v1.md) après que Julien a fait remarquer que le compte Stakeholder couvre déjà ce besoin
 // (voir docs/corrections.md).
 const { test, expect } = require('@playwright/test');
-const { goTo, BASE_URL } = require('./helpers');
+const { goTo, BASE_URL, openSettingsTab } = require('./helpers');
 
 async function mockPresentationLinkApi(page, initialLink = null) {
   let currentLink = initialLink;
@@ -33,6 +33,7 @@ test.describe('Phase 3 — Mode présentation, lien public (Réglages, Admin + P
     await mockPresentationLinkApi(page, null);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'advanced');
 
     await expect(page.locator('[data-testid="presentation-link-section"]')).toBeVisible();
     await page.locator('[data-testid="presentation-link-generate"]').click();
@@ -45,6 +46,7 @@ test.describe('Phase 3 — Mode présentation, lien public (Réglages, Admin + P
     await mockPresentationLinkApi(page, null);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'advanced');
 
     await expect(page.locator('[data-testid="presentation-link-section"]')).toBeVisible();
   });
@@ -60,6 +62,7 @@ test.describe('Phase 3 — Mode présentation, lien public (Réglages, Admin + P
     await mockPresentationLinkApi(page, existing);
     await page.reload();
     await page.waitForLoadState('networkidle');
+    await openSettingsTab(page, 'advanced');
 
     await expect(page.locator('[data-testid="presentation-link-active"]')).toBeVisible();
     await page.locator('[data-testid="presentation-link-revoke"]').click();
@@ -242,6 +245,7 @@ test.describe('Phase 3 — Mode présentation, choix et ordre des pages (Réglag
 
   test('la sélection par défaut liste les 5 pages d\'origine, dans l\'ordre d\'origine', async ({ page }) => {
     await goTo(page, '/settings', { role: 'ADMIN' });
+    await openSettingsTab(page, 'advanced');
     await expect(page.locator('[data-testid="presentation-pages-section"]')).toBeVisible();
 
     const rows = page.locator('[data-testid^="presentation-page-row-"]');
@@ -255,6 +259,7 @@ test.describe('Phase 3 — Mode présentation, choix et ordre des pages (Réglag
 
   test('ajouter une page la fait apparaître en dernière position, puis la retirer la fait disparaître', async ({ page }) => {
     await goTo(page, '/settings', { role: 'ADMIN' });
+    await openSettingsTab(page, 'advanced');
 
     await expect(page.locator('[data-testid="presentation-page-add-kanban"]')).toBeVisible();
     await page.locator('[data-testid="presentation-page-add-kanban"]').click();
@@ -269,6 +274,7 @@ test.describe('Phase 3 — Mode présentation, choix et ordre des pages (Réglag
 
   test('descendre le Dashboard le place après la Roadmap', async ({ page }) => {
     await goTo(page, '/settings', { role: 'ADMIN' });
+    await openSettingsTab(page, 'advanced');
 
     await page.locator('[data-testid="presentation-page-down-dashboard"]').click();
     await expect(page.locator('[data-testid="presentation-page-row-roadmap"]')).toContainText('1. Roadmap');
@@ -277,6 +283,7 @@ test.describe('Phase 3 — Mode présentation, choix et ordre des pages (Réglag
 
   test('retirer est désactivé quand une seule page reste sélectionnée', async ({ page }) => {
     await goTo(page, '/settings', { role: 'ADMIN' });
+    await openSettingsTab(page, 'advanced');
 
     for (const id of ['roadmap', 'vision', 'sprint-review', 'backlog']) {
       await page.locator(`[data-testid="presentation-page-remove-${id}"]`).click();
@@ -287,6 +294,7 @@ test.describe('Phase 3 — Mode présentation, choix et ordre des pages (Réglag
 
   test('réinitialiser restaure la sélection et l\'ordre par défaut', async ({ page }) => {
     await goTo(page, '/settings', { role: 'ADMIN' });
+    await openSettingsTab(page, 'advanced');
 
     await page.locator('[data-testid="presentation-page-add-kanban"]').click();
     await page.locator('[data-testid="presentation-page-down-dashboard"]').click();
@@ -305,6 +313,7 @@ test.describe('Phase 3 — Mode présentation, choix et ordre des pages (Réglag
 
   test('une page ajoutée en Réglages devient atteignable en mode présentation (compte connecté)', async ({ page }) => {
     await goTo(page, '/settings', { role: 'PO' });
+    await openSettingsTab(page, 'advanced');
     // Kanban ajouté en dernier : dashboard, roadmap, vision, sprint-review, backlog, kanban.
     await page.locator('[data-testid="presentation-page-add-kanban"]').click();
 

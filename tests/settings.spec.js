@@ -1,12 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { goTo } = require('./helpers');
-
-/** Clique sur un onglet des Réglages (voir SettingsPage.tsx, Phase 6bis sous-chantier 1). À
- *  rappeler après tout `page.reload()` : le tab actif est un simple `useState`, remis à
- *  "general" par défaut à chaque montage du composant. */
-async function openSettingsTab(page, id) {
-  await page.locator(`[data-testid="settings-tab-${id}"]`).click();
-}
+const { goTo, openSettingsTab } = require('./helpers');
 
 test.describe('Réglages', () => {
 

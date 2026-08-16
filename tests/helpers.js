@@ -63,6 +63,20 @@ async function goTo(page, route = '/backlog', opts = {}) {
 }
 
 /**
+ * Clique sur un onglet des Réglages (voir SettingsPage.tsx, Phase 6bis sous-chantier 1). Les
+ * sections Utilisateurs/Invitations (`team`), Mode présentation/pages présentables (`advanced`),
+ * Jetons API (`security`), GitHub/Slack/Jira/IA (`integrations`) ne sont montées dans le DOM que
+ * lorsque leur onglet est actif : tout test qui les cible directement doit d'abord ouvrir le bon
+ * onglet. À rappeler après tout `page.reload()` : le tab actif est un simple `useState`, remis à
+ * "general" par défaut à chaque montage du composant.
+ * @param {import('@playwright/test').Page} page
+ * @param {'general'|'team'|'integrations'|'security'|'import-export'|'advanced'} id
+ */
+async function openSettingsTab(page, id) {
+  await page.locator(`[data-testid="settings-tab-${id}"]`).click();
+}
+
+/**
  * Helpers pour le header du Backlog (Trier/Filtrer/Grouper, "unibody" — retour Julien,
  * 2026-07-29) : 3 boutons à dropdown remplacent les anciens <select> individuels du bloc de
  * filtres. Centralisés ici plutôt que dupliqués dans chaque spec, pour qu'un futur changement
@@ -96,6 +110,6 @@ async function toggleBacklogReadyFilter(page) {
 }
 
 module.exports = {
-  BASE_URL, goTo,
+  BASE_URL, goTo, openSettingsTab,
   setBacklogSortBy, setBacklogGroupBy, setBacklogFilter, toggleBacklogReadyFilter,
 };
