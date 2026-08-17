@@ -1469,7 +1469,10 @@ function UnfinishedItemRow({
         <ItemMetaBadges item={item} />
       </div>
       {/* Row 2: raison + décision */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      {/* `flexWrap: 'wrap'` (docs/corrections futures.md, Sprint Review, 2026-08-17) : filet de
+          sécurité si le select ne tient pas sur la ligne malgré le correctif ci-dessous, il
+          passe à la ligne plutôt que de déborder du panneau. */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <input
           style={{ ...INPUT_STYLE, flex: 1, minWidth: 0 }}
           placeholder="Raison du non-achèvement…"
@@ -1478,8 +1481,15 @@ function UnfinishedItemRow({
           onBlur={onReasonBlur}
           disabled={readOnly}
         />
+        {/* `width: 'auto'` (docs/corrections futures.md, Sprint Review, 2026-08-17) : ce select
+            n'a ni `flex-grow` ni `flex-basis` explicites, seulement `flexShrink: 0` - sans cette
+            surcharge, son flex-basis retombe sur la règle CSS globale `select { width: 100% }`
+            (index.css) et il réclame 100% de la largeur de la ligne en plus de l'input, faisant
+            déborder tout le panneau. Correctif appliqué au même endroit qu'en bas (select cible
+            du report), qui n'était pas concerné grâce à son `flex: 1` explicite (flex-basis 0%,
+            qui prime déjà sur `width`). */}
         <select
-          style={{ ...INPUT_STYLE, flexShrink: 0, cursor: readOnly ? 'default' : 'pointer' }}
+          style={{ ...INPUT_STYLE, width: 'auto', flexShrink: 0, cursor: readOnly ? 'default' : 'pointer' }}
           value={record.decision}
           onChange={e => onDecisionChange(e.target.value as SRUnfinishedDecision)}
           disabled={readOnly}
@@ -1492,7 +1502,7 @@ function UnfinishedItemRow({
       {/* Row 3 (Chantier G) : application réelle de la décision sur l'item — masquée en
           lecture seule (Stakeholder), voir readOnly plus haut. */}
       {!readOnly && !applied && record.decision === 'report' && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
           <select
             style={{ ...INPUT_STYLE, flex: 1, minWidth: 0, cursor: 'pointer' }}
             value={targetSprintId}

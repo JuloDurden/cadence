@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import type { Item, CadenceState, TeamMember } from '../../types'
+import type { ReactNode } from 'react'
+import type { Item, CadenceState, TeamMember, HierarchyNode } from '../../types'
 import { computeMemberCapacity, isMemberFullyAbsent } from '../../utils/sprintCapacity'
+import { groupItemsByEpic, getEpicSP } from '../../utils/hierarchyScore'
 
 interface Props {
   state: CadenceState
@@ -25,6 +27,58 @@ const TYPE_LABEL: Record<string, string> = {
 
 function initials(name: string) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+}
+
+// ── Regroupement par Epic ──────────────────────────────────────────────────
+// (docs/corrections futures.md, Sprint Planning, 2026-08-17, retour Julien : "Partout, y
+// compris les cartes membre") : reprend la structure visuelle de PlanningEpicGroup.tsx
+// (Release Planning) et KanbanEpicGroup.tsx (Kanban), mais sans drag - non demandé ici,
+// juste un regroupement visuel repliable. `groupKey` (pas juste `epicId`) sert aux
+// data-testid : un même Epic peut apparaître à la fois dans "Non attribué" et dans
+// plusieurs cartes membre (primaire ou co-assigné) sur la même page.
+const ICO_CHEVRON = '<path d="m6 9 6 6 6-6"/>'
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      style={{ flexShrink: 0, transition: 'transform .15s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+      dangerouslySetInnerHTML={{ __html: ICO_CHEVRON }}
+    />
+  )
+}
+
+interface EpicGroupBlockProps {
+  groupKey: string
+  epic: HierarchyNode
+  count: number
+  sp: number
+  children: ReactNode
+}
+function EpicGroupBlock({ groupKey, epic, count, sp, children }: EpicGroupBlockProps) {
+  const [collapsed, setCollapsed] = useState(false)
+  return (
+    <div className={`epic-group epic-group-compact${collapsed ? ' epic-group-collapsed' : ''}`}>
+      <div className="epic-group-header" style={{ cursor: 'default' }}>
+        <button
+          type="button"
+          className="epic-group-toggle"
+          data-testid={`epic-group-toggle-${groupKey}`}
+          title={collapsed ? 'Déplier les items' : 'Replier les items'}
+          onClick={e => { e.stopPropagation(); setCollapsed(c => !c) }}
+        >
+          <Chevron open={!collapsed} />
+        </button>
+        <span className="epic-type-tag">EPIC</span>
+        <span className="epic-group-name">{epic.desc}</span>
+        <span className="epic-group-count">{count} item{count > 1 ? 's' : ''} · {sp} SP</span>
+      </div>
+      {!collapsed && (
+        <div className="epic-group-stories" data-testid={`epic-group-stories-${groupKey}`}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Carte item non-attribué ───────────────────────────────────────────────
@@ -177,6 +231,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
   const sprint      = state.sprints.find(s => s.id === sprintId)
   const sprintItems = sprint ? state.items.filter(i => i.sprintId === sprintId) : []
   const unassigned  = sprintItems.filter(i => i.assignees.length === 0)
+  const { groups: unassignedGroups, orphans: unassignedOrphans } = groupItemsByEpic(unassigned, state.hierarchyNodes)
 
   function drop(colId: string) {
     if (readOnly) return
@@ -210,7 +265,27 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
           </span>
         </div>
         <div className="sp-left-body">
-          {unassigned.map(item => (
+          {unassignedGroups.map(({ epicId, epic, items: groupItems }) => (
+            <EpicGroupBlock
+              key={epicId}
+              groupKey={`unassigned-${epicId}`}
+              epic={epic}
+              count={groupItems.length}
+              sp={getEpicSP(epic, groupItems)}
+            >
+              {groupItems.map(item => (
+                <UnassignedCard
+                  key={item.id} item={item} state={state}
+                  dragging={dragId === item.id}
+                  readOnly={readOnly}
+                  onDragStart={() => setDragId(item.id)}
+                  onDragEnd={() => setDragId(null)}
+                  onEdit={onEdit}
+                />
+              ))}
+            </EpicGroupBlock>
+          ))}
+          {unassignedOrphans.map(item => (
             <UnassignedCard
               key={item.id} item={item} state={state}
               dragging={dragId === item.id}
@@ -233,6 +308,11 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
             // Dev attitré = assignees[0], co-assigné = assignees[1+]
             const primaryItems = sprintItems.filter(i => i.assignees[0] === member.id)
             const coItems      = sprintItems.filter(i => i.assignees.length > 1 && i.assignees.slice(1).includes(member.id))
+            // Regroupement par Epic (retour Julien : "partout, y compris les cartes membre") :
+            // groupKey inclut member.id + primaire/co pour rester unique sur la page, un même
+            // Epic pouvant apparaître chez plusieurs membres et dans les deux sections à la fois.
+            const { groups: primaryGroups, orphans: primaryOrphans } = groupItemsByEpic(primaryItems, state.hierarchyNodes)
+            const { groups: coGroups, orphans: coOrphans } = groupItemsByEpic(coItems, state.hierarchyNodes)
             // Charge = part SP de chaque item où le membre est impliqué
             const usedSP  = [...primaryItems, ...coItems].reduce((s, i) => s + i.sp / Math.max(1, i.assignees.length), 0)
             const cap     = sprint ? computeMemberCapacity(member, sprint, state) : 0
@@ -291,7 +371,29 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                 {/* Items assignés */}
                 <div className="sp-member-body">
                   {/* Items dont ce membre est dev attitré */}
-                  {primaryItems.map(item => (
+                  {primaryGroups.map(({ epicId, epic, items: groupItems }) => (
+                    <EpicGroupBlock
+                      key={epicId}
+                      groupKey={`${member.id}-${epicId}`}
+                      epic={epic}
+                      count={groupItems.length}
+                      sp={getEpicSP(epic, groupItems)}
+                    >
+                      {groupItems.map(item => (
+                        <MemberItemRow
+                          key={item.id} item={item}
+                          mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
+                          over={over} co={false} team={state.team}
+                          dragging={dragId === item.id}
+                          readOnly={readOnly}
+                          onDragStart={() => setDragId(item.id)}
+                          onDragEnd={() => setDragId(null)}
+                          onEdit={onEdit}
+                        />
+                      ))}
+                    </EpicGroupBlock>
+                  ))}
+                  {primaryOrphans.map(item => (
                     <MemberItemRow
                       key={item.id} item={item}
                       mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
@@ -309,7 +411,29 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                       <div className="sp-member-co-sep">
                         {primaryItems.length > 0 ? '— Co-assigné' : 'Co-assigné'}
                       </div>
-                      {coItems.map(item => (
+                      {coGroups.map(({ epicId, epic, items: groupItems }) => (
+                        <EpicGroupBlock
+                          key={epicId}
+                          groupKey={`${member.id}-co-${epicId}`}
+                          epic={epic}
+                          count={groupItems.length}
+                          sp={getEpicSP(epic, groupItems)}
+                        >
+                          {groupItems.map(item => (
+                            <MemberItemRow
+                              key={item.id} item={item}
+                              mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
+                              over={over} co={true} team={state.team}
+                              dragging={dragId === item.id}
+                              readOnly={readOnly}
+                              onDragStart={() => setDragId(item.id)}
+                              onDragEnd={() => setDragId(null)}
+                              onEdit={onEdit}
+                            />
+                          ))}
+                        </EpicGroupBlock>
+                      ))}
+                      {coOrphans.map(item => (
                         <MemberItemRow
                           key={item.id} item={item}
                           mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}

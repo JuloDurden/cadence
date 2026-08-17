@@ -15,7 +15,17 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.98.11',date:'17 Août 2026',dateISO:'2026-08-17',title:'Phase 6bis (roadmap v1) - refonte de l\'écran de connexion',current:true,changes:[
+  {version:'v0.98.13',date:'17 Août 2026',dateISO:'2026-08-17',title:'Correctifs Sprint Review : débordement des selects "Non terminé", vérification des Initiatives',current:true,changes:[
+    {tag:'fix', text:'Sprint Review : le select de décision (Reporter/Annuler/Redimensionner) de la section "Non terminé" débordait de son panneau ; corrigé, ainsi que le select de choix du sprint cible affiché sur "Reporter"'},
+    {tag:'test', text:'Vérification que les Initiatives sont bien prises en compte dans l\'Incrément livré, en plus des Epics'},
+  ]},
+  {version:'v0.98.12',date:'17 Août 2026',dateISO:'2026-08-17',title:'Correctif : affichage des Epics/Initiatives dans Kanban et Sprint Planning',current:false,changes:[
+    {tag:'fix', text:'Kanban : les items rattachés à un Epic sont désormais regroupés visuellement dans chaque colonne (même présentation que Release Planning), repliables individuellement ; les items sans Epic restent affichés seuls'},
+    {tag:'feat', text:'Kanban : glisser l\'en-tête d\'un groupe Epic déplace tout le groupe (ses items présents dans la colonne et le statut propre de l\'Epic) vers une autre colonne en un seul geste, plutôt que de devoir glisser chaque item séparément'},
+    {tag:'fix', text:'Sprint Planning : même regroupement par Epic dans la liste "Non attribué" et dans chaque carte membre (items attitrés et co-assignés), affichage seul (pas de drag de groupe ici)'},
+    {tag:'test', text:'Nouveaux tests E2E sur le regroupement par Epic et le drag de groupe en Kanban'},
+  ]},
+  {version:'v0.98.11',date:'17 Août 2026',dateISO:'2026-08-17',title:'Phase 6bis (roadmap v1) - refonte de l\'écran de connexion',current:false,changes:[
     {tag:'feat', text:'Écran de connexion entièrement repensé (Se connecter, Créer un compte, acceptation d\'une invitation Stakeholder) : mise en page épurée centrée sur un avatar circulaire, dans l\'esprit d\'un écran de verrouillage macOS/Windows 11, plutôt que le formulaire brut d\'origine. Précédé d\'une maquette interactive validée avec Julien (plusieurs pistes de mise en page, puis affinage du logo et de son intégration) avant tout code. Barre d\'onglets Se connecter/Créer un compte remplacée par un lien texte, tout le reste du fonctionnement (rôles ouverts à l\'auto-inscription, invitation à usage unique, messages d\'erreur) est inchangé'},
     {tag:'feat', text:'Logo d\'équipe (Réglages > Apparence) affiché dans l\'avatar de l\'écran de connexion ; en son absence, repli sur le logo Cadence (fourni par Julien) en blanc. Quand un logo d\'équipe est chargé, le logo Cadence reste affiché en petit à côté du nom, dans la couleur principale du thème, pour que la marque de l\'outil ne disparaisse jamais complètement'},
     {tag:'feat', text:'Nouvelle route publique GET /api/public/branding (sans authentification), qui n\'expose que le logo d\'équipe : l\'écran de connexion est rendu avant toute authentification et n\'a donc accès à aucune autre donnée du workspace'},

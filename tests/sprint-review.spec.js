@@ -105,6 +105,40 @@ test.describe('Sprint Review — /sprint-review', () => {
       await expect(page.locator('.page-content')).toContainText('Non terminé');
     });
 
+    // docs/corrections futures.md, Sprint Review, 2026-08-17 : le select de décision
+    // (Reporter/Annuler/Redimensionner) n'avait ni flex-grow ni flex-basis explicite, donc son
+    // flex-basis retombait sur la règle CSS globale `select { width: 100% }` (index.css) et il
+    // débordait du panneau. Correctif : `width: 'auto'` explicite sur ce select.
+
+    test('le select de décision (Reporter/Annuler/Redimensionner) ne déborde pas de la fenêtre', async ({ page }) => {
+      await goTo(page, '/sprint-review');
+      const decisionSelect = page.locator('select').filter({ has: page.getByRole('option', { name: 'Reporter' }) }).first();
+      await expect(decisionSelect).toBeVisible();
+      const box = await decisionSelect.boundingBox();
+      const viewport = page.viewportSize();
+      expect(box).not.toBeNull();
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+    });
+
+    test('le select de décision a une largeur raisonnable (pas 100% de la ligne)', async ({ page }) => {
+      await goTo(page, '/sprint-review');
+      const decisionSelect = page.locator('select').filter({ has: page.getByRole('option', { name: 'Reporter' }) }).first();
+      const box = await decisionSelect.boundingBox();
+      expect(box.width).toBeLessThan(220);
+    });
+
+    test('le select du sprint cible (report) ne déborde pas de la fenêtre', async ({ page }) => {
+      await goTo(page, '/sprint-review');
+      const decisionSelect = page.locator('select').filter({ has: page.getByRole('option', { name: 'Reporter' }) }).first();
+      await decisionSelect.selectOption('report');
+      const targetSelect = page.locator('select').filter({ has: page.getByRole('option', { name: 'Plus tard (non planifié)' }) }).first();
+      await expect(targetSelect).toBeVisible();
+      const box = await targetSelect.boundingBox();
+      const viewport = page.viewportSize();
+      expect(box).not.toBeNull();
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+    });
+
   });
 
   // ── Suite 4 : Section Vélocité ─────────────────────────────────────────────

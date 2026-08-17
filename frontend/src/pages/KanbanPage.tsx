@@ -93,6 +93,10 @@ export function KanbanPage() {
 
   const dragItemId   = useRef<string | null>(null)
   const dragColId    = useRef<string | null>(null)
+  // Drag d'un groupe Epic entier (docs/corrections futures.md, Kanban, 2026-08-17) : contient
+  // les ids des items du groupe + l'id du HierarchyNode Epic lui-même (voir KanbanEpicGroup.tsx,
+  // groupIds), traité séparément du drag d'une carte seule (dragItemId).
+  const dragGroupIds = useRef<string[] | null>(null)
   const addColBtnRef = useRef<HTMLButtonElement>(null)
 
   const currentSprint = useMemo(
@@ -230,6 +234,10 @@ export function KanbanPage() {
         saveToServer({ ...state, kanbanCols: cols })
       }
       dragColId.current = null
+    } else if (dragGroupIds.current) {
+      const ids = dragGroupIds.current
+      dragGroupIds.current = null
+      handleGroupDrop(ids, targetId)
     } else if (dragItemId.current) {
       const item = state.items.find(i => i.id === dragItemId.current)
       if (item && item.status !== targetId) {
@@ -261,6 +269,52 @@ export function KanbanPage() {
       }
       dragItemId.current = null
     }
+  }
+
+  // Drag d'un groupe Epic entier (docs/corrections futures.md, Kanban, 2026-08-17, retour Julien :
+  // "glisser l'en-tête déplace tout le groupe, comme Release Planning"). `ids` contient les items
+  // du groupe (tous dans la même colonne source, puisqu'un groupe n'est affiché que par colonne)
+  // + l'id du HierarchyNode Epic lui-même (voir KanbanEpicGroup.tsx) : son propre statut est mis
+  // à jour en plus de ses items, il est lu ailleurs (getSprintSP, utils/hierarchyScore.ts) pour
+  // savoir si un Epic sans item compte comme "terminé". Une seule entrée d'Historique résumée,
+  // pas une par item, même convention que l'auto-avancement des items ajournés plus haut.
+  function handleGroupDrop(ids: string[], targetId: string) {
+    if (readOnly) return
+    const isBacklogCol = targetId === 'backlog'
+    const groupItems = state.items.filter(i => ids.includes(i.id) && i.status !== targetId)
+    const groupNode = state.hierarchyNodes.find(n => ids.includes(n.id) && n.status !== targetId)
+    if (groupItems.length === 0 && !groupNode) return
+
+    const updatedItems = groupItems.map(item => ({
+      ...item,
+      status: targetId,
+      sprintId: isBacklogCol ? null : (sprintId || item.sprintId),
+    }))
+    updatedItems.forEach(item => dispatch({ type: 'UPDATE_ITEM', payload: item }))
+
+    const updatedNode = groupNode ? { ...groupNode, status: targetId } : null
+    if (updatedNode) dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: updatedNode })
+
+    const epicLabel = (groupNode ?? state.hierarchyNodes.find(n => ids.includes(n.id)))?.desc ?? 'Epic'
+    const fromStatus = groupItems[0]?.status ?? groupNode?.status
+    const fromLabel = state.kanbanCols.find(c => c.id === fromStatus)?.label ?? fromStatus
+    const toLabel = state.kanbanCols.find(c => c.id === targetId)?.label ?? targetId
+    const historyEntry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      type: 'item_status',
+      timestamp: new Date().toISOString(),
+      sprintId: sprintId || undefined,
+      from: fromLabel,
+      to: toLabel,
+      detail: `Groupe Epic "${epicLabel}" déplacé vers "${toLabel}" (${groupItems.length} item(s))`,
+      author: userName,
+    }
+    dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    saveToServer(withHistoryEntry({
+      ...state,
+      items: state.items.map(i => updatedItems.find(u => u.id === i.id) ?? i),
+      hierarchyNodes: updatedNode ? state.hierarchyNodes.map(n => n.id === updatedNode.id ? updatedNode : n) : state.hierarchyNodes,
+    }, historyEntry))
   }
 
   // ── Column management ────────────────────────────────────────────────
@@ -467,8 +521,9 @@ export function KanbanPage() {
                 isBase={BASE_COL_IDS.includes(col.id)}
                 reorgMode={reorgMode}
                 isDragOver={dragOverColId === col.id}
-                onCardDragStart={id => { dragItemId.current = id; dragColId.current = null }}
-                onColDragStart={id  => { dragColId.current  = id; dragItemId.current = null }}
+                onCardDragStart={id => { dragItemId.current = id; dragColId.current = null; dragGroupIds.current = null }}
+                onGroupDragStart={ids => { dragGroupIds.current = ids; dragItemId.current = null; dragColId.current = null }}
+                onColDragStart={id  => { dragColId.current  = id; dragItemId.current = null; dragGroupIds.current = null }}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onDeleteCol={handleDeleteCol}

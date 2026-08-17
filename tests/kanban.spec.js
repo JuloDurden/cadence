@@ -149,3 +149,57 @@ test.describe('Kanban', () => {
   });
 
 });
+
+test.describe('Kanban - regroupement par Epic (docs/corrections futures.md, 2026-08-17)', () => {
+
+  // Sprint actif par défaut (s2 - MODERNISATION) : FAX-024 (colonne "doing") rattaché à
+  // l'Epic FAX-007 (sp propre 30), MAN-025 (colonne "todo") rattaché à l'Epic MAN-008
+  // (sp propre 20). Voir frontend/src/data/demo.ts.
+
+  test('un item rattaché à un Epic est affiché dans un groupe replié/dépliable', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const toggle = page.locator('[data-testid="epic-group-toggle-doing-i7"]');
+    await expect(toggle).toBeVisible();
+    const stories = page.locator('[data-testid="epic-group-stories-doing-i7"]');
+    await expect(stories).toBeVisible();
+    await expect(stories).toContainText('FAX-024');
+  });
+
+  test('le groupe affiche le nom de l\'Epic et le total items/SP', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const group = page.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-doing-i7"]') });
+    await expect(group).toContainText('EPIC IA Prédiction accidents & CA');
+    await expect(group).toContainText('1 item');
+    await expect(group).toContainText('30 SP');
+  });
+
+  test('un item sans Epic reste affiché seul, hors groupe', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const doingCol = page.locator('.kanban-col').filter({ has: page.locator('.kanban-col-header').filter({ hasText: 'EN COURS' }) });
+    await expect(doingCol.locator('.kanban-card').filter({ hasText: 'PME-011' })).toBeVisible();
+  });
+
+  test('replier un groupe Epic masque ses items, redéplier les réaffiche', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const stories = page.locator('[data-testid="epic-group-stories-doing-i7"]');
+    const toggle  = page.locator('[data-testid="epic-group-toggle-doing-i7"]');
+    await expect(stories).toBeVisible();
+    await toggle.click();
+    await expect(stories).not.toBeVisible();
+    await toggle.click();
+    await expect(stories).toBeVisible();
+  });
+
+  test('deux groupes Epic dans deux colonnes différentes ont des testid distincts', async ({ page }) => {
+    await goTo(page, '/kanban');
+    await expect(page.locator('[data-testid="epic-group-toggle-doing-i7"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="epic-group-toggle-todo-i8"]')).toHaveCount(1);
+  });
+
+  test('le groupe Epic est draggable (poignée sur l\'en-tête)', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const header = page.locator('.epic-group-header').filter({ has: page.locator('[data-testid="epic-group-toggle-doing-i7"]') });
+    await expect(header).toHaveAttribute('draggable', 'true');
+  });
+
+});

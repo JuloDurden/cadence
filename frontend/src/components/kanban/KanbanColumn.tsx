@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import type { Item, KanbanCol, CadenceState } from '../../types'
 import { KanbanCard } from './KanbanCard'
 import { KanbanCardSkeleton } from './KanbanCardSkeleton'
+import { KanbanEpicGroup } from './KanbanEpicGroup'
+import { groupItemsByEpic } from '../../utils/hierarchyScore'
 
 // Hauteur approximative d'une carte squelette + son gap (.kanban-cards gap: 6px) — sert
 // uniquement à estimer combien de squelettes il faut pour couvrir la hauteur visible de
@@ -19,6 +21,7 @@ interface Props {
   reorgMode: boolean
   isDragOver: boolean
   onCardDragStart:    (itemId: string) => void
+  onGroupDragStart:   (itemIds: string[]) => void
   onColDragStart:     (colId: string)  => void
   onDragOver:         (colId: string)  => void
   onDrop:             (colId: string)  => void
@@ -44,9 +47,18 @@ const ICO = {
 
 export function KanbanColumn({
   col, items, state, isBase, reorgMode, isDragOver,
-  onCardDragStart, onColDragStart, onDragOver, onDrop,
+  onCardDragStart, onGroupDragStart, onColDragStart, onDragOver, onDrop,
   onDeleteCol, onEdit, onRemoveFromSprint, readOnly = false,
 }: Props) {
+  // Affichage groupé par Epic (docs/corrections futures.md, Kanban, 2026-08-17) : items-first
+  // (`groupItemsByEpic`, pas `attachItemsToEpics`), un Epic sans item dans CETTE colonne
+  // n'affiche donc jamais de groupe vide ici - contrairement à Release Planning qui a une vraie
+  // notion de "scope stable" (Epics assignés au sprint via leur propre sprintId), une colonne
+  // Kanban n'a pas d'équivalent : seuls les Epics ayant au moins un item ici apparaissent.
+  const { groups: epicGroups, orphans } = useMemo(
+    () => groupItemsByEpic(items, state.hierarchyNodes),
+    [items, state.hierarchyNodes]
+  )
   // Nombre de squelettes en mode Réorganiser : indépendant du nombre d'items réels de la
   // colonne (docs/corrections futures.md, Kanban — "pas juste celles existantes"), calé sur
   // la hauteur d'écran visible, ± 1 ou 2 au hasard par colonne pour un rendu moins uniforme.
@@ -112,19 +124,38 @@ export function KanbanColumn({
       <div className="kanban-cards" style={{ background: col.color + '0d', overflowY: reorgMode ? 'hidden' : 'auto' }}>
         {reorgMode
           ? Array.from({ length: skeletonCount }, (_, i) => <KanbanCardSkeleton key={i} />)
-          : items.map(item => (
-            <KanbanCard
-              key={item.id}
-              item={item}
-              state={state}
-              colColor={col.color}
-              cardDraggable={!reorgMode && !readOnly}
-              onEdit={onEdit}
-              onRemoveFromSprint={onRemoveFromSprint}
-              onDragStart={onCardDragStart}
-              readOnly={readOnly}
-            />
-          ))}
+          : (
+            <>
+              {epicGroups.map(({ epicId, epic, items: groupItems }) => (
+                <KanbanEpicGroup
+                  key={epicId}
+                  groupKey={`${col.id}-${epicId}`}
+                  epic={epic}
+                  items={groupItems}
+                  state={state}
+                  colColor={col.color}
+                  onEdit={onEdit}
+                  onRemoveFromSprint={onRemoveFromSprint}
+                  onDragItem={onCardDragStart}
+                  onDragGroup={onGroupDragStart}
+                  readOnly={readOnly}
+                />
+              ))}
+              {orphans.map(item => (
+                <KanbanCard
+                  key={item.id}
+                  item={item}
+                  state={state}
+                  colColor={col.color}
+                  cardDraggable={!readOnly}
+                  onEdit={onEdit}
+                  onRemoveFromSprint={onRemoveFromSprint}
+                  onDragStart={onCardDragStart}
+                  readOnly={readOnly}
+                />
+              ))}
+            </>
+          )}
         {!reorgMode && items.length === 0 && (
           <div className="kanban-empty">Glisser ici</div>
         )}

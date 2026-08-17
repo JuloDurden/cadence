@@ -126,3 +126,51 @@ test.describe('Sprint Planning - page /sprint-planning', () => {
   });
 
 });
+
+test.describe('Sprint Planning - regroupement par Epic (docs/corrections futures.md, 2026-08-17)', () => {
+
+  // Sprint actif par défaut (s2 - MODERNISATION) : FAX-024 attitré à Aldo Raines (m1), rattaché
+  // à l'Epic FAX-007 ; MAN-025 attitré à Brienne de Torth (m2), rattaché à l'Epic MAN-008 ; et
+  // BUG-006 (sans Epic) également attitré à Brienne de Torth, dans la même carte. Voir
+  // frontend/src/data/demo.ts. Retour Julien (2026-08-17) : regroupement "partout, y compris
+  // les cartes membre" mais sans drag ici (contrairement au Kanban).
+
+  test('un item rattaché à un Epic est groupé dans la carte du membre attitré', async ({ page }) => {
+    await goTo(page, '/sprint-planning');
+    const card = page.locator('.sp-member-card').filter({ hasText: 'Aldo Raines' });
+    await expect(card.locator('[data-testid="epic-group-toggle-m1-i7"]')).toBeVisible();
+    await expect(card.locator('[data-testid="epic-group-stories-m1-i7"]')).toContainText('FAX-024');
+  });
+
+  test('le groupe affiche le nom de l\'Epic dans la carte membre', async ({ page }) => {
+    await goTo(page, '/sprint-planning');
+    const card = page.locator('.sp-member-card').filter({ hasText: 'Aldo Raines' });
+    const group = card.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-m1-i7"]') });
+    await expect(group).toContainText('EPIC IA Prédiction accidents & CA');
+  });
+
+  test('un membre peut avoir un item groupé et un item orphelin côte à côte', async ({ page }) => {
+    await goTo(page, '/sprint-planning');
+    const card = page.locator('.sp-member-card').filter({ hasText: 'Brienne de Torth' });
+    await expect(card.locator('[data-testid="epic-group-toggle-m2-i8"]')).toBeVisible();
+    await expect(card).toContainText('BUG-006');
+  });
+
+  test('replier le groupe Epic d\'une carte membre masque son item', async ({ page }) => {
+    await goTo(page, '/sprint-planning');
+    const card = page.locator('.sp-member-card').filter({ hasText: 'Aldo Raines' });
+    const stories = card.locator('[data-testid="epic-group-stories-m1-i7"]');
+    const toggle  = card.locator('[data-testid="epic-group-toggle-m1-i7"]');
+    await expect(stories).toBeVisible();
+    await toggle.click();
+    await expect(stories).not.toBeVisible();
+  });
+
+  test('le groupe Epic d\'une carte membre n\'est pas draggable (pas de drag de groupe hors Kanban)', async ({ page }) => {
+    await goTo(page, '/sprint-planning');
+    const card = page.locator('.sp-member-card').filter({ hasText: 'Aldo Raines' });
+    const header = card.locator('.epic-group-header').filter({ has: page.locator('[data-testid="epic-group-toggle-m1-i7"]') });
+    await expect(header).not.toHaveAttribute('draggable', 'true');
+  });
+
+});
