@@ -148,6 +148,21 @@ test.describe('Réglages', () => {
       await expect(page.getByText('#059669', { exact: false })).toBeVisible();
     });
 
+    // Favicon dynamique (2026-08-17, retour Julien : "utiliser le CadenceMark comme favicon, sa
+    // couleur serait la couleur principale utilisée par l'utilisateur"). Construit en data-URI
+    // (StateContext.tsx, applyFavicon) : href décodée pour vérifier la couleur réellement encodée,
+    // plutôt qu'une comparaison de chaîne brute (l'encodage URI du data-URI n'est pas garanti
+    // caractère pour caractère identique d'une implémentation à l'autre).
+    test('le favicon reprend la couleur principale par défaut, puis suit une couleur personnalisée', async ({ page }) => {
+      await goTo(page, '/settings');
+      const iconHref = async () => decodeURIComponent(await page.locator('link[rel="icon"]').getAttribute('href'));
+
+      await expect.poll(iconHref).toContain('fill="#4f46e5"');
+
+      await page.locator('[data-testid="primary-color-light"]').fill('#059669');
+      await expect.poll(iconHref).toContain('fill="#059669"');
+    });
+
     test('affiche le logo par défaut (initiales) et le bouton de retrait est absent tant qu\'aucun logo n\'est chargé', async ({ page }) => {
       await goTo(page, '/settings');
       await expect(page.locator('[data-testid="logo-preview"]')).toContainText('ACT');

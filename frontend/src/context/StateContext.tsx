@@ -5,6 +5,29 @@ import { DEMO_STATE } from '../data/demo'
 import { api } from '../services/api'
 import { isItemInFrame, frameBounds, ejectPointFromFrame } from '../utils/nnlFrames'
 import { R1_DEFAULT, R2_DEFAULT, zoneFromWorld, clampDistanceToZone } from '../utils/nnlZones'
+import { CADENCE_MARK_VIEWBOX, CADENCE_MARK_TRANSFORM, CADENCE_MARK_PATH } from '../assets/cadenceMark'
+
+// Favicon dynamique (2026-08-17, retour Julien : "utiliser le CadenceMark comme favicon, sa
+// couleur serait la couleur principale utilisée par l'utilisateur") : construit à la volée en
+// data-URI plutôt qu'un fichier statique, pour suivre --primary résolu (thème + couleur
+// personnalisée) sans dépendre d'un serveur d'images. `public/favicon.svg` (index.html) reste le
+// repli affiché avant que ce module ne s'exécute (notamment sur l'écran de connexion, rendu hors
+// StateProvider, voir App.tsx) : même tracé, couleur par défaut figée.
+function buildFaviconHref(color: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${CADENCE_MARK_VIEWBOX}"><path fill="${color}" d="${CADENCE_MARK_PATH}" transform="${CADENCE_MARK_TRANSFORM}"/></svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+function applyFavicon(color: string) {
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'icon'
+    document.head.appendChild(link)
+  }
+  link.type = 'image/svg+xml'
+  link.href = buildFaviconHref(color)
+}
 
 // Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : 5 crans de densité, valeurs alignées sur
 // les paddings d'origine de .backlog-table td/th et .kanban-card/.kanban-cards (index.css) pour le
@@ -410,6 +433,9 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
         document.documentElement.style.removeProperty('--primary')
         document.documentElement.style.removeProperty('--primary-light')
       }
+      // Résolu APRÈS avoir posé/retiré la variable inline ci-dessus : `getComputedStyle` reflète
+      // alors la vraie couleur affichée, personnalisée ou valeur d'origine du thème (index.css).
+      applyFavicon(getComputedStyle(document.documentElement).getPropertyValue('--primary').trim())
     }
     applyResolved()
     if (mode === 'system') {

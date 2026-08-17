@@ -62,6 +62,9 @@ export const api = {
   // comme accept-invite. `LoginPage.tsx` masque le formulaire si `valid === false` uniquement,
   // fail-open sur toute autre forme de réponse (pas de backend joignable en test E2E non mocké).
   checkInvite: (token: string) => request<{ valid: boolean }>(`/api/auth/invite-status/${token}`),
+  // Logo d'équipe pour l'écran de connexion (refonte du login, 2026-08-17), public comme
+  // checkInvite ci-dessus : LoginPage.tsx est rendue hors StateProvider, avant authentification.
+  getPublicBranding: () => request<{ logoDataUrl: string | null }>('/api/public/branding'),
   getState: () => request<{ data: unknown }>('/api/state'),
   putState: (data: unknown) =>
     request<void>('/api/state', { method: 'PUT', body: JSON.stringify({ data }) }),
