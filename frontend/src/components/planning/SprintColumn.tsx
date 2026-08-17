@@ -4,7 +4,7 @@ import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
 import { effectiveCapacity, capacityLossBreakdown, describeCapacityLoss, holidaysInRange, computeSprintEndDate } from '../../utils/sprintCapacity'
 import { fmtDateShort } from '../../utils/dates'
-import { attachItemsToEpics, getHierarchyNodeSP } from '../../utils/hierarchyScore'
+import { attachItemsToEpics, epicsWithPlaceholder, getHierarchyNodeSP } from '../../utils/hierarchyScore'
 
 interface Props {
   sprint: Sprint
@@ -79,8 +79,15 @@ export function SprintColumn({
   // Epics assignés à ce sprint (via leur propre sprintId) : un Epic sans aucun item mais avec
   // un SP fixé doit quand même apparaître comme une carte et compter dans la capacité du sprint
   // (retour Julien, 2026-07-29 — comportement d'avant la Phase 1, quand un Epic était un Item).
-  // `attachItemsToEpics()` inclut nativement les Epics sans item correspondant.
-  const sprintEpics = state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id)
+  // `attachItemsToEpics()` inclut nativement les Epics sans item correspondant. `epicsWithPlaceholder()`
+  // (2026-08-17) retire les Epics qui ont bien des US mais aucune ici (conteneur vide fantôme,
+  // normalement déjà évité en amont par `detachOrphanedEpics()` lors du déplacement des US, ce
+  // filtre n'est qu'un filet de sécurité pour les cas non couverts, ex. suppression d'item).
+  const sprintEpics = epicsWithPlaceholder(
+    state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id),
+    items,
+    state.items,
+  )
   const { groups: epicGroups, orphans: standalone } = attachItemsToEpics(sprintEpics, items)
   const emptyEpicsSP = epicGroups.filter(g => g.items.length === 0).reduce((s, g) => s + getHierarchyNodeSP(g.epic, []), 0)
   const usedSP = items.reduce((s, i) => s + i.sp, 0) + emptyEpicsSP

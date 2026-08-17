@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useCadence } from '../../context/StateContext'
 import { canAccessRoute } from '../../utils/permissions'
+import { CadenceMark } from '../ui/CadenceMark'
 
 /* ── SVG icons (Lucide, stroke="currentColor") ── */
 const ICONS: Record<string, string> = {
@@ -140,13 +141,17 @@ export function Sidebar() {
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-      {/* Logo (Phase 6bis, sous-chantier 4, 2026-08-13) : logo d'équipe uploadé (Réglages) si
-          présent, repli sur les initiales "ACT" d'origine sinon. */}
+      {/* Logo (Phase 6bis, sous-chantier 4, 2026-08-13 ; repli mis à jour le 2026-08-17, retour
+          Julien : "le logo-icon, si aucun logo n'est chargé, soit le CadenceMark avec la couleur
+          principale, juste le CadenceMark, pas de cadre ni de médaille") : logo d'équipe uploadé
+          (Réglages) si présent, repli sur le CadenceMark seul (sans le cadre carré coloré de
+          `.logo-icon`, neutralisé par `.logo-icon-mark`) sinon - remplace l'ancien repli sur les
+          initiales "ACT". */}
       <div className="sidebar-header">
-        <div className="logo-icon">
+        <div className={`logo-icon${state.settings?.logoDataUrl ? '' : ' logo-icon-mark'}`}>
           {state.settings?.logoDataUrl
             ? <img src={state.settings.logoDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : 'ACT'}
+            : <CadenceMark color="var(--primary)" size={20} testId="sidebar-logo-mark" />}
         </div>
         {!collapsed && (
           <div>

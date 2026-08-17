@@ -10,6 +10,7 @@ import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { BASE_COL_IDS, WORKFLOW_ORDER, EXTRA_STAGES } from '../utils/kanbanStages'
 import { isReadOnlyForRole } from '../utils/permissions'
+import { detachOrphanedEpics } from '../utils/hierarchyScore'
 import type { Item, KanbanCol, HistoryEntry } from '../types'
 
 // Ré-exportés pour compatibilité : ces constantes vivaient ici jusqu'au Chantier G (2026-07-23),
@@ -405,7 +406,14 @@ export function KanbanPage() {
       author: userName,
     }
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
-    saveToServer(withHistoryEntry({ ...state, items: state.items.map(i => i.id === itemId ? updated : i) }, historyEntry))
+    const updatedItems = state.items.map(i => i.id === itemId ? updated : i)
+    // Décroche l'Epic parent si c'était sa dernière US dans ce sprint (voir detachOrphanedEpics()).
+    const updatedNodes = detachOrphanedEpics(state.hierarchyNodes, updatedItems)
+    updatedNodes.forEach(node => {
+      const before = state.hierarchyNodes.find(n => n.id === node.id)
+      if (before && before.sprintId !== node.sprintId) dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node })
+    })
+    saveToServer(withHistoryEntry({ ...state, items: updatedItems, hierarchyNodes: updatedNodes }, historyEntry))
   }
 
   const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label ?? 'Priorité'

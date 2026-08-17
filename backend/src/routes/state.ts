@@ -44,16 +44,26 @@ function newlyBlockedItems(previousData: unknown, nextData: unknown): MinimalIte
 }
 
 export async function stateRoutes(fastify: FastifyInstance) {
-  // GET /api/public/branding — logo d'équipe uniquement, pour l'écran de connexion (Phase 6bis,
-  // roadmap v1, refonte du login, 2026-08-17). Public (aucune authentification) : LoginPage.tsx
-  // est rendue hors StateProvider/ProtectedRoute (voir App.tsx), elle n'a donc accès à aucune
-  // donnée du workspace avant connexion. Volontairement minimal : seul le logo (déjà visible de
-  // tous une fois connecté, sans caractère sensible) est exposé, jamais le reste de `settings` ni
-  // aucune autre donnée du workspace.
+  // GET /api/public/branding : logo d'équipe + thème/couleur principale, pour l'écran de
+  // connexion (Phase 6bis, roadmap v1, refonte du login, 2026-08-17 ; thème/couleur ajoutés le
+  // même jour, retour Julien via docs/corrections futures.md, "Réglages (suite)" : la refonte du
+  // login gardait le bleu/indigo par défaut, jamais le thème sombre ni la couleur personnalisée
+  // choisis en Réglages). Public (aucune authentification) : LoginPage.tsx est rendue hors
+  // StateProvider/ProtectedRoute (voir App.tsx), elle n'a donc accès à aucune donnée du workspace
+  // avant connexion. Volontairement minimal : seuls le logo et le thème/la couleur (déjà visibles
+  // de tous une fois connecté, sans caractère sensible) sont exposés, jamais le reste de
+  // `settings` ni aucune autre donnée du workspace.
   fastify.get('/api/public/branding', async () => {
     const state = await fastify.prisma.workspaceState.findUnique({ where: { id: SINGLETON_ID } })
-    const settings = (state?.data as { settings?: { logoDataUrl?: string } } | undefined)?.settings
-    return { logoDataUrl: settings?.logoDataUrl ?? null }
+    const settings = (state?.data as {
+      settings?: { logoDataUrl?: string; theme?: string; primaryColorLight?: string; primaryColorDark?: string }
+    } | undefined)?.settings
+    return {
+      logoDataUrl: settings?.logoDataUrl ?? null,
+      theme: settings?.theme ?? 'light',
+      primaryColorLight: settings?.primaryColorLight ?? null,
+      primaryColorDark: settings?.primaryColorDark ?? null,
+    }
   })
 
   // GET /api/state — charger l'état du workspace

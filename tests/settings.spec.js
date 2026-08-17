@@ -130,6 +130,46 @@ test.describe('Réglages', () => {
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     });
 
+    // docs/corrections futures.md, 2026-08-17 : le texte des dropdowns natifs (menu déroulant
+    // d'un <select>, notamment dans le header) était invisible en mode sombre - texte clair sur
+    // un popup dont le fond restait blanc (géré par le navigateur/l'OS, pas par
+    // `background-color` du <select>). Correctif : `color-scheme` posé sur <html> selon le
+    // thème (index.css), qui indique au navigateur le jeu de couleurs natif à utiliser pour tous
+    // les éléments de formulaire, popup de <select> compris.
+    test('color-scheme suit le thème (clair/sombre) sur <html>', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+      let colorScheme = await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
+      expect(colorScheme).toContain('light');
+
+      await page.locator('[data-testid="theme-card-dark"]').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+      colorScheme = await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
+      expect(colorScheme).toContain('dark');
+    });
+
+    // docs/corrections futures.md, 2026-08-17 (suite) : `color-scheme` seul ne suffisait pas à
+    // l'usage réel sur certains selects (Filtrer > Sprint du Backlog, selects de header sur
+    // Release Planning/Kanban/Daily Standup/Rétrospective) - ceux qui posent `background:
+    // transparent`/`none` sur le <select> fermé pour hériter du fond du panneau parent ne
+    // donnent alors rien au popup natif pour se teinter, certains navigateurs retombent sur du
+    // blanc par défaut malgré `color-scheme`. Renfort : fond + texte explicites sur <option>
+    // (index.css), qui priment sur le rendu natif par défaut.
+    test('les options des selects ne restent pas blanches en mode sombre (Filtrer > Sprint, Backlog)', async ({ page }) => {
+      await goTo(page, '/settings');
+      await page.locator('[data-testid="theme-card-dark"]').click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+      // Navigation côté client (NavLink) pour ne pas perdre le thème appliqué : goTo() ferait un
+      // rechargement complet et réinitialiserait l'état (dont le thème) aux mocks par défaut.
+      await page.locator('a[href="/backlog"]').click();
+      await page.locator('[data-testid="btn-filter"]').click();
+      const sprintSelect = page.locator('[data-testid="filter-sprint"]');
+      await expect(sprintSelect).toBeVisible();
+      const optionBg = await sprintSelect.locator('option').first().evaluate(el => getComputedStyle(el).backgroundColor);
+      expect(optionBg).not.toBe('rgb(255, 255, 255)');
+    });
+
     // Un seul réglage de couleur visible à la fois, celui du thème effectivement affiché, pas de
     // bascule manuelle indépendante (retour Julien, 2026-08-14).
     test('seul le réglage de couleur du thème actuellement affiché est visible', async ({ page }) => {
@@ -169,6 +209,25 @@ test.describe('Réglages', () => {
       await expect(page.locator('[data-testid="logo-remove-btn"]')).toHaveCount(0);
     });
 
+    // Sidebar (2026-08-17, retour Julien : "le logo-icon, si aucun logo n'est chargé, soit le
+    // CadenceMark avec la couleur principale, juste le CadenceMark, pas de cadre ni de médaille").
+    // Remplace l'ancien repli "ACT" du `.logo-icon` de la Sidebar (le repli "ACT" du panneau de
+    // réglages lui-même, `logo-preview` ci-dessus, n'est pas concerné par ce retour).
+    test('Sidebar : sans logo d\'équipe, le CadenceMark seul (sans cadre) suit la couleur principale', async ({ page }) => {
+      await goTo(page, '/settings');
+      const mark = page.locator('[data-testid="sidebar-logo-mark"]');
+      await expect(mark).toBeVisible();
+      // Pas de cadre : `.logo-icon-mark` neutralise le fond/coins arrondis de `.logo-icon`.
+      const bg = await page.locator('.logo-icon').first().evaluate(el => getComputedStyle(el).backgroundColor);
+      expect(bg).toBe('rgba(0, 0, 0, 0)');
+
+      const fillOf = () => mark.locator('path').evaluate(el => getComputedStyle(el).fill);
+      await expect.poll(fillOf).toBe('rgb(79, 70, 229)'); // #4f46e5, défaut
+
+      await page.locator('[data-testid="primary-color-light"]').fill('#059669');
+      await expect.poll(fillOf).toBe('rgb(5, 150, 105)'); // #059669
+    });
+
     test('la densité par défaut est Confortable, déplacer le curseur change le libellé', async ({ page }) => {
       await goTo(page, '/settings');
       await expect(page.locator('[data-testid="density-label"]')).toHaveText('Confortable');
@@ -178,7 +237,50 @@ test.describe('Réglages', () => {
       await expect(page.locator('[data-testid="density-label"]')).toHaveText('Très spacieux');
     });
 
-    test('changer la page de démarrage envoie la sauvegarde immédiatement, sans cliquer sur "Enregistrer"', async ({ page }) => {
+    // docs/corrections futures.md, Réglages (suite), 2026-08-17 : la densité était jusqu'ici
+    // limitée au Backlog et au Kanban. Étendue à Roadmap (.roadmap-section), Release Planning
+    // (.planning-card), Sprint Planning (.sp-uitem), RH/Équipe (carte membre) et Clients (carte
+    // client, vue "Liste" par défaut) - toutes pointées sur les mêmes variables CSS que
+    // .backlog-table/.kanban-card (var(--density-card-pad), index.css), donc "Très compact"
+    // (cran 0) y produit le même padding vertical (6px, DENSITY_SCALE.compact-2.cardPad).
+    test('la densité "Très compact" réduit le padding sur les pages étendues (Roadmap, Release Planning, Sprint Planning, RH/Équipe, Clients)', async ({ page }) => {
+      await goTo(page, '/settings');
+      await page.locator('[data-testid="density-slider"]').fill('0');
+
+      // Navigation côté client (NavLink) à chaque page pour ne pas perdre le réglage de densité
+      // appliqué : goTo() ferait un rechargement complet, réinitialisant l'état aux mocks par
+      // défaut (voir le test Sidebar/CadenceMark plus haut pour le même besoin).
+      await page.locator('a[href="/roadmap"]').click();
+      const roadmapSection = page.locator('.roadmap-section').first();
+      await expect(roadmapSection).toBeVisible();
+      await expect.poll(() => roadmapSection.evaluate(el => getComputedStyle(el).paddingTop)).toBe('6px');
+
+      await page.locator('a[href="/planning"]').click();
+      const planningCard = page.locator('.planning-card').first();
+      await expect(planningCard).toBeVisible();
+      await expect.poll(() => planningCard.evaluate(el => getComputedStyle(el).paddingTop)).toBe('6px');
+
+      await page.locator('a[href="/sprint-planning"]').click();
+      // Le sprint courant par défaut (s2, demo.ts) n'a aucun item non-attribué (les 5 items
+      // de ce sprint ont tous un assignee) : le panneau "Non attribué" y est donc toujours
+      // vide. Sprint 3 (s3) en a deux (BUG-012, SOC-016), sélectionné explicitement ici.
+      await page.locator('.sp-sprint-select').selectOption('s3');
+      const spUitem = page.locator('.sp-uitem').first();
+      await expect(spUitem).toBeVisible();
+      await expect.poll(() => spUitem.evaluate(el => getComputedStyle(el).paddingTop)).toBe('6px');
+
+      await page.locator('a[href="/team"]').click();
+      const memberCardBody = page.locator('[data-testid="member-card"] > div:nth-of-type(2)').first();
+      await expect(memberCardBody).toBeVisible();
+      await expect.poll(() => memberCardBody.evaluate(el => getComputedStyle(el).paddingTop)).toBe('6px');
+
+      await page.locator('a[href="/clients"]').click();
+      const clientCardBody = page.locator('[data-testid^="client-card-"] > div:nth-of-type(2)').first();
+      await expect(clientCardBody).toBeVisible();
+      await expect.poll(() => clientCardBody.evaluate(el => getComputedStyle(el).paddingTop)).toBe('6px');
+    });
+
+    test('changer la page de démarrage envoie la sauvegarde (anti-rebond 400ms), sans cliquer sur "Enregistrer"', async ({ page }) => {
       await goTo(page, '/settings');
       const [request] = await Promise.all([
         page.waitForRequest(r => r.url().includes('/api/state') && r.method() === 'PUT'),
@@ -186,6 +288,29 @@ test.describe('Réglages', () => {
       ]);
       const body = request.postDataJSON();
       expect(body.data.settings.defaultStartPage).toBe('/kanban');
+    });
+
+    // docs/corrections futures.md, Réglages (suite), 2026-08-17 : chaque étape d'un geste continu
+    // (glisser le curseur de densité) déclenchait jusque-là un PUT /api/state complet. Un seul
+    // envoi, 400ms après le dernier changement, plutôt qu'un par étape intermédiaire.
+    test('plusieurs changements rapprochés du curseur de densité ne déclenchent qu\'une seule sauvegarde', async ({ page }) => {
+      await goTo(page, '/settings');
+      let putCount = 0;
+      page.on('request', r => {
+        if (r.url().includes('/api/state') && r.method() === 'PUT') putCount++;
+      });
+
+      const slider = page.locator('[data-testid="density-slider"]');
+      await slider.fill('0');
+      await slider.fill('1');
+      await slider.fill('2');
+      await slider.fill('3');
+      await slider.fill('4');
+      await expect(page.locator('[data-testid="density-label"]')).toHaveText('Très spacieux');
+
+      // Au-delà de la fenêtre d'anti-rebond (400ms) pour laisser la sauvegarde partir.
+      await page.waitForTimeout(600);
+      expect(putCount).toBe(1);
     });
 
     test('activer la sidebar repliée par défaut replie immédiatement la Sidebar affichée', async ({ page }) => {

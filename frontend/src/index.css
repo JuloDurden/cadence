@@ -3,6 +3,14 @@
 
 /* ─── Design tokens — Light ─────────────────────────────────────────────── */
 :root {
+  /* Retour Julien (2026-08-17) : le texte des dropdowns (menu deroulant natif d'un <select>,
+     notamment dans le header) etait invisible en mode sombre - texte clair (var(--text)) sur
+     un popup dont le fond restait blanc, ce popup natif etant gere par le navigateur/l'OS et
+     n'ecoutant pas `background-color` du <select>. `color-scheme` indique au navigateur le
+     jeu de couleurs natif a utiliser pour TOUS les elements de formulaire (select, ses options,
+     input date, scrollbars...), popup de <select> compris - contrairement a `background-color`/
+     `color`, qui ne suffisent pas seuls a teinter le popup natif dans tous les navigateurs. */
+  color-scheme: light;
   --primary: #4f46e5;
   --primary-light: rgba(79,70,229,.1);
   --danger: #ff3b30;
@@ -51,6 +59,7 @@
 
 /* ─── Dark mode ─────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
+  color-scheme: dark;
   --primary: #7c7ff5;
   --primary-light: rgba(124,127,245,.15);
   --danger: #ff453a;
@@ -223,6 +232,10 @@ body {
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-weight: 700; font-size: 10px; flex-shrink: 0; overflow: hidden;
 }
+/* Repli CadenceMark sans logo d'équipe (2026-08-17, retour Julien) : "juste le CadenceMark, pas
+   de cadre, ni de médaille" - neutralise le cadre carré coloré de `.logo-icon` (voulu seulement
+   pour l'image uploadée), le CadenceMark porte déjà sa propre couleur (var(--primary)). */
+.logo-icon.logo-icon-mark { background: none; border-radius: 0; }
 .logo-text { font-size: 13px; font-weight: 700; line-height: 1.2; }
 .logo-sub  { font-size: 10px; color: var(--text-muted); line-height: 1.3; }
 
@@ -596,7 +609,17 @@ textarea { resize: vertical; min-height: 72px; }
 /* Garde-fou global (retour Julien, 2026-07-29) : les options d'un <select> ne doivent jamais
    être en gras, sur aucune page — sécurité si un poids de police venait à être hérité du
    select parent (c'était le cas du bloc de filtres du Backlog, désormais retiré). */
-option { font-weight: 400; }
+/* Retour Julien (2026-08-17, suite) : `color-scheme` (voir plus haut sur :root/[data-theme]) ne
+   suffisait pas partout : select de "Filtrer" (Backlog), selects de header (Release Planning,
+   Kanban, Daily Standup, Rétrospective...) restaient blancs sur blanc en mode sombre à l'usage
+   réel. Cause probable : plusieurs de ces selects posent `background: transparent` ou `none`
+   sur le <select> fermé (hérite alors correctement du fond du panneau parent), mais le popup
+   natif d'options, lui, ne suit `color-scheme` de façon fiable que si le <select> ou ses
+   <option> portent une couleur de fond explicite - un fond "transparent"/"none" ne lui donne
+   rien à utiliser et certains navigateurs retombent alors sur un blanc par défaut. Renfort
+   défensif : fond et texte explicites sur chaque <option>, qui prime sur le popup natif dans
+   tous les navigateurs, contrairement à `color-scheme` seul. */
+option { font-weight: 400; background-color: var(--surface); color: var(--text); }
 
 /* ─── Buttons (modal) ───────────────────────────────────────────────────── */
 .btn, .btn-primary, .btn-secondary, .btn-danger { padding: 8px 16px; border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 600; transition: background .15s; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
@@ -662,7 +685,7 @@ option { font-weight: 400; }
 .planning-col-active     { border-color: var(--primary) !important; box-shadow: 0 0 0 3px var(--primary-light), var(--shadow-sm); }
 .planning-col-header { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
 .planning-items {
-  padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; flex: 1; min-height: 0;
+  padding: 8px; display: flex; flex-direction: column; gap: var(--density-cards-gap, 6px); overflow-y: auto; flex: 1; min-height: 0;
   background:
     linear-gradient(var(--surface) 30%, rgba(255, 255, 255, 0)),
     linear-gradient(rgba(255, 255, 255, 0), var(--surface) 70%) 0 100%,
@@ -672,11 +695,13 @@ option { font-weight: 400; }
   background-size: 100% 18px, 100% 18px, 100% 8px, 100% 8px;
   background-attachment: local, local, scroll, scroll;
 }
-.planning-card { background: var(--surface); border-radius: 7px; padding: 9px 11px; box-shadow: var(--shadow-xs); cursor: grab; transition: box-shadow .15s, transform .1s; border: 1px solid var(--border); flex-shrink: 0; }
+/* Densité (docs/corrections futures.md, Réglages (suite), 2026-08-17) : mêmes variables que
+   .backlog-table/.kanban-card, voir le commentaire équivalent sur .roadmap-section. */
+.planning-card { background: var(--surface); border-radius: 7px; padding: var(--density-card-pad, 9px 11px); box-shadow: var(--shadow-xs); cursor: grab; transition: box-shadow .15s, transform .1s; border: 1px solid var(--border); flex-shrink: 0; }
 .planning-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .planning-unassigned-row { margin-top: 16px; background: var(--surface); border-radius: var(--radius); border: 2px solid var(--border); padding: 12px 14px; transition: border-color .15s; }
 .planning-unassigned-row.planning-col-over { border-color: var(--primary) !important; }
-.planning-unassigned-items { display: flex; flex-direction: column; gap: 8px; }
+.planning-unassigned-items { display: flex; flex-direction: column; gap: var(--density-cards-gap, 8px); }
 
 /* ─── Epic groups (Planning) ─────────────────────────────────────────────── */
 .epic-group { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface2); flex-shrink: 0; }
@@ -726,11 +751,16 @@ option { font-weight: 400; }
 .sp-left { width: 440px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; transition: outline .1s, background .1s; }
 .sp-left-drop { outline: 2px dashed var(--primary); outline-offset: -2px; background: var(--primary-light); }
 .sp-left-hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 700; font-size: 12px; flex-shrink: 0; }
-.sp-left-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.sp-left-body { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: var(--density-cards-gap, 6px); }
 .sp-left-empty { padding: 20px; text-align: center; font-size: 11px; color: var(--text-faint); border: 1.5px dashed var(--border); border-radius: 6px; }
 
 /* Carte item non-attribué */
-.sp-uitem { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; cursor: grab; transition: box-shadow .1s, opacity .15s; }
+/* Densité (docs/corrections futures.md, Réglages (suite), 2026-08-17) : mêmes variables que
+   .backlog-table/.kanban-card. Les cartes membre (.sp-member-item, plus bas) restent hors
+   périmètre pour l'instant : padding déjà nettement plus compact d'origine (7px 8px), les
+   forcer sur les mêmes variables aurait presque doublé leur taille par défaut plutôt qu'un
+   simple rapprochement mineur comme ici - à traiter séparément si Julien le souhaite. */
+.sp-uitem { background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: var(--density-card-pad, 10px 12px); cursor: grab; transition: box-shadow .1s, opacity .15s; }
 .sp-uitem:hover { box-shadow: var(--shadow-md); }
 
 /* Panneau droit — grille membres */
@@ -886,7 +916,14 @@ tr.dep-hl-3 { background: color-mix(in srgb, var(--primary) 6%,  transparent) !i
 .roadmap-goal-sprint{ font-size: 10px; opacity: .8; margin-bottom: 2px; font-weight: 600; }
 .roadmap-goal-date  { font-size: 10px; opacity: .75; margin-top: 1px; font-weight: 500; }
 
-.roadmap-section { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+/* Densité (docs/corrections futures.md, Réglages (suite), 2026-08-17) : padding structurel de
+   la section répétée (Objectif/Métriques/Fonctionnalités) pointé sur la même variable que
+   .backlog-table/.kanban-card, comme les 4 autres pages étendues en même temps - léger
+   rapprochement de la valeur d'origine (10px 14px) vers celle de la densité "Confortable"
+   (10px 12px), au bénéfice d'une échelle de densité cohérente sur toute l'app plutôt que des
+   paddings isolés par page. En-tête coloré (.roadmap-goal-header) volontairement laissé de
+   côté, décoratif et non répété comme .kanban-col-header. */
+.roadmap-section { padding: var(--density-card-pad, 10px 14px); border-bottom: 1px solid var(--border); }
 .roadmap-section:last-child { border-bottom: none; }
 .roadmap-section-label { font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
 

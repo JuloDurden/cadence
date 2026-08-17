@@ -15,7 +15,7 @@ import { useAuth } from '../hooks/useAuth'
 import { isReadOnlyForRole } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
-import { attachItemsToEpics } from '../utils/hierarchyScore'
+import { attachItemsToEpics, detachOrphanedEpics, epicsWithPlaceholder } from '../utils/hierarchyScore'
 import { api } from '../services/api'
 import type { Item, Sprint, HistoryEntry } from '../types'
 
@@ -94,11 +94,20 @@ export function PlanningPage() {
     const updatedItems = state.items.map(i =>
       toMove.find(m => m.id === i.id) ? { ...i, sprintId: newSprintId } : i
     )
-    const updatedNodes = state.hierarchyNodes.map(n =>
+    const movedNodes = state.hierarchyNodes.map(n =>
       nodesToMove.find(m => m.id === n.id) ? { ...n, sprintId: newSprintId } : n
     )
+    // Décroche tout Epic dont la dernière US vient de quitter son propre sprint assigné (retour
+    // Julien, 2026-08-17, voir detachOrphanedEpics()) : recalculé sur updatedItems (déjà à jour)
+    // pour capter aussi bien le groupe glissé lui-même qu'un Epic tiers vidé par ricochet.
+    const updatedNodes = detachOrphanedEpics(movedNodes, updatedItems)
     toMove.forEach(item => dispatch({ type: 'UPDATE_ITEM', payload: { ...item, sprintId: newSprintId } }))
     nodesToMove.forEach(node => dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: { ...node, sprintId: newSprintId } }))
+    const detachedNodes = updatedNodes.filter(n => {
+      const before = state.hierarchyNodes.find(b => b.id === n.id)
+      return before && before.sprintId !== n.sprintId && !nodesToMove.find(m => m.id === n.id)
+    })
+    detachedNodes.forEach(node => dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node }))
     // Chantier B (tranche Sprint Planning) : une seule entrée d'Historique par dépôt, résumée
     // si plusieurs items sont déplacés à la fois (multi-sélection).
     const totalMoved = toMove.length + nodesToMove.length
@@ -210,6 +219,10 @@ export function PlanningPage() {
       const item = cascade.items.find(i => i.id === id)
       if (item) dispatch({ type: 'UPDATE_ITEM', payload: item })
     })
+    cascade.hierarchyNodes.forEach(node => {
+      const before = state.hierarchyNodes.find(n => n.id === node.id)
+      if (before && before.sprintId !== node.sprintId) dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node })
+    })
     if (cascade.deletedGoalId) dispatch({ type: 'DELETE_ROADMAP_GOAL', payload: cascade.deletedGoalId })
     cascade.deletedRetroSessionIds.forEach(id => dispatch({ type: 'DELETE_RETRO_SESSION', payload: id }))
     cascade.deletedSrSessionIds.forEach(id => dispatch({ type: 'DELETE_SR_SESSION', payload: id }))
@@ -219,6 +232,7 @@ export function PlanningPage() {
       ...state,
       sprints: cascade.sprints,
       items: cascade.items,
+      hierarchyNodes: cascade.hierarchyNodes,
       roadmap: cascade.roadmap,
       retroSessions: cascade.retroSessions,
       sprintReviewSessions: cascade.sprintReviewSessions,
@@ -290,8 +304,15 @@ export function PlanningPage() {
   // Groupement Epic dans le panneau non-assigné (sous-chantier 2, utilitaire partagé) : Epics
   // sans sprint assigné, y compris sans aucune story non-assignée — `attachItemsToEpics()`
   // les inclut nativement (groupe vide), remplaçant l'ancienne construction manuelle à deux
-  // listes (`epicGroupsUnassigned` + `lonelyUnassignedEpics`).
-  const unassignedEpicNodes = state.hierarchyNodes.filter(n => n.level === 'epic' && !n.sprintId)
+  // listes (`epicGroupsUnassigned` + `lonelyUnassignedEpics`). `epicsWithPlaceholder()`
+  // (2026-08-17) retire les Epics qui ont bien des US mais aucune non-assignée (un Epic
+  // "décroché" par `detachOrphanedEpics()` alors que ses US restent sur d'autres sprints ne
+  // doit pas réapparaître ici comme un conteneur vide, voir hierarchyScore.ts).
+  const unassignedEpicNodes = epicsWithPlaceholder(
+    state.hierarchyNodes.filter(n => n.level === 'epic' && !n.sprintId),
+    unassigned,
+    state.items,
+  )
   const { groups: epicGroupsUnassigned, orphans: standaloneUnassigned } = attachItemsToEpics(unassignedEpicNodes, unassigned)
 
   return (

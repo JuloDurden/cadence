@@ -8,13 +8,15 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_URL } = require('./helpers');
 
-async function gotoLogin(page, logoDataUrl) {
+async function gotoLogin(page, logoDataUrl, branding = {}) {
   // Mock générique enregistré en premier, le mock spécifique à /api/public/branding ci-dessous
   // (enregistré en dernier) prend le dessus, même convention que le reste des specs (voir
-  // tests/users-roles.spec.js).
+  // tests/users-roles.spec.js). `branding` (thème/couleur, 2026-08-17) est optionnel : les tests
+  // qui ne le passent pas exercent volontairement le repli client (`res.theme ?? 'light'`, voir
+  // LoginPage.tsx) plutôt que de systématiquement fournir une réponse complète.
   await page.route('**/api/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: null }) }));
   await page.route('**/api/public/branding', r => r.fulfill({
-    status: 200, contentType: 'application/json', body: JSON.stringify({ logoDataUrl }),
+    status: 200, contentType: 'application/json', body: JSON.stringify({ logoDataUrl, ...branding }),
   }));
   await page.goto(BASE_URL + '/login');
   await page.waitForLoadState('networkidle');
@@ -43,6 +45,38 @@ test.describe('Écran de connexion : logo (refonte 2026-08-17)', () => {
     await expect(page.locator('[data-testid="signup-form"]')).toBeVisible();
     await page.locator('[data-testid="tab-login"]').click();
     await expect(page.locator('[data-testid="login-form"]')).toBeVisible();
+  });
+
+});
+
+// docs/corrections futures.md, Réglages (suite), 2026-08-17 : jusqu'ici l'écran de connexion
+// restait figé sur le bleu/indigo par défaut, jamais le thème sombre ni la couleur personnalisée
+// choisis en Réglages. /api/public/branding expose désormais aussi theme/primaryColorLight/
+// primaryColorDark, appliqués sur <html> par LoginPage.tsx avant toute authentification.
+test.describe('Écran de connexion : thème et couleur principale (2026-08-17)', () => {
+
+  test('sans branding thème/couleur, repli sur le thème clair et la couleur par défaut', async ({ page }) => {
+    await gotoLogin(page, null);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    const bg = await page.locator('[data-testid="login-avatar"]').evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bg).toBe('rgb(79, 70, 229)'); // #4f46e5, défaut clair
+  });
+
+  test('thème sombre choisi en Réglages appliqué sur <html> dès l\'écran de connexion', async ({ page }) => {
+    await gotoLogin(page, null, { theme: 'dark' });
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('couleur principale claire personnalisée appliquée sur l\'avatar de l\'écran de connexion', async ({ page }) => {
+    await gotoLogin(page, null, { theme: 'light', primaryColorLight: '#059669' });
+    const bg = await page.locator('[data-testid="login-avatar"]').evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bg).toBe('rgb(5, 150, 105)');
+  });
+
+  test('couleur principale sombre personnalisée appliquée si le thème sombre est actif', async ({ page }) => {
+    await gotoLogin(page, null, { theme: 'dark', primaryColorDark: '#d97706' });
+    const bg = await page.locator('[data-testid="login-avatar"]').evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bg).toBe('rgb(217, 119, 6)');
   });
 
 });

@@ -122,7 +122,11 @@ function ClientCard({
       </div>
 
       {/* Corps */}
-      <div style={{ padding: compact ? '6px 10px' : '10px 14px',
+      {/* Densité (docs/corrections futures.md, Réglages (suite), 2026-08-17) : même variable que
+          .backlog-table/.kanban-card sur la carte pleine taille (vue "Liste", par défaut) ; la
+          variante compact (imbriquée dans les groupes) reste hors périmètre, déjà volontairement
+          plus resserrée. */}
+      <div style={{ padding: compact ? '6px 10px' : 'var(--density-card-pad, 10px 14px)',
         display: 'flex', flexDirection: 'column', gap: compact ? 3 : 6 }}>
         <div style={{ fontWeight: 700, fontSize: compact ? 12 : 14,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -548,10 +552,12 @@ function TimelineView({ state }: { state: ReturnType<typeof useCadence>['state']
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th style={{ padding: '10px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
+            {/* Densité (docs/corrections futures.md, Réglages (suite), 2026-08-17) : mêmes
+                variables que .backlog-table (th/td), même page que la vue "Liste" ci-dessus. */}
+            <th style={{ padding: 'var(--density-th-pad, 10px 16px)', background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
               textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', width: 180 }}>Client</th>
             {sprintsWithItems.map(sp => (
-              <th key={sp.id} style={{ padding: '10px 12px', background: 'var(--surface2)',
+              <th key={sp.id} style={{ padding: 'var(--density-th-pad, 10px 12px)', background: 'var(--surface2)',
                 borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)',
                 textAlign: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
                 Sprint {sp.number}
@@ -565,7 +571,7 @@ function TimelineView({ state }: { state: ReturnType<typeof useCadence>['state']
         <tbody>
           {state.clients.map(client => (
             <tr key={client.id}>
-              <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+              <td style={{ padding: 'var(--density-td-pad, 10px 16px)', borderBottom: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: client.color }} />
                   <span style={{ fontWeight: 600, fontSize: 12 }}>{client.name}</span>
@@ -576,14 +582,14 @@ function TimelineView({ state }: { state: ReturnType<typeof useCadence>['state']
                 const done = items.filter(i => isItemDone(i, state.kanbanCols)).length
                 if (!items.length) return (
                   <td key={sp.id} style={{ borderLeft: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
-                    padding: '8px 12px', textAlign: 'center' }}>
+                    padding: 'var(--density-td-pad, 8px 12px)', textAlign: 'center' }}>
                     <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>—</span>
                   </td>
                 )
                 const pct = Math.round((done / items.length) * 100)
                 return (
                   <td key={sp.id} style={{ borderLeft: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
-                    padding: '8px 12px' }}>
+                    padding: 'var(--density-td-pad, 8px 12px)' }}>
                     <div style={{ background: client.color + '15', borderRadius: 6, padding: '6px 10px', textAlign: 'center' }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: client.color }}>{items.length} US</div>
                       <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>

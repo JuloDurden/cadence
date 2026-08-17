@@ -203,3 +203,25 @@ test.describe('Kanban - regroupement par Epic (docs/corrections futures.md, 2026
   });
 
 });
+
+test.describe('Kanban, décrochage automatique d\'un Epic (retour Julien, 2026-08-17)', () => {
+
+  // FAX-024 (i24) est la seule US du sprint actif (s2) rattachée à l'Epic FAX-007 (i7) ; ses
+  // 2 autres US (FAX-019) sont planifiées ailleurs (sprint 4). Un Epic assigné directement à un
+  // sprint via son propre sprintId restait affiché comme un conteneur vide dans ce sprint même
+  // après le départ de sa dernière US, sans qu'aucune de ses US n'y soit plus prévue.
+
+  test('retirer du sprint la dernière US d\'un Epic décroche l\'Epic de ce sprint (vérifié en Release Planning)', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const group = page.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-doing-i7"]') });
+    await group.locator('button[title="Retirer du sprint"]').click();
+    await page.waitForTimeout(300);
+
+    // Navigation cliente (pas goTo, qui recharge et réinitialise l'état) vers Release Planning
+    await page.locator('a[href="/planning"]').click();
+    await page.waitForTimeout(300);
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    await expect(sprint2Col.locator('[data-testid="epic-group-toggle-i7"]')).toHaveCount(0);
+  });
+
+});

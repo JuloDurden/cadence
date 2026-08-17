@@ -700,7 +700,9 @@ export function TeamPage() {
                   </div>
                 </div>
 
-                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                {/* Densité (docs/corrections futures.md, Réglages (suite), 2026-08-17) : même
+                    variable que .backlog-table/.kanban-card, voir index.css pour le détail. */}
+                <div style={{ padding: 'var(--density-card-pad, 12px 16px)', display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{m.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.role}</div>

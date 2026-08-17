@@ -192,6 +192,10 @@ export function RoadmapPage() {
       const item = cascade.items.find(i => i.id === id)
       if (item) dispatch({ type: 'UPDATE_ITEM', payload: item })
     })
+    cascade.hierarchyNodes.forEach(node => {
+      const before = state.hierarchyNodes.find(n => n.id === node.id)
+      if (before && before.sprintId !== node.sprintId) dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node })
+    })
     if (cascade.deletedGoalId) dispatch({ type: 'DELETE_ROADMAP_GOAL', payload: cascade.deletedGoalId })
     cascade.deletedRetroSessionIds.forEach(id => dispatch({ type: 'DELETE_RETRO_SESSION', payload: id }))
     cascade.deletedSrSessionIds.forEach(id => dispatch({ type: 'DELETE_SR_SESSION', payload: id }))
@@ -201,6 +205,7 @@ export function RoadmapPage() {
       ...state,
       sprints: cascade.sprints,
       items: cascade.items,
+      hierarchyNodes: cascade.hierarchyNodes,
       roadmap: cascade.roadmap,
       retroSessions: cascade.retroSessions,
       sprintReviewSessions: cascade.sprintReviewSessions,

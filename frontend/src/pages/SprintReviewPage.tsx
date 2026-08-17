@@ -10,7 +10,7 @@ import type {
 } from '../types'
 import { archiveAndReset } from '../utils/session'
 import { getCurrentSprint, reportableSprintsExcluding, nextReportableSprint, lastSprintBeforeDeadline } from '../utils/sprints'
-import { buildItemsFirstHierarchy, getHierarchyNodeSP } from '../utils/hierarchyScore'
+import { buildItemsFirstHierarchy, getHierarchyNodeSP, detachOrphanedEpics } from '../utils/hierarchyScore'
 import { useAuth } from '../hooks/useAuth'
 import { withHistoryEntry } from '../utils/history'
 import { isReadOnlyForRole } from '../utils/permissions'
@@ -395,10 +395,19 @@ export function SprintReviewPage() {
       author: userName,
     }
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
-    saveToServer(withHistoryEntry(
-      { ...state, items: state.items.map(i => i.id === item.id ? updatedItem : i) },
-      historyEntry,
-    ))
+    {
+      const updatedItems = state.items.map(i => i.id === item.id ? updatedItem : i)
+      // Décroche l'Epic parent si c'était sa dernière US dans ce sprint (voir detachOrphanedEpics()).
+      const updatedNodes = detachOrphanedEpics(state.hierarchyNodes, updatedItems)
+      updatedNodes.forEach(node => {
+        const before = state.hierarchyNodes.find(n => n.id === node.id)
+        if (before && before.sprintId !== node.sprintId) dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node })
+      })
+      saveToServer(withHistoryEntry(
+        { ...state, items: updatedItems, hierarchyNodes: updatedNodes },
+        historyEntry,
+      ))
+    }
   }
 
   function applyReport(item: Item, targetSprintId: string | null) {
@@ -422,8 +431,15 @@ export function SprintReviewPage() {
       author: userName,
     }
     dispatch({ type: 'ADD_HISTORY', payload: historyEntry })
+    const updatedItems = state.items.map(i => i.id === item.id ? updatedItem : i)
+    // Décroche l'Epic parent si c'était sa dernière US dans ce sprint (voir detachOrphanedEpics()).
+    const updatedNodes = detachOrphanedEpics(state.hierarchyNodes, updatedItems)
+    updatedNodes.forEach(node => {
+      const before = state.hierarchyNodes.find(n => n.id === node.id)
+      if (before && before.sprintId !== node.sprintId) dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node })
+    })
     saveToServer(withHistoryEntry(
-      { ...state, items: state.items.map(i => i.id === item.id ? updatedItem : i) },
+      { ...state, items: updatedItems, hierarchyNodes: updatedNodes },
       historyEntry,
     ))
   }

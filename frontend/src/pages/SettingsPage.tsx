@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
@@ -122,11 +122,41 @@ export function SettingsPage() {
   // (pas dans le callback de `setSettings`) : un callback d'updater peut être invoqué deux fois par
   // React (StrictMode), un effet de bord dedans enverrait alors deux PUT /api/state pour un seul
   // changement, piège déjà rencontré ailleurs dans ce fichier (voir StateContext.tsx).
+  // Anti-rebond réseau (docs/corrections futures.md, Réglages (suite), 2026-08-17, retour
+  // Julien) : un geste continu (glisser le curseur de densité, glisser dans le color picker
+  // natif) déclenche un `onChange` React à chaque pixel/frappe (React mappe `onChange` sur
+  // l'événement natif `input`, pas `change`, pour ces contrôles), donc un PUT /api/state complet
+  // à chaque étape. L'application locale (setSettings/dispatch, retour visuel immédiat) reste
+  // synchrone ; seul l'envoi réseau est retardé de 400ms après la dernière interaction.
+  // Filet de sécurité, leçon tirée du débounce de session de Sprint Review (docs/corrections.md,
+  // "5e complément" : un `setTimeout` annulé par le cleanup d'un effet avant d'avoir eu le temps
+  // de partir avait fait perdre des décisions) : la sauvegarde en attente est vidée immédiatement
+  // au démontage de cette page ET juste avant une fermeture/rechargement réel (`beforeunload`),
+  // pour qu'un changement suivi d'une navigation ou d'un F5 quasi immédiat ne soit jamais perdu.
+  const appearanceSaveTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingAppearanceSave = useRef<CadenceState | null>(null)
+
+  function flushAppearanceSave() {
+    if (appearanceSaveTimer.current) { clearTimeout(appearanceSaveTimer.current); appearanceSaveTimer.current = null }
+    if (pendingAppearanceSave.current) { saveToServer(pendingAppearanceSave.current); pendingAppearanceSave.current = null }
+  }
+
+  useEffect(() => {
+    window.addEventListener('beforeunload', flushAppearanceSave)
+    return () => {
+      window.removeEventListener('beforeunload', flushAppearanceSave)
+      flushAppearanceSave()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function applyAppearance(patch: Partial<Settings>) {
     const next = { ...settings, ...patch }
     setSettings(next)
     dispatch({ type: 'UPDATE_SETTINGS', payload: next })
-    saveToServer({ ...state, settings: next })
+    pendingAppearanceSave.current = { ...state, settings: next }
+    if (appearanceSaveTimer.current) clearTimeout(appearanceSaveTimer.current)
+    appearanceSaveTimer.current = setTimeout(flushAppearanceSave, 400)
   }
 
   function exportJSON() {

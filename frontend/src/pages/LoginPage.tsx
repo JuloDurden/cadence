@@ -3,8 +3,8 @@ import type { FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
-import type { UserRole } from '../types'
-import { CADENCE_MARK_VIEWBOX, CADENCE_MARK_TRANSFORM, CADENCE_MARK_PATH } from '../assets/cadenceMark'
+import type { UserRole, ThemeMode } from '../types'
+import { CadenceMark } from '../components/ui/CadenceMark'
 
 // Phase 2.5 (roadmap v1), Onboarding : rôles ouverts à l'auto-inscription libre (décision Julien,
 // 2026-08-01) : la personne choisit son rôle parmi ces 3, jamais Admin (compte superviseur) ni
@@ -21,16 +21,8 @@ type Mode = 'login' | 'signup' | 'invite'
 // Refonte de l'écran de connexion (Phase 6bis, roadmap v1, 2026-08-17) : maquette validée avec
 // Julien (concept "plein écran épuré", proche d'un écran de verrouillage macOS/Windows 11) avant
 // tout code. Tracé (fourni par Julien) et viewBox recadré centralisés dans assets/cadenceMark.ts,
-// réutilisés ici et par le favicon dynamique (StateContext.tsx).
-const MARK_ASPECT = 1502 / 1254
-
-function CadenceMark({ color, size, testId }: { color: string; size: number; testId?: string }) {
-  return (
-    <svg viewBox={CADENCE_MARK_VIEWBOX} width={size} height={size / MARK_ASPECT} aria-hidden="true" data-testid={testId}>
-      <path d={CADENCE_MARK_PATH} fill={color} transform={CADENCE_MARK_TRANSFORM} />
-    </svg>
-  )
-}
+// réutilisés ici, par le favicon dynamique (StateContext.tsx) et par la Sidebar
+// (components/ui/CadenceMark.tsx, qui porte désormais le composant lui-même).
 
 const inputStyle: React.CSSProperties = {
   height: 38, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)',
@@ -73,6 +65,14 @@ export function LoginPage() {
   // est rendue hors StateProvider (voir App.tsx), d'où l'appel dédié à une route publique plutôt
   // qu'une lecture de `state.settings`.
   const [teamLogo, setTeamLogo] = useState<string | null>(null)
+  // Thème + couleur principale (docs/corrections futures.md, Réglages (suite), 2026-08-17,
+  // ajouté à /api/public/branding le même jour) : jusqu'ici cette page restait figée sur le
+  // bleu/indigo par défaut de index.css, jamais le thème sombre ni la couleur personnalisée
+  // choisis en Réglages, contrairement au reste de l'app (une fois connecté) et au favicon (déjà
+  // dynamique depuis la refonte du login). Repli `null` tant que la réponse n'est pas arrivée :
+  // l'effet ci-dessous ne s'applique qu'une fois `branding` renseigné, laissant le thème/couleur
+  // d'origine de index.css s'afficher entre-temps plutôt qu'un flash de contenu non stylé.
+  const [branding, setBranding] = useState<{ theme: ThemeMode; primaryColorLight: string | null; primaryColorDark: string | null } | null>(null)
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -85,10 +85,49 @@ export function LoginPage() {
   useEffect(() => {
     let cancelled = false
     api.getPublicBranding()
-      .then(res => { if (!cancelled) setTeamLogo(res.logoDataUrl) })
-      .catch(() => { /* pas grave, repli sur le logo Cadence dans l'avatar */ })
+      .then(res => {
+        if (cancelled) return
+        setTeamLogo(res.logoDataUrl)
+        // `res.theme ?? 'light'` : filet côté client si jamais la réponse omet ce champ (mock de
+        // test incomplet, backend plus ancien...), même repli que StateContext.tsx pour l'app
+        // authentifiée - évite de poser `data-theme="undefined"` sur <html>.
+        setBranding({ theme: res.theme ?? 'light', primaryColorLight: res.primaryColorLight ?? null, primaryColorDark: res.primaryColorDark ?? null })
+      })
+      .catch(() => { /* pas grave, repli sur le logo Cadence et le thème/couleur d'origine */ })
     return () => { cancelled = true }
   }, [])
+
+  // Applique le thème/la couleur récupérés ci-dessus sur <html>, même mécanisme que
+  // StateContext.tsx (StateProvider) une fois connecté : 'system' résolu via
+  // prefers-color-scheme, réévalué en direct si l'OS change de thème pendant que la page de
+  // connexion est affichée. Cette page est rendue hors StateProvider (voir App.tsx), donc sans
+  // son effet équivalent - dupliqué ici plutôt que partagé, ce petit effet n'a pas de raison
+  // fonctionnelle de diverger mais dépend de deux sources différentes (`branding` ici,
+  // `state.settings` là-bas), pas un simple import direct possible sans changer la forme de
+  // StateContext.tsx pour ce seul cas d'usage. Aucun nettoyage explicite au démontage : après
+  // connexion, StateProvider monte et son propre effet réapplique immédiatement `data-theme`/
+  // `--primary` depuis l'état réel, écrasant sans conflit ce que cette page avait posé.
+  useEffect(() => {
+    if (!branding) return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyResolved = () => {
+      const resolved = branding.theme === 'system' ? (mq.matches ? 'dark' : 'light') : branding.theme
+      document.documentElement.setAttribute('data-theme', resolved)
+      const custom = resolved === 'dark' ? branding.primaryColorDark : branding.primaryColorLight
+      if (custom) {
+        document.documentElement.style.setProperty('--primary', custom)
+        document.documentElement.style.setProperty('--primary-light', custom + '1a')
+      } else {
+        document.documentElement.style.removeProperty('--primary')
+        document.documentElement.style.removeProperty('--primary-light')
+      }
+    }
+    applyResolved()
+    if (branding.theme === 'system') {
+      mq.addEventListener('change', applyResolved)
+      return () => mq.removeEventListener('change', applyResolved)
+    }
+  }, [branding])
 
   useEffect(() => {
     if (!inviteToken) return

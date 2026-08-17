@@ -1,7 +1,7 @@
 import type { Item, CadenceState } from '../../types'
 import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
-import { attachItemsToEpics, getHierarchyNodeSP } from '../../utils/hierarchyScore'
+import { attachItemsToEpics, epicsWithPlaceholder, getHierarchyNodeSP } from '../../utils/hierarchyScore'
 
 interface Props {
   state: CadenceState
@@ -80,7 +80,13 @@ export function SwimlanesView({
               // Groupement Epic intra-cellule : Epics de ce client assignés à ce sprint, y
               // compris sans aucun item (retour Julien, 2026-07-29) — `attachItemsToEpics()`
               // les inclut nativement, contrairement à l'ancien groupement item-first.
-              const cellEpics = state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id && n.clientId === client.id)
+              // `epicsWithPlaceholder()` (2026-08-17) retire les Epics qui ont bien des US mais
+              // aucune dans cette cellule (filet de sécurité, voir SprintColumn.tsx).
+              const cellEpics = epicsWithPlaceholder(
+                state.hierarchyNodes.filter(n => n.level === 'epic' && n.sprintId === sprint.id && n.clientId === client.id),
+                sprintItems,
+                state.items,
+              )
               const { groups: epicGroups, orphans: standalone } = attachItemsToEpics(cellEpics, sprintItems)
               const emptyEpicsSP = epicGroups.filter(g => g.items.length === 0).reduce((s, g) => s + getHierarchyNodeSP(g.epic, []), 0)
               const sprintSP   = sprintItems.reduce((s, i) => s + i.sp, 0) + emptyEpicsSP

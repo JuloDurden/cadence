@@ -4,7 +4,7 @@
 // et on y ajoute la construction de l'entrée d'Historique correspondante, pour ne pas
 // recoder ce couple mutation+traçabilité une 3e fois si une future page en a besoin.
 
-import type { CadenceState, Item, Sprint, HistoryEntry, HistoryEventType, RoadmapGoal, RetroSession, SprintReviewSession } from '../types'
+import type { CadenceState, Item, Sprint, HistoryEntry, HistoryEventType, RoadmapGoal, RetroSession, SprintReviewSession, HierarchyNode } from '../types'
 import { getCurrentSprint } from './sprints'
 
 export type SprintLifecycleAction = 'activate' | 'close' | 'reopen' | 'delete'
@@ -81,6 +81,7 @@ const ACTION_LABEL: Record<SprintLifecycleAction, string> = {
 export interface SprintDeletionResult {
   sprints: Sprint[]
   items: Item[]
+  hierarchyNodes: HierarchyNode[]
   roadmap: RoadmapGoal[]
   retroSessions: RetroSession[]
   sprintReviewSessions: SprintReviewSession[]
@@ -109,6 +110,13 @@ export function deleteSprintCascade(state: CadenceState, sprintId: string): Spri
   const items = state.items.map(i =>
     i.sprintId === sprintId ? { ...i, status: 'backlog', sprintId: null } : i
   )
+  // Un Epic assigné directement à ce sprint (même sans item, placeholder) perd sa référence
+  // en même temps que le sprint disparaît : contrairement à `detachOrphanedEpics()` (qui garde
+  // un Epic vide en place tant que son sprint existe), ici le sprint lui-même n'existera plus,
+  // donc tout Epic pointant vers lui doit être décroché, item ou pas.
+  const hierarchyNodes = state.hierarchyNodes.map(n =>
+    n.level === 'epic' && n.sprintId === sprintId ? { ...n, sprintId: null } : n
+  )
   const sprints = state.sprints.filter(s => s.id !== sprintId)
   const goal = (state.roadmap || []).find(g => g.sprintId === sprintId)
   const roadmap = (state.roadmap || []).filter(g => g.sprintId !== sprintId)
@@ -117,7 +125,7 @@ export function deleteSprintCascade(state: CadenceState, sprintId: string): Spri
   const removedSr = (state.sprintReviewSessions ?? []).filter(s => s.sprintId === sprintId)
   const sprintReviewSessions = (state.sprintReviewSessions ?? []).filter(s => s.sprintId !== sprintId)
   return {
-    sprints, items, roadmap, retroSessions, sprintReviewSessions,
+    sprints, items, hierarchyNodes, roadmap, retroSessions, sprintReviewSessions,
     detachedItemIds: detached.map(i => i.id),
     deletedGoalId: goal?.id ?? null,
     deletedRetroSessionIds: removedRetro.map(s => s.id),

@@ -162,6 +162,56 @@ export function attachItemsToEpics<T extends { epicId?: string | null }>(
   return { groups, orphans }
 }
 
+/**
+ * Décroche un Epic de son sprint quand sa dernière US en sort (retour Julien, 2026-08-17,
+ * suite à un conteneur Epic vide fantôme observé dans Release Planning). Un Epic garde son
+ * propre `sprintId` indépendamment de ses items (voir `attachItemsToEpics()` ci-dessus), ce
+ * qui permet à un Epic pas encore découpé en US de rester visible dans le sprint où il a été
+ * planifié. Mais si un Epic a bien des US et qu'un déplacement fait qu'aucune ne reste dans
+ * le sprint pointé par son propre `sprintId`, cette assignation devient une référence
+ * obsolète : on la remet à `null` (l'Epic redevient "Non assigné", et ne réapparaîtra dans un
+ * sprint que si une de ses US y est explicitement remise, ou si tout son groupe est re-glissé).
+ * Un Epic sans aucune US n'est jamais concerné (placeholder volontaire).
+ *
+ * À appeler après toute mise à jour de `items` qui change le `sprintId` d'une US : drag & drop
+ * (PlanningPage.tsx), retrait manuel du sprint (KanbanPage.tsx), annulation en Sprint Review
+ * (SprintReviewPage.tsx), suppression de sprint (utils/sprintLifecycle.ts).
+ */
+export function detachOrphanedEpics(
+  hierarchyNodes: HierarchyNode[],
+  items: { epicId?: string | null; sprintId?: string | null }[],
+): HierarchyNode[] {
+  return hierarchyNodes.map(n => {
+    if (n.level !== 'epic' || !n.sprintId) return n
+    const epicItems = items.filter(i => i.epicId === n.id)
+    if (epicItems.length === 0) return n
+    const stillHere = epicItems.some(i => i.sprintId === n.sprintId)
+    return stillHere ? n : { ...n, sprintId: null }
+  })
+}
+
+/**
+ * Filet de sécurité complémentaire à `detachOrphanedEpics()`, à utiliser au moment de
+ * l'affichage (SprintColumn.tsx, PlanningPage.tsx panneau "Non assigné", SwimlanesView.tsx) :
+ * même si le décrochage automatique n'a pas pu s'appliquer pour un cas non couvert (item
+ * supprimé plutôt que déplacé, état antérieur à ce correctif...), un Epic qui a des US mais
+ * aucune dans le sous-ensemble affiché ici ne doit jamais apparaître comme un conteneur vide.
+ * Un Epic sans aucune US au total n'est jamais filtré (placeholder volontaire, voir
+ * `attachItemsToEpics()`) : `epicsAssignedHere` doit rester la liste brute filtrée par
+ * `sprintId`/`clientId`, cette fonction ne fait qu'en retirer les cas devenus incohérents.
+ */
+export function epicsWithPlaceholder<T extends { epicId?: string | null }>(
+  epicsAssignedHere: HierarchyNode[],
+  itemsHere: T[],
+  allItems: T[],
+): HierarchyNode[] {
+  return epicsAssignedHere.filter(epic => {
+    const hasAnyItems = allItems.some(i => i.epicId === epic.id)
+    if (!hasAnyItems) return true
+    return itemsHere.some(i => i.epicId === epic.id)
+  })
+}
+
 /* ─── Niveau Initiative (Phase 1, sous-chantier 4 — redémarré 2026-07-29) ───────────────
  * `Item.epicId` (nom conservé) pointe vers n'importe quel HierarchyNode : un Epic comme
  * avant, ou directement une Initiative — "comme un regroupement par plusieurs Sprints"

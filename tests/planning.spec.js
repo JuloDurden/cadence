@@ -197,3 +197,46 @@ test.describe('Release Planning — groupe Epic non tronque en mode deplie (2026
   });
 
 });
+
+test.describe('Release Planning, décrochage automatique d\'un Epic (retour Julien, 2026-08-17)', () => {
+
+  // FAX-024 (i24) est la seule US du sprint 2 rattachée à l'Epic FAX-007 (i7) ; sa 2e US
+  // (FAX-019) est planifiée au sprint 4. Avant ce correctif, un Epic assigné directement à un
+  // sprint via son propre sprintId restait affiché comme un conteneur vide dans ce sprint même
+  // après le départ de sa dernière US vers un autre sprint, sans qu'aucune de ses US n'y soit
+  // plus prévue (retour Julien, bug constaté avec un Epic à 5 items dont aucun au sprint 3).
+
+  test('un Epic disparaît du sprint qu\'il vient de quitter au glisser-déposer de sa dernière US', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    const sprint3Col = page.locator('.planning-col').nth(2);
+    await expect(sprint2Col.locator('[data-testid="epic-group-toggle-i7"]')).toBeVisible();
+
+    await page.locator('[data-item-id="i24"]').dragTo(sprint3Col);
+    await page.waitForTimeout(300);
+
+    await expect(sprint2Col.locator('[data-testid="epic-group-toggle-i7"]')).toHaveCount(0);
+  });
+
+  test('cet Epic décroché ne réapparaît pas comme conteneur vide dans "Non assigné"', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint3Col = page.locator('.planning-col').nth(2);
+    await page.locator('[data-item-id="i24"]').dragTo(sprint3Col);
+    await page.waitForTimeout(300);
+
+    // FAX-019 (l'autre US de cet Epic) reste planifiée au sprint 4 : aucune de ses US n'est
+    // réellement non-assignée, l'Epic ne doit donc pas s'afficher comme un conteneur vide ici.
+    const unassignedPanel = page.locator('.planning-unassigned-items');
+    await expect(unassignedPanel.locator('[data-testid="epic-group-toggle-i7"]')).toHaveCount(0);
+  });
+
+  test('un Epic sans aucune US reste affiché comme placeholder dans son sprint (non-régression)', async ({ page }) => {
+    // AGA-009 (i9, demo.ts) n'a jamais eu d'US rattachée (voir describe "Epic vide compte dans
+    // la capacite du sprint" ci-dessus) : le décrochage automatique ne le concerne pas, il ne se
+    // déclenche que pour un Epic ayant réellement des US ailleurs.
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    await expect(sprint2Col.locator('[data-testid="epic-group-toggle-i9"]')).toBeVisible();
+  });
+
+});
