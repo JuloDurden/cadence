@@ -139,3 +139,47 @@ test.describe('Résumé Daily sur Slack (v0.97.12)', () => {
   });
 
 });
+
+// Synchronisation temps réel (2026-08-18, retour Julien : "seule page du projet censée être vue
+// et remplie par plusieurs personnes en même temps"). Canal WebSocket dédié à /api/ws/daily,
+// séparé du PUT /api/state (voir backend/src/routes/dailyWs.ts, hooks/useDailyRealtime.ts). Aucun
+// vrai backend WebSocket n'est démarré dans cet environnement de test (seules les routes HTTP sont
+// mockées via page.route) : la synchronisation effective entre 2 sessions réelles n'est donc pas
+// vérifiable ici, seulement la tentative de connexion et la tolérance à son échec, voir
+// docs/corrections.md pour le détail et ce qui reste à vérifier manuellement.
+test.describe('Daily Standup, synchronisation temps réel (2026-08-18)', () => {
+
+  test('la page ouvre une connexion WebSocket vers /api/ws/daily à son montage', async ({ page }) => {
+    const wsPromise = page.waitForEvent('websocket', ws => ws.url().includes('/api/ws/daily'));
+    await goTo(page, '/daily', { role: 'ADMIN' });
+    const ws = await wsPromise;
+    expect(ws.url()).toContain('/api/ws/daily');
+  });
+
+  test('la page ne lève aucune erreur si la connexion WebSocket échoue (aucun serveur WS réel ici)', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await goTo(page, '/daily', { role: 'ADMIN' });
+    await page.waitForTimeout(500);
+    expect(errors).toHaveLength(0);
+  });
+
+  // Aldo Raines = m1 (demo.ts) : testid stable posé sur chaque champ (MemberCard.tsx,
+  // data-testid="daily-field-<champ>-<memberId>"), plus fiable que .locator('textarea').first()
+  // qui dépend de l'ordre d'affichage des membres.
+  test('plusieurs frappes rapprochées dans un même champ ne déclenchent qu\'une seule sauvegarde (anti-rebond 400ms)', async ({ page }) => {
+    await goTo(page, '/daily', { role: 'ADMIN' });
+    let putCount = 0;
+    page.on('request', r => {
+      if (r.url().includes('/api/state') && r.method() === 'PUT') putCount++;
+    });
+    const field = page.locator('[data-testid="daily-field-today-m1"]');
+    await field.fill('T');
+    await field.fill('Tr');
+    await field.fill('Tra');
+    await field.fill('Trav');
+    await page.waitForTimeout(600);
+    expect(putCount).toBe(1);
+  });
+
+});

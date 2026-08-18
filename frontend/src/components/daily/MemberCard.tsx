@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react'
+import { memo, useState, useEffect } from 'react'
 import type { TeamMember, DailyEntry, Absence } from '../../types'
 
 interface Props {
   member: TeamMember
   entry: DailyEntry
-  onChange: (entry: DailyEntry) => void
+  // Synchronisation temps réel Daily Standup (2026-08-18) : le champ modifié est transmis en plus
+  // de l'entrée fusionnée, pour que DailyPage.tsx puisse diffuser uniquement ce champ sur le canal
+  // WebSocket dédié, sans devoir re-diffuser toute l'entrée (voir hooks/useDailyRealtime.ts).
+  onChange: (entry: DailyEntry, field: 'yesterday' | 'today' | 'blockers') => void
   absence?: Absence
   // Phase 2 (roadmap v1), sous-chantier 3 : seul le Dev lié à ce membre (+ Admin) peut remplir sa
   // carte — voir utils/permissions.ts, canEditDailyCard(). Par défaut `false` (fail-closed) :
@@ -31,17 +34,24 @@ const ICO = {
   umbrella: '<path d="M23 12a11.05 11.05 0 0 0-22 0zm-5 7a3 3 0 0 1-6 0v-7"/>',
 }
 
-export function MemberCard({ member, entry, onChange, absence, canEdit = false }: Props) {
+// React.memo (2026-08-18, retour Julien : la vue Admin "ne suit pas le rythme" d'une frappe
+// rapide côté Dev) : chaque message WebSocket reçu (voir hooks/useDailyRealtime.ts) déclenche un
+// dispatch qui re-rend DailyPage, donc par défaut TOUTES les cartes de l'équipe, alors qu'une
+// seule est concernée. `entry` garde une référence stable pour les membres non touchés (le
+// reducer ne recrée pas les objets filtrés, voir context/StateContext.tsx) et `onChange` est
+// désormais stabilisé par useCallback (DailyPage.tsx) : la comparaison superficielle par défaut
+// de React.memo suffit donc à ignorer le re-rendu des cartes non concernées.
+export const MemberCard = memo(function MemberCard({ member, entry, onChange, absence, canEdit = false }: Props) {
   const [local, setLocal] = useState(entry)
   const hasBlocker = local.blockers.trim().length > 0
   const isAbsent = !!absence
 
   useEffect(() => { setLocal(entry) }, [entry])
 
-  function update(field: keyof DailyEntry, value: string) {
+  function update(field: 'yesterday' | 'today' | 'blockers', value: string) {
     const updated = { ...local, [field]: value }
     setLocal(updated)
-    onChange(updated)
+    onChange(updated, field)
   }
 
   const initials = member.name.split(' ').map(n => n[0]).join('').slice(0, 2)
@@ -100,7 +110,7 @@ export function MemberCard({ member, entry, onChange, absence, canEdit = false }
       </div>
     </div>
   )
-}
+})
 
 function Section({ icon, label, value, onChange, placeholder, readOnly, testId }: {
   icon: string; label: string; value: string; onChange: (v: string) => void; placeholder?: string; readOnly?: boolean; testId?: string

@@ -413,6 +413,19 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
   const [stateLoaded, setStateLoaded] = useState(false)
   const [presentationLinkInvalid, setPresentationLinkInvalid] = useState(false)
 
+  // stateRef (2026-08-18, retour Julien : la vue Daily Standup "décroche" en frappe rapide malgré
+  // React.memo sur MemberCard) : `wrappedDispatch` avait `state` en dépendance (pour le snapshot
+  // undo), donc changeait de référence à CHAQUE dispatch - y compris ceux déclenchés par un simple
+  // message reçu en direct (voir hooks/useDailyRealtime.ts). Or `dispatch` (issu de ce contexte)
+  // est utilisé comme dépendance stable un peu partout (DailyPage.tsx, NNLCanvas.tsx,
+  // ChatContext.tsx) : le voir changer à chaque frappe recréait ces callbacks à chaque fois,
+  // invalidant tout React.memo qui en dépendait en aval - exactement ce qui empêchait le correctif
+  // React.memo(MemberCard) de faire effet. `state` est donc lu ici via une ref tenue à jour à
+  // chaque rendu plutôt que par fermeture directe, ce qui permet à `wrappedDispatch` de garder une
+  // référence stable, aussi stable que le `dispatch` interne de useReducer lui-même.
+  const stateRef = useRef(state)
+  stateRef.current = state
+
   // Apply theme on state change (Phase 6bis, sous-chantier 4, 2026-08-13) : 'system' résolu via
   // prefers-color-scheme, réévalué en direct si l'OS change de thème pendant que l'onglet est
   // ouvert (mq 'change'). Couleur principale par thème appliquée en variable CSS inline sur
@@ -581,14 +594,16 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
     else setStateLoaded(true)
   }, [loadFromServer, publicToken])
 
-  // Dispatch avec snapshot undo/redo
+  // Dispatch avec snapshot undo/redo. Référence stable (voir stateRef ci-dessus) : le snapshot
+  // undo lit stateRef.current au moment de l'appel plutôt que `state` en fermeture, donnée tout
+  // aussi à jour, mais sans forcer wrappedDispatch à changer de référence à chaque dispatch.
   const wrappedDispatch = useCallback((action: Action) => {
     if (UNDOABLE.has(action.type)) {
-      setPast(p => [...p.slice(-49), state])
+      setPast(p => [...p.slice(-49), stateRef.current])
       setFuture([])
     }
     dispatch(action)
-  }, [state])
+  }, [])
 
   const undo = useCallback(() => {
     if (past.length === 0) return

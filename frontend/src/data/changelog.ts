@@ -15,7 +15,13 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.98.14',date:'17 Août 2026',dateISO:'2026-08-17',title:'Mode sombre, Sidebar, Réglages Apparence et Release Planning : corrections et améliorations diverses',current:true,changes:[
+  {version:'v0.98.15',date:'18 Août 2026',dateISO:'2026-08-18',title:'Daily Standup : synchronisation en direct entre utilisateurs',current:true,changes:[
+    {tag:'feat', text:'Daily Standup : les champs "Hier", "Aujourd\'hui" et "Blocages" saisis par un membre s\'affichent désormais quasi instantanément chez tous les autres utilisateurs présents sur la page, sur le modèle d\'une messagerie instantanée, plutôt que de n\'apparaître qu\'au rechargement de la page. Nouveau canal WebSocket dédié, séparé de la sauvegarde habituelle : la frappe en direct n\'est jamais écrite en base telle quelle, seule la version validée l\'est'},
+    {tag:'perf', text:'Daily Standup : chaque frappe déclenchait jusqu\'ici un envoi réseau complet de sauvegarde ; un seul envoi, 400ms après la dernière frappe, comme pour les Réglages d\'apparence (v0.98.14 du 17 août)'},
+    {tag:'fix', text:'Daily Standup : la synchronisation en direct a été fiabilisée (plus de caractères manquants chez les autres utilisateurs) et optimisée pour rester réactive même lors d\'une frappe rapide et simultanée entre plusieurs personnes'},
+    {tag:'test', text:'Nouveaux tests E2E sur l\'ouverture de la connexion temps réel, sa tolérance à l\'échec, et l\'anti-rebond de la sauvegarde'},
+  ]},
+  {version:'v0.98.14',date:'17 Août 2026',dateISO:'2026-08-17',title:'Mode sombre, Sidebar, Réglages Apparence et Release Planning : corrections et améliorations diverses',current:false,changes:[
     {tag:'fix', text:'Mode sombre : le texte des menus déroulants natifs (Filtrer > Sprint du Backlog, header de Release Planning/Kanban/Daily Standup/Rétrospective...) était illisible, le popup du navigateur restait sur fond blanc alors que le texte passait en couleur claire. Le thème pilote désormais aussi le rendu natif des éléments de formulaire (menus déroulants, scrollbars, sélecteur de date) via `color-scheme`, renforcé par une couleur de fond explicite sur chaque option pour les navigateurs où `color-scheme` seul ne suffisait pas'},
     {tag:'ux', text:'Sidebar : sans logo d\'équipe chargé, l\'icône affiche désormais le CadenceMark seul dans la couleur principale (sans le cadre carré coloré précédent), à la place des initiales "ACT". Composant CadenceMark extrait en composant partagé (déjà utilisé par l\'écran de connexion), réutilisé ici pour la 3e fois'},
     {tag:'feat', text:'Densité d\'affichage (Réglages > Apparence), jusqu\'ici limitée au Backlog et au Kanban, étendue à Roadmap, Release Planning, Sprint Planning (partiellement), RH/Équipe et Clients'},

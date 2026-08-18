@@ -1,6 +1,8 @@
 import type { AiConfig, AiToolCall, ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, JiraConfig, JiraIssueSummary, JiraProject, ManagedUser, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
+// Exporte (2026-08-18) : hooks/useDailyRealtime.ts en derive l'URL du WebSocket dedie (meme hote,
+// schema ws/wss) plutot que de dupliquer la lecture de VITE_API_URL et sa valeur par defaut.
+export const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001'
 
 function getToken(): string | null {
   return localStorage.getItem('cadence_token')

@@ -1,11 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useCadence } from '../context/StateContext'
 import { useTimer } from '../context/TimerContext'
 import { Header } from '../components/layout/Header'
 import { MemberCard } from '../components/daily/MemberCard'
-import type { DailyEntry, DailyArchive, TeamMember, HistoryEntry } from '../types'
+import type { DailyEntry, DailyArchive, TeamMember, HistoryEntry, CadenceState } from '../types'
 import { getCurrentSprint } from '../utils/sprints'
 import { useAuth } from '../hooks/useAuth'
+import { useDailyRealtime } from '../hooks/useDailyRealtime'
 import { withHistoryEntry } from '../utils/history'
 import { useToast } from '../context/ToastContext'
 import { useDialog } from '../context/DialogContext'
@@ -70,6 +71,7 @@ export function DailyPage() {
   // ce n'est pas une action d'archivage à proprement parler.
   const canArchive = canArchiveDaily(userRole)
   const { duration, seconds, running, done, setDuration, toggle, reset } = useTimer()
+  const { sendFieldUpdate } = useDailyRealtime()
   const date = useMemo(() => today(), [])
   const [todayOpen, setTodayOpen] = useState(true)
   const [archivesOpen, setArchivesOpen] = useState(true)
@@ -99,11 +101,56 @@ export function DailyPage() {
     .map(m => ({ member: m, entry: getEntry(m.id) }))
     .filter(({ entry }) => entry.blockers.trim().length > 0)
 
-  function handleChange(entry: DailyEntry) {
-    dispatch({ type: 'UPSERT_DAILY_ENTRY', payload: entry })
-    const entries = state.dailyEntries.filter(e => !(e.memberId === entry.memberId && e.date === entry.date))
-    saveToServer({ ...state, dailyEntries: [...entries, entry] })
+  // Anti-rebond sur la sauvegarde persistée (2026-08-18, même mécanisme que les Réglages
+  // d'apparence, v0.98.14) : chaque frappe déclenchait jusqu'ici un PUT /api/state complet.
+  // L'application locale (dispatch, retour visuel immédiat) reste synchrone ; seul l'envoi réseau
+  // est désormais retardé de 400ms après la dernière frappe, avec purge immédiate de la
+  // sauvegarde en attente au démontage de la page ET sur `beforeunload` (même filet de sécurité
+  // que pour les Réglages, tiré de la mésaventure du débounce de session Sprint Review, voir
+  // docs/corrections.md). La diffusion en direct aux autres utilisateurs (canal WebSocket dédié,
+  // hooks/useDailyRealtime.ts) est en revanche immédiate, à chaque frappe : elle ne sollicite pas
+  // la base de données, seule la persistance réelle est concernée par l'anti-rebond.
+  const dailySaveTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingDailySaveRef = useRef<CadenceState | null>(null)
+
+  function flushDailySave() {
+    if (dailySaveTimerRef.current) { clearTimeout(dailySaveTimerRef.current); dailySaveTimerRef.current = null }
+    if (pendingDailySaveRef.current) { saveToServer(pendingDailySaveRef.current); pendingDailySaveRef.current = null }
   }
+
+  useEffect(() => {
+    window.addEventListener('beforeunload', flushDailySave)
+    return () => {
+      window.removeEventListener('beforeunload', flushDailySave)
+      flushDailySave()
+    }
+  }, [])
+
+  // `stateRef` + `useCallback` (2026-08-18, retour Julien : la vue Admin "ne suit pas le rythme"
+  // d'une frappe rapide côté Dev) : `handleChange` lisait directement `state` par fermeture, donc
+  // changeait de référence à CHAQUE frappe (nouveau `state` à chaque dispatch). Passé tel quel en
+  // prop `onChange` à `MemberCard` (désormais `React.memo`, voir ce fichier), ça invalidait le
+  // memo de TOUTES les cartes à chaque frappe, forçant React à re-rendre les N cartes de l'équipe
+  // au lieu de la seule carte concernée - le coût cumulé sur une frappe rapide (plusieurs messages
+  // WebSocket par seconde, voir hooks/useDailyRealtime.ts) faisait prendre du retard au rendu.
+  // `state` est désormais lu via une ref tenue à jour à chaque rendu, ce qui permet à
+  // `handleChange` de garder une référence stable (dépendances figées, jamais recréée), sans nuire
+  // à la fraîcheur des données puisqu'une ref est toujours lue au moment de l'appel, jamais figée
+  // dans la fermeture.
+  const stateRef = useRef(state)
+  stateRef.current = state
+
+  const handleChange = useCallback((entry: DailyEntry, field: 'yesterday' | 'today' | 'blockers') => {
+    dispatch({ type: 'UPSERT_DAILY_ENTRY', payload: entry })
+    const current = stateRef.current
+    const entries = current.dailyEntries.filter(e => !(e.memberId === entry.memberId && e.date === entry.date))
+    pendingDailySaveRef.current = { ...current, dailyEntries: [...entries, entry] }
+    if (dailySaveTimerRef.current) clearTimeout(dailySaveTimerRef.current)
+    dailySaveTimerRef.current = setTimeout(flushDailySave, 400)
+
+    sendFieldUpdate({ memberId: entry.memberId, date: entry.date, field, value: entry[field] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, saveToServer, sendFieldUpdate])
 
   function copyResume() {
     const lines = [
