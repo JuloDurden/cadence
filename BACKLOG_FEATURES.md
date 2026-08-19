@@ -243,6 +243,9 @@ Route dédiée `/sprint-review` — entrée dans la sidebar. Conçue comme une *
 - **Roadmap : header unifié, toggle vues, groupement Epic** ✅ *v0.86*
 - **Changelog : versions standardisées, nav indentée, effet Dock** ✅ *v0.87.1*
 
+### Collaboration temps réel
+- **Synchronisation en direct entre utilisateurs** ✅ *v0.98.15 (Daily Standup) puis v0.98.16 (toute l'application)*, retour Julien, 2026-08-18/19 : plusieurs utilisateurs connectés en même temps ne voyaient les modifications des autres qu'après un rechargement de page. Canal WebSocket dédié au Daily Standup d'abord (frappe caractère par caractère), puis généralisé à toute l'application (diffusion de l'action du reducer elle-même à chaque mutation "métier" : items, sprints, Epics, Sprint Review...). Tableau blanc Now/Next/Later volontairement laissé de côté pour l'instant (glisser-déposer trop fréquent, système d'undo isolé), voir `docs/corrections futures.md`. Voir `docs/corrections.md`.
+
 ### Backlog & Planification
 - **DoR/DoD colonnes Backlog + filtre Prêt + bandeau Sprint Planning** ✅ *v0.85*
 - **Rapport client imprimable** ✅ *v0.30*

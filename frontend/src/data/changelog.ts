@@ -15,7 +15,12 @@ export interface ChangelogVersion {
 }
 
 export const CHANGELOG: ChangelogVersion[] = [
-  {version:'v0.98.15',date:'18 Août 2026',dateISO:'2026-08-18',title:'Daily Standup : synchronisation en direct entre utilisateurs',current:true,changes:[
+  {version:'v0.98.16',date:'19 Août 2026',dateISO:'2026-08-19',title:'Synchronisation en direct étendue à toute l\'application',current:true,changes:[
+    {tag:'feat', text:'Quand un utilisateur modifie quelque chose (un item, un sprint, un Epic, une carte Kanban déplacée, une décision de Sprint Review...), les autres utilisateurs présents sur l\'outil au même moment le voient apparaître automatiquement, sans avoir à recharger la page - sur le même principe que la synchronisation déjà en place pour le Daily Standup (v0.98.15), mais désormais sur l\'ensemble des pages'},
+    {tag:'info', text:'Le tableau blanc Now/Next/Later n\'est pas encore concerné par cette synchronisation en direct (glisser-déposer de post-its, formes, traits...) : un traitement dédié y sera nécessaire, comme cela a été fait pour le Daily Standup'},
+    {tag:'test', text:'Nouveaux tests E2E sur l\'ouverture de la connexion temps réel (sur plusieurs pages) et sa tolérance à l\'échec'},
+  ]},
+  {version:'v0.98.15',date:'18 Août 2026',dateISO:'2026-08-18',title:'Daily Standup : synchronisation en direct entre utilisateurs',current:false,changes:[
     {tag:'feat', text:'Daily Standup : les champs "Hier", "Aujourd\'hui" et "Blocages" saisis par un membre s\'affichent désormais quasi instantanément chez tous les autres utilisateurs présents sur la page, sur le modèle d\'une messagerie instantanée, plutôt que de n\'apparaître qu\'au rechargement de la page. Nouveau canal WebSocket dédié, séparé de la sauvegarde habituelle : la frappe en direct n\'est jamais écrite en base telle quelle, seule la version validée l\'est'},
     {tag:'perf', text:'Daily Standup : chaque frappe déclenchait jusqu\'ici un envoi réseau complet de sauvegarde ; un seul envoi, 400ms après la dernière frappe, comme pour les Réglages d\'apparence (v0.98.14 du 17 août)'},
     {tag:'fix', text:'Daily Standup : la synchronisation en direct a été fiabilisée (plus de caractères manquants chez les autres utilisateurs) et optimisée pour rester réactive même lors d\'une frappe rapide et simultanée entre plusieurs personnes'},

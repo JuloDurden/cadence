@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useCallback, useEffect, useState
 import type { ReactNode } from 'react'
 import type { CadenceState, Item, Sprint, RoadmapGoal, DisplayDensity } from '../types'
 import { DEMO_STATE } from '../data/demo'
-import { api } from '../services/api'
+import { api, BASE_URL } from '../services/api'
 import { isItemInFrame, frameBounds, ejectPointFromFrame } from '../utils/nnlFrames'
 import { R1_DEFAULT, R2_DEFAULT, zoneFromWorld, clampDistanceToZone } from '../utils/nnlZones'
 import { CADENCE_MARK_VIEWBOX, CADENCE_MARK_TRANSFORM, CADENCE_MARK_PATH } from '../assets/cadenceMark'
@@ -17,6 +17,12 @@ function buildFaviconHref(color: string): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${CADENCE_MARK_VIEWBOX}"><path fill="${color}" d="${CADENCE_MARK_PATH}" transform="${CADENCE_MARK_TRANSFORM}"/></svg>`
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
+
+// Synchronisation temps réel générale (voir SYNCABLE plus bas) : même dérivation que pour le canal
+// Daily Standup (hooks/useDailyRealtime.ts), dupliquée volontairement ici plutôt que partagée - les
+// deux canaux restent deux connexions WebSocket distinctes (voir le commentaire dans
+// backend/src/routes/realtimeWs.ts sur ce choix).
+const SYNC_WS_BASE_URL = BASE_URL.replace(/^http/, 'ws')
 
 function applyFavicon(color: string) {
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
@@ -50,6 +56,56 @@ const UNDOABLE = new Set([
   'ADD_ABSENCE','UPDATE_ABSENCE','DELETE_ABSENCE',
   'DELETE_RETRO_SESSION','DELETE_SR_SESSION',
   'ADD_HIERARCHY_NODE','UPDATE_HIERARCHY_NODE','DELETE_HIERARCHY_NODE',
+])
+
+// Synchronisation temps réel générale (2026-08-19, retour Julien : "quand plusieurs utilisateurs
+// sont en même temps sur l'outil, si l'un d'eux met quelque chose à jour, personne ne voit la
+// modification sauf en faisant un refresh" - exemple donné : un Dev met à jour un item pendant un
+// sprint, le PO ne le voit pas sans recharger). Extension du principe déjà en place pour le Daily
+// Standup (canal WebSocket dédié, voir dailyWs.ts) : ici, c'est l'action du reducer elle-même qui
+// est diffusée aux autres clients connectés (voir plus bas, wrappedDispatch et la connexion
+// WebSocket dans StateProvider), qui l'appliquent à leur tour à leur état local. Aucun changement
+// requis page par page : toute page qui lit `state` depuis ce contexte profite automatiquement de
+// la mise à jour, comme si l'action avait été dispatchée localement.
+//
+// Liste blanche explicite (même esprit que UNDOABLE ci-dessus) plutôt qu'une liste noire : une
+// nouvelle action ajoutée plus tard au reducer n'est PAS synchronisée par défaut tant qu'elle n'est
+// pas ajoutée ici sciemment - plus sûr qu'un oubli d'exclusion. Volontairement absents de cette
+// liste :
+// - SET_STATE (chargement initial ET undo/redo) : jamais diffusé, ce sont des actions locales à
+//   chaque utilisateur (annuler une action chez soi ne doit pas annuler l'écran de quelqu'un
+//   d'autre), et un SET_STATE transporte tout l'état, bien plus coûteux qu'une action ciblée.
+// - UPSERT_DAILY_ENTRY : déjà couvert par son propre canal dédié, plus fin (frappe caractère par
+//   caractère, voir dailyWs.ts/useDailyRealtime.ts) - le diffuser aussi ici ferait doublon et
+//   risquerait une course entre les deux canaux sur la fonctionnalité tout juste stabilisée hier.
+// - Toutes les actions NNL_* (tableau blanc Now/Next/Later) : périmètre volontairement exclu de
+//   cette première passe. Le glisser-déposer d'un post-it peut dispatcher en continu pendant un
+//   drag (même risque de volume que la frappe caractère par caractère du Daily Standup), et NNL a
+//   déjà son propre système d'undo isolé du reste de l'app (décision explicite de Julien) : un
+//   traitement dédié, comme celui fait pour le Daily Standup, sera nécessaire plutôt qu'un simple
+//   ajout à cette liste. Noté dans docs/corrections futures.md.
+const SYNCABLE = new Set([
+  'ADD_ITEM','UPDATE_ITEM','DELETE_ITEM',
+  'ADD_HIERARCHY_NODE','UPDATE_HIERARCHY_NODE','DELETE_HIERARCHY_NODE',
+  'APPLY_SPRINT_PLAN',
+  'ADD_SPRINT','UPDATE_SPRINT','DELETE_SPRINT',
+  'UPSERT_RETRO_SESSION','DELETE_RETRO_SESSION',
+  'ADD_CLIENT','UPDATE_CLIENT','DELETE_CLIENT',
+  'ADD_MEMBER','UPDATE_MEMBER','DELETE_MEMBER',
+  'ADD_HISTORY',
+  'UPDATE_SETTINGS','UPDATE_KANBAN_COLS',
+  'ADD_ROADMAP_GOAL','UPDATE_ROADMAP_GOAL','DELETE_ROADMAP_GOAL',
+  'SET_CUSTOM_TAGS','SET_REMOVED_BASE_TAGS',
+  'ADD_ABSENCE','UPDATE_ABSENCE','DELETE_ABSENCE',
+  'ADD_DAILY_ARCHIVE','DELETE_DAILY_ARCHIVE','CLEAR_DAILY_ENTRIES_DATE',
+  'ADD_RETRO_ARCHIVE','DELETE_RETRO_ARCHIVE',
+  'ADD_CLIENT_GROUP','UPDATE_CLIENT_GROUP','DELETE_CLIENT_GROUP',
+  'UPDATE_VISION_BOARD',
+  'UPSERT_SR_SESSION','DELETE_SR_SESSION',
+  'ADD_SR_ARCHIVE','DELETE_SR_ARCHIVE',
+  'UPDATE_SR_ITEM_RECORD','UPDATE_SR_UNFINISHED_RECORD','UPDATE_SR_NOTE',
+  'ADD_SR_DECISION','DELETE_SR_DECISION','APPLY_SR_DECISION',
+  'ADD_SR_NOTE','DELETE_SR_NOTE',
 ])
 
 type Action =
@@ -594,15 +650,98 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
     else setStateLoaded(true)
   }, [loadFromServer, publicToken])
 
+  // Connexion WebSocket de synchronisation temps réel (voir SYNCABLE en tête de fichier). Établie
+  // ici, dans StateProvider (monté une seule fois au niveau racine de l'app, jamais remonté à la
+  // navigation entre pages) : reste active quelle que soit la page affichée, contrairement au canal
+  // Daily Standup qui ne vit que le temps où cette page précise est montée. Même stratégie de
+  // reconnexion tolérante à l'échec que ce dernier (délai croissant 1s → 15s, pas de nouvelle
+  // tentative sur un rejet volontaire du serveur, code 4001). Jamais démarrée en mode présentation
+  // publique (`publicToken`) : un visiteur du lien n'a pas de jeton JWT, seulement un jeton de
+  // présentation d'une autre nature, que cette route (vérification JWT classique) n'accepte pas.
+  const syncWsRef = useRef<WebSocket | null>(null)
+  const syncReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const syncReconnectDelayRef = useRef(1000)
+
+  useEffect(() => {
+    if (publicToken) return
+    let unmounted = false
+
+    function connect() {
+      if (unmounted) return
+      const token = localStorage.getItem('cadence_token')
+      if (!token) return
+
+      let ws: WebSocket
+      try {
+        ws = new WebSocket(`${SYNC_WS_BASE_URL}/api/ws/sync?token=${encodeURIComponent(token)}`)
+      } catch {
+        return
+      }
+      syncWsRef.current = ws
+
+      ws.onopen = () => { syncReconnectDelayRef.current = 1000 }
+
+      ws.onmessage = e => {
+        let msg: { type?: string; action?: Action }
+        try { msg = JSON.parse(e.data) } catch { return }
+        if (msg?.type !== 'state_action' || !msg.action) return
+        // dispatch BRUT, jamais wrappedDispatch : une action reçue d'un autre utilisateur ne doit
+        // ni pousser de snapshot undo local (annuler chez soi ne doit pas défaire l'action de
+        // quelqu'un d'autre) ni être rediffusée (éviterait un écho qui reviendrait à l'émetteur).
+        dispatch(msg.action)
+      }
+
+      ws.onclose = e => {
+        // Bug réel trouvé par Julien (2026-08-19, capture DevTools à l'appui : connexion "101"
+        // bien établie et visible dans l'onglet Réseau, mais AUCUN message envoyé à l'enregistrement
+        // d'un item) : en développement, React (StrictMode) monte l'effet, le nettoie, puis le
+        // remonte au chargement de la page - deux WebSocket sont donc créés coup sur coup, le
+        // premier (ws_a) fermé quasi aussitôt par le nettoyage, le second (ws_b) restant la vraie
+        // connexion active (syncWsRef.current = ws_b après le remontage). Problème : l'événement
+        // `close` de ws_a ne se déclenche qu'un peu PLUS TARD, de façon asynchrone - et ce handler
+        // mettait `syncWsRef.current = null` SANS vérifier qu'il s'agissait encore de la connexion
+        // courante, effaçant donc la référence à ws_b (pourtant bien vivante et ouverte) dès que
+        // l'événement `close` de ws_a arrivait. Résultat : `wrappedDispatch` ne trouvait plus aucune
+        // connexion valide (`syncWsRef.current` à `null`) et n'envoyait jamais rien, alors que la
+        // connexion réellement affichée dans l'onglet Réseau restait active. Corrigé en ne nettoyant
+        // la ref que si elle pointe encore vers CETTE connexion précise (garde d'identité).
+        if (syncWsRef.current === ws) syncWsRef.current = null
+        if (e.code === 4001 || unmounted) return
+        syncReconnectTimerRef.current = setTimeout(connect, syncReconnectDelayRef.current)
+        syncReconnectDelayRef.current = Math.min(syncReconnectDelayRef.current * 2, 15000)
+      }
+
+      // onerror est toujours suivi d'onclose (spec WebSocket) : la reconnexion y est déjà gérée.
+      ws.onerror = () => {}
+    }
+
+    connect()
+
+    return () => {
+      unmounted = true
+      if (syncReconnectTimerRef.current) clearTimeout(syncReconnectTimerRef.current)
+      syncWsRef.current?.close()
+      syncWsRef.current = null
+    }
+  }, [publicToken])
+
   // Dispatch avec snapshot undo/redo. Référence stable (voir stateRef ci-dessus) : le snapshot
   // undo lit stateRef.current au moment de l'appel plutôt que `state` en fermeture, donnée tout
-  // aussi à jour, mais sans forcer wrappedDispatch à changer de référence à chaque dispatch.
+  // aussi à jour, mais sans forcer wrappedDispatch à changer de référence à chaque dispatch. Diffuse
+  // aussi l'action aux autres clients connectés si elle fait partie de SYNCABLE (voir plus haut) -
+  // syncWsRef est une ref, donc sa lecture ici ne casse pas la référence stable de wrappedDispatch.
   const wrappedDispatch = useCallback((action: Action) => {
     if (UNDOABLE.has(action.type)) {
       setPast(p => [...p.slice(-49), stateRef.current])
       setFuture([])
     }
     dispatch(action)
+    if (SYNCABLE.has(action.type)) {
+      const ws = syncWsRef.current
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'state_action', action }))
+      }
+    }
   }, [])
 
   const undo = useCallback(() => {

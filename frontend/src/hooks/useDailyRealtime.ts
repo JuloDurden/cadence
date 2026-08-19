@@ -76,7 +76,16 @@ export function useDailyRealtime() {
       }
 
       ws.onclose = e => {
-        wsRef.current = null
+        // Même bug de course que celui trouvé et corrigé le 2026-08-19 sur le canal de
+        // synchronisation générale (voir StateContext.tsx) : sous StrictMode, une première
+        // connexion créée au montage peut être fermée par le nettoyage avant même que son
+        // événement `close` ne se déclenche (asynchrone) - s'il arrive APRÈS qu'une seconde
+        // connexion a déjà pris le relais (`wsRef.current` réassigné), ce handler mettait
+        // `wsRef.current = null` sans vérifier qu'il s'agissait encore de la connexion courante,
+        // effaçant la référence à la connexion réellement active. Non observé en pratique sur ce
+        // canal (propre à la page Daily Standup, la fenêtre de course est plus étroite qu'au
+        // niveau de toute l'app), mais corrigé par précaution avec la même garde d'identité.
+        if (wsRef.current === ws) wsRef.current = null
         if (e.code === 4001 || unmountedRef.current) return
         reconnectTimerRef.current = setTimeout(connect, reconnectDelayRef.current)
         reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 15000)

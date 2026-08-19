@@ -6,6 +6,7 @@ import prismaPlugin from './plugins/prisma'
 import { authRoutes } from './routes/auth'
 import { stateRoutes } from './routes/state'
 import { dailyWsRoutes } from './routes/dailyWs'
+import { realtimeSyncWsRoutes } from './routes/realtimeWs'
 import { usersRoutes } from './routes/users'
 import { invitationsRoutes } from './routes/invitations'
 import { onboardingRoutes } from './routes/onboarding'
@@ -37,6 +38,7 @@ async function start() {
   await fastify.register(authRoutes)
   await fastify.register(stateRoutes)
   await fastify.register(dailyWsRoutes)
+  await fastify.register(realtimeSyncWsRoutes)
   await fastify.register(usersRoutes)
   await fastify.register(invitationsRoutes)
   await fastify.register(onboardingRoutes)
