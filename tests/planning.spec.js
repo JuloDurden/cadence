@@ -59,7 +59,10 @@ test.describe('Planning', () => {
   });
 
   test('affiche le bouton + Sprint dans le header', async ({ page }) => {
-    await goTo(page, '/planning');
+    // role: 'PO' (2026-08-19) : le bouton "+ Sprint" est désormais réservé PO/Scrum Master/Admin
+    // (voir canManageSprintLifecycle, utils/permissions.ts) ; sans rôle explicite, goTo() ne pose
+    // aucun `cadence_user_role`, ce qui équivaut à un rôle vide et masque le bouton.
+    await goTo(page, '/planning', { role: 'PO' });
     // exact:true pour ne pas matcher "dependances cross-sprint"
     await expect(page.getByRole('button', { name: 'Sprint', exact: true })).toBeVisible();
   });
@@ -69,7 +72,8 @@ test.describe('Planning', () => {
 test.describe('Planning — Suppression d\'un sprint (2026-07-27)', () => {
 
   test('un sprint nouvellement créé (vide, non actif, non clôturé) peut être supprimé', async ({ page }) => {
-    await goTo(page, '/planning');
+    // role: 'PO' : ce test crée un sprint via le bouton "+ Sprint" (restriction Dev, 2026-08-19).
+    await goTo(page, '/planning', { role: 'PO' });
     const before = await page.locator('.planning-col').count();
     await page.getByRole('button', { name: 'Sprint', exact: true }).click();
     await page.waitForTimeout(300);
@@ -237,6 +241,34 @@ test.describe('Release Planning, décrochage automatique d\'un Epic (retour Juli
     await goTo(page, '/planning');
     const sprint2Col = page.locator('.planning-col').nth(1);
     await expect(sprint2Col.locator('[data-testid="epic-group-toggle-i9"]')).toBeVisible();
+  });
+
+});
+
+// Restriction Dev (2026-08-19, décision Julien : "Un compte Dev ne devrait pas pouvoir clôturer/
+// rouvrir/créer un sprint"), voir utils/permissions.ts, `canManageSprintLifecycle`. Activer et
+// Supprimer un sprint, ainsi que le drag&drop et l'édition opérationnelle des items, restent
+// ouverts au Dev (non testés ici, déjà couverts ailleurs) : seul le cycle de vie structurel
+// (créer/clôturer/rouvrir) est concerné.
+test.describe('Planning - restriction Dev sur le cycle de vie des sprints (2026-08-19)', () => {
+
+  test('un compte Dev ne voit pas le bouton "+ Sprint"', async ({ page }) => {
+    await goTo(page, '/planning', { role: 'DEV' });
+    await expect(page.locator('[data-testid="btn-add-sprint"]')).toHaveCount(0);
+  });
+
+  test('un compte Dev ne voit pas "Rouvrir" sur le sprint clôturé (Sprint 1, demo.ts)', async ({ page }) => {
+    await goTo(page, '/planning', { role: 'DEV' });
+    const closedCol = page.locator('.planning-col.planning-col-closed').first();
+    await expect(closedCol).toBeVisible();
+    await expect(closedCol.getByText('Rouvrir', { exact: true })).toHaveCount(0);
+  });
+
+  test('un PO voit toujours "+ Sprint" et "Rouvrir"', async ({ page }) => {
+    await goTo(page, '/planning', { role: 'PO' });
+    await expect(page.locator('[data-testid="btn-add-sprint"]')).toBeVisible();
+    const closedCol = page.locator('.planning-col.planning-col-closed').first();
+    await expect(closedCol.getByText('Rouvrir', { exact: true })).toBeVisible();
   });
 
 });

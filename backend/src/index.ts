@@ -10,6 +10,7 @@ import { realtimeSyncWsRoutes } from './routes/realtimeWs'
 import { usersRoutes } from './routes/users'
 import { invitationsRoutes } from './routes/invitations'
 import { onboardingRoutes } from './routes/onboarding'
+import { personalSettingsRoutes } from './routes/personalSettings'
 import { presentationRoutes } from './routes/presentation'
 import { apiTokensRoutes } from './routes/apiTokens'
 import { itemsRoutes } from './routes/items'
@@ -42,6 +43,7 @@ async function start() {
   await fastify.register(usersRoutes)
   await fastify.register(invitationsRoutes)
   await fastify.register(onboardingRoutes)
+  await fastify.register(personalSettingsRoutes)
   await fastify.register(presentationRoutes)
   await fastify.register(apiTokensRoutes)
   await fastify.register(itemsRoutes)

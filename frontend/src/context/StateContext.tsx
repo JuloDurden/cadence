@@ -5,35 +5,11 @@ import { DEMO_STATE } from '../data/demo'
 import { api, BASE_URL } from '../services/api'
 import { isItemInFrame, frameBounds, ejectPointFromFrame } from '../utils/nnlFrames'
 import { R1_DEFAULT, R2_DEFAULT, zoneFromWorld, clampDistanceToZone } from '../utils/nnlZones'
-import { CADENCE_MARK_VIEWBOX, CADENCE_MARK_TRANSFORM, CADENCE_MARK_PATH } from '../assets/cadenceMark'
-
-// Favicon dynamique (2026-08-17, retour Julien : "utiliser le CadenceMark comme favicon, sa
-// couleur serait la couleur principale utilisée par l'utilisateur") : construit à la volée en
-// data-URI plutôt qu'un fichier statique, pour suivre --primary résolu (thème + couleur
-// personnalisée) sans dépendre d'un serveur d'images. `public/favicon.svg` (index.html) reste le
-// repli affiché avant que ce module ne s'exécute (notamment sur l'écran de connexion, rendu hors
-// StateProvider, voir App.tsx) : même tracé, couleur par défaut figée.
-function buildFaviconHref(color: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${CADENCE_MARK_VIEWBOX}"><path fill="${color}" d="${CADENCE_MARK_PATH}" transform="${CADENCE_MARK_TRANSFORM}"/></svg>`
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`
-}
-
 // Synchronisation temps réel générale (voir SYNCABLE plus bas) : même dérivation que pour le canal
 // Daily Standup (hooks/useDailyRealtime.ts), dupliquée volontairement ici plutôt que partagée - les
 // deux canaux restent deux connexions WebSocket distinctes (voir le commentaire dans
 // backend/src/routes/realtimeWs.ts sur ce choix).
 const SYNC_WS_BASE_URL = BASE_URL.replace(/^http/, 'ws')
-
-function applyFavicon(color: string) {
-  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
-  if (!link) {
-    link = document.createElement('link')
-    link.rel = 'icon'
-    document.head.appendChild(link)
-  }
-  link.type = 'image/svg+xml'
-  link.href = buildFaviconHref(color)
-}
 
 // Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : 5 crans de densité, valeurs alignées sur
 // les paddings d'origine de .backlog-table td/th et .kanban-card/.kanban-cards (index.css) pour le
@@ -482,49 +458,12 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
   const stateRef = useRef(state)
   stateRef.current = state
 
-  // Apply theme on state change (Phase 6bis, sous-chantier 4, 2026-08-13) : 'system' résolu via
-  // prefers-color-scheme, réévalué en direct si l'OS change de thème pendant que l'onglet est
-  // ouvert (mq 'change'). Couleur principale par thème appliquée en variable CSS inline sur
-  // <html>, seulement si personnalisée (sinon on laisse index.css gérer la valeur d'origine par
-  // thème, --primary-light dérivée en hex 8 chiffres avec alpha, même trucage que le composant
-  // ColorPicker.tsx pour un aperçu rapide sans dépendance supplémentaire).
-  useEffect(() => {
-    const mode = state.settings?.theme ?? 'light'
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const applyResolved = () => {
-      const resolved = mode === 'system' ? (mq.matches ? 'dark' : 'light') : mode
-      document.documentElement.setAttribute('data-theme', resolved)
-      const custom = resolved === 'dark' ? state.settings?.primaryColorDark : state.settings?.primaryColorLight
-      if (custom) {
-        document.documentElement.style.setProperty('--primary', custom)
-        document.documentElement.style.setProperty('--primary-light', custom + '1a')
-      } else {
-        document.documentElement.style.removeProperty('--primary')
-        document.documentElement.style.removeProperty('--primary-light')
-      }
-      // Résolu APRÈS avoir posé/retiré la variable inline ci-dessus : `getComputedStyle` reflète
-      // alors la vraie couleur affichée, personnalisée ou valeur d'origine du thème (index.css).
-      applyFavicon(getComputedStyle(document.documentElement).getPropertyValue('--primary').trim())
-    }
-    applyResolved()
-    if (mode === 'system') {
-      mq.addEventListener('change', applyResolved)
-      return () => mq.removeEventListener('change', applyResolved)
-    }
-  }, [state.settings?.theme, state.settings?.primaryColorLight, state.settings?.primaryColorDark])
-
-  // Densité d'affichage (Phase 6bis, sous-chantier 4) : 4 variables CSS pilotées depuis un seul
-  // réglage à 5 crans, plutôt qu'une variable unique : les paddings d'origine (Backlog/Kanban)
-  // n'ont pas la même échelle de base, un simple facteur multiplicatif les aurait déformés
-  // relativement les uns aux autres.
-  useEffect(() => {
-    const density = state.settings?.density ?? 'comfortable'
-    const scale = DENSITY_SCALE[density] ?? DENSITY_SCALE.comfortable
-    document.documentElement.style.setProperty('--density-th-pad', scale.th)
-    document.documentElement.style.setProperty('--density-td-pad', scale.td)
-    document.documentElement.style.setProperty('--density-card-pad', scale.cardPad)
-    document.documentElement.style.setProperty('--density-cards-gap', scale.cardsGap)
-  }, [state.settings?.density])
+  // Thème/couleur principale/densité (Phase 6bis, sous-chantier 4, 2026-08-13) : déplacés dans
+  // PersonalSettingsContext.tsx (2026-08-19, décision Julien), ces réglages sont désormais
+  // propres au compte connecté, pas au workspace partagé par ce contexte (`state.settings` reste
+  // la valeur de repli tant qu'un compte n'a rien personnalisé, voir types/index.ts,
+  // `PersonalSettings`). PersonalSettingsProvider est monté à l'intérieur de StateProvider
+  // (App.tsx) pour pouvoir lire cette valeur de repli via `useCadence()`.
 
   // ── Sync Backlog → NNL (Phase 1, sous-chantier 6, point 5, 2026-07-30) ─────
   // Quand l'`epicId` d'un item change (ItemModal, cascade de suppression d'Epic, ou la sync

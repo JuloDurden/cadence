@@ -349,6 +349,27 @@ export interface Settings {
   dashboardZonesSwapped?: boolean
 }
 
+// Préférences personnelles (2026-08-19, décision Julien : "Le thème employé et les différentes
+// préférences sont spécifiques aux utilisateurs. Un admin peut avoir une sidebar collapsée, un
+// thème sombre avec une couleur principale orange tandis qu'un dev peut avoir sa sidebar non
+// collapsée, un thème clair et une couleur principale verte"), même liste de champs que dans
+// `Settings` ci-dessus, mais persistée par COMPTE (backend `User.personalSettings`, voir
+// PersonalSettingsContext.tsx), pas dans le blob `CadenceState` partagé. Un champ absent (compte
+// qui n'a encore rien personnalisé) retombe sur la valeur workspace de `Settings` (elle-même sur
+// ses propres valeurs par défaut), voir PersonalSettingsContext.tsx pour la résolution en
+// cascade. Dashboard (widgets/orientation/split), logo d'équipe, sprints, pages de présentation
+// restent volontairement dans `Settings` (réglages d'équipe/workspace, décision Julien même jour :
+// "la disposition du Dashboard est généralisée à tout le monde"). `sidebarCollapsedDefault` n'est
+// pas repris ici : déjà propre à l'appareil/navigateur via localStorage (voir Sidebar.tsx),
+// `Settings.sidebarCollapsedDefault` n'en est que la valeur de départ au tout premier chargement.
+export interface PersonalSettings {
+  theme?: ThemeMode
+  primaryColorLight?: string
+  primaryColorDark?: string
+  density?: DisplayDensity
+  defaultStartPage?: string
+}
+
 export interface RoadmapGoal {
   id: string; sprintId: string; icon: string; color: string
   name: string; goal: string; metrics: string[]

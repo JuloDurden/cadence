@@ -73,6 +73,12 @@ export function SettingsPage() {
   // Phase 3 (roadmap v1), Mode présentation — génération/révocation du lien réservées Admin + PO
   // (décision Julien, AskUserQuestion 2026-08-01 : le PO est souvent celui qui présente en externe).
   const canManagePresentation = hasRole(userRole, 'PO')
+  // Restriction Dev (2026-08-19, décision Julien : "Un compte Dev n'a pas besoin des réglages
+  // suivants : Configuration des sprints / Logo de l'équipe / Colonnes Kanban / Tags"), 4
+  // sections de réglages d'équipe/workspace masquées pour ce rôle, contrairement au reste de
+  // l'onglet Général (Apparence : thème/couleur/densité/page de démarrage, préférences
+  // personnelles) qui reste accessible à tous.
+  const isDev = userRole === 'DEV'
   const [settings, setSettings] = useState<Settings>({ ...state.settings })
   const [cols, setCols] = useState<KanbanCol[]>([...state.kanbanCols])
   const [saved, setSaved] = useState(false)
@@ -409,7 +415,8 @@ export function SettingsPage() {
 
         {tab === 'general' && (<>
 
-        {/* Sprint settings */}
+        {/* Sprint settings, masqué pour un compte Dev, voir commentaire `isDev` ci-dessus. */}
+        {!isDev && (
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: 'var(--text)' }}>Configuration des sprints</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -435,13 +442,16 @@ export function SettingsPage() {
             </div>
           </div>
         </section>
+        )}
 
         {/* Apparence (Phase 6bis, sous-chantier 4) : thème Système + cartes visuelles, couleur
             principale par thème, logo d'équipe, densité, page de démarrage, sidebar repliée par
-            défaut, voir AppearanceSection.tsx. */}
-        <AppearanceSection settings={settings} onChange={applyAppearance} />
+            défaut, voir AppearanceSection.tsx. Logo de l'équipe (`showTeamLogo`) masqué pour un
+            compte Dev (2026-08-19), le reste de la section reste accessible à tous les rôles. */}
+        <AppearanceSection settings={settings} onChange={applyAppearance} showTeamLogo={!isDev} />
 
-        {/* Kanban columns */}
+        {/* Kanban columns, masqué pour un compte Dev, voir commentaire `isDev` ci-dessus. */}
+        {!isDev && (
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Colonnes Kanban</h3>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
@@ -462,8 +472,10 @@ export function SettingsPage() {
             ))}
           </div>
         </section>
+        )}
 
-        {/* Tags */}
+        {/* Tags, masqué pour un compte Dev, voir commentaire `isDev` ci-dessus. */}
+        {!isDev && (
         <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
           <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Tags</h3>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>
@@ -516,6 +528,7 @@ export function SettingsPage() {
             )}
           </div>
         </section>
+        )}
 
         </>)}
 

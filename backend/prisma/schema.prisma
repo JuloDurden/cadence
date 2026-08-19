@@ -25,6 +25,20 @@ model User {
   // correspondante est détectée (pas de déclaratif manuel "j'ai fait ça").
   onboardingSeenAt         DateTime?
   onboardingCompletedItems String[]  @default([])
+  // Préférences personnelles (2026-08-19, décision Julien : "Le thème employé et les différentes
+  // préférences sont spécifiques aux utilisateurs. Un admin peut avoir une sidebar collapsée, un
+  // thème sombre avec une couleur principale orange tandis qu'un dev peut avoir sa sidebar non
+  // collapsée, un thème clair et une couleur principale verte"), thème/couleur principale
+  // (claire+sombre)/densité d'affichage/page de démarrage, propres au compte, distincts de
+  // WorkspaceState.data.settings (partagé, voir types/index.ts côté frontend, `Settings` vs
+  // `PersonalSettings`). Même pattern blob JSON que WorkspaceState.data : un seul champ plutôt que
+  // des colonnes dédiées, pour rester extensible sans nouvelle migration à chaque préférence
+  // ajoutée plus tard. `null` = compte n'ayant encore rien personnalisé, repli sur la valeur
+  // workspace (voir PersonalSettingsContext.tsx, résolution en cascade). Dashboard (widgets/
+  // orientation/split), logo d'équipe, sprints, pages de présentation restent volontairement
+  // partagés (décision Julien, même jour : "la disposition du Dashboard est généralisée à tout le
+  // monde").
+  personalSettings Json?
 
   @@map("users")
 }

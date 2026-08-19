@@ -10,7 +10,9 @@ const { goTo } = require('./helpers');
 test.describe('Raccourcis clavier Ctrl+Z / Ctrl+Y (undo/redo global)', () => {
 
   test('Ctrl+Z annule la création d\'un sprint, Ctrl+Y la rétablit', async ({ page }) => {
-    await goTo(page, '/planning');
+    // role: 'PO' (2026-08-19) : ces 3 tests créent un sprint via le bouton "+ Sprint", désormais
+    // réservé PO/Scrum Master/Admin (canManageSprintLifecycle, utils/permissions.ts).
+    await goTo(page, '/planning', { role: 'PO' });
     const before = await page.locator('.planning-col').count();
 
     await page.getByRole('button', { name: 'Sprint', exact: true }).click();
@@ -27,7 +29,9 @@ test.describe('Raccourcis clavier Ctrl+Z / Ctrl+Y (undo/redo global)', () => {
   });
 
   test('Ctrl+Z ne fait rien quand le focus est dans un champ de saisie', async ({ page }) => {
-    await goTo(page, '/planning');
+    // role: 'PO' (2026-08-19) : ces 3 tests créent un sprint via le bouton "+ Sprint", désormais
+    // réservé PO/Scrum Master/Admin (canManageSprintLifecycle, utils/permissions.ts).
+    await goTo(page, '/planning', { role: 'PO' });
     const before = await page.locator('.planning-col').count();
 
     await page.getByRole('button', { name: 'Sprint', exact: true }).click();
@@ -46,7 +50,9 @@ test.describe('Raccourcis clavier Ctrl+Z / Ctrl+Y (undo/redo global)', () => {
   });
 
   test('Ctrl+Z est inactif pendant que le canevas NNL est affiché (pas de double stack)', async ({ page }) => {
-    await goTo(page, '/planning');
+    // role: 'PO' (2026-08-19) : ces 3 tests créent un sprint via le bouton "+ Sprint", désormais
+    // réservé PO/Scrum Master/Admin (canManageSprintLifecycle, utils/permissions.ts).
+    await goTo(page, '/planning', { role: 'PO' });
     const before = await page.locator('.planning-col').count();
 
     await page.getByRole('button', { name: 'Sprint', exact: true }).click();

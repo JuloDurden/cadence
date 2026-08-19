@@ -5,6 +5,7 @@ import { AuthOverrideProvider } from '../context/AuthOverrideContext'
 import { ToastProvider } from '../context/ToastContext'
 import { DialogProvider } from '../context/DialogContext'
 import { OnboardingProvider } from '../context/OnboardingContext'
+import { PersonalSettingsProvider } from '../context/PersonalSettingsContext'
 import { PresentationModeProvider, usePresentationMode } from '../context/PresentationModeContext'
 import { ChatProvider } from '../context/ChatContext'
 import { PresentationThumbnails } from '../components/presentation/PresentationThumbnails'
@@ -149,6 +150,16 @@ export function PresentationPublicPage() {
     <DialogProvider>
       <StateProvider publicToken={token}>
         <AuthOverrideProvider value={{ userRole: 'STAKEHOLDER', userName: 'Invité' }}>
+          {/* Préférences personnelles (2026-08-19) : même bug que ChatProvider ci-dessous, constaté
+              après un run E2E (les 4 tests de ce fichier échouaient tous en amont d'une vraie
+              assertion, `.hdr-page-title` introuvable). Le Header partagé appelle désormais aussi
+              `usePersonalSettings()` sans condition (voir Header.tsx) : sans ce Provider, ce
+              sous-arbre plante entièrement dès qu'une page s'affiche ici. `token: null` (voir
+              useAuth.ts/AuthOverrideProvider ci-dessus) désactive proprement le fetch
+              `/api/personal-settings` (PersonalSettingsContext.tsx), ce visiteur invité n'a de
+              toute façon aucun compte à charger ; seules les valeurs de repli `state.settings`
+              s'appliquent (thème/couleur/densité du workspace). */}
+          <PersonalSettingsProvider>
           <OnboardingProvider>
             <PresentationModeProvider>
               {/* Phase 6 (roadmap v1), Compagnon IA, 2026-08-08 : le Header partagé (rendu par
@@ -162,6 +173,7 @@ export function PresentationPublicPage() {
               </ChatProvider>
             </PresentationModeProvider>
           </OnboardingProvider>
+          </PersonalSettingsProvider>
         </AuthOverrideProvider>
       </StateProvider>
     </DialogProvider>

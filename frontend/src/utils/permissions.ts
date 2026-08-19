@@ -149,6 +149,15 @@ export function canAccessRoute(role: UserRole | '' | undefined, pathname: string
   return true
 }
 
+// Planning/Roadmap : un compte Dev ne devrait pas pouvoir créer, clôturer ou rouvrir un sprint,
+// ce sont des décisions de planification réservées au PO/Scrum Master (décision Julien,
+// 2026-08-19 : "Un compte Dev ne devrait pas pouvoir clôturer/rouvrir/créer un sprint"). Activer
+// et Supprimer un sprint restent ouverts au Dev (non visés par la demande), tout comme le
+// drag&drop d'items entre sprints et l'édition des champs opérationnels
+// (canEditBacklogOperational) : seul le cycle de vie "structurel" (créer/clôturer/rouvrir) est
+// concerné ici, pas le reste des pages Planning/Roadmap.
+export const canManageSprintLifecycle = (role: UserRole | '' | undefined) => hasRole(role, 'PO', 'SCRUM_MASTER')
+
 // Pages où un Stakeholder garde l'accès mais en lecture seule totale (aucune action d'édition) —
 // voir docs/roadmap-v1.md, Phase 2.5. Vision/NNL, Roadmap, Planning (Release Planning), Sprint
 // Planning, Kanban, Sprint Review. Backlog reste géré séparément (`canManageBacklog`/

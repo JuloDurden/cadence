@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import type { Settings, DisplayDensity } from '../../types'
 import { DENSITY_SCALE } from '../../context/StateContext'
+import { usePersonalSettings } from '../../context/PersonalSettingsContext'
+import { ImageCropModal } from '../ui/ImageCropModal'
 
 // Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : section Apparence étoffée (thème
 // Système + cartes visuelles, couleur principale par thème avec aperçu concret, logo d'équipe,
@@ -167,13 +169,22 @@ function ColorWindow({ variant, primary }: { variant: 'light' | 'dark'; primary:
   )
 }
 
-export function AppearanceSection({ settings, onChange }: { settings: Settings; onChange: (patch: Partial<Settings>) => void }) {
-  const colorLight = settings.primaryColorLight || '#4f46e5'
-  const colorDark = settings.primaryColorDark || '#7c7ff5'
-  const effectiveTheme = useEffectiveTheme(settings.theme)
-  const density = settings.density ?? 'comfortable'
+export function AppearanceSection({ settings, onChange, showTeamLogo = true }: { settings: Settings; onChange: (patch: Partial<Settings>) => void; showTeamLogo?: boolean }) {
+  // Thème/couleur principale/densité/page de démarrage devenus des préférences personnelles
+  // (2026-08-19, décision Julien), lus/écrits directement via PersonalSettingsContext.tsx plutôt
+  // que par les props `settings`/`onChange` (qui restent réservées aux réglages partagés : Logo
+  // d'équipe, Sidebar repliée par défaut, voir plus bas). `effective` résout déjà le repli sur la
+  // valeur workspace pour un compte qui n'a encore rien personnalisé.
+  const { effective: personal, updatePersonal } = usePersonalSettings()
+  const colorLight = personal.primaryColorLight || '#4f46e5'
+  const colorDark = personal.primaryColorDark || '#7c7ff5'
+  const effectiveTheme = useEffectiveTheme(personal.theme)
+  const density = personal.density
   const densityIndex = DENSITY_ORDER.indexOf(density)
   const scale = DENSITY_SCALE[density]
+  // Recadrage du logo (2026-08-19, retour Julien) : image brute en attente de recadrage, voir
+  // ImageCropModal.tsx plus bas.
+  const [logoCropSrc, setLogoCropSrc] = useState<string | null>(null)
 
   return (
     <>
@@ -184,12 +195,12 @@ export function AppearanceSection({ settings, onChange }: { settings: Settings; 
           Système suit le réglage clair/sombre de l'appareil et bascule automatiquement.
         </p>
         <div style={{ display: 'flex', gap: 12 }}>
-          <ThemeCard id="system" label="Système" icon={ICO_MONITOR} active={settings.theme === 'system'}
-            onClick={() => { applyThemeAttrLive('system'); onChange({ theme: 'system' }) }} />
-          <ThemeCard id="light" label="Clair" icon={ICO_SUN} active={settings.theme === 'light'}
-            onClick={() => { applyThemeAttrLive('light'); onChange({ theme: 'light' }) }} />
-          <ThemeCard id="dark" label="Sombre" icon={ICO_MOON} active={settings.theme === 'dark'}
-            onClick={() => { applyThemeAttrLive('dark'); onChange({ theme: 'dark' }) }} />
+          <ThemeCard id="system" label="Système" icon={ICO_MONITOR} active={personal.theme === 'system'}
+            onClick={() => { applyThemeAttrLive('system'); updatePersonal({ theme: 'system' }) }} />
+          <ThemeCard id="light" label="Clair" icon={ICO_SUN} active={personal.theme === 'light'}
+            onClick={() => { applyThemeAttrLive('light'); updatePersonal({ theme: 'light' }) }} />
+          <ThemeCard id="dark" label="Sombre" icon={ICO_MOON} active={personal.theme === 'dark'}
+            onClick={() => { applyThemeAttrLive('dark'); updatePersonal({ theme: 'dark' }) }} />
         </div>
       </section>
 
@@ -199,7 +210,7 @@ export function AppearanceSection({ settings, onChange }: { settings: Settings; 
       <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
         <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Couleur principale</h3>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
-          Une couleur dédiée par thème, pour garder un bon contraste en sombre. Le réglage affiché suit le thème actuellement affiché ({effectiveTheme === 'light' ? 'Clair' : 'Sombre'}{settings.theme === 'system' ? ', via Système' : ''}).
+          Une couleur dédiée par thème, pour garder un bon contraste en sombre. Le réglage affiché suit le thème actuellement affiché ({effectiveTheme === 'light' ? 'Clair' : 'Sombre'}{personal.theme === 'system' ? ', via Système' : ''}).
         </p>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
           <div style={{ flex: 1, minWidth: 220 }}>
@@ -208,18 +219,18 @@ export function AppearanceSection({ settings, onChange }: { settings: Settings; 
             </label>
             {effectiveTheme === 'light' ? (
               <>
-                <ColorSwatchRow palette={PALETTE_LIGHT} value={colorLight} onPick={c => onChange({ primaryColorLight: c })} />
+                <ColorSwatchRow palette={PALETTE_LIGHT} value={colorLight} onPick={c => updatePersonal({ primaryColorLight: c })} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                  <input type="color" data-testid="primary-color-light" value={colorLight} onChange={e => onChange({ primaryColorLight: e.target.value })}
+                  <input type="color" data-testid="primary-color-light" value={colorLight} onChange={e => updatePersonal({ primaryColorLight: e.target.value })}
                     style={{ width: 26, height: 26, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer' }} />
                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{colorLight.toUpperCase()}</span>
                 </div>
               </>
             ) : (
               <>
-                <ColorSwatchRow palette={PALETTE_DARK} value={colorDark} onPick={c => onChange({ primaryColorDark: c })} />
+                <ColorSwatchRow palette={PALETTE_DARK} value={colorDark} onPick={c => updatePersonal({ primaryColorDark: c })} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                  <input type="color" data-testid="primary-color-dark" value={colorDark} onChange={e => onChange({ primaryColorDark: e.target.value })}
+                  <input type="color" data-testid="primary-color-dark" value={colorDark} onChange={e => updatePersonal({ primaryColorDark: e.target.value })}
                     style={{ width: 26, height: 26, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 6, cursor: 'pointer' }} />
                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{colorDark.toUpperCase()}</span>
                 </div>
@@ -232,33 +243,61 @@ export function AppearanceSection({ settings, onChange }: { settings: Settings; 
         </div>
       </section>
 
-      {/* Logo */}
+      {/* Logo (retour Julien, 2026-08-19 : "la zone pour changer de logo n'a plus besoin
+          d'afficher les initiales ACT", plus de pastille de repli avec initiales, seulement un
+          bouton d'upload et, si un logo est chargé, sa prévisualisation, rien de plus). Réglage
+          d'équipe/workspace, pas une préférence personnelle : masqué pour un compte Dev, voir
+          `showTeamLogo` (SettingsPage.tsx, décision Julien même jour), contrairement au reste de
+          cette section (Thème/Couleur/Réglages d'affichage) qui reste visible à tous les rôles.
+          Recadrage (déplacement + zoom, même retour Julien, même jour) : réutilise
+          ImageCropModal.tsx (extrait de TeamPage.tsx), `shape="square"` (pas de clip circulaire
+          baké dans l'image exportée, contrairement aux photos de profil, chaque contexte
+          d'affichage du logo a son propre arrondi CSS). */}
+      {showTeamLogo && (
       <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
         <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Logo de l'équipe</h3>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
-          Remplace les initiales par défaut dans la Sidebar (et, à terme, en Mode présentation et à l'export).
+          Affiché dans la Sidebar (et, à terme, en Mode présentation et à l'export).
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div data-testid="logo-preview" style={{ width: 44, height: 44, borderRadius: 10, background: colorLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 13, overflow: 'hidden', flexShrink: 0 }}>
-            {settings.logoDataUrl ? <img src={settings.logoDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : 'ACT'}
-          </div>
+          {settings.logoDataUrl && (
+            <div data-testid="logo-preview" style={{ width: 44, height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, border: '1px solid var(--border)' }}>
+              <img src={settings.logoDataUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={{ fontSize: 12, padding: '6px 12px', border: '1px solid var(--border-strong)', borderRadius: 8, cursor: 'pointer', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <Svg d={ICO_UPLOAD} size={13} />Changer le logo
-              <input type="file" accept="image/*" data-testid="logo-upload-input" style={{ display: 'none' }} onChange={e => {
-                const file = e.target.files?.[0]; if (!file) return
-                const reader = new FileReader()
-                reader.onload = ev => onChange({ logoDataUrl: ev.target?.result as string })
-                reader.readAsDataURL(file)
-                e.target.value = ''
-              }} />
-            </label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <label style={{ fontSize: 12, padding: '6px 12px', border: '1px solid var(--border-strong)', borderRadius: 8, cursor: 'pointer', textAlign: 'center', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <Svg d={ICO_UPLOAD} size={13} />{settings.logoDataUrl ? 'Changer le logo' : 'Uploader un logo'}
+                <input type="file" accept="image/*" data-testid="logo-upload-input" style={{ display: 'none' }} onChange={e => {
+                  const file = e.target.files?.[0]; if (!file) return
+                  const reader = new FileReader()
+                  reader.onload = ev => setLogoCropSrc(ev.target?.result as string)
+                  reader.readAsDataURL(file)
+                  e.target.value = ''
+                }} />
+              </label>
+            </div>
             {settings.logoDataUrl && (
-              <span data-testid="logo-remove-btn" onClick={() => onChange({ logoDataUrl: undefined })} style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Retirer</span>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <span data-testid="logo-recrop-btn" onClick={() => setLogoCropSrc(settings.logoDataUrl!)} style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Recadrer</span>
+                <span data-testid="logo-remove-btn" onClick={() => onChange({ logoDataUrl: undefined })} style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', textDecoration: 'underline' }}>Retirer</span>
+              </div>
             )}
           </div>
         </div>
       </section>
+      )}
+
+      {logoCropSrc && (
+        <ImageCropModal
+          src={logoCropSrc}
+          shape="square"
+          title="Recadrer le logo"
+          onConfirm={cropped => { onChange({ logoDataUrl: cropped }); setLogoCropSrc(null) }}
+          onCancel={() => setLogoCropSrc(null)}
+        />
+      )}
 
       {/* Réglages d'affichage */}
       <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
@@ -267,7 +306,7 @@ export function AppearanceSection({ settings, onChange }: { settings: Settings; 
         <div style={{ marginBottom: 18 }}>
           <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>Densité</label>
           <input type="range" data-testid="density-slider" min={0} max={4} step={1} value={densityIndex}
-            onChange={e => onChange({ density: DENSITY_ORDER[+e.target.value] })}
+            onChange={e => updatePersonal({ density: DENSITY_ORDER[+e.target.value] })}
             style={{ width: '100%' }} />
           <div data-testid="density-label" style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, marginTop: 4 }}>{DENSITY_LABELS[density]}</div>
           <div style={{ marginTop: 10, background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -285,8 +324,8 @@ export function AppearanceSection({ settings, onChange }: { settings: Settings; 
             <div style={{ fontSize: 12, fontWeight: 600 }}>Page de démarrage</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Page affichée après connexion, prend effet à la prochaine connexion</div>
           </div>
-          <select className="form-input" data-testid="start-page-select" value={settings.defaultStartPage || '/backlog'}
-            onChange={e => onChange({ defaultStartPage: e.target.value })} style={{ width: 'auto', fontSize: 12 }}>
+          <select className="form-input" data-testid="start-page-select" value={personal.defaultStartPage}
+            onChange={e => updatePersonal({ defaultStartPage: e.target.value })} style={{ width: 'auto', fontSize: 12 }}>
             {START_PAGE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>

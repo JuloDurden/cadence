@@ -1,4 +1,4 @@
-import type { AiConfig, AiToolCall, ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, JiraConfig, JiraIssueSummary, JiraProject, ManagedUser, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
+import type { AiConfig, AiToolCall, ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, JiraConfig, JiraIssueSummary, JiraProject, ManagedUser, PersonalSettings, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
 
 // Exporte (2026-08-18) : hooks/useDailyRealtime.ts en derive l'URL du WebSocket dedie (meme hote,
 // schema ws/wss) plutot que de dupliquer la lecture de VITE_API_URL et sa valeur par defaut.
@@ -110,6 +110,13 @@ export const api = {
   // zéro sans toucher `onboardingSeenAt` (ne redéclenche pas l'ouverture automatique, ce n'est pas
   // le même concept que "je n'ai encore rien vu").
   resetOnboarding: () => request<{ onboardingCompletedItems: string[] }>('/api/onboarding/reset', { method: 'POST' }),
+  // Préférences personnelles (2026-08-19, décision Julien, voir backend/src/routes/
+  // personalSettings.ts) : thème/couleur principale/densité/page de démarrage propres au compte
+  // connecté. `updatePersonalSettings` envoie un patch partiel, fusionné côté serveur (jamais un
+  // remplacement complet), même convention que `onChange(patch: Partial<Settings>)` côté frontend.
+  getPersonalSettings: () => request<{ personalSettings: PersonalSettings | null }>('/api/personal-settings'),
+  updatePersonalSettings: (patch: Partial<PersonalSettings>) =>
+    request<{ personalSettings: PersonalSettings }>('/api/personal-settings', { method: 'PATCH', body: JSON.stringify(patch) }),
   // Phase 3 (roadmap v1), Mode présentation — lien de partage public réservé Admin + PO côté
   // serveur (voir backend/src/routes/presentation.ts). Un seul lien actif à la fois : `create`
   // régénère (invalide l'ancien), `revoke` supprime sans en recréer un.

@@ -227,8 +227,12 @@ body {
   padding: 16px 14px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
 .sidebar.collapsed .sidebar-header { justify-content: center; padding: 14px 0; }
+/* Fond du cadre (2026-08-19, retour Julien : "s'il y a un logo, pas besoin de laisser la couleur
+   principale en fond, on reste sur la couleur du fond de la sidebar") : var(--surface), pas
+   var(--primary), pour qu'un logo à fond transparent se fonde dans la Sidebar plutôt que de
+   flotter sur un carré coloré. */
 .logo-icon {
-  width: 28px; height: 28px; background: var(--primary); border-radius: 7px;
+  width: 28px; height: 28px; background: var(--surface); border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-weight: 700; font-size: 10px; flex-shrink: 0; overflow: hidden;
 }
@@ -606,6 +610,29 @@ body {
 }
 .form-select { appearance: none; padding-right: 24px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236e6e73'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
 textarea { resize: vertical; min-height: 72px; }
+/* Champs non modifiables mais consultables (retour Julien, 2026-08-19 : "Les zones non
+   modifiables mais consultables d'un compte Dev, comme les champs de l'ItemModal, devraient
+   être grisées [...] et/ou signalées non modifiables"). Traitement CSS global sur `:disabled`
+   plutôt que champ par champ : ItemModal.tsx (et d'autres pages) posent déjà largement
+   `disabled={!canManage}` / `disabled={!canEditOps}` (voir utils/permissions.ts) sans override
+   visuel dédié jusqu'ici, un champ désactivé restait donc visuellement identique à un champ
+   éditable à part le curseur par défaut du navigateur. `background-color` (pas le raccourci
+   `background`) pour ne pas effacer le chevron de `.form-select` (background-image). */
+.form-input:disabled, input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):disabled,
+select:disabled, textarea:disabled {
+  background-color: var(--surface-alt);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: .75;
+}
+input[type="checkbox"]:disabled, input[type="radio"]:disabled, input[type="range"]:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+/* Filet générique pour les boutons sans style `:disabled` dédié (scoring-tab-btn,
+   assignee-member-chip, hdr-ctx-btn...), les classes qui ont déjà leur propre règle
+   `:disabled` (`.btn-primary`, `.hdr-btn`) restent prioritaires (spécificité CSS supérieure). */
+button:disabled { opacity: .45; cursor: not-allowed; }
 /* Garde-fou global (retour Julien, 2026-07-29) : les options d'un <select> ne doivent jamais
    être en gras, sur aucune page — sécurité si un poids de police venait à être hérité du
    select parent (c'était le cas du bloc de filtres du Backlog, désormais retiré). */

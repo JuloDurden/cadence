@@ -12,7 +12,7 @@ import { getCurrentSprint } from '../utils/sprints'
 import { cascadeSprintDates } from '../utils/dates'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade, buildSprintCloseNotification, buildDependencyBlockNotification } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
-import { isReadOnlyForRole } from '../utils/permissions'
+import { isReadOnlyForRole, canManageSprintLifecycle } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { attachItemsToEpics, detachOrphanedEpics, epicsWithPlaceholder } from '../utils/hierarchyScore'
@@ -64,6 +64,10 @@ export function PlanningPage() {
   // handler mutant a un garde-fou en plus des boutons/drag déjà masqués côté UI (défense en
   // profondeur, voir utils/permissions.ts).
   const readOnly = isReadOnlyForRole(userRole)
+  // Restriction Dev (2026-08-19, décision Julien) : créer/clôturer/rouvrir un sprint réservé
+  // PO/Scrum Master (+ Admin), voir utils/permissions.ts, `canManageSprintLifecycle`. Distinct de
+  // `readOnly` ci-dessus : un Dev garde le drag&drop et l'édition opérationnelle des items.
+  const canManageSprintLC = canManageSprintLifecycle(userRole)
   const { confirm, alert } = useDialog()
   const [view, setView] = useState<View>('grid')
   const [highlightClient, setHighlightClient] = useState('')
@@ -159,7 +163,7 @@ export function PlanningPage() {
   }
 
   async function handleClose(sprintId: string) {
-    if (readOnly) return
+    if (readOnly || !canManageSprintLC) return
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     // Chantier G (2026-07-23) : même garde-fou que Roadmap — voir commentaire là-bas.
@@ -183,7 +187,7 @@ export function PlanningPage() {
   }
 
   function handleReopen(sprintId: string) {
-    if (readOnly) return
+    if (readOnly || !canManageSprintLC) return
     const sp = state.sprints.find(s => s.id === sprintId)
     if (!sp) return
     const updatedSprints = reopenSprint(state.sprints, sprintId)
@@ -273,7 +277,7 @@ export function PlanningPage() {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   }
   function addSprint() {
-    if (readOnly) return
+    if (readOnly || !canManageSprintLC) return
     const last = state.sprints[state.sprints.length - 1]
     const workingDays = state.settings.sprintDuration ?? 2
     const startDate = last ? nextMonday(last.endDate) : (() => {
@@ -374,8 +378,8 @@ export function PlanningPage() {
           </button>
         )}
 
-        {!readOnly && (
-          <button className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        {!readOnly && canManageSprintLC && (
+          <button data-testid="btn-add-sprint" className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <ViewIco d={ICO_PLUS} /> Sprint
           </button>
         )}
@@ -422,6 +426,7 @@ export function PlanningPage() {
                   onDelete={handleDeleteSprint}
                   onUpdateCapacity={handleUpdateCapacity}
                   readOnly={readOnly}
+                  canManageLifecycle={canManageSprintLC}
                 />
               ))}
             </div>

@@ -7,7 +7,7 @@ import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade, buildSprintCloseNotification, buildDependencyBlockNotification } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
-import { isReadOnlyForRole } from '../utils/permissions'
+import { isReadOnlyForRole, canManageSprintLifecycle } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { getEpicSP, attachItemsToEpics } from '../utils/hierarchyScore'
@@ -115,6 +115,11 @@ export function RoadmapPage() {
   // utils/permissions.ts, `isReadOnlyForRole`) : le groupe de boutons d'action (Modifier
   // l'objectif, Activer/Clôturer/Rouvrir, Supprimer) est masqué en bloc, ainsi que "+ Sprint".
   const readOnly = isReadOnlyForRole(userRole)
+  // Restriction Dev (2026-08-19, décision Julien) : créer/clôturer/rouvrir un sprint réservé
+  // PO/Scrum Master (+ Admin), voir utils/permissions.ts, `canManageSprintLifecycle` (même
+  // gate que PlanningPage.tsx). Activer/Supprimer/Modifier l'objectif restent gérés par `readOnly`
+  // seul (Stakeholder), non concernés par cette restriction.
+  const canManageSprintLC = canManageSprintLifecycle(userRole)
   const { confirm, alert } = useDialog()
   const [groupBy, setGroupBy] = useState<'client' | 'group'>('client')
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
@@ -137,6 +142,7 @@ export function RoadmapPage() {
     }
   }
   async function handleClose(sprintId: string) {
+    if (readOnly || !canManageSprintLC) return
     const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
     // Chantier G (2026-07-23) : filet de sécurité — bloque la clôture si des items non terminés
     // n'ont pas encore de décision Sprint Review appliquée (Reporter/Annuler/Redimensionner).
@@ -161,6 +167,7 @@ export function RoadmapPage() {
     api.notifySlackSprintClose(buildSprintCloseNotification(state, updated)).catch(() => {})
   }
   function handleReopen(sprintId: string) {
+    if (readOnly || !canManageSprintLC) return
     const sp = state.sprints.find(s => s.id === sprintId); if (!sp) return
     const updatedSprints = reopenSprint(state.sprints, sprintId)
     const updated = updatedSprints.find(s => s.id === sprintId)!
@@ -291,6 +298,7 @@ export function RoadmapPage() {
   }
 
   function addSprint() {
+    if (readOnly || !canManageSprintLC) return
     const maxNum = state.sprints.length > 0 ? Math.max(...state.sprints.map(s => s.number)) : 0
     const num = maxNum + 1
     const id = 's' + uid()
@@ -340,7 +348,7 @@ export function RoadmapPage() {
         </div>
       )}
 
-      {!readOnly && (
+      {!readOnly && canManageSprintLC && (
         <button data-testid="btn-add-sprint" className="hdr-btn primary" onClick={addSprint} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <ViewIco d={ICO_PLUS} /> Sprint
         </button>
@@ -411,17 +419,21 @@ export function RoadmapPage() {
                     </>
                   )}
                   {sprint.closed ? (
-                    <button onClick={e => { e.stopPropagation(); handleReopen(sprint.id) }} title="Rouvrir le sprint"
-                      style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
-                        padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
-                      <ViewIco d={ICO_LOCK_OPEN} />
-                    </button>
+                    canManageSprintLC && (
+                      <button onClick={e => { e.stopPropagation(); handleReopen(sprint.id) }} title="Rouvrir le sprint"
+                        style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                          padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                        <ViewIco d={ICO_LOCK_OPEN} />
+                      </button>
+                    )
                   ) : isActive ? (
-                    <button onClick={e => { e.stopPropagation(); handleClose(sprint.id) }} title="Clôturer le sprint"
-                      style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
-                        padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
-                      <ViewIco d={ICO_LOCK} />
-                    </button>
+                    canManageSprintLC && (
+                      <button onClick={e => { e.stopPropagation(); handleClose(sprint.id) }} title="Clôturer le sprint"
+                        style={{ background: 'rgba(255,255,255,.15)', border: 'none', cursor: 'pointer',
+                          padding: '0 8px', height: 26, display: 'flex', alignItems: 'center', color: '#fff' }}>
+                        <ViewIco d={ICO_LOCK} />
+                      </button>
+                    )
                   ) : (
                     <>
                       <button onClick={e => { e.stopPropagation(); handleActivate(sprint.id) }} title="Activer le sprint"

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useCadence } from '../../context/StateContext'
+import { usePersonalSettings } from '../../context/PersonalSettingsContext'
 import { USER_ROLE_LABELS } from '../../types'
 import { canAccessRoute } from '../../utils/permissions'
 import { useOnboarding } from '../../context/OnboardingContext'
@@ -147,7 +148,8 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
   // du compte réellement connecté.
   const initial = (userName || 'A').trim().charAt(0).toUpperCase() || 'A'
   const roleLabel = userRole ? USER_ROLE_LABELS[userRole] : null
-  const { state, dispatch, saveToServer, undo, redo, canUndo, canRedo } = useCadence()
+  const { state, undo, redo, canUndo, canRedo } = useCadence()
+  const { effective: personalEffective, updatePersonal } = usePersonalSettings()
   // Phase 3 (roadmap v1), Mode présentation — bouton visible seulement sur les pages présentables
   // configurées (Réglages, voir data/presentablePages.ts et PresentationModeContext.tsx), pour un
   // compte déjà connecté.
@@ -166,12 +168,13 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
   useClickOutside(notifRef, () => setNotifOpen(false))
   useClickOutside(profileRef, () => setProfileOpen(false))
 
-  const isDark = state.settings?.theme === 'dark'
+  // Thème devenu une préférence personnelle (2026-08-19, décision Julien), voir
+  // PersonalSettingsContext.tsx, ce raccourci bascule désormais le compte connecté seul, plus le
+  // workspace entier.
+  const isDark = personalEffective.theme === 'dark'
 
   function toggleTheme() {
-    const next = isDark ? 'light' : 'dark'
-    dispatch({ type: 'UPDATE_SETTINGS', payload: { ...state.settings, theme: next } })
-    saveToServer({ ...state, settings: { ...state.settings, theme: next } })
+    updatePersonal({ theme: isDark ? 'light' : 'dark' })
   }
 
   function handleLogout() {

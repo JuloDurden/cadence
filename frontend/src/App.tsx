@@ -22,6 +22,7 @@ import { TimerProvider } from './context/TimerContext'
 import { ToastProvider } from './context/ToastContext'
 import { DialogProvider } from './context/DialogContext'
 import { OnboardingProvider } from './context/OnboardingContext'
+import { PersonalSettingsProvider, usePersonalSettings } from './context/PersonalSettingsContext'
 import { OnboardingPanel } from './components/onboarding/OnboardingPanel'
 import { SpotlightHost } from './components/onboarding/Spotlight'
 import { ChatProvider } from './context/ChatContext'
@@ -39,13 +40,16 @@ import { canAccessRoute } from './utils/permissions'
 // silencieusement écrasée dès que la réponse arrivait (SET_STATE remplace tout l'état) — bug
 // constaté sur Sprint Review le 2026-07-22 (voir docs/corrections.md), mais la course concerne en
 // réalité toute l'application. On bloque donc l'affichage éditable tant que stateLoaded est faux.
-// Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : page de démarrage réglable
-// (`settings.defaultStartPage`, Réglages). LoginPage navigue toujours vers "/" sans rien savoir de
-// ce réglage, cette route se charge seule de résoudre la vraie destination une fois l'état chargé
-// (AppShell garde déjà l'affichage tant que `stateLoaded` est faux, voir plus bas).
+// Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : page de démarrage réglable. Devenue une
+// préférence personnelle (2026-08-19, décision Julien, voir PersonalSettingsContext.tsx), repli
+// sur la valeur workspace (`state.settings.defaultStartPage`) puis '/backlog' si le compte n'a
+// rien personnalisé, résolution déjà faite par `effective` ci-dessous. LoginPage navigue toujours
+// vers "/" sans rien savoir de ce réglage, cette route se charge seule de résoudre la vraie
+// destination une fois l'état chargé (AppShell garde déjà l'affichage tant que `stateLoaded` est
+// faux, voir plus bas).
 function StartRedirect() {
-  const { state } = useCadence()
-  return <Navigate to={state.settings?.defaultStartPage || '/backlog'} replace />
+  const { effective } = usePersonalSettings()
+  return <Navigate to={effective.defaultStartPage} replace />
 }
 
 function AppShell() {
@@ -128,6 +132,10 @@ function AppLayout() {
     <DialogProvider>
     <TimerProvider>
       <StateProvider>
+        {/* Préférences personnelles (2026-08-19) : monté À L'INTÉRIEUR de StateProvider, la
+            résolution en cascade (PersonalSettingsContext.tsx) a besoin de `state.settings`
+            (workspace) comme valeur de repli tant qu'un compte n'a rien personnalisé. */}
+        <PersonalSettingsProvider>
         <OnboardingProvider>
           <PresentationModeProvider>
             <ChatProvider>
@@ -135,6 +143,7 @@ function AppLayout() {
             </ChatProvider>
           </PresentationModeProvider>
         </OnboardingProvider>
+        </PersonalSettingsProvider>
       </StateProvider>
     </TimerProvider>
     </DialogProvider>

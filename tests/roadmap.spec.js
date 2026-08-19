@@ -25,7 +25,10 @@ test.describe('Roadmap — Header unifié (v0.86)', () => {
   });
 
   test('le bouton + Sprint est présent dans le header', async ({ page }) => {
-    await goTo(page, '/roadmap');
+    // role: 'PO' (2026-08-19) : le bouton "+ Sprint" est désormais réservé PO/Scrum Master/Admin
+    // (voir canManageSprintLifecycle, utils/permissions.ts) ; sans rôle explicite, goTo() ne pose
+    // aucun `cadence_user_role`, ce qui équivaut à un rôle vide et masque le bouton.
+    await goTo(page, '/roadmap', { role: 'PO' });
     // data-testid pour éviter l'ambiguïté avec le bouton "Sprints" du toggle
     await expect(page.locator('[data-testid="btn-add-sprint"]')).toBeVisible();
   });
@@ -147,7 +150,8 @@ test.describe('Roadmap — Groupement Epic dans les cartes sprint (v0.86)', () =
   });
 
   test('cliquer sur + Sprint dans le header ajoute une carte', async ({ page }) => {
-    await goTo(page, '/roadmap');
+    // role: 'PO' : ce test crée un sprint via le bouton "+ Sprint" (restriction Dev, 2026-08-19).
+    await goTo(page, '/roadmap', { role: 'PO' });
     const before = await page.locator('.roadmap-goal').count();
     await page.locator('[data-testid="btn-add-sprint"]').click();
     await page.waitForTimeout(300);
@@ -177,7 +181,8 @@ test.describe('Roadmap — Suppression d\'un sprint (2026-07-27)', () => {
   });
 
   test('un sprint nouvellement créé (vide, non actif, non clôturé) peut être supprimé', async ({ page }) => {
-    await goTo(page, '/roadmap');
+    // role: 'PO' : ce test crée un sprint via le bouton "+ Sprint" (restriction Dev, 2026-08-19).
+    await goTo(page, '/roadmap', { role: 'PO' });
     const before = await page.locator('.roadmap-goal').count();
     await page.locator('[data-testid="btn-add-sprint"]').click();
     await page.waitForTimeout(300);
@@ -203,6 +208,33 @@ test.describe('Roadmap — Suppression d\'un sprint (2026-07-27)', () => {
     // L'item n'a pas été supprimé avec le sprint : il doit réapparaître dans le Backlog
     await goTo(page, '/backlog');
     await expect(page.locator('.page-content')).toContainText('Tests E2E composants React v3');
+  });
+
+});
+
+// Restriction Dev (2026-08-19, décision Julien : "Un compte Dev ne devrait pas pouvoir clôturer/
+// rouvrir/créer un sprint"), voir utils/permissions.ts, `canManageSprintLifecycle`, même
+// restriction que Release Planning (tests/planning.spec.js). Activer/Modifier l'objectif/
+// Supprimer restent ouverts au Dev (non testés ici, hors périmètre de cette demande).
+test.describe('Roadmap - restriction Dev sur le cycle de vie des sprints (2026-08-19)', () => {
+
+  test('un compte Dev ne voit pas le bouton "+ Sprint"', async ({ page }) => {
+    await goTo(page, '/roadmap', { role: 'DEV' });
+    await expect(page.locator('[data-testid="btn-add-sprint"]')).toHaveCount(0);
+  });
+
+  test('un compte Dev ne voit pas "Rouvrir le sprint" sur le sprint clôturé (Sprint 1, demo.ts)', async ({ page }) => {
+    await goTo(page, '/roadmap', { role: 'DEV' });
+    const sprint1Card = page.locator('.roadmap-goal').first();
+    await expect(sprint1Card).toContainText('Clôturé');
+    await expect(sprint1Card.locator('button[title="Rouvrir le sprint"]')).toHaveCount(0);
+  });
+
+  test('un PO voit toujours "+ Sprint" et "Rouvrir le sprint"', async ({ page }) => {
+    await goTo(page, '/roadmap', { role: 'PO' });
+    await expect(page.locator('[data-testid="btn-add-sprint"]')).toBeVisible();
+    const sprint1Card = page.locator('.roadmap-goal').first();
+    await expect(sprint1Card.locator('button[title="Rouvrir le sprint"]')).toBeVisible();
   });
 
 });

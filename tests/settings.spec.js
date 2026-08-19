@@ -203,10 +203,15 @@ test.describe('Réglages', () => {
       await expect.poll(iconHref).toContain('fill="#059669"');
     });
 
-    test('affiche le logo par défaut (initiales) et le bouton de retrait est absent tant qu\'aucun logo n\'est chargé', async ({ page }) => {
+    // Simplifié (2026-08-19, retour Julien : "la zone pour changer de logo n'a plus besoin
+    // d'afficher les initiales ACT [...] un bouton pour uploader son logo et, si un logo est
+    // chargé, une prévisualisation de son logo, pas plus") : plus de pastille de repli avec
+    // initiales tant qu'aucun logo n'est chargé, `logo-preview` n'existe alors plus du tout.
+    test('n\'affiche aucune prévisualisation ni bouton de retrait tant qu\'aucun logo n\'est chargé', async ({ page }) => {
       await goTo(page, '/settings');
-      await expect(page.locator('[data-testid="logo-preview"]')).toContainText('ACT');
+      await expect(page.locator('[data-testid="logo-preview"]')).toHaveCount(0);
       await expect(page.locator('[data-testid="logo-remove-btn"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="logo-upload-input"]')).toHaveCount(1);
     });
 
     // Sidebar (2026-08-17, retour Julien : "le logo-icon, si aucun logo n'est chargé, soit le
@@ -280,24 +285,29 @@ test.describe('Réglages', () => {
       await expect.poll(() => clientCardBody.evaluate(el => getComputedStyle(el).paddingTop)).toBe('6px');
     });
 
+    // Page de démarrage devenue une préférence personnelle (2026-08-19, décision Julien, voir
+    // PersonalSettingsContext.tsx) : sauvegardée via PATCH /api/personal-settings, plus PUT
+    // /api/state (qui reste réservé aux réglages partagés, voir plus haut dans ce fichier).
     test('changer la page de démarrage envoie la sauvegarde (anti-rebond 400ms), sans cliquer sur "Enregistrer"', async ({ page }) => {
       await goTo(page, '/settings');
       const [request] = await Promise.all([
-        page.waitForRequest(r => r.url().includes('/api/state') && r.method() === 'PUT'),
+        page.waitForRequest(r => r.url().includes('/api/personal-settings') && r.method() === 'PATCH'),
         page.locator('[data-testid="start-page-select"]').selectOption('/kanban'),
       ]);
       const body = request.postDataJSON();
-      expect(body.data.settings.defaultStartPage).toBe('/kanban');
+      expect(body.defaultStartPage).toBe('/kanban');
     });
 
     // docs/corrections futures.md, Réglages (suite), 2026-08-17 : chaque étape d'un geste continu
     // (glisser le curseur de densité) déclenchait jusque-là un PUT /api/state complet. Un seul
-    // envoi, 400ms après le dernier changement, plutôt qu'un par étape intermédiaire.
+    // envoi, 400ms après le dernier changement, plutôt qu'un par étape intermédiaire. Densité
+    // devenue une préférence personnelle (2026-08-19) : même anti-rebond, sur PATCH
+    // /api/personal-settings désormais (voir PersonalSettingsContext.tsx).
     test('plusieurs changements rapprochés du curseur de densité ne déclenchent qu\'une seule sauvegarde', async ({ page }) => {
       await goTo(page, '/settings');
-      let putCount = 0;
+      let patchCount = 0;
       page.on('request', r => {
-        if (r.url().includes('/api/state') && r.method() === 'PUT') putCount++;
+        if (r.url().includes('/api/personal-settings') && r.method() === 'PATCH') patchCount++;
       });
 
       const slider = page.locator('[data-testid="density-slider"]');
@@ -310,7 +320,7 @@ test.describe('Réglages', () => {
 
       // Au-delà de la fenêtre d'anti-rebond (400ms) pour laisser la sauvegarde partir.
       await page.waitForTimeout(600);
-      expect(putCount).toBe(1);
+      expect(patchCount).toBe(1);
     });
 
     test('activer la sidebar repliée par défaut replie immédiatement la Sidebar affichée', async ({ page }) => {
@@ -1229,6 +1239,68 @@ test.describe('Réglages', () => {
       await expect(page.locator('[data-testid="ai-connect-btn"]')).toBeVisible();
     });
 
+  });
+
+});
+
+// Restriction Dev (2026-08-19, décision Julien : "Un compte Dev n'a pas besoin des réglages
+// suivants : Configuration des sprints / Logo de l'équipe / Colonnes Kanban / Tags"), masquées
+// dans l'onglet Général uniquement (le reste de la section Apparence, thème/couleur/densité/page
+// de démarrage, reste accessible : ce sont désormais des préférences personnelles, voir plus bas).
+test.describe('Réglages - sections masquées pour un compte Dev (2026-08-19)', () => {
+
+  test('un compte Dev ne voit ni Configuration des sprints, ni Logo de l\'équipe, ni Colonnes Kanban, ni Tags', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'DEV' });
+    await expect(page.getByText('Configuration des sprints')).toHaveCount(0);
+    await expect(page.getByText('Logo de l\'équipe')).toHaveCount(0);
+    await expect(page.getByText('Colonnes Kanban')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Tags' })).toHaveCount(0);
+    // Le reste de la section Apparence reste accessible à un Dev.
+    await expect(page.getByText('Thème', { exact: true })).toBeVisible();
+    await expect(page.getByText('Réglages d\'affichage')).toBeVisible();
+  });
+
+  test('un PO voit toujours ces 4 sections', async ({ page }) => {
+    await goTo(page, '/settings', { role: 'PO' });
+    await expect(page.getByText('Configuration des sprints')).toBeVisible();
+    await expect(page.getByText('Logo de l\'équipe')).toBeVisible();
+    await expect(page.getByText('Colonnes Kanban')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tags' })).toBeVisible();
+  });
+
+});
+
+// Préférences personnelles (2026-08-19, décision Julien : "Le thème employé et les différentes
+// préférences sont spécifiques aux utilisateurs"), thème/couleur/densité/page de démarrage
+// chargés/sauvegardés via /api/personal-settings (par compte), plus /api/state (workspace
+// partagé). Voir PersonalSettingsContext.tsx.
+test.describe('Réglages - préférences personnelles par compte (2026-08-19)', () => {
+
+  test('le thème est chargé depuis /api/personal-settings, pas depuis le workspace partagé', async ({ page }) => {
+    await goTo(page, '/settings');
+    // Enregistrée après goTo() : Playwright résout les routes qui se chevauchent dans l'ordre
+    // inverse de leur enregistrement, donc celle-ci prime sur le mock générique **/api/** de
+    // goTo() (qui renvoie { data: null } pour tout, y compris /api/personal-settings).
+    await page.route('**/api/personal-settings', r => {
+      if (r.request().method() !== 'GET') {
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ personalSettings: {} }) });
+      }
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ personalSettings: { theme: 'dark' } }) });
+    });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.locator('[data-testid="theme-card-dark"]')).toHaveClass(/active/);
+  });
+
+  test('changer le thème sauvegarde sur /api/personal-settings, pas sur /api/state', async ({ page }) => {
+    await goTo(page, '/settings');
+    const [request] = await Promise.all([
+      page.waitForRequest(r => r.url().includes('/api/personal-settings') && r.method() === 'PATCH'),
+      page.locator('[data-testid="theme-card-dark"]').click(),
+    ]);
+    const body = request.postDataJSON();
+    expect(body.theme).toBe('dark');
   });
 
 });

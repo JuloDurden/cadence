@@ -30,6 +30,11 @@ interface Props {
   // cliquables (simples valeurs affichées, plus d'édition inline). Les cartes restent consultables
   // (lecture seule, voir PlanningCard/PlanningEpicGroup) et le drag est désactivé.
   readOnly?: boolean
+  // Restriction Dev (2026-08-19, décision Julien, voir utils/permissions.ts,
+  // `canManageSprintLifecycle`) : Clôturer/Rouvrir masqués pour un Dev, contrairement à
+  // Activer/Supprimer qui restent ouverts. Distinct de `readOnly` ci-dessus (Stakeholder, qui
+  // masque tout le groupe), les deux gates se cumulent (`!readOnly && canManageLifecycle`).
+  canManageLifecycle?: boolean
 }
 
 // ── Icônes Lucide inline ──────────────────────────────────────────────────
@@ -69,6 +74,7 @@ export function SprintColumn({
   sprint, items, state, isOver, isActive, highlightClient, highlightType,
   onDragStart, onDragGroup, onDragOver, onDrop, onEdit, onUpdateDates,
   onActivate, onClose, onReopen, onDelete, onUpdateCapacity, readOnly = false,
+  canManageLifecycle = true,
 }: Props) {
   const [editDates, setEditDates] = useState(false)
   const [draftStart, setDraftStart] = useState(sprint.startDate)
@@ -186,7 +192,7 @@ export function SprintColumn({
                 padding: '1px 7px', borderRadius: 8, fontWeight: 700,
                 border: '1px solid #bbf7d0',
               }}>🔒 Clôturé</span>
-              {!readOnly && <button style={BTN} onClick={() => onReopen(sprint.id)}>Rouvrir</button>}
+              {!readOnly && canManageLifecycle && <button style={BTN} onClick={() => onReopen(sprint.id)}>Rouvrir</button>}
             </>
           ) : isActive ? (
             <>
@@ -195,7 +201,7 @@ export function SprintColumn({
                 padding: '1px 7px', borderRadius: 8, fontWeight: 700,
                 border: '1px solid var(--primary)',
               }}>★ Actif</span>
-              {!readOnly && <button style={BTN_DANGER} onClick={() => onClose(sprint.id)}>Clôturer</button>}
+              {!readOnly && canManageLifecycle && <button style={BTN_DANGER} onClick={() => onClose(sprint.id)}>Clôturer</button>}
             </>
           ) : (
             <>
