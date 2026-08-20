@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import type { Settings, DisplayDensity } from '../../types'
 import { DENSITY_SCALE } from '../../context/StateContext'
 import { usePersonalSettings } from '../../context/PersonalSettingsContext'
+import { useHierCardTilt } from '../../hooks/useHierCardTilt'
 import { ImageCropModal } from '../ui/ImageCropModal'
+import { HOLO_PATTERNS, getHoloPatternMaskCss } from '../../data/holoPatterns'
 
 // Phase 6bis (roadmap v1), sous-chantier 4 (2026-08-13) : section Apparence étoffée (thème
 // Système + cartes visuelles, couleur principale par thème avec aperçu concret, logo d'équipe,
@@ -185,6 +188,12 @@ export function AppearanceSection({ settings, onChange, showTeamLogo = true }: {
   // Recadrage du logo (2026-08-19, retour Julien) : image brute en attente de recadrage, voir
   // ImageCropModal.tsx plus bas.
   const [logoCropSrc, setLogoCropSrc] = useState<string | null>(null)
+  // Aperçu du motif holo (2026-08-20, retour Julien : la vignette précédente n'était "pas assez
+  // visible") : chaque option applique le vrai effet .hc-card/.hc-pattern-holo (hierCards.css),
+  // pilote par le meme hook que les vraies cartes (useHierCardTilt.ts) plutot qu'un rendu figé -
+  // le survol d'une option montre exactement le reflet/parallaxe qu'on verra sur les pages.
+  const patternPickerRef = useRef<HTMLDivElement>(null)
+  useHierCardTilt(patternPickerRef)
 
   return (
     <>
@@ -341,6 +350,113 @@ export function AppearanceSection({ settings, onChange, showTeamLogo = true }: {
               background: settings.sidebarCollapsedDefault ? 'var(--primary)' : 'var(--border-strong)',
             }}>
             <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: settings.sidebarCollapsedDefault ? 16 : 2, transition: 'left .15s' }} />
+          </button>
+        </div>
+      </section>
+
+      {/* Cartes hierarchiques Initiative/Epic/Item (2026-08-20) : parallaxe 3D + reflet
+          holographique au survol, sur Release Planning, Kanban et Sprint Planning. Prototype
+          valide avec Julien avant codage. Preference personnelle comme le reste de cette section. */}
+      <section style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: 20, marginBottom: 16 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Cartes Initiative / Epic / Item</h3>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.6 }}>
+          Effet au survol des cartes dans Release Planning, Kanban et Sprint Planning.
+        </p>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>Effet holographique</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Reflet arc-en-ciel au survol d'une carte</div>
+          </div>
+          <button type="button" data-testid="holo-enabled-toggle" onClick={() => updatePersonal({ holoEnabled: !personal.holoEnabled })}
+            style={{
+              width: 34, height: 20, borderRadius: 99, position: 'relative', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
+              background: personal.holoEnabled ? 'var(--primary)' : 'var(--border-strong)',
+            }}>
+            <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: personal.holoEnabled ? 16 : 2, transition: 'left .15s' }} />
+          </button>
+        </div>
+
+        {personal.holoEnabled && (
+          <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)', marginBottom: 14 }}>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>Motif de l'effet holographique</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Visible sur les cartes Initiative et Epic hors Initiative</div>
+            </div>
+            {/* Aperçu réel du motif (retour Julien, 2026-08-20 : "pas assez visible", vignette
+                agrandie + mask-size 46px identique aux vraies cartes ; le cadre de sélection
+                englobe le nom ; effet holographique interactif ajouté au survol) plutôt qu'un
+                simple nom dans un select. Calque statique (toujours visible, motif + dégradé
+                arc-en-ciel figé) SOUS le vrai calque interactif `.hc-pattern-holo`
+                (hierCards.css, piloté par useHierCardTilt.ts comme les vraies cartes) : au repos
+                on voit clairement le motif choisi, au survol on voit en plus le reflet/parallaxe
+                exact qu'on retrouvera sur les pages. `--hc-pattern-mask` est surchargé en style
+                inline sur chaque vignette (variable CSS héritée localement) pour que chaque
+                option affiche SON propre motif, indépendamment du motif réellement enregistré
+                (piloté globalement par la même variable, voir PersonalSettingsContext.tsx).
+                Grille (pas un select) pour rester utilisable une fois d'autres motifs ajoutés
+                (registre extensible, voir data/holoPatterns.ts). */}
+            <div ref={patternPickerRef} data-testid="holo-pattern-picker" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              {HOLO_PATTERNS.map(p => {
+                const selected = personal.holoPattern === p.id
+                // 2026-08-21 : les 6 nouveaux motifs de Julien n'ont plus tous la même taille/
+                // répétition/mode de masquage (silhouette SVG carrelée vs dégradé CSS coloré
+                // auto-répétitif, voir data/holoPatterns.ts) - toutes les sous-propriétés de
+                // masquage sont donc surchargées ici, pas juste l'image.
+                const mask = getHoloPatternMaskCss(p.id)
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    data-testid={`holo-pattern-option-${p.id}`}
+                    onClick={() => updatePersonal({ holoPattern: p.id })}
+                    title={p.label}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                      cursor: 'pointer', width: 116, padding: 8, borderRadius: 12,
+                      border: selected ? '2px solid var(--primary)' : '1px solid transparent',
+                      background: selected ? 'var(--primary-light)' : 'none',
+                    }}
+                  >
+                    <div className="hc-card hc-initiative" style={{
+                      width: 96, height: 96, borderRadius: 10,
+                      ['--hc-pattern-mask' as string]: mask.image,
+                      ['--hc-pattern-mask-size' as string]: mask.size,
+                      ['--hc-pattern-mask-repeat' as string]: mask.repeat,
+                      ['--hc-pattern-mask-position' as string]: mask.position,
+                      ['--hc-pattern-mask-mode' as string]: mask.mode,
+                    } as CSSProperties}>
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        backgroundImage: 'repeating-linear-gradient(115deg, #ff71ce 0%, #ffde59 12%, #05ffa1 24%, #01cdfe 36%, #b967ff 48%, #ff71ce 60%)',
+                        maskImage: mask.image, WebkitMaskImage: mask.image,
+                        maskRepeat: mask.repeat, WebkitMaskRepeat: mask.repeat,
+                        maskSize: mask.size, WebkitMaskSize: mask.size,
+                        maskPosition: mask.position, WebkitMaskPosition: mask.position,
+                        maskMode: mask.mode,
+                        opacity: .8,
+                      } as CSSProperties} />
+                      <div className="hc-pattern-holo" />
+                    </div>
+                    <span style={{ fontSize: 11, color: selected ? 'var(--text)' : 'var(--text-muted)', fontWeight: selected ? 700 : 500 }}>{p.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>Parallaxe 3D</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>La carte s'incline légèrement en suivant le curseur</div>
+          </div>
+          <button type="button" data-testid="parallax-enabled-toggle" onClick={() => updatePersonal({ parallaxEnabled: !personal.parallaxEnabled })}
+            style={{
+              width: 34, height: 20, borderRadius: 99, position: 'relative', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
+              background: personal.parallaxEnabled ? 'var(--primary)' : 'var(--border-strong)',
+            }}>
+            <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: personal.parallaxEnabled ? 16 : 2, transition: 'left .15s' }} />
           </button>
         </div>
       </section>

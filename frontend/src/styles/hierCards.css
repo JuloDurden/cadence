@@ -1,0 +1,206 @@
+/* Cartes hierarchiques Initiative / Epic / Item (2026-08-20) : parallaxe 3D + reflet
+   holographique au survol du plus grand conteneur du groupe (Initiative, ou Epic/Item hors
+   Initiative). Port du prototype valide par Julien (prototype-cards-hierarchie.html) vers
+   Release Planning, Kanban et Sprint Planning (voir useHierCardTilt.ts pour la logique JS
+   partagee). Namespace `.hc-` pour ne pas entrer en collision avec les classes existantes de
+   chaque page (KanbanCard.tsx, PlanningCard.tsx...), qui portent ces classes EN PLUS des
+   leurs. Convention theme sombre de l'appli reelle : attribut [data-theme="dark"] sur <html>
+   (PersonalSettingsContext.tsx), pas la classe body.dark du prototype autonome. Reutilise les
+   tokens de design existants (index.css) plutot que de dupliquer des couleurs en dur pour
+   --hc-mix-to/--hc-initiative-bg/--hc-item-flat-bg : leur valeur en mode sombre suit deja
+   automatiquement --surface/--surface2/--border, aucun bloc [data-theme="dark"] supplementaire
+   necessaire pour ces 3 tokens. */
+
+:root {
+  --hc-mix-to: var(--surface);
+  --hc-initiative-bg: var(--surface2);
+  --hc-initiative-border: var(--border-strong);
+  --hc-item-flat-bg: var(--surface);
+  --hc-item-flat-border: var(--border);
+  /* color-dodge (surface) et multiply-sur-var(--text) (texte) ne reagissent pas pareil sur un
+     fond sombre : dodge eclaircit beaucoup plus fort quand le dessous est deja sombre, et
+     multiplier par un texte presque blanc ne freine quasiment plus le degrade (retour Julien :
+     "trop pronounce en mode sombre" sur les deux). Ces 2 facteurs, a 1 en clair (rien ne change),
+     assombrissent les 2 effets seulement en mode sombre ci-dessous. */
+  --hc-surface-holo-strength: 1;
+  --hc-text-holo-strength: 1;
+  /* Motif du reflet holo (2026-08-20, complete le 2026-08-21 pour les 6 motifs fournis par
+     Julien) : 5 variables poses sur <html> par PersonalSettingsContext.tsx a partir du reglage
+     perso (Reglages > Apparence), voir data/holoPatterns.ts (getHoloPatternMaskCss). Necessaire
+     car les motifs n'ont pas tous la meme nature (silhouette SVG carrelee vs degrade CSS colore
+     auto-repetitif vs degrade multi-couches avec positions propres, voir commentaire de ce
+     fichier dans data/holoPatterns.ts) : une seule taille/repetition fixe pour tous, comme avant,
+     ne convient plus. Repli ici uniquement pour eviter un flash avant le premier effet du
+     Provider (jamais visible en pratique, l'effet s'execute au montage). */
+  --hc-pattern-mask: none;
+  --hc-pattern-mask-size: 46px 46px;
+  --hc-pattern-mask-repeat: repeat;
+  --hc-pattern-mask-position: 0 0;
+  --hc-pattern-mask-mode: alpha;
+}
+
+[data-theme="dark"] {
+  --hc-surface-holo-strength: .5;
+  --hc-text-holo-strength: .6;
+}
+
+/* ---- carte generique ---- */
+.hc-card {
+  position: relative; border-radius: var(--radius); overflow: hidden;
+  transition: transform .15s ease-out, box-shadow .2s;
+  transform-style: preserve-3d; will-change: transform;
+}
+/* Au survol : ombre portee qui s'accentue et se decale legerement avec l'inclinaison, comme si on
+   soulevait physiquement l'objet du plateau (remplace un liseré colore, retour Julien : pas
+   necessaire). Toujours actif au survol d'un groupe, independant des reglages holo/parallaxe. */
+.hc-card.ancestor-lit {
+  box-shadow: var(--shx, 0px) var(--shy, 10px) 22px -6px rgba(0, 0, 0, .32), 0 2px 6px rgba(0, 0, 0, .1);
+}
+
+/* Le reflet holographique n'est jamais pose sur une carte nichee : seul le plus grand conteneur
+   du groupe survole (topCard() dans useHierCardTilt.ts) recoit .holo-active, ses enfants suivent
+   son transform naturellement puisqu'ils sont dans son DOM (une seule "carte rigide"). Deux
+   calques inspires du procede "carte holographique" (poke-holo.simey.me / pokemon-cards-css) :
+   ::before = le halo de brillance qui suit le curseur, PAS uniforme sur toute la carte.
+   ::after  = les bandes arc-en-ciel, masquees par ce MEME halo (mask-image en radial-gradient
+   centre sur --mx/--my) ; --tilt module en plus l'intensite globale selon l'inclinaison. */
+.hc-card::before, .hc-card::after {
+  content: ""; position: absolute; inset: -20%; border-radius: inherit; pointer-events: none;
+  opacity: 0; transition: opacity .25s;
+}
+.hc-card::before {
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.9), transparent 38%);
+  mix-blend-mode: overlay;
+}
+.hc-card::after {
+  background-image: repeating-linear-gradient(115deg,
+    #ff71ce 0%, #ffde59 12%, #05ffa1 24%, #01cdfe 36%, #b967ff 48%, #ff71ce 60%);
+  background-size: 220% 220%;
+  background-position: var(--mx, 50%) var(--my, 50%);
+  mix-blend-mode: color-dodge;
+  filter: brightness(1.05) contrast(1.25) saturate(1.15);
+  mask-image: radial-gradient(circle 42% at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle 42% at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 100%);
+}
+.hc-card.holo-active::before { opacity: .3; }
+.hc-card.holo-active::after { opacity: calc(var(--tilt, .2) * var(--hc-surface-holo-strength, 1)); }
+
+/* Le texte devenait flou pendant l'inclinaison (retour Julien) : une carte tournee en 3D fait
+   perdre le lissage des polices sur TOUT son contenu, pas seulement le reflet holo sur le texte -
+   artefact de rendu du navigateur sur un calque non aligne aux pixels, pas un flou volontaire.
+   --rx/--ry (degres) sont ecrits par useHierCardTilt.ts sur la carte "sommet" du groupe et herites
+   par tous les descendants ; `.hc-text` applique la rotation INVERSE de la carte pour rester bien
+   a plat face a l'ecran (technique de "contre-rotation"), pendant que la surface/le fond
+   continuent de s'incliner normalement autour d'elle. A poser sur tout bloc de texte d'une carte
+   (titre, description, meta...), quel que soit le markup propre a chaque page. */
+.hc-text {
+  transform: rotateY(calc(var(--ry, 0deg) * -1)) rotateX(calc(var(--rx, 0deg) * -1));
+  transition: transform .15s ease-out;
+}
+
+/* ---- Initiative : pas de couleur client, fond neutre uni au repos. ---- */
+.hc-card.hc-initiative {
+  background: var(--hc-initiative-bg);
+  border: 2px dashed var(--hc-initiative-border);
+}
+/* Le ::after generique (rainbow + halo seul) est desactive pour l'Initiative : elle n'a pas de
+   couleur propre a refleter, tout son reflet passe par .hc-pattern-holo ci-dessous. */
+.hc-card.hc-initiative.holo-active::after { opacity: 0; }
+
+/* Motif holographique, reserve aux cartes "sommet" d'un groupe qui doivent signaler leur niveau
+   par un jeu de lumiere plutot qu'une couleur : l'Initiative (pas de client) et l'Epic/l'Item hors
+   Initiative (retour Julien : "ca montre que c'est le plus haut niveau"). Un vrai element DOM (pas
+   un 3e pseudo-element, il n'y a que ::before/::after disponibles) plutot qu'un empilement de
+   mask-image sur un seul calque : mask-composite (intersect) s'est revele peu fiable pour combiner
+   motif + halo du curseur en un seul calque ; ici, le motif masque CET element (mask-image simple,
+   fiable), et son ::after (halo + degrade, masque separement par le halo du curseur, lui aussi un
+   mask-image simple) herite deja du rendu du motif puisqu'il est genere A L'INTERIEUR d'un element
+   deja decoupe par ce motif - intersection obtenue par IMBRICATION plutot que par composition CSS.
+   A ajouter en DOM (un <div class="hc-pattern-holo">) dans chaque carte "sommet" possible
+   (Initiative, Epic hors Initiative, Item hors Epic ET hors Initiative). */
+.hc-pattern-holo {
+  position: absolute; inset: -20%; z-index: 0; pointer-events: none; border-radius: inherit;
+  mask-image: var(--hc-pattern-mask);
+  mask-size: var(--hc-pattern-mask-size);
+  mask-repeat: var(--hc-pattern-mask-repeat);
+  mask-position: var(--hc-pattern-mask-position);
+  mask-mode: var(--hc-pattern-mask-mode);
+  -webkit-mask-image: var(--hc-pattern-mask);
+  -webkit-mask-size: var(--hc-pattern-mask-size);
+  -webkit-mask-repeat: var(--hc-pattern-mask-repeat);
+  -webkit-mask-position: var(--hc-pattern-mask-position);
+}
+.hc-pattern-holo::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background-image: repeating-linear-gradient(115deg,
+    #ff71ce 0%, #ffde59 12%, #05ffa1 24%, #01cdfe 36%, #b967ff 48%, #ff71ce 60%);
+  background-size: 220% 220%;
+  background-position: var(--mx, 50%) var(--my, 50%);
+  filter: contrast(1.4) saturate(1.3);
+  mix-blend-mode: color-dodge;
+  mask-image: radial-gradient(circle 42% at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle 42% at var(--mx, 50%) var(--my, 50%), #000 0%, transparent 100%);
+  opacity: 0; transition: opacity .25s;
+}
+.hc-card.holo-active .hc-pattern-holo::after { opacity: calc(var(--tilt, .2) * var(--hc-surface-holo-strength, 1)); }
+/* Sur l'Initiative (fond clair, sans couleur), color-dodge lave le reflet ; multiply le garde
+   visible, comme deja etabli pour le reflet du texte ci-dessous. */
+.hc-card.hc-initiative.holo-active .hc-pattern-holo::after { mix-blend-mode: multiply; }
+
+/* Le cadre de toute carte nichee (Epic dans une Initiative, Item dans un Epic OU direct dans une
+   Initiative...) masque le motif/halo de son conteneur : son fond opaque, peint au-dessus grace au
+   z-index, occulte naturellement les calques ::before/::after du parent la ou l'enfant se trouve
+   (retour Julien : "le cadre des Epics devrait jouer le role d'un masque sur lequel on ne verrait
+   pas le motif"). Regle generalisee a TOUTE carte nichee : chaque `.hc-card` a deja son propre
+   contexte d'empilement local (will-change: transform ci-dessus en cree un), donc cette regle ne
+   compare que les enfants DIRECTS de chaque carte a ses propres pseudo-elements, jamais entre deux
+   niveaux differents. Consequence : plus aucun reflet du parent ne touche la surface d'un enfant
+   nichee. Pour rester coherent malgre cette occlusion, seul le TEXTE d'une carte nichee (marque
+   `.hc-text-holo`, en plus de `.hc-text`) recoit son propre reflet arc-en-ciel, anime avec les
+   memes --mx/--my herites du sommet du groupe (retour Julien : "seul le texte devrait reagir a
+   l'effet holo"). Le degrade est multiplie (background-blend-mode) avec un aplat de la couleur de
+   texte normale AVANT le decoupage : le resultat reste donc toujours au moins aussi sombre que le
+   texte d'origine, jamais delave (retour Julien : premiere version trop claire, illisible sur fond
+   blanc). Pas de fondu sur --tilt ici : la lisibilite prime. */
+.hc-card::before, .hc-card::after { z-index: 0; }
+.hc-card .hc-card { z-index: 1; }
+
+.hc-card.holo-active .hc-card .hc-text-holo {
+  background-image:
+    repeating-linear-gradient(115deg, #ff71ce 0%, #ffde59 12%, #05ffa1 24%, #01cdfe 36%, #b967ff 48%, #ff71ce 60%),
+    linear-gradient(var(--text), var(--text));
+  background-blend-mode: multiply;
+  background-size: 220% 220%, 100% 100%;
+  background-position: var(--mx, 50%) var(--my, 50%), 0 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  /* Meme constat que le reflet de surface : en mode sombre, multiplier par un texte presque blanc
+     freine beaucoup moins le degrade qu'en clair (multiplier par presque-noir).
+     --hc-text-holo-strength attenue ce cas particulier sans rien changer en mode clair (= 1). */
+  opacity: var(--hc-text-holo-strength, 1);
+}
+
+/* ---- Epic (ou Item standalone, avec ou sans Initiative) : degrade de la couleur client, joue le
+   role de delimiteur. C'est aussi la carte qui, hors Initiative, porte elle-meme le reflet holo
+   plein cadre sur son propre corps (retour Julien : "le corps de l'Epic doit avoir un reflet holo
+   comme l'Initiative, ca montre que c'est le plus haut niveau") - deja le cas puisqu'un Epic sans
+   Initiative devient lui-meme la carte "sommet" du groupe (topCard()), et recoit donc le ::after
+   generique ci-dessus tel quel, seulement occulte la ou ses propres Items opaques sont poses.
+   `--client` : couleur hex du client, posee en style inline sur l'element par chaque page (comme
+   `borderLeft` aujourd'hui). `--hc-mix-to` remplace le blanc en dur pour rester lisible en mode
+   sombre. ---- */
+.hc-card.hc-epic, .hc-card.hc-item.hc-standalone {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--client, var(--primary)) 32%, var(--hc-mix-to)), color-mix(in srgb, var(--client, var(--primary)) 6%, var(--hc-mix-to)));
+  border: 1px solid color-mix(in srgb, var(--client, var(--primary)) 40%, var(--hc-mix-to));
+}
+
+/* ---- Item a l'interieur d'un Epic : fond opaque uni, bordure fine : la carte doit se detacher du
+   degrade colore de l'Epic derriere elle, pas se fondre dedans. ---- */
+.hc-card.hc-item:not(.hc-standalone) {
+  background: var(--hc-item-flat-bg);
+  border: 1px solid var(--hc-item-flat-border);
+}
+
+.hc-tag-initiative { background: var(--border); color: var(--text); }
+.hc-tag-epic { background: color-mix(in srgb, var(--client, var(--primary)) 30%, var(--hc-mix-to)); color: color-mix(in srgb, var(--client, var(--primary)) 70%, var(--text)); }

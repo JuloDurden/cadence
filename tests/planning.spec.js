@@ -150,6 +150,30 @@ test.describe('Release Planning — Epic repliable dans une carte de sprint (202
 
 });
 
+test.describe('Release Planning, nouveau design des cartes hierarchiques (v0.98.17)', () => {
+
+  test('le groupe Epic d\'une carte de sprint porte le degrade couleur client (hc-card hc-epic)', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    const epicI7 = sprint2Col.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-i7"]') });
+    await expect(epicI7).toHaveClass(/hc-card/);
+    await expect(epicI7).toHaveClass(/hc-epic/);
+    await expect(epicI7.locator('.hc-pattern-holo')).toHaveCount(1);
+  });
+
+  test('un item sans Epic dans une carte de sprint porte hc-standalone, un item groupe non', async ({ page }) => {
+    await goTo(page, '/planning');
+    const sprint2Col = page.locator('.planning-col').nth(1);
+    // PME-011 (i.., demo.ts) : item du Sprint 2 sans Epic. FAX-024 : rattache a l'Epic FAX-007 (i7).
+    const orphanCard = sprint2Col.locator('.planning-card').filter({ hasText: 'PME-011' });
+    await expect(orphanCard).toHaveClass(/hc-standalone/);
+    const groupedCard = page.locator('[data-testid="epic-group-stories-i7"] .planning-card').filter({ hasText: 'FAX-024' });
+    await expect(groupedCard).toHaveClass(/hc-item/);
+    await expect(groupedCard).not.toHaveClass(/hc-standalone/);
+  });
+
+});
+
 test.describe('Release Planning — Epic vide compte dans la capacite du sprint (retour Julien, 2026-07-29)', () => {
 
   test('un Epic sans US mais avec un SP fixe et un sprint assigne apparait comme une carte', async ({ page }) => {
@@ -191,13 +215,26 @@ test.describe('Release Planning — groupe Epic non tronque en mode deplie (2026
     const sprint2Col = page.locator('.planning-col').nth(1);
     const epicGroup = sprint2Col.locator('.epic-group').first();
     await expect(epicGroup).toBeVisible();
-    // .epic-group a overflow:hidden : si flexbox le retrecit sous sa hauteur de contenu,
-    // scrollHeight > clientHeight revele un contenu coupe et invisible pour l'utilisateur.
-    const { scrollHeight, clientHeight } = await epicGroup.evaluate(el => ({
-      scrollHeight: el.scrollHeight,
-      clientHeight: el.clientHeight,
-    }));
-    expect(scrollHeight).toBeLessThanOrEqual(clientHeight + 1);
+    // .epic-group a overflow:hidden : si flexbox le retrecit sous sa hauteur de contenu, le VRAI
+    // contenu (header + stories) qui deborde du bas de clientHeight revele un contenu coupe et
+    // invisible pour l'utilisateur.
+    // v0.98.17 : ancienne mesure par `scrollHeight` (calcule sur TOUT ce qui deborde de la boite,
+    // decoratif compris) cassee par le nouveau reflet holographique - `.hc-card::before`/`::after`
+    // (hierCards.css, poses directement sur .epic-group via sa classe `hc-card`) ET le calque
+    // `.hc-pattern-holo` debordent tous deux intentionnellement de 20% (`inset: -20%`, halo/motif
+    // qui doit deborder legerement du cadre), et comptent dans `scrollHeight` meme si
+    // `overflow: hidden` les decoupe visuellement au rendu (comportement voulu, pas un contenu
+    // reel coupe). Mesure plus directe et plus robuste : la position reelle du DERNIER bloc de
+    // contenu (le corps des US si deplie, sinon l'en-tete) par rapport a la hauteur visible du
+    // conteneur, insensible a tout calque decoratif absolument positionne ajoute par la suite.
+    const { contentBottom, clientHeight } = await epicGroup.evaluate(el => {
+      const last = el.querySelector(':scope > .epic-group-stories') || el.querySelector(':scope > .epic-group-header')
+      return {
+        contentBottom: last.offsetTop + last.offsetHeight,
+        clientHeight: el.clientHeight,
+      }
+    });
+    expect(contentBottom).toBeLessThanOrEqual(clientHeight + 1);
   });
 
 });

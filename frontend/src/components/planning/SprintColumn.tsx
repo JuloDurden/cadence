@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { Item, Sprint, CadenceState } from '../../types'
 import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
 import { effectiveCapacity, capacityLossBreakdown, describeCapacityLoss, holidaysInRange, computeSprintEndDate } from '../../utils/sprintCapacity'
 import { fmtDateShort } from '../../utils/dates'
 import { attachItemsToEpics, epicsWithPlaceholder, getHierarchyNodeSP } from '../../utils/hierarchyScore'
+import { useHierCardTilt } from '../../hooks/useHierCardTilt'
 
 interface Props {
   sprint: Sprint
@@ -81,6 +82,9 @@ export function SprintColumn({
   const [draftEnd,   setDraftEnd]   = useState(sprint.endDate)
   const [editCap,    setEditCap]    = useState(false)
   const [draftCap,   setDraftCap]   = useState(String(sprint.capacity))
+  // Cartes hierarchiques (2026-08-20) : voir KanbanColumn.tsx (meme principe), un hook par colonne.
+  const itemsAreaRef = useRef<HTMLDivElement>(null)
+  useHierCardTilt(itemsAreaRef)
 
   // Epics assignés à ce sprint (via leur propre sprintId) : un Epic sans aucun item mais avec
   // un SP fixé doit quand même apparaître comme une carte et compter dans la capacité du sprint
@@ -352,7 +356,7 @@ export function SprintColumn({
         const isEmpty = epicGroups.length === 0 && standalone.length === 0
 
         return (
-          <div className="planning-items">
+          <div className="planning-items" ref={itemsAreaRef}>
             {epicGroups.map(({ epicId, epic, items: stories }) => (
               <PlanningEpicGroup
                 key={epicId}
@@ -381,6 +385,7 @@ export function SprintColumn({
                 onEdit={onEdit}
                 onDragStart={onDragStart}
                 readOnly={readOnly}
+                standalone
               />
             ))}
             {isEmpty && !sprint.closed && (

@@ -333,6 +333,77 @@ test.describe('Réglages', () => {
 
   });
 
+  // Cartes hierarchiques Initiative/Epic/Item (2026-08-20/22, v0.98.17) : parallaxe 3D + reflet
+  // holographique au survol des cartes Epic/item "sommet" (Kanban, Release Planning, Sprint
+  // Planning), section AppearanceSection.tsx sous l'onglet "Général", aucune donnee workspace
+  // equivalente (purement personnel, comme le reste de la section Apparence) - defauts actifs
+  // (`personal` ici est en realite `effective`, deja resolu en cascade, voir usePersonalSettings()
+  // plus haut dans ce fichier).
+  test.describe('Cartes Initiative / Epic / Item (v0.98.17)', () => {
+
+    test('interrupteurs holo et parallaxe actifs par defaut, motif Losanges selectionne, 8 motifs proposes', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="holo-enabled-toggle"]')).toBeVisible();
+      await expect(page.locator('[data-testid="parallax-enabled-toggle"]')).toBeVisible();
+
+      // Le curseur interne du toggle (sans testid propre) est a gauche (2px) desactive, a droite
+      // (16px) actif - plus fiable qu'une comparaison de couleur de fond resolue par le navigateur.
+      const holoDotLeft = await page.locator('[data-testid="holo-enabled-toggle"] > div').evaluate(el => getComputedStyle(el).left);
+      expect(holoDotLeft).toBe('16px');
+      const parallaxDotLeft = await page.locator('[data-testid="parallax-enabled-toggle"] > div').evaluate(el => getComputedStyle(el).left);
+      expect(parallaxDotLeft).toBe('16px');
+
+      const picker = page.locator('[data-testid="holo-pattern-picker"]');
+      await expect(picker).toBeVisible();
+      const patternIds = ['diamonds', 'hexagons', 'geometric', 'overlook', 'scanlines', 'bubbles', 'ripple', 'waves'];
+      for (const id of patternIds) {
+        await expect(page.locator(`[data-testid="holo-pattern-option-${id}"]`)).toBeVisible();
+      }
+      await expect(page.locator('[data-testid="holo-pattern-option-diamonds"]')).toHaveText(/Losanges/);
+    });
+
+    // Rosace (fournie par Julien le 2026-08-21) et Trame (motif maison, 2026-08-22) ont toutes
+    // deux ete retirees du registre apres coup, jugees peu convaincantes a l'usage - la premiere
+    // remplacee par Scanlines/Trame, la seconde par Double Bulle. Verifie qu'aucune des deux ne
+    // reapparait dans le selecteur.
+    test('les motifs retires (Rosace, Trame) ne sont plus proposes', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="holo-pattern-option-rosette"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="holo-pattern-option-halftone"]')).toHaveCount(0);
+      await expect(page.locator('[data-testid="holo-pattern-picker"]')).not.toContainText('Rosace');
+      await expect(page.locator('[data-testid="holo-pattern-picker"]')).not.toContainText('Trame');
+    });
+
+    test('desactiver l\'effet holo masque le selecteur de motif', async ({ page }) => {
+      await goTo(page, '/settings');
+      await expect(page.locator('[data-testid="holo-pattern-picker"]')).toBeVisible();
+      await page.locator('[data-testid="holo-enabled-toggle"]').click();
+      await expect(page.locator('[data-testid="holo-pattern-picker"]')).toHaveCount(0);
+    });
+
+    test('choisir un motif envoie la preference (PATCH /api/personal-settings)', async ({ page }) => {
+      await goTo(page, '/settings');
+      const [request] = await Promise.all([
+        page.waitForRequest(r => r.url().includes('/api/personal-settings') && r.method() === 'PATCH'),
+        page.locator('[data-testid="holo-pattern-option-bubbles"]').click(),
+      ]);
+      const body = request.postDataJSON();
+      expect(body.holoPattern).toBe('bubbles');
+      await expect(page.locator('[data-testid="holo-pattern-option-bubbles"]')).toHaveText(/Double Bulle/);
+    });
+
+    test('desactiver la parallaxe envoie la preference (PATCH /api/personal-settings)', async ({ page }) => {
+      await goTo(page, '/settings');
+      const [request] = await Promise.all([
+        page.waitForRequest(r => r.url().includes('/api/personal-settings') && r.method() === 'PATCH'),
+        page.locator('[data-testid="parallax-enabled-toggle"]').click(),
+      ]);
+      const body = request.postDataJSON();
+      expect(body.parallaxEnabled).toBe(false);
+    });
+
+  });
+
   test('affiche la section Colonnes Kanban avec un picker de couleur par colonne', async ({ page }) => {
     await goTo(page, '/settings');
     await expect(page.getByText('Colonnes Kanban')).toBeVisible();

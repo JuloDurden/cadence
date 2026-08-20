@@ -174,3 +174,28 @@ test.describe('Sprint Planning - regroupement par Epic (docs/corrections futures
   });
 
 });
+
+test.describe('Sprint Planning, nouveau design des cartes hierarchiques (v0.98.17)', () => {
+
+  // Meme jeu de donnees que le describe "regroupement par Epic" ci-dessus.
+
+  test('le groupe Epic d\'une carte membre porte desormais le degrade couleur client (hc-card hc-epic)', async ({ page }) => {
+    // Corrige au passage (v0.98.17) : les groupes Epic de cette page n'affichaient jusque-la
+    // aucune couleur ni indication du client, contrairement aux memes groupes en Release Planning
+    // et Kanban - EpicGroupBlock ne recevait pas encore `state` pour resoudre le client.
+    await goTo(page, '/sprint-planning');
+    const card = page.locator('.sp-member-card').filter({ hasText: 'Aldo Raines' });
+    const group = card.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-m1-i7"]') });
+    await expect(group).toHaveClass(/hc-card/);
+    await expect(group).toHaveClass(/hc-epic/);
+    await expect(group.locator('.hc-pattern-holo')).toHaveCount(1);
+  });
+
+  test('un item orphelin dans une carte membre (hors Epic) porte hc-standalone', async ({ page }) => {
+    await goTo(page, '/sprint-planning');
+    const card = page.locator('.sp-member-card').filter({ hasText: 'Brienne de Torth' });
+    const orphanItem = card.locator('.sp-member-item').filter({ hasText: 'BUG-006' });
+    await expect(orphanItem).toHaveClass(/hc-standalone/);
+  });
+
+});

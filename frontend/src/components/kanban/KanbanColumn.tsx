@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import type { Item, KanbanCol, CadenceState } from '../../types'
 import { KanbanCard } from './KanbanCard'
 import { KanbanCardSkeleton } from './KanbanCardSkeleton'
 import { KanbanEpicGroup } from './KanbanEpicGroup'
 import { groupItemsByEpic } from '../../utils/hierarchyScore'
+import { useHierCardTilt } from '../../hooks/useHierCardTilt'
 
 // Hauteur approximative d'une carte squelette + son gap (.kanban-cards gap: 6px) — sert
 // uniquement à estimer combien de squelettes il faut pour couvrir la hauteur visible de
@@ -75,6 +76,12 @@ export function KanbanColumn({
     return Math.max(3, max - variance)
   }, [reorgMode])
 
+  // Cartes hierarchiques (2026-08-20) : un seul hook par colonne, branche sur la zone de cartes -
+  // suffisant puisque topCard() (useHierCardTilt.ts) ne remonte que dans les ancetres .hc-card,
+  // jamais au-dela de cette colonne (chaque groupe Epic/item orphelin est deja autonome ici).
+  const cardsAreaRef = useRef<HTMLDivElement>(null)
+  useHierCardTilt(cardsAreaRef)
+
   return (
     <div
       className={`kanban-col${isDragOver ? ' kanban-col-over' : ''}`}
@@ -121,7 +128,7 @@ export function KanbanColumn({
       {/* overflowY forcé à 'hidden' en mode Réorganiser : filet de sécurité pour garantir
           "sans scroll" même si l'estimation de skeletonCount (fondée sur window.innerHeight,
           pas une mesure DOM réelle) est légèrement optimiste sur un écran ou un zoom donné. */}
-      <div className="kanban-cards" style={{ background: col.color + '0d', overflowY: reorgMode ? 'hidden' : 'auto' }}>
+      <div ref={cardsAreaRef} className="kanban-cards" style={{ background: col.color + '0d', overflowY: reorgMode ? 'hidden' : 'auto' }}>
         {reorgMode
           ? Array.from({ length: skeletonCount }, (_, i) => <KanbanCardSkeleton key={i} />)
           : (
@@ -152,6 +159,7 @@ export function KanbanColumn({
                   onRemoveFromSprint={onRemoveFromSprint}
                   onDragStart={onCardDragStart}
                   readOnly={readOnly}
+                  standalone
                 />
               ))}
             </>

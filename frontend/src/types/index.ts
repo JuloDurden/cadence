@@ -362,12 +362,22 @@ export interface Settings {
 // "la disposition du Dashboard est généralisée à tout le monde"). `sidebarCollapsedDefault` n'est
 // pas repris ici : déjà propre à l'appareil/navigateur via localStorage (voir Sidebar.tsx),
 // `Settings.sidebarCollapsedDefault` n'en est que la valeur de départ au tout premier chargement.
+// Cartes hierarchiques Initiative/Epic/Item (2026-08-20, prototype valide avec Julien avant
+// codage) : parallaxe 3D + reflet holographique au survol, sur Release Planning, Kanban et
+// Sprint Planning. Preference personnelle comme le reste de cette interface (pas un rendu fige
+// pour tout le monde) : absents = actifs par defaut (`true`/`true`/'diamonds'). Registre de
+// motifs volontairement extensible (voir data/holoPatterns.ts), Julien en fournit au fil de l'eau.
+export type HoloPatternId = 'diamonds' | 'hexagons' | 'geometric' | 'overlook' | 'scanlines' | 'bubbles' | 'ripple' | 'waves'
+
 export interface PersonalSettings {
   theme?: ThemeMode
   primaryColorLight?: string
   primaryColorDark?: string
   density?: DisplayDensity
   defaultStartPage?: string
+  holoEnabled?: boolean
+  parallaxEnabled?: boolean
+  holoPattern?: HoloPatternId
 }
 
 export interface RoadmapGoal {

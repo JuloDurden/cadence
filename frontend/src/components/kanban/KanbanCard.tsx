@@ -30,34 +30,41 @@ interface Props {
   // cliquable (édition ouverte en lecture seule via ItemModal) mais l'action "Retirer du
   // sprint" (mutation directe, hors ItemModal) est masquée. Défaut `false`.
   readOnly?: boolean
+  // Cartes hierarchiques (2026-08-20) : un item "orphelin" (hors Epic, voir KanbanColumn.tsx)
+  // est le sommet de son propre groupe au meme titre qu'un Epic hors Initiative - il porte donc
+  // le degrade couleur client + le reflet holo plein cadre + le motif (comme
+  // .hc-card.hc-epic/.hc-standalone dans hierCards.css), plutot que le fond plat d'un item
+  // range dans un groupe. Defaut `false` (item range dans un KanbanEpicGroup).
+  standalone?: boolean
 }
 
-export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRemoveFromSprint, onDragStart, readOnly = false }: Props) {
+export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRemoveFromSprint, onDragStart, readOnly = false, standalone = false }: Props) {
   const client    = state.clients.find(c => c.id === item.clientId)
   const assignees = item.assignees.map(id => state.team.find(m => m.id === id)).filter(Boolean)
 
   return (
     <div
-      className="kanban-card"
+      className={`kanban-card hc-card hc-item${standalone ? ' hc-standalone' : ''}`}
       draggable={cardDraggable}
       onDragStart={() => cardDraggable && onDragStart(item.id)}
       style={{
-        borderLeft: `3px solid ${client?.color ?? colColor}`,
         cursor: cardDraggable ? 'grab' : 'default',
+        ['--client' as string]: client?.color,
       }}
     >
-      <div className="kanban-card-header">
-        <span className="item-key">{item.key}</span>
+      {standalone && <div className="hc-pattern-holo" />}
+      <div className="kanban-card-header hc-text">
+        <span className="item-key hc-text-holo">{item.key}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span
             style={{ width: 8, height: 8, borderRadius: '50%', background: PRIORITY_DOT[item.priority], flexShrink: 0 }}
             title={item.priority}
           />
-          <span style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)' }}>{item.sp} SP</span>
+          <span className="hc-text-holo" style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)' }}>{item.sp} SP</span>
         </span>
       </div>
 
-      <p className="kanban-card-desc">{item.desc}</p>
+      <p className="kanban-card-desc hc-text hc-text-holo">{item.desc}</p>
 
       {item.tags.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 6 }}>
@@ -65,7 +72,7 @@ export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRem
         </div>
       )}
 
-      <div className="kanban-card-footer">
+      <div className="kanban-card-footer hc-text">
         <div style={{ display: 'flex' }}>
           {assignees.map(m => m && (
             <span key={m.id} className="avatar" title={m.name} style={{ width: 18, height: 18, fontSize: 8 }}>

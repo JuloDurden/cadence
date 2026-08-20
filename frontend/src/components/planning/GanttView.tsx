@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { ReactNode } from 'react'
 import type { Item, CadenceState, TeamMember, HierarchyNode } from '../../types'
 import { computeMemberCapacity, isMemberFullyAbsent } from '../../utils/sprintCapacity'
 import { groupItemsByEpic, getEpicSP } from '../../utils/hierarchyScore'
+import { useHierCardTilt } from '../../hooks/useHierCardTilt'
 
 interface Props {
   state: CadenceState
@@ -52,13 +53,23 @@ interface EpicGroupBlockProps {
   epic: HierarchyNode
   count: number
   sp: number
+  // Cartes hierarchiques (2026-08-20, retour Julien : GanttView n'affichait jusqu'ici aucune
+  // couleur/traitement propre à l'Epic, contrairement à Release Planning et Kanban - portée en
+  // même temps que le reste du chantier) : nécessaire pour retrouver la couleur du client de
+  // l'Epic (voir KanbanEpicGroup.tsx/PlanningEpicGroup.tsx, même principe).
+  state: CadenceState
   children: ReactNode
 }
-function EpicGroupBlock({ groupKey, epic, count, sp, children }: EpicGroupBlockProps) {
+function EpicGroupBlock({ groupKey, epic, count, sp, state, children }: EpicGroupBlockProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const client = state.clients.find(c => c.id === epic.clientId)
   return (
-    <div className={`epic-group epic-group-compact${collapsed ? ' epic-group-collapsed' : ''}`}>
-      <div className="epic-group-header" style={{ cursor: 'default' }}>
+    <div
+      className={`epic-group epic-group-compact${collapsed ? ' epic-group-collapsed' : ''} hc-card hc-epic`}
+      style={{ ['--client' as string]: client?.color }}
+    >
+      <div className="hc-pattern-holo" />
+      <div className="epic-group-header hc-text" style={{ cursor: 'default', background: 'transparent', borderBottom: 'none' }}>
         <button
           type="button"
           className="epic-group-toggle"
@@ -69,7 +80,7 @@ function EpicGroupBlock({ groupKey, epic, count, sp, children }: EpicGroupBlockP
           <Chevron open={!collapsed} />
         </button>
         <span className="epic-type-tag">EPIC</span>
-        <span className="epic-group-name">{epic.desc}</span>
+        <span className="epic-group-name hc-text-holo">{epic.desc}</span>
         <span className="epic-group-count">{count} item{count > 1 ? 's' : ''} · {sp} SP</span>
       </div>
       {!collapsed && (
@@ -84,27 +95,31 @@ function EpicGroupBlock({ groupKey, epic, count, sp, children }: EpicGroupBlockP
 // ── Carte item non-attribué ───────────────────────────────────────────────
 interface UItemProps {
   item: Item; state: CadenceState; dragging: boolean; readOnly?: boolean
+  // Cartes hierarchiques (2026-08-20) : voir KanbanCard.tsx/PlanningCard.tsx (même principe) -
+  // sommet de groupe (dégradé + motif + reflet) quand hors Epic, carte plate sinon. Défaut `false`.
+  standalone?: boolean
   onDragStart: () => void; onDragEnd: () => void; onEdit: (i: Item) => void
 }
-function UnassignedCard({ item, state, dragging, readOnly = false, onDragStart, onDragEnd, onEdit }: UItemProps) {
+function UnassignedCard({ item, state, dragging, readOnly = false, standalone = false, onDragStart, onDragEnd, onEdit }: UItemProps) {
   const client = state.clients.find(c => c.id === item.clientId)
   const pCol   = PRIORITY_COLOR[item.priority ?? 'low'] ?? '#6b7280'
 
   return (
     <div
-      className="sp-uitem"
+      className={`sp-uitem hc-card hc-item${standalone ? ' hc-standalone' : ''}`}
       draggable={!readOnly}
       onDragStart={readOnly ? undefined : onDragStart}
       onDragEnd={onDragEnd}
       onClick={() => onEdit(item)}
       style={{
-        borderLeft: `4px solid ${client?.color ?? 'var(--border)'}`,
         opacity: dragging ? 0.4 : 1,
+        ['--client' as string]: client?.color,
       }}
     >
+      {standalone && <div className="hc-pattern-holo" />}
       {/* Ligne 1 : key · badges · SP */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', flexShrink: 0 }}>{item.key}</span>
+      <div className="hc-text" style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+        <span className="hc-text-holo" style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-faint)', flexShrink: 0 }}>{item.key}</span>
         {item.type && (
           <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, fontWeight: 700, background: pCol + '22', color: pCol, flexShrink: 0 }}>
             {TYPE_LABEL[item.type] ?? item.type}
@@ -120,7 +135,7 @@ function UnassignedCard({ item, state, dragging, readOnly = false, onDragStart, 
         </span>
       </div>
       {/* Ligne 2 : description (3 lignes max) */}
-      <div style={{
+      <div className="hc-text hc-text-holo" style={{
         fontSize: 12, lineHeight: 1.45, color: 'var(--text)',
         overflow: 'hidden', display: '-webkit-box',
         WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
@@ -129,7 +144,7 @@ function UnassignedCard({ item, state, dragging, readOnly = false, onDragStart, 
         {item.desc}
       </div>
       {/* Ligne 3 : client + tags + deadline */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+      <div className="hc-text" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
         {client && (
           <span style={{ fontSize: 9, fontWeight: 700, color: client.color ?? 'var(--text-muted)', flexShrink: 0 }}>
             {client.name}
@@ -154,31 +169,45 @@ function UnassignedCard({ item, state, dragging, readOnly = false, onDragStart, 
 interface MemberItemRowProps {
   item: Item; mySP: number; over: boolean; co?: boolean; dragging: boolean; readOnly?: boolean
   team: TeamMember[]
+  // Cartes hierarchiques (2026-08-20) : voir UnassignedCard ci-dessus (même principe). Défaut
+  // `false`. `state` nécessaire pour retrouver la couleur du client (absente jusqu'ici sur les
+  // cartes membre, autre incohérence comblée en même temps que ce chantier).
+  standalone?: boolean
+  state: CadenceState
   onDragStart: () => void; onDragEnd: () => void; onEdit: (i: Item) => void
 }
-function MemberItemRow({ item, mySP, over, co = false, dragging, readOnly = false, team, onDragStart, onDragEnd, onEdit }: MemberItemRowProps) {
+function MemberItemRow({ item, mySP, over, co = false, dragging, readOnly = false, standalone = false, team, state, onDragStart, onDragEnd, onEdit }: MemberItemRowProps) {
   const pCol        = PRIORITY_COLOR[item.priority ?? 'low'] ?? '#6b7280'
+  const client       = state.clients.find(c => c.id === item.clientId)
   const coAssignees = !co && item.assignees.length > 1
     ? item.assignees.slice(1).map(id => team.find(m => m.id === id)).filter(Boolean) as TeamMember[]
     : []
 
   return (
     <div
-      className={`sp-member-item${co ? ' sp-member-item-co' : ''}`}
+      className={`sp-member-item${co ? ' sp-member-item-co' : ''} hc-card hc-item${standalone ? ' hc-standalone' : ''}`}
       draggable={!readOnly}
       onDragStart={readOnly ? undefined : onDragStart}
       onDragEnd={onDragEnd}
       onClick={() => onEdit(item)}
-      style={{ opacity: dragging ? 0.35 : 1 }}
+      style={{
+        opacity: dragging ? 0.35 : 1,
+        ['--client' as string]: client?.color,
+        // Le fond plat de .hc-item (hierCards.css) est plus spécifique que .sp-member-item-co et
+        // écraserait sinon la mise en évidence "co-assigné" (retour Julien avant ce chantier) ;
+        // réaffirmée ici en inline, qui prime toujours sur les classes.
+        ...(co ? { background: 'var(--warning-light)', border: '1px dashed rgba(245,158,11,.5)' } : {}),
+      }}
     >
+      {standalone && <div className="hc-pattern-holo" />}
       {/* Ligne 1 : key · type · [co-avatars] · SP */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <div className="hc-text" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
         {co && (
           <span style={{ fontSize: 8, padding: '1px 4px', borderRadius: 3, fontWeight: 700, background: 'rgba(245,158,11,.2)', color: '#d97706', flexShrink: 0 }}>
             co
           </span>
         )}
-        <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', flexShrink: 0 }}>{item.key}</span>
+        <span className="hc-text-holo" style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-faint)', flexShrink: 0 }}>{item.key}</span>
         {item.type && (
           <span style={{ fontSize: 8, padding: '0 4px', borderRadius: 3, fontWeight: 700, background: pCol + '20', color: pCol, flexShrink: 0 }}>
             {TYPE_LABEL[item.type] ?? item.type}
@@ -212,7 +241,7 @@ function MemberItemRow({ item, mySP, over, co = false, dragging, readOnly = fals
         </span>
       </div>
       {/* Ligne 2 : description (2 lignes max) */}
-      <div style={{
+      <div className="hc-text hc-text-holo" style={{
         fontSize: 11, lineHeight: 1.35, color: 'var(--text)',
         overflow: 'hidden', display: '-webkit-box',
         WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -232,6 +261,11 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
   const sprintItems = sprint ? state.items.filter(i => i.sprintId === sprintId) : []
   const unassigned  = sprintItems.filter(i => i.assignees.length === 0)
   const { groups: unassignedGroups, orphans: unassignedOrphans } = groupItemsByEpic(unassigned, state.hierarchyNodes)
+  // Cartes hierarchiques (2026-08-20) : un seul hook pour toute la vue (panneau Non attribué +
+  // toutes les cartes membre) - même raison que SwimlanesView.tsx, les cartes membre sont
+  // rendues inline dans un .map() sans composant dédié, un hook ne peut pas y être appelé.
+  const viewRef = useRef<HTMLDivElement>(null)
+  useHierCardTilt(viewRef)
 
   function drop(colId: string) {
     if (readOnly) return
@@ -249,7 +283,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
   )
 
   return (
-    <div className="sp-view">
+    <div className="sp-view" ref={viewRef}>
 
       {/* ── Panneau gauche : items non-attribués ─────────────────────────── */}
       <div
@@ -272,6 +306,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
               epic={epic}
               count={groupItems.length}
               sp={getEpicSP(epic, groupItems)}
+              state={state}
             >
               {groupItems.map(item => (
                 <UnassignedCard
@@ -290,6 +325,7 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
               key={item.id} item={item} state={state}
               dragging={dragId === item.id}
               readOnly={readOnly}
+              standalone
               onDragStart={() => setDragId(item.id)}
               onDragEnd={() => setDragId(null)}
               onEdit={onEdit}
@@ -378,12 +414,13 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                       epic={epic}
                       count={groupItems.length}
                       sp={getEpicSP(epic, groupItems)}
+                      state={state}
                     >
                       {groupItems.map(item => (
                         <MemberItemRow
                           key={item.id} item={item}
                           mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                          over={over} co={false} team={state.team}
+                          over={over} co={false} team={state.team} state={state}
                           dragging={dragId === item.id}
                           readOnly={readOnly}
                           onDragStart={() => setDragId(item.id)}
@@ -397,9 +434,10 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                     <MemberItemRow
                       key={item.id} item={item}
                       mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                      over={over} co={false} team={state.team}
+                      over={over} co={false} team={state.team} state={state}
                       dragging={dragId === item.id}
                       readOnly={readOnly}
+                      standalone
                       onDragStart={() => setDragId(item.id)}
                       onDragEnd={() => setDragId(null)}
                       onEdit={onEdit}
@@ -418,12 +456,13 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                           epic={epic}
                           count={groupItems.length}
                           sp={getEpicSP(epic, groupItems)}
+                          state={state}
                         >
                           {groupItems.map(item => (
                             <MemberItemRow
                               key={item.id} item={item}
                               mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                              over={over} co={true} team={state.team}
+                              over={over} co={true} team={state.team} state={state}
                               dragging={dragId === item.id}
                               readOnly={readOnly}
                               onDragStart={() => setDragId(item.id)}
@@ -437,9 +476,10 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                         <MemberItemRow
                           key={item.id} item={item}
                           mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                          over={over} co={true} team={state.team}
+                          over={over} co={true} team={state.team} state={state}
                           dragging={dragId === item.id}
                           readOnly={readOnly}
+                          standalone
                           onDragStart={() => setDragId(item.id)}
                           onDragEnd={() => setDragId(null)}
                           onEdit={onEdit}

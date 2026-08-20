@@ -22,9 +22,13 @@ interface Props {
   // côté page appelante), mais n'est plus draggable. Défaut `false` : comportement inchangé pour
   // les autres rôles.
   readOnly?: boolean
+  // Cartes hierarchiques (2026-08-20) : voir KanbanCard.tsx (même principe) - un item hors Epic
+  // est le sommet de son propre groupe (degrade + motif + reflet plein cadre), contrairement à
+  // un item range dans un PlanningEpicGroup (carte plate, texte seul reactif). Defaut `false`.
+  standalone?: boolean
 }
 
-export function PlanningCard({ item, state, highlightClient, highlightType, sprintEndDate, onEdit, onDragStart, readOnly = false }: Props) {
+export function PlanningCard({ item, state, highlightClient, highlightType, sprintEndDate, onEdit, onDragStart, readOnly = false, standalone = false }: Props) {
   const client = state.clients.find(c => c.id === item.clientId)
   const status = state.kanbanCols.find(c => c.id === item.status)
   const assignees = item.assignees.map(id => state.team.find(m => m.id === id)).filter(Boolean)
@@ -43,21 +47,22 @@ export function PlanningCard({ item, state, highlightClient, highlightType, spri
 
   return (
     <div
-      className="planning-card"
+      className={`planning-card hc-card hc-item${standalone ? ' hc-standalone' : ''}`}
       data-item-id={item.id}
       draggable={!readOnly}
       onDragStart={() => { if (!readOnly) onDragStart(item.id) }}
       onClick={() => onEdit(item)}
       style={{
-        borderLeft: `3px solid ${client?.color ?? 'var(--border)'}`,
         opacity: isDimmed ? 0.22 : 1,
         transition: 'opacity .2s',
         outline: dlLate ? '1.5px solid #dc2626' : undefined,
+        ['--client' as string]: client?.color,
       }}
       title={item.desc}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
-        <span className="item-key">{item.key}</span>
+      {standalone && <div className="hc-pattern-holo" />}
+      <div className="hc-text" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 4 }}>
+        <span className="item-key hc-text-holo">{item.key}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
           {dl && (
             <span
@@ -76,10 +81,10 @@ export function PlanningCard({ item, state, highlightClient, highlightType, spri
           <span style={{ fontWeight: 700, fontSize: 11, color: 'var(--text-muted)' }}>{item.sp}</span>
         </span>
       </div>
-      <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+      <p className="hc-text hc-text-holo" style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
         {item.desc}
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+      <div className="hc-text" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
         {status && (
           <span style={{ fontSize: 10, color: status.color, fontWeight: 600 }}>{status.label}</span>
         )}

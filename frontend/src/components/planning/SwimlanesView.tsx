@@ -1,7 +1,9 @@
+import { useRef } from 'react'
 import type { Item, CadenceState } from '../../types'
 import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
 import { attachItemsToEpics, epicsWithPlaceholder, getHierarchyNodeSP } from '../../utils/hierarchyScore'
+import { useHierCardTilt } from '../../hooks/useHierCardTilt'
 
 interface Props {
   state: CadenceState
@@ -31,6 +33,15 @@ export function SwimlanesView({
     state.items.some(i => i.clientId === c.id)
   )
 
+  // Cartes hierarchiques (2026-08-20) : un seul hook au niveau de toute la vue plutot qu'un par
+  // cellule client×sprint (qui ne sont pas des composants distincts ici, juste des <div> issus
+  // d'un .map() imbrique - un hook React ne peut pas etre appele dans une boucle). topCard()
+  // (useHierCardTilt.ts) ne remonte de toute facon jamais au-dela du plus grand `.hc-card`
+  // ancetre, donc un seul ecouteur mousemove pose ici, tout en haut, couvre correctement
+  // chaque cellule independamment - exactement comme s'il y en avait un par cellule.
+  const viewRef = useRef<HTMLDivElement>(null)
+  useHierCardTilt(viewRef)
+
   if (clientsWithItems.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-faint)' }}>
@@ -40,7 +51,7 @@ export function SwimlanesView({
   }
 
   return (
-    <div className="swimlanes-view">
+    <div className="swimlanes-view" ref={viewRef}>
       {/* ── En-tête colonnes (sprints + non-assigné) ─── */}
       <div className="swimlanes-header">
         <div className="swimlanes-client-col" /> {/* coin vide */}
@@ -132,6 +143,7 @@ export function SwimlanesView({
                       onEdit={onEdit}
                       onDragStart={id => { dragIds.current = [id] }}
                       readOnly={readOnly}
+                      standalone
                     />
                   ))}
                   {sprintItems.length === 0 && epicGroups.length === 0 && !sprint.closed && (
@@ -165,6 +177,7 @@ export function SwimlanesView({
                       onEdit={onEdit}
                       onDragStart={id => { dragIds.current = [id] }}
                       readOnly={readOnly}
+                      standalone
                     />
                   ))}
                   {unassignedItems.length === 0 && (

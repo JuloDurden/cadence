@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
-import type { PersonalSettings, ThemeMode, DisplayDensity } from '../types'
+import type { PersonalSettings, ThemeMode, DisplayDensity, HoloPatternId } from '../types'
+import { DEFAULT_HOLO_PATTERN, getHoloPatternMaskCss } from '../data/holoPatterns'
 import { useAuth } from '../hooks/useAuth'
 import { useCadence, DENSITY_SCALE } from './StateContext'
 import { api } from '../services/api'
@@ -23,7 +24,11 @@ interface PersonalSettingsContextValue {
   personal: PersonalSettings
   // Valeurs réellement appliquées, repli sur `state.settings` (workspace) puis sur un défaut
   // « en dur » si les deux sont absents, ce que les pages doivent lire pour afficher/appliquer.
-  effective: { theme: ThemeMode; primaryColorLight?: string; primaryColorDark?: string; density: DisplayDensity; defaultStartPage: string }
+  effective: {
+    theme: ThemeMode; primaryColorLight?: string; primaryColorDark?: string; density: DisplayDensity; defaultStartPage: string
+    // Cartes hierarchiques Initiative/Epic/Item (2026-08-20) : voir types/index.ts (PersonalSettings).
+    holoEnabled: boolean; parallaxEnabled: boolean; holoPattern: HoloPatternId
+  }
   updatePersonal: (patch: Partial<PersonalSettings>) => void
 }
 
@@ -119,6 +124,11 @@ export function PersonalSettingsProvider({ children }: { children: ReactNode }) 
     primaryColorDark: personal.primaryColorDark ?? state.settings?.primaryColorDark,
     density: personal.density ?? state.settings?.density ?? 'comfortable',
     defaultStartPage: personal.defaultStartPage ?? state.settings?.defaultStartPage ?? '/backlog',
+    // Cartes hierarchiques (2026-08-20) : pas d'equivalent workspace, purement personnel (au meme
+    // titre qu'une preference d'animation/mouvement reduit) - defaut actifs, motif 'diamonds'.
+    holoEnabled: personal.holoEnabled ?? true,
+    parallaxEnabled: personal.parallaxEnabled ?? true,
+    holoPattern: personal.holoPattern ?? DEFAULT_HOLO_PATTERN,
   }
 
   // Applique le thème (Phase 6bis, sous-chantier 4, 2026-08-13, déplacé ici le 2026-08-19) :
@@ -164,6 +174,21 @@ export function PersonalSettingsProvider({ children }: { children: ReactNode }) 
     document.documentElement.style.setProperty('--density-card-pad', scale.cardPad)
     document.documentElement.style.setProperty('--density-cards-gap', scale.cardsGap)
   }, [effective.density])
+
+  // Cartes hierarchiques (2026-08-20) : motif du reflet holo pose en variable CSS globale, lue par
+  // `.hc-pattern-holo` (voir styles/hierCards.css) - un seul point de resolution ici plutot que de
+  // repasser `getHoloPatternMaskCss` a chaque page/composant qui affiche des cartes. 5 variables
+  // (pas juste l'image) depuis le 2026-08-21 : les motifs fournis par Julien n'ont pas tous la
+  // meme taille/repetition/mode de masquage (voir data/holoPatterns.ts).
+  useEffect(() => {
+    const mask = getHoloPatternMaskCss(effective.holoPattern)
+    const el = document.documentElement
+    el.style.setProperty('--hc-pattern-mask', mask.image)
+    el.style.setProperty('--hc-pattern-mask-size', mask.size)
+    el.style.setProperty('--hc-pattern-mask-repeat', mask.repeat)
+    el.style.setProperty('--hc-pattern-mask-position', mask.position)
+    el.style.setProperty('--hc-pattern-mask-mode', mask.mode)
+  }, [effective.holoPattern])
 
   return (
     <PersonalSettingsContext.Provider value={{ personal, effective, updatePersonal }}>

@@ -51,14 +51,20 @@ export function PlanningEpicGroup({
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className={`epic-group${compact ? ' epic-group-compact' : ''}${collapsed ? ' epic-group-collapsed' : ''}`}>
+    <div
+      className={`epic-group${compact ? ' epic-group-compact' : ''}${collapsed ? ' epic-group-collapsed' : ''} hc-card hc-epic`}
+      style={{ ['--client' as string]: client?.color }}
+    >
+      <div className="hc-pattern-holo" />
       {/* Header draggable → déplace tout le groupe ; le chevron bascule replié/déplié sans déclencher le drag */}
       <div
-        className="epic-group-header"
+        className="epic-group-header hc-text"
         draggable={!readOnly}
         onDragStart={e => { e.stopPropagation(); if (!readOnly) onDragGroup(groupIds) }}
         title={`Glisser pour déplacer l'Epic et ses ${stories.length} US`}
-        style={{ borderLeft: `3px solid ${client?.color ?? '#6366f1'}` }}
+        // Carte hierarchique (2026-08-20) : voir KanbanEpicGroup.tsx (meme raison) - le degrade
+        // couleur client de .hc-epic doit couvrir toute la carte, en-tete compris.
+        style={{ background: 'transparent', borderBottom: 'none' }}
       >
         <button
           type="button"
@@ -72,7 +78,7 @@ export function PlanningEpicGroup({
           <Chevron open={!collapsed} />
         </button>
         <span className="epic-type-tag">EPIC</span>
-        <span className="epic-group-name">{epic?.desc ?? '(Epic)'}</span>
+        <span className="epic-group-name hc-text-holo">{epic?.desc ?? '(Epic)'}</span>
         <span className="epic-group-count" title={hasArbitraryScore
           ? `Score attribué arbitrairement à l'Epic (somme de ses US : ${sumStories} SP, non utilisée)`
           : `Somme des SP de ses ${stories.length} US`}>

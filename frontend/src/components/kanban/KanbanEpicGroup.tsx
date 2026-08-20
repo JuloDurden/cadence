@@ -49,13 +49,20 @@ export function KanbanEpicGroup({
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className={`epic-group epic-group-compact${collapsed ? ' epic-group-collapsed' : ''}`}>
+    <div
+      className={`epic-group epic-group-compact hc-card hc-epic${collapsed ? ' epic-group-collapsed' : ''}`}
+      style={{ ['--client' as string]: client?.color }}
+    >
+      <div className="hc-pattern-holo" />
       <div
-        className="epic-group-header"
+        className="epic-group-header hc-text"
         draggable={!readOnly}
         onDragStart={e => { e.stopPropagation(); if (!readOnly) onDragGroup(groupIds) }}
         title={`Glisser pour déplacer l'Epic et ses ${items.length} item(s) vers une autre colonne`}
-        style={{ borderLeft: `3px solid ${client?.color ?? '#6366f1'}` }}
+        // Carte hierarchique (2026-08-20) : le degrade couleur client de .hc-epic doit couvrir
+        // toute la carte (en-tete compris), pas juste le corps - contrairement au style Kanban
+        // d'origine (en-tete a fond plein separe du corps par une bordure), voir hierCards.css.
+        style={{ background: 'transparent', borderBottom: 'none' }}
       >
         <button
           type="button"
@@ -69,7 +76,7 @@ export function KanbanEpicGroup({
           <Chevron open={!collapsed} />
         </button>
         <span className="epic-type-tag">EPIC</span>
-        <span className="epic-group-name">{epic?.desc ?? '(Epic)'}</span>
+        <span className="epic-group-name hc-text-holo">{epic?.desc ?? '(Epic)'}</span>
         <span className="epic-group-count">{items.length} item{items.length > 1 ? 's' : ''} · {totalSP} SP</span>
       </div>
 

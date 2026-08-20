@@ -204,6 +204,35 @@ test.describe('Kanban - regroupement par Epic (docs/corrections futures.md, 2026
 
 });
 
+test.describe('Kanban, nouveau design des cartes hierarchiques (v0.98.17)', () => {
+
+  // Meme jeu de donnees que le describe "regroupement par Epic" ci-dessus : FAX-024 (i24, colonne
+  // "doing") rattache a l'Epic FAX-007 (i7), PME-011 sans Epic dans la meme colonne.
+
+  test('le groupe Epic porte les classes du degrade couleur client (hc-card hc-epic)', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const group = page.locator('.epic-group').filter({ has: page.locator('[data-testid="epic-group-toggle-doing-i7"]') });
+    await expect(group).toHaveClass(/hc-card/);
+    await expect(group).toHaveClass(/hc-epic/);
+    // Motif holo reserve aux cartes "sommet" d'un groupe : present sur l'Epic, jamais sur un item
+    // range dedans (voir plus bas).
+    await expect(group.locator('.hc-pattern-holo')).toHaveCount(1);
+  });
+
+  test('un item sans Epic (hors groupe) porte hc-standalone, un item range dans un Epic non', async ({ page }) => {
+    await goTo(page, '/kanban');
+    const doingCol = page.locator('.kanban-col').filter({ has: page.locator('.kanban-col-header').filter({ hasText: 'EN COURS' }) });
+
+    const orphanCard = doingCol.locator('.kanban-card').filter({ hasText: 'PME-011' });
+    await expect(orphanCard).toHaveClass(/hc-standalone/);
+
+    const groupedCard = page.locator('[data-testid="epic-group-stories-doing-i7"] .kanban-card').filter({ hasText: 'FAX-024' });
+    await expect(groupedCard).toHaveClass(/hc-item/);
+    await expect(groupedCard).not.toHaveClass(/hc-standalone/);
+  });
+
+});
+
 test.describe('Kanban, décrochage automatique d\'un Epic (retour Julien, 2026-08-17)', () => {
 
   // FAX-024 (i24) est la seule US du sprint actif (s2) rattachée à l'Epic FAX-007 (i7) ; ses

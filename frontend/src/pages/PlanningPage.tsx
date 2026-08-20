@@ -16,6 +16,7 @@ import { isReadOnlyForRole, canManageSprintLifecycle } from '../utils/permission
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
 import { attachItemsToEpics, detachOrphanedEpics, epicsWithPlaceholder } from '../utils/hierarchyScore'
+import { useHierCardTilt } from '../hooks/useHierCardTilt'
 import { api } from '../services/api'
 import type { Item, Sprint, HistoryEntry } from '../types'
 
@@ -77,6 +78,11 @@ export function PlanningPage() {
   const [dragOverSprint, setDragOverSprint] = useState<string | null>(null)
   const dragIds        = useRef<string[]>([])
   const gridContainerRef = useRef<HTMLDivElement | null>(null)
+  // Cartes hierarchiques (2026-08-20) : panneau "Non assigné", même principe qu'une colonne de
+  // sprint (voir SprintColumn.tsx) - un hook dédié, ce panneau n'est pas dans le même DOM que
+  // les colonnes de sprint.
+  const unassignedAreaRef = useRef<HTMLDivElement>(null)
+  useHierCardTilt(unassignedAreaRef)
 
   function itemsForSprint(sprintId: string | null) {
     return state.items.filter(i => i.sprintId === sprintId)
@@ -448,7 +454,7 @@ export function PlanningPage() {
               <span style={{ fontWeight: 700, fontSize: 13 }}>Non assigné</span>
               <span style={{ fontSize: 11, color: 'var(--text-faint)', background: 'var(--surface-alt)', padding: '1px 7px', borderRadius: 8 }}>{unassigned.length}</span>
             </div>
-            <div className="planning-unassigned-items">
+            <div className="planning-unassigned-items" ref={unassignedAreaRef}>
               {/* Groupes Epic (Epics non assignés à un sprint, y compris sans aucune story
                   non-assignée — groupe vide, `attachItemsToEpics()`). Édition de l'Epic
                   lui-même encore limitée au Backlog (mode "Grouper par Epic") tant qu'une
@@ -479,6 +485,7 @@ export function PlanningPage() {
                   onEdit={item => setModalItem(item)}
                   onDragStart={id => { dragIds.current = [id] }}
                   readOnly={readOnly}
+                  standalone
                 />
               ))}
               {unassigned.length === 0 && (
