@@ -23,8 +23,12 @@ function describe(suite, fn) {
   fn();
 }
 
+// `toContain`/`.not` (2026-08-20, ajoutes pour les tests Retro plus bas) : la suite Compagnon IA
+// (verifyApplyIsConfirmed) et les precedentes n'en avaient pas eu besoin (comparaisons directes
+// suffisaient), mais la fusion des sessions Retro compare des tableaux (votes/dislikes) - plus
+// naturel a lire avec toContain()/not.toContain() qu'avec des .includes() manuels repetes.
 function expect(val) {
-  return {
+  const matchers = {
     toBe: (expected) => {
       if (val !== expected) throw new Error('Expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(val));
     },
@@ -40,7 +44,21 @@ function expect(val) {
     toBeFalsy: () => {
       if (val) throw new Error('Expected falsy, got ' + JSON.stringify(val));
     },
+    toContain: (item) => {
+      if (!Array.isArray(val) && typeof val !== 'string') throw new Error('toContain: ' + JSON.stringify(val) + ' is not an array or string');
+      if (!val.includes(item)) throw new Error('Expected ' + JSON.stringify(val) + ' to contain ' + JSON.stringify(item));
+    },
   };
+  const positiveEntries = Object.entries(matchers); // capture avant d'ajouter `not` lui-meme
+  matchers.not = {};
+  for (const [name, fn] of positiveEntries) {
+    matchers.not[name] = (...args) => {
+      let threw = false;
+      try { fn(...args); } catch { threw = true; }
+      if (!threw) throw new Error(name + ': expected the opposite, but the positive assertion passed');
+    };
+  }
+  return matchers;
 }
 
 // ── Reproductions minimales des fonctions ───────────────────────────────────
@@ -512,6 +530,214 @@ describe('verifyApplyIsConfirmed (Compagnon IA, garantie de confirmation)', () =
     const r = verifyApplyIsConfirmed(messages, 7);
     expect(r.ok).toBe(false);
     expect(r.reason).toBe('already-applied');
+  });
+});
+
+// ── Fusion des sessions Retro contre l'etat reducer (StateContext.tsx) ─────────
+// Reproduction fidele du principe des reducers ADD_RETRO_ITEM/DELETE_RETRO_ITEM/
+// TOGGLE_RETRO_VOTE/TOGGLE_RETRO_DISLIKE/TOGGLE_RETRO_ANONYMOUS/ADD_RETRO_ACTION/
+// TOGGLE_RETRO_ACTION/DELETE_RETRO_ACTION (2026-08-20, retour Julien : "meme pattern de
+// fusion fragile que Sprint Review"). Avant : RetroPage.tsx (helper `save()`, supprime)
+// reconstruisait toute la session cote page a partir d'un instantane `session` (useMemo)
+// potentiellement perime, puis dispatchait UPSERT_RETRO_SESSION avec CETTE copie complete -
+// un `UPSERT_RETRO_SESSION` recu entre-temps (synchro temps reel, v0.98.16, ou un 2e clic
+// local avant qu'un rendu ne s'intercale) pouvait donc silencieusement ecraser un changement
+// concurrent. Desormais, chaque action ne transporte qu'un changement cible et se fusionne
+// DANS LE REDUCER contre son PROPRE etat a jour (`sessions.find(...)`), jamais contre
+// l'instantane fourni par la page (`sessionDefaults`, utilise seulement en tout dernier
+// recours si la session n'existe pas encore) - meme principe que UPDATE_SR_ITEM_RECORD.
+function upsertRetroBySessionDefaults(sessions, sessionDefaults, mutate) {
+  const base = sessions.find(s => s.id === sessionDefaults.id) ?? sessionDefaults;
+  const nextSession = mutate(base);
+  return [...sessions.filter(s => s.id !== nextSession.id), nextSession];
+}
+function addRetroItem(sessions, sessionDefaults, colKey, item) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => ({
+    ...base,
+    columns: { ...base.columns, [colKey]: [...(base.columns[colKey] ?? []), item] },
+  }));
+}
+function deleteRetroItem(sessions, sessionDefaults, colKey, itemId) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => ({
+    ...base,
+    columns: { ...base.columns, [colKey]: (base.columns[colKey] ?? []).filter(i => i.id !== itemId) },
+  }));
+}
+function toggleRetroVote(sessions, sessionDefaults, colKey, itemId, userId) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => {
+    const items = (base.columns[colKey] ?? []).map(i => {
+      if (i.id !== itemId) return i;
+      const liked = i.votes.includes(userId);
+      return {
+        ...i,
+        votes: liked ? i.votes.filter(v => v !== userId) : [...i.votes, userId],
+        dislikes: liked ? (i.dislikes ?? []) : (i.dislikes ?? []).filter(v => v !== userId),
+      };
+    });
+    return { ...base, columns: { ...base.columns, [colKey]: items } };
+  });
+}
+function toggleRetroDislike(sessions, sessionDefaults, colKey, itemId, userId) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => {
+    const items = (base.columns[colKey] ?? []).map(i => {
+      if (i.id !== itemId) return i;
+      const disliked = (i.dislikes ?? []).includes(userId);
+      return {
+        ...i,
+        dislikes: disliked ? (i.dislikes ?? []).filter(v => v !== userId) : [...(i.dislikes ?? []), userId],
+        votes: disliked ? i.votes : i.votes.filter(v => v !== userId),
+      };
+    });
+    return { ...base, columns: { ...base.columns, [colKey]: items } };
+  });
+}
+function toggleRetroAnonymous(sessions, sessionDefaults) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => ({ ...base, anonymousVotes: !base.anonymousVotes }));
+}
+function addRetroAction(sessions, sessionDefaults, action) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => ({ ...base, actions: [...base.actions, action] }));
+}
+function toggleRetroAction(sessions, sessionDefaults, actionId) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => ({
+    ...base, actions: base.actions.map(a => a.id === actionId ? { ...a, done: !a.done } : a),
+  }));
+}
+function deleteRetroAction(sessions, sessionDefaults, actionId) {
+  return upsertRetroBySessionDefaults(sessions, sessionDefaults, base => ({
+    ...base, actions: base.actions.filter(a => a.id !== actionId),
+  }));
+}
+
+const baseRetroSession = () => ({
+  id: 's1', sprintId: 'sp1', format: 'start-stop-continue',
+  columns: { start: [{ id: 'i1', text: 'Existant', votes: [], dislikes: [] }], stop: [], continue: [] },
+  actions: [{ id: 'a1', text: 'Action existante', ownerId: 'm1', done: false }],
+});
+
+describe('Retro - chaque action ne touche que sa propre partie de la session', () => {
+  test('ADD_RETRO_ITEM ajoute dans la bonne colonne, laisse le reste intact', () => {
+    const sessions = addRetroItem([baseRetroSession()], baseRetroSession(), 'stop', { id: 'i2', text: 'Nouveau', votes: [], dislikes: [] });
+    const s = sessions[0];
+    expect(s.columns.stop.length).toBe(1);
+    expect(s.columns.start.length).toBe(1); // colonne "start" inchangee
+    expect(s.actions.length).toBe(1); // actions inchangees
+  });
+  test('DELETE_RETRO_ITEM retire uniquement l\'item cible', () => {
+    const sessions = deleteRetroItem([baseRetroSession()], baseRetroSession(), 'start', 'i1');
+    expect(sessions[0].columns.start.length).toBe(0);
+  });
+  test('TOGGLE_RETRO_VOTE ajoute le vote sans toucher aux dislikes d\'un autre item', () => {
+    const base = baseRetroSession();
+    base.columns.start.push({ id: 'i9', text: 'Autre', votes: [], dislikes: ['userZ'] });
+    const sessions = toggleRetroVote([base], base, 'start', 'i1', 'userA');
+    const s = sessions[0];
+    expect(s.columns.start.find(i => i.id === 'i1').votes).toContain('userA');
+    expect(s.columns.start.find(i => i.id === 'i9').dislikes).toContain('userZ'); // non touche
+  });
+  test('TOGGLE_RETRO_VOTE est bien un toggle (revote retire le vote)', () => {
+    let sessions = [baseRetroSession()];
+    sessions = toggleRetroVote(sessions, sessions[0], 'start', 'i1', 'userA');
+    sessions = toggleRetroVote(sessions, sessions[0], 'start', 'i1', 'userA');
+    expect(sessions[0].columns.start.find(i => i.id === 'i1').votes).not.toContain('userA');
+  });
+  test('TOGGLE_RETRO_DISLIKE retire un vote existant (mutuellement exclusifs)', () => {
+    const base = baseRetroSession();
+    base.columns.start[0].votes = ['userA'];
+    const sessions = toggleRetroDislike([base], base, 'start', 'i1', 'userA');
+    const item = sessions[0].columns.start.find(i => i.id === 'i1');
+    expect(item.dislikes).toContain('userA');
+    expect(item.votes).not.toContain('userA');
+  });
+  test('TOGGLE_RETRO_ANONYMOUS bascule le seul champ anonymousVotes', () => {
+    const sessions = toggleRetroAnonymous([baseRetroSession()], baseRetroSession());
+    expect(sessions[0].anonymousVotes).toBe(true);
+    expect(sessions[0].columns.start.length).toBe(1); // colonnes inchangees
+  });
+  test('ADD_RETRO_ACTION ajoute une action sans toucher aux colonnes', () => {
+    const sessions = addRetroAction([baseRetroSession()], baseRetroSession(), { id: 'a2', text: 'Nouvelle', ownerId: 'm2', done: false });
+    expect(sessions[0].actions.length).toBe(2);
+    expect(sessions[0].columns.start.length).toBe(1);
+  });
+  test('TOGGLE_RETRO_ACTION bascule uniquement done, sur la bonne action', () => {
+    const sessions = toggleRetroAction([baseRetroSession()], baseRetroSession(), 'a1');
+    expect(sessions[0].actions[0].done).toBe(true);
+  });
+  test('DELETE_RETRO_ACTION retire uniquement l\'action ciblee', () => {
+    const sessions = deleteRetroAction([baseRetroSession()], baseRetroSession(), 'a1');
+    expect(sessions[0].actions.length).toBe(0);
+  });
+});
+
+describe('Retro - regression : 2 actions basees sur le MEME instantane perime ne s\'ecrasent plus', () => {
+  test('un ajout d\'item (compte A) et un vote sur un autre item (compte B) survivent tous les deux', () => {
+    // Simule le scenario reel du bug rapporte : 2 comptes, chacun parti du MEME instantane de
+    // session (staleSnapshot) - avant ce correctif, le 2e dispatch (UPSERT_RETRO_SESSION avec une
+    // copie complete reconstruite depuis cet instantane) aurait totalement REMPLACE la session,
+    // effacant l'ajout du 1er compte au passage.
+    const staleSnapshot = baseRetroSession();
+    let sessions = [baseRetroSession()]; // etat reducer initial, identique a l'instantane pour l'instant
+    sessions = addRetroItem(sessions, staleSnapshot, 'start', { id: 'i2', text: 'Nouveau item compte A', votes: [], dislikes: [] });
+    sessions = toggleRetroVote(sessions, staleSnapshot, 'start', 'i1', 'userB'); // toujours base sur staleSnapshot, pas sur le resultat du dispatch precedent
+    const session = sessions.find(s => s.id === 's1');
+    expect(session.columns.start.length).toBe(2); // le nouvel item de A n'a pas ete efface par B
+    expect(session.columns.start.find(i => i.id === 'i1').votes).toContain('userB'); // le vote de B est bien applique
+  });
+});
+
+// ── Id deterministe de la session Retro par defaut (RetroPage.tsx) ─────────────
+// Meme correctif que celui deja applique a Sprint Review (SprintReviewPage.tsx,
+// `sr-session-${sprintId}`, voir docs/corrections.md, 2026-07-22) : sans id deterministe,
+// generer une session par defaut (aucune session existante pour ce sprint/format) produirait
+// un id ALEATOIRE a chaque recalcul du useMemo - problematique maintenant qu'un effet de
+// persistance reagit a CHAQUE changement de reference de `session` (voir RetroPage.tsx) :
+// changer de format sans aucune session existante creerait sinon une nouvelle ligne "vide"
+// cote serveur a chaque fois, plutot que de reutiliser toujours la meme.
+function defaultRetroSessionId(sprintId, format) {
+  return `retro-session-${sprintId ?? 'no-sprint'}-${format}`;
+}
+describe('Retro - id deterministe de la session par defaut', () => {
+  test('meme sprint + meme format -> toujours le meme id', () => {
+    expect(defaultRetroSessionId('sp1', 'start-stop-continue')).toBe(defaultRetroSessionId('sp1', 'start-stop-continue'));
+  });
+  test('format different -> id different', () => {
+    expect(defaultRetroSessionId('sp1', 'start-stop-continue')).not.toBe(defaultRetroSessionId('sp1', 'mad-sad-glad'));
+  });
+  test('sprint different -> id different', () => {
+    expect(defaultRetroSessionId('sp1', 'start-stop-continue')).not.toBe(defaultRetroSessionId('sp2', 'start-stop-continue'));
+  });
+});
+
+// Reproduction de utils/permissions.ts (hasRole + canDeleteRetroItem), correctif 2026-08-20 (retour
+// Julien : "un compte dev peut supprimer les messages des autres dans la Retro. Seul l'admin ou le
+// PO ou le proprietaire du message devrait pouvoir le faire.").
+function hasRole(userRole, ...allowed) {
+  if (!userRole) return false;
+  if (userRole === 'ADMIN') return true;
+  return allowed.includes(userRole);
+}
+function canDeleteRetroItem(role, userId, item) {
+  if (hasRole(role, 'PO')) return true;
+  return !!userId && !!item.authorId && item.authorId === userId;
+}
+describe('canDeleteRetroItem (Retro, suppression restreinte auteur/PO/Admin)', () => {
+  test('ADMIN peut supprimer l\'item de n\'importe qui', () => {
+    expect(canDeleteRetroItem('ADMIN', 'u-admin', { authorId: 'u-autre' })).toBeTruthy();
+  });
+  test('PO peut supprimer l\'item de n\'importe qui', () => {
+    expect(canDeleteRetroItem('PO', 'u-po', { authorId: 'u-autre' })).toBeTruthy();
+  });
+  test('l\'auteur peut supprimer son propre item', () => {
+    expect(canDeleteRetroItem('DEV', 'u-dev', { authorId: 'u-dev' })).toBeTruthy();
+  });
+  test('un DEV ne peut PAS supprimer l\'item d\'un autre (bug corrige)', () => {
+    expect(canDeleteRetroItem('DEV', 'u-dev', { authorId: 'u-autre' })).toBeFalsy();
+  });
+  test('un SCRUM_MASTER ne peut PAS supprimer l\'item d\'un autre (non demande par Julien)', () => {
+    expect(canDeleteRetroItem('SCRUM_MASTER', 'u-sm', { authorId: 'u-autre' })).toBeFalsy();
+  });
+  test('item sans authorId connu (cree avant le Chantier J) -> fail-closed, seul PO/Admin', () => {
+    expect(canDeleteRetroItem('DEV', 'u-dev', {})).toBeFalsy();
+    expect(canDeleteRetroItem('PO', 'u-po', {})).toBeTruthy();
   });
 });
 

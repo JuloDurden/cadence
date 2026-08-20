@@ -251,7 +251,27 @@ export function SprintReviewPage() {
   // l'ancien délai de 600ms, mais non nulle — pendant laquelle un rechargement immédiat pourrait
   // survenir avant que React n'ait eu l'occasion d'exécuter l'effet. `useLayoutEffect` s'exécute de
   // façon synchrone juste après le commit, avant que le navigateur ne rende la main à l'utilisateur.
+  //
+  // Correctif 2026-08-20 (faux conflit systématique, voir docs/corrections.md, même bug trouvé et
+  // corrigé d'abord sur la Rétrospective) : cet effet réagit à TOUTE variation de `session`, or
+  // `session` change pour deux raisons bien distinctes que l'effet ne pouvait pas différencier :
+  // (1) cet utilisateur vient d'agir localement (dispatch d'une action ciblée ci-dessous), il faut
+  // sauvegarder ; (2) un autre utilisateur a agi et son action a été relayée par le canal temps réel
+  // (state_action), appliquée ici via un dispatch brut (voir StateContext.tsx), il ne faut PAS
+  // sauvegarder, car c'est déjà à l'autre client de le faire. Comme la diffusion state_action part de
+  // façon quasi instantanée (avant même que le PUT d'origine n'ait abouti), le client qui REÇOIT
+  // l'action déclenchait ici une sauvegarde en écho, en course avec la diffusion state_version qui
+  // aurait dû garder sa version locale à jour, d'où un conflit 409 quasi garanti dès que 2
+  // utilisateurs sont actifs en même temps sur cette page (rien n'était perdu : chaque client avait
+  // déjà le bon contenu local, seul l'écho de sauvegarde était en trop). `localChangeRef` ne vaut
+  // `true` que lorsque CE navigateur est à l'origine du changement (positionné juste avant chaque
+  // dispatch local ci-dessous) ; l'effet ne sauvegarde que dans ce cas, jamais pour un changement
+  // reçu à distance, ni au montage initial.
+  const localChangeRef = useRef(false)
+
   useLayoutEffect(() => {
+    if (!localChangeRef.current) return
+    localChangeRef.current = false
     saveToServer({
       ...state,
       sprintReviewSessions: [...(state.sprintReviewSessions ?? []).filter(s => s.id !== session.id), session],
@@ -277,11 +297,13 @@ export function SprintReviewPage() {
   function updateItemRecord(patch: Partial<SRItemRecord> & { itemId: string }) {
     if (readOnly) return
     const { itemId, ...rest } = patch
+    localChangeRef.current = true
     dispatch({ type: 'UPDATE_SR_ITEM_RECORD', payload: { sessionDefaults: session, itemId, patch: rest } })
   }
   function updateUnfinished(patch: Partial<SRUnfinishedRecord> & { itemId: string }) {
     if (readOnly) return
     const { itemId, ...rest } = patch
+    localChangeRef.current = true
     dispatch({ type: 'UPDATE_SR_UNFINISHED_RECORD', payload: { sessionDefaults: session, itemId, patch: rest } })
   }
 
@@ -292,10 +314,12 @@ export function SprintReviewPage() {
   // se fait maintenant dans le reducer, comme pour Note PO/Raison/Notes.
   function addDecision(d: SRDecision) {
     if (readOnly) return
+    localChangeRef.current = true
     dispatch({ type: 'ADD_SR_DECISION', payload: { sessionDefaults: session, decision: d } })
   }
   function removeDecision(id: string) {
     if (readOnly) return
+    localChangeRef.current = true
     dispatch({ type: 'DELETE_SR_DECISION', payload: { sessionDefaults: session, decisionId: id } })
   }
 
@@ -312,6 +336,7 @@ export function SprintReviewPage() {
       createdAt: new Date().toISOString(),
     }
     dispatch({ type: 'ADD_ITEM', payload: item })
+    localChangeRef.current = true
     dispatch({ type: 'APPLY_SR_DECISION', payload: { sessionDefaults: session, decisionId: decision.id } })
     saveToServer({ ...state, items: [...state.items, item] })
   }
@@ -343,8 +368,10 @@ export function SprintReviewPage() {
     dispatch(exists ? { type: 'UPDATE_ITEM', payload: item } : { type: 'ADD_ITEM', payload: item, keyCounters })
     const nextItems = exists ? state.items.map(i => i.id === item.id ? item : i) : [...state.items, item]
     if (modalOrigin?.kind === 'decision') {
+      localChangeRef.current = true
       dispatch({ type: 'APPLY_SR_DECISION', payload: { sessionDefaults: session, decisionId: modalOrigin.decisionId } })
     } else if (modalOrigin?.kind === 'unfinished') {
+      localChangeRef.current = true
       dispatch({
         type: 'UPDATE_SR_UNFINISHED_RECORD',
         payload: { sessionDefaults: session, itemId: modalOrigin.itemId, patch: { applied: true } },
@@ -376,6 +403,7 @@ export function SprintReviewPage() {
       updatedItem.notes = [...(item.notes ?? []), note]
     }
     dispatch({ type: 'UPDATE_ITEM', payload: updatedItem })
+    localChangeRef.current = true
     dispatch({
       type: 'UPDATE_SR_UNFINISHED_RECORD',
       payload: { sessionDefaults: session, itemId: item.id, patch: { applied: true } },
@@ -414,6 +442,7 @@ export function SprintReviewPage() {
     if (readOnly) return
     const updatedItem: Item = { ...item, sprintId: targetSprintId }
     dispatch({ type: 'UPDATE_ITEM', payload: updatedItem })
+    localChangeRef.current = true
     dispatch({
       type: 'UPDATE_SR_UNFINISHED_RECORD',
       payload: { sessionDefaults: session, itemId: item.id, patch: { applied: true, resolvedSprintId: targetSprintId } },
@@ -447,16 +476,19 @@ export function SprintReviewPage() {
   function addNote() {
     if (readOnly) return
     const note: SRNote = { id: uid(), text: '', createdAt: new Date().toISOString() }
+    localChangeRef.current = true
     dispatch({ type: 'ADD_SR_NOTE', payload: { sessionDefaults: session, note } })
   }
   // Même piège que Note PO / Raison ci-dessus : le texte d'une note globale est édité frappe
   // par frappe, donc la fusion se fait dans le reducer (UPDATE_SR_NOTE), pas ici.
   function updateNote(id: string, patch: Partial<SRNote>) {
     if (readOnly) return
+    localChangeRef.current = true
     dispatch({ type: 'UPDATE_SR_NOTE', payload: { sessionDefaults: session, noteId: id, patch } })
   }
   function deleteNote(id: string) {
     if (readOnly) return
+    localChangeRef.current = true
     dispatch({ type: 'DELETE_SR_NOTE', payload: { sessionDefaults: session, noteId: id } })
   }
 

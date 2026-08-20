@@ -18,6 +18,12 @@ interface Props {
   // pour tout le monde. Le vote continue de fonctionner normalement (le compteur change), seul
   // l'indicateur visuel de son propre vote disparaît.
   anonymousVotes?: boolean
+  // Correctif 2026-08-20 (retour Julien) : le bouton de suppression d'un item n'était soumis à
+  // aucun contrôle, n'importe quel compte pouvait supprimer l'item de n'importe qui. Décidé item
+  // par item plutôt qu'un simple booléen de colonne, car la réponse dépend de l'auteur de CHAQUE
+  // item (voir utils/permissions.ts, canDeleteRetroItem) : PO/Admin peuvent tout supprimer, un Dev
+  // ne peut supprimer que ses propres items.
+  canDelete: (item: RetroItem) => boolean
 }
 
 function Ico({ d, size = 13, color = 'currentColor' }: { d: string; size?: number; color?: string }) {
@@ -33,7 +39,7 @@ const THUMB_UP = '<path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.9
 const THUMB_DOWN = '<path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z"/>'
 const CLOSE = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
 
-export function RetroColumnCard({ label, color, icon, items, team, currentUserId, onAdd, onVote, onDislike, onDelete, anonymousVotes = false }: Props) {
+export function RetroColumnCard({ label, color, icon, items, team, currentUserId, onAdd, onVote, onDislike, onDelete, anonymousVotes = false, canDelete }: Props) {
   const [input, setInput] = useState('')
 
   function handleAdd() {
@@ -85,9 +91,11 @@ export function RetroColumnCard({ label, color, icon, items, team, currentUserId
                     <Ico d={THUMB_DOWN} size={11} color={disliked ? 'var(--danger)' : 'var(--text-muted)'} />
                     {(item.dislikes ?? []).length}
                   </button>
-                  <button className="btn-icon danger" style={{ padding: '2px 4px' }} onClick={() => onDelete(item.id)}>
-                    <Ico d={CLOSE} size={11} />
-                  </button>
+                  {canDelete(item) && (
+                    <button className="btn-icon danger" style={{ padding: '2px 4px' }} onClick={() => onDelete(item.id)}>
+                      <Ico d={CLOSE} size={11} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -38,6 +38,22 @@ export const canExportRetro = (role: UserRole | '' | undefined) => hasRole(role,
 // actée avec Julien le 2026-07-31.
 export const canToggleRetroAnonymous = (role: UserRole | '' | undefined) => hasRole(role, 'SCRUM_MASTER')
 
+// Rétrospective : supprimer un item (post-it) réservé au PO (+ Admin) ou à son propre auteur,
+// décision Julien (2026-08-20, retour après test réel à 2 comptes) : "un compte dev peut supprimer
+// les messages des autres dans la Retro. Seul l'admin ou le PO ou le propriétaire du message
+// devrait pouvoir le faire." Jusqu'ici `onDelete` n'était soumis à aucun contrôle, n'importe quel
+// compte (y compris un Dev) pouvait supprimer l'item de n'importe qui. `authorId` reste optionnel
+// sur `RetroItem` (items créés avant le Chantier J qui l'a introduit) : un item sans auteur connu
+// n'est donc supprimable que par le PO/Admin (fail-closed), jamais par un compte quelconque.
+export function canDeleteRetroItem(
+  role: UserRole | '' | undefined,
+  userId: string | undefined,
+  item: { authorId?: string }
+): boolean {
+  if (hasRole(role, 'PO')) return true
+  return !!userId && !!item.authorId && item.authorId === userId
+}
+
 // Auto-planning/What-if : les scénarios (velocité, capacités, critères, items fictifs, overrides)
 // sont un brouillon personnel en localStorage, jamais partagé entre utilisateurs — donc sans risque
 // à laisser explorer à PO/Scrum Master/Dev (+ Admin). Seul le Stakeholder reste en lecture seule

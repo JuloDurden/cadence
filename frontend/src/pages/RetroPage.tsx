@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useLayoutEffect, useRef } from 'react'
 import { useCadence } from '../context/StateContext'
 import { useAuth } from '../hooks/useAuth'
 import { Header } from '../components/layout/Header'
@@ -8,7 +8,7 @@ import type { RetroSession, RetroItem, RetroAction, RetroFormat, RetroArchive, H
 import { archiveAndReset } from '../utils/session'
 import { getCurrentSprint } from '../utils/sprints'
 import { withHistoryEntry } from '../utils/history'
-import { canExportRetro, canToggleRetroAnonymous } from '../utils/permissions'
+import { canExportRetro, canToggleRetroAnonymous, canDeleteRetroItem } from '../utils/permissions'
 
 // SVG icon paths — never inline in JSX, always via Ico component
 const ICO = {
@@ -174,76 +174,109 @@ export function RetroPage() {
 
   const sprint = useMemo(() => getCurrentSprint(state), [state])
 
+  // Chantier Retro/Daily (2026-08-20, retour Julien : "même pattern de fusion fragile que Sprint
+  // Review") : `id` était généré par `uid()` (aléatoire) à chaque calcul de la session par défaut,
+  // quand aucune session n'existe encore pour ce sprint/format - même cause finale que celle
+  // corrigée sur Sprint Review (voir StateContext.tsx, commentaire sur `sr-session-${sprintId}`) :
+  // StrictMode (dev) exécute ce useMemo deux fois au montage, deux ids différents pouvant être
+  // sauvegardés pour la MÊME session par défaut. Devenu réellement problématique ici avec l'ajout
+  // ci-dessous de l'effet de persistance qui réagit à CHAQUE changement de référence de `session` :
+  // sans id déterministe, chaque changement de format sans aucune session existante aurait créé une
+  // nouvelle ligne "vide" côté serveur à chaque fois, plutôt que de réutiliser la même.
   const session = useMemo((): RetroSession => {
     const existing = state.retroSessions.find(s => s.sprintId === sprint?.id && s.format === format)
     return existing ?? {
-      id: uid(), sprintId: sprint?.id ?? '', format,
+      id: `retro-session-${sprint?.id ?? 'no-sprint'}-${format}`, sprintId: sprint?.id ?? '', format,
       columns: emptyColumns(format), actions: [],
       date: new Date().toISOString().slice(0, 10),
     }
   }, [state.retroSessions, sprint?.id, format])
 
-  function save(updated: RetroSession) {
-    dispatch({ type: 'UPSERT_RETRO_SESSION', payload: updated })
-    saveToServer({ ...state, retroSessions: [...state.retroSessions.filter(s => s.id !== updated.id), updated] })
-  }
+  // Persistance de la session (2026-08-20, même principe que SprintReviewPage.tsx, voir son
+  // commentaire détaillé) : la sauvegarde ne se construit plus juste après le dispatch (piège du
+  // state figé), mais depuis un effet qui réagit à `session` une fois le rendu à jour - TOUJOURS à
+  // jour, jamais figé, puisqu'un effet s'exécute après que React a fini de recalculer `session`.
+  // `useLayoutEffect` plutôt que `useEffect`, pour la même raison qu'en Sprint Review : s'exécute de
+  // façon synchrone juste après le commit, avant qu'un rechargement immédiat ne puisse survenir.
+  //
+  // `localChangeRef` (2026-08-20, retour Julien après test réel à 2 comptes : toast de conflit
+  // systématique alors que rien n'était réellement perdu des 2 côtés) : `session` change de
+  // référence pour DEUX raisons bien différentes - (1) CE compte vient de dispatcher une action
+  // localement, il faut bien sauvegarder ; (2) CE compte vient de RECEVOIR l'action d'un autre
+  // compte par la synchronisation temps réelle (StateContext.tsx, `state_action`, dispatch brut) -
+  // la session est déjà correcte localement ET déjà sauvegardée par l'autre compte, resauvegarder
+  // ici est non seulement inutile mais activement dangereux : cette re-sauvegarde part AVANT que
+  // `state_version` (diffusée seulement APRES que la sauvegarde de l'autre compte a réellement
+  // abouti côté serveur) n'ait eu le temps d'arriver - la version connue localement est encore
+  // l'ancienne, donc ce PUT échoue quasi systématiquement en conflit (409), déclenchant le toast
+  // alors qu'il n'y a jamais eu de vrai problème. Seul (1) doit déclencher une sauvegarde : chaque
+  // handler pose ce drapeau juste avant son dispatch, l'effet le consomme (et le réinitialise) s'il
+  // est présent, l'ignore sinon - y compris au tout premier montage (aucune interaction locale
+  // encore survenue), qui ne sauvegarde donc plus rien non plus, une simplification bienvenue de
+  // plus par rapport au comportement historique de Sprint Review (voir points de vigilance,
+  // docs/corrections.md).
+  const localChangeRef = useRef(false)
+
+  useLayoutEffect(() => {
+    if (!localChangeRef.current) return
+    localChangeRef.current = false
+    saveToServer({ ...state, retroSessions: [...state.retroSessions.filter(s => s.id !== session.id), session] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session])
 
   function handleAdd(colKey: string, text: string) {
     const item: RetroItem = { id: uid(), text, votes: [], dislikes: [], authorId: userId, authorName: userName }
-    save({ ...session, columns: { ...session.columns, [colKey]: [...(session.columns[colKey] ?? []), item] } })
+    localChangeRef.current = true
+    dispatch({ type: 'ADD_RETRO_ITEM', payload: { sessionDefaults: session, colKey, item } })
   }
 
   function handleVote(colKey: string, itemId: string) {
-    const items = session.columns[colKey].map(i => {
-      if (i.id !== itemId) return i
-      const liked = i.votes.includes(userId)
-      return {
-        ...i,
-        votes: liked ? i.votes.filter(v => v !== userId) : [...i.votes, userId],
-        dislikes: liked ? (i.dislikes ?? []) : (i.dislikes ?? []).filter(v => v !== userId),
-      }
-    })
-    save({ ...session, columns: { ...session.columns, [colKey]: items } })
+    localChangeRef.current = true
+    dispatch({ type: 'TOGGLE_RETRO_VOTE', payload: { sessionDefaults: session, colKey, itemId, userId } })
   }
 
   function handleDislike(colKey: string, itemId: string) {
-    const items = session.columns[colKey].map(i => {
-      if (i.id !== itemId) return i
-      const disliked = (i.dislikes ?? []).includes(userId)
-      return {
-        ...i,
-        dislikes: disliked ? (i.dislikes ?? []).filter(v => v !== userId) : [...(i.dislikes ?? []), userId],
-        votes: disliked ? i.votes : i.votes.filter(v => v !== userId),
-      }
-    })
-    save({ ...session, columns: { ...session.columns, [colKey]: items } })
+    localChangeRef.current = true
+    dispatch({ type: 'TOGGLE_RETRO_DISLIKE', payload: { sessionDefaults: session, colKey, itemId, userId } })
   }
 
+  // Correctif 2026-08-20 (retour Julien) : garde-fou en plus du masquage du bouton côté
+  // RetroColumnCard (defense in depth, même principe que readOnly ailleurs dans l'appli),
+  // voir utils/permissions.ts, canDeleteRetroItem.
   function handleDelete(colKey: string, itemId: string) {
-    save({ ...session, columns: { ...session.columns, [colKey]: session.columns[colKey].filter(i => i.id !== itemId) } })
+    const item = session.columns[colKey]?.find(i => i.id === itemId)
+    if (!item || !canDeleteRetroItem(userRole, userId, item)) return
+    localChangeRef.current = true
+    dispatch({ type: 'DELETE_RETRO_ITEM', payload: { sessionDefaults: session, colKey, itemId } })
   }
 
   // Phase 2 (roadmap v1), sous-chantier 3 : réglage de session, réservé Scrum Master (+ Admin) —
   // masque le highlight "vous avez déjà voté" pour tout le monde, ne bloque jamais le vote lui-même.
   function handleToggleAnonymous() {
-    save({ ...session, anonymousVotes: !session.anonymousVotes })
+    localChangeRef.current = true
+    dispatch({ type: 'TOGGLE_RETRO_ANONYMOUS', payload: { sessionDefaults: session } })
   }
 
   function handleAddAction(action: RetroAction) {
-    save({ ...session, actions: [...session.actions, action] })
+    localChangeRef.current = true
+    dispatch({ type: 'ADD_RETRO_ACTION', payload: { sessionDefaults: session, action } })
   }
   function handleToggleAction(id: string) {
-    save({ ...session, actions: session.actions.map(a => a.id === id ? { ...a, done: !a.done } : a) })
+    localChangeRef.current = true
+    dispatch({ type: 'TOGGLE_RETRO_ACTION', payload: { sessionDefaults: session, actionId: id } })
   }
   function handleDeleteAction(id: string) {
-    save({ ...session, actions: session.actions.filter(a => a.id !== id) })
+    localChangeRef.current = true
+    dispatch({ type: 'DELETE_RETRO_ACTION', payload: { sessionDefaults: session, actionId: id } })
   }
 
-  // Chantier B (tranche Retrospective) : n'utilise plus le helper générique `save()` ici,
-  // car celui-ci ne recalcule jamais `retroArchives` dans son payload — l'archive tout
-  // juste créée n'aurait donc pas forcément été persistée au serveur tant qu'aucune autre
-  // action n'aurait déclenché un save ultérieur avec un état à jour (bug de persistance
-  // distinct de la traçabilité, signalé par l'utilisateur et corrigé à cette occasion).
+  // Chantier B (tranche Retrospective) : sauvegarde explicite ici (pas seulement via l'effet de
+  // persistance ci-dessus, qui ne réagit qu'à `session`) car `retroArchives` change aussi, et
+  // l'archive tout juste créée n'est pas garantie persistée avant qu'une autre action ne le fasse
+  // sinon (bug de persistance distinct de la traçabilité, signalé par l'utilisateur et corrigé à
+  // cette occasion). Redondant avec l'effet (qui se redéclenche aussi, `session` étant remplacée
+  // par sa version réinitialisée juste en dessous) mais sans effet de bord réel : même donnée déjà
+  // à jour, même principe accepté sur SprintReviewPage.tsx (voir `archiveSession` là-bas).
   function handleArchive() {
     const arc: RetroArchive = {
       id: uid(), date: new Date().toISOString().slice(0, 10),
@@ -350,6 +383,7 @@ export function RetroPage() {
                   onDislike={itemId => handleDislike(col.key, itemId)}
                   onDelete={itemId => handleDelete(col.key, itemId)}
                   anonymousVotes={session.anonymousVotes}
+                  canDelete={item => canDeleteRetroItem(userRole, userId, item)}
                 />
               ))}
             </div>

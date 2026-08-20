@@ -67,6 +67,8 @@ const SYNCABLE = new Set([
   'APPLY_SPRINT_PLAN',
   'ADD_SPRINT','UPDATE_SPRINT','DELETE_SPRINT',
   'UPSERT_RETRO_SESSION','DELETE_RETRO_SESSION',
+  'ADD_RETRO_ITEM','DELETE_RETRO_ITEM','TOGGLE_RETRO_VOTE','TOGGLE_RETRO_DISLIKE','TOGGLE_RETRO_ANONYMOUS',
+  'ADD_RETRO_ACTION','TOGGLE_RETRO_ACTION','DELETE_RETRO_ACTION',
   'ADD_CLIENT','UPDATE_CLIENT','DELETE_CLIENT',
   'ADD_MEMBER','UPDATE_MEMBER','DELETE_MEMBER',
   'ADD_HISTORY',
@@ -106,6 +108,27 @@ type Action =
   | { type: 'UPSERT_DAILY_ENTRY'; payload: import('../types').DailyEntry }
   | { type: 'UPSERT_RETRO_SESSION'; payload: import('../types').RetroSession }
   | { type: 'DELETE_RETRO_SESSION'; payload: string }
+  // Chantier Retro/Daily (2026-08-20, retour Julien : "même pattern de fusion fragile que Sprint
+  // Review") : jusqu'ici, chaque interaction (voter, ajouter un item, une action...) reconstruisait
+  // toute la session cote page (RetroPage.tsx, helper `save()`) a partir d'un instantane `session`
+  // (useMemo) potentiellement perime, puis dispatchait `UPSERT_RETRO_SESSION` avec CETTE copie
+  // complete - vulnerable si deux interactions s'enchainent avant qu'un rendu n'ait eu le temps de
+  // s'intercaler, notamment entre 2 comptes differents depuis la synchronisation temps reel
+  // generale (v0.98.16, UPSERT_RETRO_SESSION deja dans SYNCABLE plus bas) : un vote de l'un peut
+  // silencieusement effacer l'item que l'autre vient d'ajouter, exactement le bug deja corrige sur
+  // Sprint Review (voir UPDATE_SR_ITEM_RECORD et les actions ADD_SR_DECISION/etc. ci-dessous). Meme
+  // remede : chaque action ne transporte plus qu'un changement cible, fusionne dans LE REDUCER
+  // contre son propre etat a jour (`sessions.find(...)`, jamais contre `sessionDefaults` sauf en
+  // toute derniere extremite si la session n'existe pas encore) plutot que contre l'instantane
+  // fourni par la page.
+  | { type: 'ADD_RETRO_ITEM'; payload: { sessionDefaults: import('../types').RetroSession; colKey: string; item: import('../types').RetroItem } }
+  | { type: 'DELETE_RETRO_ITEM'; payload: { sessionDefaults: import('../types').RetroSession; colKey: string; itemId: string } }
+  | { type: 'TOGGLE_RETRO_VOTE'; payload: { sessionDefaults: import('../types').RetroSession; colKey: string; itemId: string; userId: string } }
+  | { type: 'TOGGLE_RETRO_DISLIKE'; payload: { sessionDefaults: import('../types').RetroSession; colKey: string; itemId: string; userId: string } }
+  | { type: 'TOGGLE_RETRO_ANONYMOUS'; payload: { sessionDefaults: import('../types').RetroSession } }
+  | { type: 'ADD_RETRO_ACTION'; payload: { sessionDefaults: import('../types').RetroSession; action: import('../types').RetroAction } }
+  | { type: 'TOGGLE_RETRO_ACTION'; payload: { sessionDefaults: import('../types').RetroSession; actionId: string } }
+  | { type: 'DELETE_RETRO_ACTION'; payload: { sessionDefaults: import('../types').RetroSession; actionId: string } }
   | { type: 'ADD_CLIENT'; payload: import('../types').Client }
   | { type: 'UPDATE_CLIENT'; payload: import('../types').Client }
   | { type: 'DELETE_CLIENT'; payload: string }
@@ -344,6 +367,78 @@ function reducer(state: CadenceState, action: Action): CadenceState {
       return { ...state, retroSessions: [...sessions, action.payload] }
     }
     case 'DELETE_RETRO_SESSION': return { ...state, retroSessions: state.retroSessions.filter(s => s.id !== action.payload) }
+    case 'ADD_RETRO_ITEM': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = {
+        ...base,
+        columns: { ...base.columns, [action.payload.colKey]: [...(base.columns[action.payload.colKey] ?? []), action.payload.item] },
+      }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'DELETE_RETRO_ITEM': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = {
+        ...base,
+        columns: { ...base.columns, [action.payload.colKey]: (base.columns[action.payload.colKey] ?? []).filter(i => i.id !== action.payload.itemId) },
+      }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'TOGGLE_RETRO_VOTE': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const items = (base.columns[action.payload.colKey] ?? []).map(i => {
+        if (i.id !== action.payload.itemId) return i
+        const liked = i.votes.includes(action.payload.userId)
+        return {
+          ...i,
+          votes: liked ? i.votes.filter(v => v !== action.payload.userId) : [...i.votes, action.payload.userId],
+          dislikes: liked ? (i.dislikes ?? []) : (i.dislikes ?? []).filter(v => v !== action.payload.userId),
+        }
+      })
+      const nextSession = { ...base, columns: { ...base.columns, [action.payload.colKey]: items } }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'TOGGLE_RETRO_DISLIKE': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const items = (base.columns[action.payload.colKey] ?? []).map(i => {
+        if (i.id !== action.payload.itemId) return i
+        const disliked = (i.dislikes ?? []).includes(action.payload.userId)
+        return {
+          ...i,
+          dislikes: disliked ? (i.dislikes ?? []).filter(v => v !== action.payload.userId) : [...(i.dislikes ?? []), action.payload.userId],
+          votes: disliked ? i.votes : i.votes.filter(v => v !== action.payload.userId),
+        }
+      })
+      const nextSession = { ...base, columns: { ...base.columns, [action.payload.colKey]: items } }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'TOGGLE_RETRO_ANONYMOUS': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, anonymousVotes: !base.anonymousVotes }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'ADD_RETRO_ACTION': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, actions: [...base.actions, action.payload.action] }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'TOGGLE_RETRO_ACTION': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, actions: base.actions.map(a => a.id === action.payload.actionId ? { ...a, done: !a.done } : a) }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
+    case 'DELETE_RETRO_ACTION': {
+      const sessions = state.retroSessions
+      const base = sessions.find(s => s.id === action.payload.sessionDefaults.id) ?? action.payload.sessionDefaults
+      const nextSession = { ...base, actions: base.actions.filter(a => a.id !== action.payload.actionId) }
+      return { ...state, retroSessions: [...sessions.filter(s => s.id !== nextSession.id), nextSession] }
+    }
     case 'UPSERT_SR_SESSION': {
       const sessions = (state.sprintReviewSessions ?? []).filter(s => s.id !== action.payload.id)
       return { ...state, sprintReviewSessions: [...sessions, action.payload] }
