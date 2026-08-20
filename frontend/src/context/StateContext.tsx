@@ -2,7 +2,8 @@ import { createContext, useContext, useReducer, useCallback, useEffect, useState
 import type { ReactNode } from 'react'
 import type { CadenceState, Item, Sprint, RoadmapGoal, DisplayDensity } from '../types'
 import { DEMO_STATE } from '../data/demo'
-import { api, BASE_URL } from '../services/api'
+import { api, BASE_URL, isStateConflictError } from '../services/api'
+import { useToast } from './ToastContext'
 import { isItemInFrame, frameBounds, ejectPointFromFrame } from '../utils/nnlFrames'
 import { R1_DEFAULT, R2_DEFAULT, zoneFromWorld, clampDistanceToZone } from '../utils/nnlZones'
 // Synchronisation temps réel générale (voir SYNCABLE plus bas) : même dérivation que pour le canal
@@ -458,6 +459,18 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
   const stateRef = useRef(state)
   stateRef.current = state
 
+  // Contrôle de concurrence optimiste (2026-08-20, voir backend/src/routes/state.ts) : dernière
+  // `version` de `workspace_state` connue de ce client, mise à jour au chargement, après chaque
+  // sauvegarde réussie, ET à la réception d'un message `state_version` diffusé par le serveur après
+  // la sauvegarde d'un AUTRE client (voir plus bas, connexion WebSocket de synchro) - sans ce
+  // dernier point, la version locale resterait périmée dès qu'un collègue connecté sauvegarde quoi
+  // que ce soit, déclenchant un faux conflit à la sauvegarde suivante de CE client alors que son
+  // contenu, lui, est déjà à jour via cette même synchro temps réel. `null` tant qu'aucun état n'a
+  // encore été chargé (mode démo, ou tout premier PUT jamais fait sur ce workspace) : `saveToServer`
+  // envoie alors la sauvegarde sans version, comportement historique sans contrôle.
+  const versionRef = useRef<number | null>(null)
+  const { showToast } = useToast()
+
   // Thème/couleur principale/densité (Phase 6bis, sous-chantier 4, 2026-08-13) : déplacés dans
   // PersonalSettingsContext.tsx (2026-08-19, décision Julien), ces réglages sont désormais
   // propres au compte connecté, pas au workspace partagé par ce contexte (`state.settings` reste
@@ -560,16 +573,39 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
     if (publicToken) return Promise.resolve()
     const run = saveQueueRef.current
       .catch(() => { /* une sauvegarde précédente en échec ne doit pas bloquer les suivantes */ })
-      .then(() => api.putState(s))
-      .catch(() => { /* offline mode */ })
+      .then(() => api.putState(s, versionRef.current ?? undefined))
+      .then(({ version }) => { versionRef.current = version })
+      .catch(err => {
+        // Conflit détecté côté serveur (409, voir routes/state.ts) : quelqu'un d'autre a sauvegardé
+        // entre la version connue de ce client et cette écriture. Se resynchroniser sur l'état
+        // réellement en base plutôt que de réessayer à l'aveugle - `s` a été construit localement à
+        // partir d'une base déjà périmée, le renvoyer tel quel referait exactement la même erreur en
+        // silence. L'action qui vient d'échouer n'est PAS réappliquée automatiquement : c'est
+        // délibéré (voir échange avec Julien, 2026-08-20) - `s` est un instantané COMPLET de l'état
+        // recomposé par l'appelant, pas un patch ciblé, le réappliquer sur l'état frais risquerait
+        // justement de réécraser ce que l'autre personne vient d'enregistrer.
+        if (isStateConflictError(err)) {
+          dispatch({ type: 'SET_STATE', payload: err.data as CadenceState })
+          versionRef.current = err.version
+          showToast('Une autre modification a été enregistrée entre-temps, votre dernier changement n\'a pas été sauvegardé. Réessayez si besoin.', 'error')
+          return
+        }
+        /* autre erreur (réseau...) : offline mode, comportement historique */
+      })
     saveQueueRef.current = run
     return run
-  }, [publicToken])
+  }, [publicToken, showToast])
 
   const loadFromServer = useCallback(async () => {
     try {
-      const { data } = publicToken ? await api.getPresentationState(publicToken) : await api.getState()
-      if (data) dispatch({ type: 'SET_STATE', payload: data as CadenceState })
+      if (publicToken) {
+        const { data } = await api.getPresentationState(publicToken)
+        if (data) dispatch({ type: 'SET_STATE', payload: data as CadenceState })
+      } else {
+        const { data, version } = await api.getState()
+        versionRef.current = version
+        if (data) dispatch({ type: 'SET_STATE', payload: data as CadenceState })
+      }
     } catch {
       // Phase 3, Mode présentation : un 404 (lien invalide/révoqué) doit être signalé, pas juste
       // avalé comme le mode "offline" habituel (données de démo affichées silencieusement) — un
@@ -621,8 +657,18 @@ export function StateProvider({ children, publicToken }: { children: ReactNode; 
       ws.onopen = () => { syncReconnectDelayRef.current = 1000 }
 
       ws.onmessage = e => {
-        let msg: { type?: string; action?: Action }
+        let msg: { type?: string; action?: Action; version?: number }
         try { msg = JSON.parse(e.data) } catch { return }
+        // `state_version` (2026-08-20, contrôle de concurrence optimiste, voir routes/state.ts) :
+        // diffusée après CHAQUE sauvegarde réussie d'un client (y compris celui qui vient de
+        // sauvegarder, redondant pour lui mais sans effet puisque déjà à la même valeur). Garde ce
+        // client à jour sur la version réellement en base sans round-trip, pour ne pas déclencher de
+        // faux conflit à sa prochaine sauvegarde alors que son contenu est déjà à jour via
+        // `state_action` ci-dessous.
+        if (msg?.type === 'state_version' && typeof msg.version === 'number') {
+          versionRef.current = msg.version
+          return
+        }
         if (msg?.type !== 'state_action' || !msg.action) return
         // dispatch BRUT, jamais wrappedDispatch : une action reçue d'un autre utilisateur ne doit
         // ni pousser de snapshot undo local (annuler chez soi ne doit pas défaire l'action de

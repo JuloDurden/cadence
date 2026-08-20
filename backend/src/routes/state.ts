@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { authenticate } from '../middleware/auth'
 import { postSlackMessage, formatBlockedItemMessage } from '../lib/slack'
+import { broadcastSync } from '../lib/realtimeSync'
 
 // Correctif 2026-07-22, complément final (voir docs/corrections.md, Sprint Review) : le tri
 // `orderBy: { updatedAt: 'desc' }` ajouté au correctif précédent supposait un ordre toujours
@@ -97,7 +98,36 @@ export async function stateRoutes(fastify: FastifyInstance) {
   })
 
   // PUT /api/state — sauvegarder l'état du workspace
-  fastify.put<{ Body: { data: unknown } }>(
+  //
+  // Contrôle de concurrence optimiste (2026-08-20, retour Julien, voir docs/corrections futures.md
+  // "Le PUT /api/state reste un écrasement complet du blob JSON...") : jusqu'ici, ce PUT écrasait
+  // toujours l'état en base avec la copie complète envoyée par le client, sans jamais vérifier
+  // qu'elle avait bien été construite à partir de la dernière version connue - deux utilisateurs
+  // modifiant des parties différentes de l'état en même temps pouvaient silencieusement s'écraser
+  // l'un l'autre, la colonne `version` existant déjà mais n'étant jamais lue à l'écriture.
+  //
+  // Le client envoie désormais la `version` qu'il a chargée (StateContext.tsx, `versionRef`).
+  // L'écriture n'a lieu que si cette version correspond ENCORE à celle en base au moment précis de
+  // l'écriture : comparaison et écriture en une seule opération atomique (`updateMany` filtré sur
+  // `id` ET `version`), pour fermer la fenêtre de course qu'un "lire la version puis écrire" en 2
+  // requêtes séparées laisserait ouverte entre deux PUT concurrents. Si `result.count === 0`, soit
+  // la ligne n'existe pas encore (tout premier PUT du workspace, `version` non pertinente : création
+  // normale), soit une autre écriture a eu lieu entre-temps (vrai conflit : 409, avec l'état et la
+  // version actuellement en base, pour que le client puisse se resynchroniser sans requête
+  // supplémentaire). `version` reste optionnelle en entrée (comportement historique conservé, sans
+  // contrôle, si absente) : aucun appelant de ce repo n'omet plus `version` (StateContext.tsx la
+  // fournit toujours dès qu'un état a été chargé), mais un futur appelant externe qui l'ignorerait
+  // ne doit pas se retrouver bloqué sans recours.
+  //
+  // Faux conflits évités malgré la synchronisation temps réel (routes/realtimeWs.ts) : ce canal
+  // diffuse les actions du reducer indépendamment de ce PUT (voir son en-tête) - sans rien de plus,
+  // un client déjà à jour CONTENU par cette synchro se ferait quand même rejeter ici dès qu'un
+  // collègue connecté sauvegarde quoi que ce soit, sa `version` locale n'ayant jamais été avancée.
+  // Une sauvegarde réussie diffuse donc aussi la nouvelle version à tous les clients connectés
+  // (`state_version`, en plus de `state_action` déjà existant) : `versionRef` reste à jour sans
+  // round-trip, et un vrai conflit (client déconnecté du canal temps réel, ou domaine non couvert
+  // par lui comme Now/Next/Later - voir SYNCABLE, StateContext.tsx) continue d'être détecté.
+  fastify.put<{ Body: { data: unknown; version?: number } }>(
     '/api/state',
     { preHandler: authenticate },
     async (req, reply) => {
@@ -113,12 +143,38 @@ export async function stateRoutes(fastify: FastifyInstance) {
         }
       }
 
-      await fastify.prisma.workspaceState.upsert({
-        where: { id: SINGLETON_ID },
-        update: { data: req.body.data as object, version: { increment: 1 } },
-        create: { id: SINGLETON_ID, data: req.body.data as object },
+      const providedVersion = req.body.version
+
+      if (typeof providedVersion !== 'number') {
+        const updated = await fastify.prisma.workspaceState.upsert({
+          where: { id: SINGLETON_ID },
+          update: { data: req.body.data as object, version: { increment: 1 } },
+          create: { id: SINGLETON_ID, data: req.body.data as object },
+        })
+        broadcastSync({ type: 'state_version', version: updated.version })
+        return reply.code(200).send({ version: updated.version })
+      }
+
+      const result = await fastify.prisma.workspaceState.updateMany({
+        where: { id: SINGLETON_ID, version: providedVersion },
+        data: { data: req.body.data as object, version: { increment: 1 } },
       })
-      return reply.code(204).send()
+
+      if (result.count === 0) {
+        const current = await fastify.prisma.workspaceState.findUnique({ where: { id: SINGLETON_ID } })
+        if (!current) {
+          const created = await fastify.prisma.workspaceState.create({
+            data: { id: SINGLETON_ID, data: req.body.data as object },
+          })
+          broadcastSync({ type: 'state_version', version: created.version })
+          return reply.code(200).send({ version: created.version })
+        }
+        return reply.code(409).send({ error: 'conflict', data: current.data, version: current.version })
+      }
+
+      const updated = await fastify.prisma.workspaceState.findUnique({ where: { id: SINGLETON_ID } })
+      broadcastSync({ type: 'state_version', version: updated!.version })
+      return reply.code(200).send({ version: updated!.version })
     }
   )
 }

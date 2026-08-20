@@ -25,13 +25,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     },
   })
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
-  // 204 No Content (ex. PUT /api/state, DELETE /api/invitations/:id) : pas de corps à parser —
-  // `res.json()` lèverait une erreur "Unexpected end of JSON input" sur un body vide. Corrigé au
-  // passage (Phase 2.5, Onboarding) : `putState` y était déjà exposée, silencieusement avalée par
-  // le `.catch()` "offline mode" de `saveToServer` (StateContext.tsx) — jamais remarqué faute de
-  // code qui dépende réellement de la valeur résolue, contrairement à `revokeInvitation` ci-dessous.
+  // 204 No Content (ex. DELETE /api/invitations/:id) : pas de corps à parser — `res.json()`
+  // lèverait une erreur "Unexpected end of JSON input" sur un body vide. Corrigé au passage (Phase
+  // 2.5, Onboarding), constaté à l'époque sur `putState` (alors aussi 204, avant qu'il ne réponde
+  // 200 avec un corps - 2026-08-20, voir plus bas) : silencieusement avalé par le `.catch()`
+  // "offline mode" de `saveToServer` (StateContext.tsx), jamais remarqué faute de code qui dépende
+  // réellement de la valeur résolue, contrairement à `revokeInvitation` ci-dessous.
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
+}
+
+// Contrôle de concurrence optimiste (2026-08-20, voir backend/src/routes/state.ts) : un rejet
+// (409) de `putState` porte cette forme - distingué d'une autre erreur réseau/serveur par
+// `conflict: true`, plutôt que par le message (fragile) ou le code HTTP brut (perdu une fois
+// remonté en `Error`).
+export function isStateConflictError(e: unknown): e is { conflict: true; data: unknown; version: number } {
+  return !!e && typeof e === 'object' && (e as { conflict?: unknown }).conflict === true
 }
 
 export const api = {
@@ -73,9 +82,30 @@ export const api = {
     primaryColorLight: string | null
     primaryColorDark: string | null
   }>('/api/public/branding'),
-  getState: () => request<{ data: unknown }>('/api/state'),
-  putState: (data: unknown) =>
-    request<void>('/api/state', { method: 'PUT', body: JSON.stringify({ data }) }),
+  // `version` (2026-08-20, contrôle de concurrence optimiste, voir backend/src/routes/state.ts) :
+  // renvoyée par le GET pour que StateContext.tsx puisse la fournir au PUT suivant. `putState`
+  // n'utilise pas `request()` ci-dessus : un 409 (conflit détecté côté serveur) a un corps à lire
+  // (état + version actuels), pas seulement un message d'erreur à jeter comme le fait `request()`
+  // sur tout statut non-2xx - `saveToServer` (StateContext.tsx) doit pouvoir s'en resynchroniser
+  // sans requête GET supplémentaire.
+  getState: () => request<{ data: unknown; version: number }>('/api/state'),
+  putState: async (data: unknown, version?: number): Promise<{ version: number }> => {
+    const token = getToken()
+    const res = await fetch(`${BASE_URL}/api/state`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ data, version }),
+    })
+    if (res.status === 409) {
+      const body = await res.json() as { data: unknown; version: number }
+      throw Object.assign(new Error('conflict'), { conflict: true as const, data: body.data, version: body.version })
+    }
+    if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
+    return res.json() as Promise<{ version: number }>
+  },
   // Phase 2 (roadmap v1), sous-chantier 1 : gestion des comptes, réservée au rôle Admin côté
   // backend (403 sinon — voir backend/src/routes/users.ts).
   listUsers: () => request<{ users: ManagedUser[] }>('/api/users'),

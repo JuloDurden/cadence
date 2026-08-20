@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import type { SocketStream } from '@fastify/websocket'
+import { syncConnections } from '../lib/realtimeSync'
 
 // Synchronisation temps reel generalisee a toute l'application (2026-08-19, retour Julien : "quand
 // plusieurs utilisateurs sont en meme temps sur l'outil, si l'un d'eux met quelque chose a jour,
@@ -37,7 +38,9 @@ function isStateActionMessage(msg: unknown): msg is StateActionMessage {
 }
 
 export async function realtimeSyncWsRoutes(fastify: FastifyInstance) {
-  const connections = new Set<SocketStream['socket']>()
+  // Registre des connexions dans lib/realtimeSync.ts (partagé avec routes/state.ts), pas ici en
+  // local comme avant - voir le commentaire de ce module.
+  const connections = syncConnections
 
   fastify.get<{ Querystring: { token?: string } }>(
     '/api/ws/sync',
