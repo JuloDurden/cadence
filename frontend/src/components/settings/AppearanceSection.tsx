@@ -399,7 +399,7 @@ export function AppearanceSection({ settings, onChange, showTeamLogo = true }: {
             <div ref={patternPickerRef} data-testid="holo-pattern-picker" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
               {HOLO_PATTERNS.map(p => {
                 const selected = personal.holoPattern === p.id
-                // 2026-08-21 : les 6 nouveaux motifs de Julien n'ont plus tous la même taille/
+                // 2026-08-20 : les 6 nouveaux motifs de Julien n'ont plus tous la même taille/
                 // répétition/mode de masquage (silhouette SVG carrelée vs dégradé CSS coloré
                 // auto-répétitif, voir data/holoPatterns.ts) - toutes les sous-propriétés de
                 // masquage sont donc surchargées ici, pas juste l'image.

@@ -399,6 +399,122 @@ describe('topoSort', () => {
   });
 });
 
+// ── verifyApplyIsConfirmed (Compagnon IA, backend/src/routes/ai.ts) ────────────
+// Reproduction fidele de la fonction reelle (v0.98.18, retour Julien) : garantit
+// techniquement, a partir de l'historique complet de conversation deja recu par
+// /api/ai-chat (le chat reste sans etat persiste cote serveur), qu'un appel
+// apply_sprint_plan est bien precede d'un simulate_sprint_plan ET d'un vrai
+// message utilisateur envoye depuis (distingue d'un tool_result synthetique
+// reinjecte par la boucle agentique via son `content` de type tableau, pas
+// chaine). L'ancre n'est pas systematiquement la simulation : si un plan a deja
+// ete applique depuis, l'ancre devient cette application, pour exiger une
+// nouvelle confirmation avant toute reapplication du meme plan.
+function verifyApplyIsConfirmed(messages, beforeIndex) {
+  let simIdx = -1;
+  let simInput = null;
+  let lastApplyIdx = -1;
+  for (let i = 0; i < beforeIndex; i++) {
+    const m = messages[i];
+    if (m.role !== 'assistant' || typeof m.content === 'string') continue;
+    for (const block of m.content) {
+      if (block.type === 'tool_use' && block.name === 'simulate_sprint_plan') {
+        simIdx = i;
+        simInput = block.input;
+      }
+      if (block.type === 'tool_use' && block.name === 'apply_sprint_plan') {
+        lastApplyIdx = i;
+      }
+    }
+  }
+  if (simIdx === -1 || !simInput) {
+    return { ok: false, reason: 'no-simulation' };
+  }
+  const anchorIdx = Math.max(simIdx, lastApplyIdx);
+  const hasRealUserMessageSince = messages
+    .slice(anchorIdx + 1, beforeIndex)
+    .some(m => m.role === 'user' && typeof m.content === 'string');
+  if (!hasRealUserMessageSince) {
+    return { ok: false, reason: lastApplyIdx > simIdx ? 'already-applied' : 'no-confirmation' };
+  }
+  return { ok: true, input: simInput };
+}
+
+describe('verifyApplyIsConfirmed (Compagnon IA, garantie de confirmation)', () => {
+  test('aucune simulation prealable -> rejet', () => {
+    const messages = [
+      { role: 'user', content: 'Planifie les prochains sprints' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'apply_sprint_plan', input: {} }] },
+    ];
+    const r = verifyApplyIsConfirmed(messages, 1);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe('no-simulation');
+  });
+
+  test('simulation puis application dans le meme tour (tool_result seul, pas un vrai message) -> rejet', () => {
+    const messages = [
+      { role: 'user', content: 'Simule puis applique directement' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: { criteria: ['priority'] } }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{"result":"ok"}' }] },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'apply_sprint_plan', input: { criteria: ['priority'] } }] },
+    ];
+    const r = verifyApplyIsConfirmed(messages, 3);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe('no-confirmation');
+  });
+
+  test('simulation + vrai message utilisateur + application -> accepte, memes parametres que la simulation', () => {
+    const simInput = { criteria: ['priority', 'client'], velocityFactor: 0.8 };
+    const messages = [
+      { role: 'user', content: 'Simule un plan' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{"result":"ok"}' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'Voici le plan simule.' }] },
+      { role: 'user', content: 'Applique' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'apply_sprint_plan', input: { criteria: ['autre chose'] } }] },
+    ];
+    const r = verifyApplyIsConfirmed(messages, 5);
+    expect(r.ok).toBe(true);
+    expect(JSON.stringify(r.input)).toBe(JSON.stringify(simInput));
+  });
+
+  test('deux simulations successives -> reprend la derniere, pas la premiere', () => {
+    const simInput1 = { criteria: ['priority'] };
+    const simInput2 = { criteria: ['client'], velocityFactor: 1.2 };
+    const messages = [
+      { role: 'user', content: 'Simule un premier plan' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput1 }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'Plan 1.' }] },
+      { role: 'user', content: 'Essaie plutot avec un autre critere' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'simulate_sprint_plan', input: simInput2 }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: '{}' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'Plan 2.' }] },
+      { role: 'user', content: 'Applique celui-la' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't3', name: 'apply_sprint_plan', input: simInput1 }] },
+    ];
+    const r = verifyApplyIsConfirmed(messages, 9);
+    expect(r.ok).toBe(true);
+    expect(JSON.stringify(r.input)).toBe(JSON.stringify(simInput2));
+  });
+
+  test('reapplication sans nouveau message utilisateur apres une premiere application reussie -> rejet', () => {
+    const simInput = { criteria: ['priority'] };
+    const messages = [
+      { role: 'user', content: 'Simule' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] },
+      { role: 'assistant', content: [{ type: 'text', text: 'Plan.' }] },
+      { role: 'user', content: 'Applique' },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'apply_sprint_plan', input: simInput }] },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: '{"applied":true}' }] },
+      { role: 'assistant', content: [{ type: 'tool_use', id: 't3', name: 'apply_sprint_plan', input: simInput }] },
+    ];
+    const r = verifyApplyIsConfirmed(messages, 7);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe('already-applied');
+  });
+});
+
 // ── Bilan ────────────────────────────────────────────────────────────────────
 
 console.log('\n' + '-'.repeat(50));

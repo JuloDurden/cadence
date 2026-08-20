@@ -1,11 +1,11 @@
 import type { HoloPatternId } from '../types'
 
-// Cartes hierarchiques Initiative/Epic/Item (2026-08-20, complete le 2026-08-21 avec 6 motifs,
-// puis le 2026-08-22 avec 'scanlines'/'bubbles' en remplacement de 'rosette' puis 'halftone',
-// tous deux retires car juges peu convaincants a l'usage) : registre des motifs disponibles pour
+// Cartes hierarchiques Initiative/Epic/Item (2026-08-20) : registre des motifs disponibles pour
 // le reflet holographique (Reglages > Apparence, voir AppearanceSection.tsx), consulte aussi par
 // le CSS partage des cartes (styles/hierCards.css, `.hc-pattern-holo`) pour construire le masque
-// du motif choisi.
+// du motif choisi. Complete le meme jour avec 6 motifs fournis par Julien, puis avec 'scanlines'/
+// 'bubbles' en remplacement de 'rosette' puis 'halftone', tous deux retires car juges peu
+// convaincants a l'usage.
 //
 // Les motifs fournis ne sont pas tous de la meme nature : les silhouettes SVG ('diamonds',
 // 'hexagons', 'geometric', 'overlook', 'bubbles' - un trace plein ou au trait, en dehors duquel

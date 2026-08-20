@@ -289,6 +289,102 @@ test.describe('NNL — Panneau calques (v0.90)', () => {
 
 })
 
+// ── Suite 3bis : Bug calque/forme, verrouillage/surbrillance/z-index (remonte par Julien, ─────
+// 2026-08-20). Chaque forme dessinee cree son propre calque auto (createNewShapeLayer,
+// NNLCanvas.tsx), avec un order strictement croissant - pratique ici pour obtenir 2 calques
+// distincts sans manipulation manuelle du panneau.
+
+test.describe('NNL - bug calque/forme : verrouillage, surbrillance, z-index (2026-08-20)', () => {
+
+  test('un calque verrouille empeche de selectionner la forme qui lui est rattachee', async ({ page }) => {
+    await goToNNL(page)
+    await drawRect(page, 200, 150, 350, 280)
+    const panel = page.locator('[data-testid="nnl-layers-panel"]')
+    const rectLayer = panel.locator('[data-testid^="nnl-layer-"]').filter({ hasText: 'Rectangle' })
+    await rectLayer.locator('[title="Verrouiller"]').click()
+    await page.waitForTimeout(100)
+
+    await page.locator('[data-testid="nnl-tool-select"]').click()
+    await page.waitForTimeout(80)
+    await canvasMouseDown(page, 275, 215)
+    await page.waitForTimeout(150)
+
+    // Aucune selection : le <g data-shape-id> ne recoit pas le contour de selection (2e <rect>
+    // pointille ajoute uniquement quand isSelected, voir NNLCanvas.tsx ShapeLayer).
+    const shapeGroup = page.locator('[data-shape-id]').first()
+    await expect(shapeGroup.locator('rect')).toHaveCount(1)
+  })
+
+  test('deverrouiller un calque redonne la possibilite de selectionner sa forme', async ({ page }) => {
+    await goToNNL(page)
+    await drawRect(page, 200, 150, 350, 280)
+    const panel = page.locator('[data-testid="nnl-layers-panel"]')
+    const rectLayer = panel.locator('[data-testid^="nnl-layer-"]').filter({ hasText: 'Rectangle' })
+    await rectLayer.locator('[title="Verrouiller"]').click()
+    await rectLayer.locator('[title="Déverrouiller"]').click()
+    await page.waitForTimeout(100)
+
+    await page.locator('[data-testid="nnl-tool-select"]').click()
+    await page.waitForTimeout(80)
+    await canvasMouseDown(page, 275, 215)
+    await page.waitForTimeout(150)
+
+    // Selectionnee (et seule forme presente, donc primaire) : contour de selection + 4 poignees
+    // de coin (rect/ellipse uniquement, voir cornerHandles dans NNLCanvas.tsx) s'ajoutent au
+    // <rect> principal - le compte exact (6) est un detail d'implementation, on verifie juste
+    // qu'il y en a strictement plus qu'a l'etat non selectionne (1 seul <rect>, voir test au-dessus).
+    const shapeGroup = page.locator('[data-shape-id]').first()
+    await expect.poll(() => shapeGroup.locator('rect').count()).toBeGreaterThan(1)
+  })
+
+  test('selectionner une forme met en surbrillance son calque dans le panneau, meme si ce n\'est pas le calque actif', async ({ page }) => {
+    await goToNNL(page)
+    await drawRect(page, 200, 150, 350, 280)
+    const panel = page.locator('[data-testid="nnl-layers-panel"]')
+    // Nouveau calque vide : devient le calque ACTIF (cible du prochain dessin), la forme deja
+    // dessinee reste sur le calque "Rectangle" - le cas que isActive seul ne couvrait pas.
+    await panel.locator('[title="Ajouter un calque"]').click()
+    await page.waitForTimeout(150)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(100)
+
+    await page.locator('[data-testid="nnl-tool-select"]').click()
+    await page.waitForTimeout(80)
+    await canvasMouseDown(page, 275, 215)
+    await page.waitForTimeout(150)
+
+    const rectLayerRow = panel.locator('[data-testid^="nnl-layer-"]').filter({ hasText: 'Rectangle' })
+    const bg = await rectLayerRow.evaluate(el => getComputedStyle((el.firstElementChild)).backgroundColor)
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)')
+  })
+
+  test('en cas de superposition, le clic selectionne la forme du calque le plus haut (visuellement au-dessus)', async ({ page }) => {
+    await goToNNL(page)
+    // rect1 : grand rectangle en arriere-plan (dessine en premier, calque le plus bas)
+    await drawRect(page, 200, 150, 450, 400)
+    // rect2 : plus petit, dessine ensuite (donc son calque auto-cree a un order plus eleve,
+    // rendu en dernier = visuellement au-dessus), entierement a l'interieur du premier pour
+    // garantir un vrai chevauchement au point clique
+    await drawRect(page, 280, 230, 380, 320)
+
+    await page.locator('[data-testid="nnl-tool-select"]').click()
+    await page.waitForTimeout(80)
+    // Point dans la zone de chevauchement (a l'interieur des 2 rectangles)
+    await canvasMouseDown(page, 330, 275)
+    await page.waitForTimeout(150)
+
+    const groups = page.locator('[data-shape-id]')
+    await expect(groups).toHaveCount(2)
+    // DOM rendu dans l'ordre croissant des calques (le plus haut en dernier, voir visibleShapes,
+    // NNLCanvas.tsx) : groups[0] = rect1 (calque le plus bas), groups[1] = rect2 (calque le plus
+    // haut, dessine en second). Seul rect2 doit porter le contour de selection + les 4 poignees
+    // de coin (compte exact non fige, voir commentaire du test precedent).
+    await expect(groups.nth(0).locator('rect')).toHaveCount(1)
+    await expect.poll(() => groups.nth(1).locator('rect').count()).toBeGreaterThan(1)
+  })
+
+})
+
 // ── Suite 4 : Dessin de formes ────────────────────────────────────────────────
 
 test.describe('NNL — Dessin de formes (v0.90)', () => {

@@ -244,6 +244,65 @@ interface RawPlanInput {
   fromSprintLabel?: string
 }
 
+/* ── Garantie technique de confirmation avant application (2026-08-20, retour Julien) ─────────────
+   L'attente d'une confirmation explicite avant apply_sprint_plan, et la reutilisation des memes
+   parametres entre une simulation et l'application qui suit, reposaient jusqu'ici uniquement sur
+   les instructions de buildSystemPrompt plus bas ("ne jamais appliquer sans confirmation", "memes
+   parametres que le dernier simulate_sprint_plan") - jamais sur une verification technique reelle.
+   Le chat reste sans etat PERSISTE cote serveur (voir commentaire plus haut), mais chaque requete
+   /api/ai-chat recoit deja l'historique COMPLET de la conversation (req.body.messages) : on peut
+   donc verifier a partir de cet historique, sans etat supplementaire, que :
+   1. un simulate_sprint_plan a bien precede cet appel dans la conversation ;
+   2. un VRAI message utilisateur a ete envoye depuis - distingue d'un tool_result synthetique
+      reinjecte par la boucle agentique (messages.push plus bas, content: un tableau de blocs) par
+      son `content` de type string (seuls les VRAIS messages tapes par l'utilisateur, mappes depuis
+      req.body.messages, ont un content en simple chaine) : la presence d'un tel message prouve un
+      aller-retour HTTP reel depuis la simulation, donc une confirmation explicite de l'utilisateur,
+      et exclut tout enchainement simulate -> apply dans le MEME tour de boucle agentique (25
+      iterations possibles en une seule requete, voir MAX_ITERATIONS plus bas).
+   Les parametres du plan applique sont en plus TOUJOURS repris du dernier simulate_sprint_plan
+   trouve (jamais ceux de l'appel apply_sprint_plan lui-meme, potentiellement reformules ou
+   re-devines de memoire par le modele), pour garantir que ce qui est ecrit correspond exactement a
+   ce qui a ete simule et montre - meme principe que le commentaire ci-dessus, rendu contraignant. */
+export function verifyApplyIsConfirmed(
+  messages: AnthropicMessage[], beforeIndex: number
+): { ok: true; input: RawPlanInput } | { ok: false; reason: string } {
+  let simIdx = -1
+  let simInput: RawPlanInput | null = null
+  let lastApplyIdx = -1
+  for (let i = 0; i < beforeIndex; i++) {
+    const m = messages[i]
+    if (m.role !== 'assistant' || typeof m.content === 'string') continue
+    for (const block of m.content) {
+      if (block.type === 'tool_use' && block.name === 'simulate_sprint_plan') {
+        simIdx = i
+        simInput = block.input as RawPlanInput
+      }
+      if (block.type === 'tool_use' && block.name === 'apply_sprint_plan') {
+        lastApplyIdx = i
+      }
+    }
+  }
+  if (simIdx === -1 || !simInput) {
+    return { ok: false, reason: "Aucune simulation prealable trouvee dans cette conversation : appelle simulate_sprint_plan et montre le resultat avant d'appliquer quoi que ce soit." }
+  }
+  // L'ancre n'est pas forcement la simulation : si un plan a deja ete applique DEPUIS cette
+  // simulation, une nouvelle confirmation utilisateur est exigee depuis CETTE application, pas
+  // depuis la simulation d'origine - sinon une premiere confirmation resterait valable pour
+  // reappliquer indefiniment le meme plan sans nouvel accord.
+  const anchorIdx = Math.max(simIdx, lastApplyIdx)
+  const hasRealUserMessageSince = messages
+    .slice(anchorIdx + 1, beforeIndex)
+    .some(m => m.role === 'user' && typeof m.content === 'string')
+  if (!hasRealUserMessageSince) {
+    const reason = lastApplyIdx > simIdx
+      ? "Ce plan a deja ete applique : attends un nouveau message explicite de l'utilisateur avant de l'appliquer a nouveau."
+      : "Pas de confirmation explicite de l'utilisateur depuis la derniere simulation : montre le resultat de simulate_sprint_plan et attends un nouveau message de l'utilisateur avant d'appeler apply_sprint_plan."
+    return { ok: false, reason }
+  }
+  return { ok: true, input: simInput }
+}
+
 function resolvePlanParams(state: CadenceState, input: RawPlanInput): { params: PlanParams; virtualItems: PlanVirtualItem[] } {
   const criteriaRaw = (input.criteria ?? ['priority']).filter((c): c is CritId => (CRIT_IDS as string[]).includes(c))
   const criteria = criteriaRaw.length > 0 ? criteriaRaw : (['priority'] as CritId[])
@@ -721,8 +780,8 @@ function buildSystemPrompt(state: CadenceState, role: string): string {
     "Planification de sprints : pour toute demande de planification (\"planifie le prochain sprint\", \"et si on priorisait le client X\", \"simule un scenario ou...\"), utilise TOUJOURS simulate_sprint_plan plutot que d'estimer toi-meme un placement - c'est le meme algorithme que la page Auto-planning, le resultat doit rester identique a ce qu'elle produirait.",
     "5 criteres possibles dans `criteria` (liste ORDONNEE, l'ordre = ordre de priorite entre eux) : \"priority\" (Priorite), \"client\" (Importance client, necessite `clientOrder`), \"socle\" (Socle commun en tete), \"debt\" (Dette technique), \"epic\" (Cohesion Epic/Initiative - un Epic ou une Initiative reste groupe dans un seul sprint autant que possible, place en bloc). Par defaut, seule la priorite est active - comme un nouveau scenario cree depuis la page Auto-planning. Designe toujours un sprint par \"Sprint N\" (son numero, tel que liste ci-dessus) plutot que par son seul nom personnalise, qui peut ne pas exister.",
     "IMPORTANT - fidelite du resultat : ne recalcule JAMAIS toi-meme les totaux, ne reformule ni ne resume les chiffres renvoyes par simulate_sprint_plan dans un tableau reconstruit de memoire - recopie les totaux et cles d'items exactement tels que l'outil les a donnes. Si tu veux presenter les choses plus lisiblement (tableau markdown par exemple), recopie chaque valeur depuis le texte de l'outil, ne les recalcule pas et ne les \"corrige\" pas de toi-meme meme si un total te semble bizarre - dis-le a l'utilisateur plutot que de l'ajuster silencieusement.",
-    "IMPORTANT - ne jamais appliquer sans confirmation : n'appelle JAMAIS apply_sprint_plan dans le meme tour de reponse qu'une simulation, meme si la demande initiale mentionnait deja \"applique\" ou \"planifie et applique\" - montre TOUJOURS le resultat de simulate_sprint_plan et attends un nouveau message explicite de l'utilisateur (\"applique\", \"vas-y\", \"oui\") avant d'appeler apply_sprint_plan.",
-    "IMPORTANT - memes parametres entre simulation et application : quand l'utilisateur confirme, rappelle apply_sprint_plan avec EXACTEMENT les memes valeurs de `criteria`/`clientOrder`/`velocityFactor`/`capacityOverrides`/`virtualItems`/`itemOverrides`/`fromSprintLabel` que le dernier simulate_sprint_plan de cette conversation - jamais reformules ou re-devines de memoire, le resultat ecrit doit correspondre exactement a ce qui a ete montre.",
+    "IMPORTANT - ne jamais appliquer sans confirmation : n'appelle JAMAIS apply_sprint_plan dans le meme tour de reponse qu'une simulation, meme si la demande initiale mentionnait deja \"applique\" ou \"planifie et applique\" - montre TOUJOURS le resultat de simulate_sprint_plan et attends un nouveau message explicite de l'utilisateur (\"applique\", \"vas-y\", \"oui\") avant d'appeler apply_sprint_plan. Cette regle est desormais aussi verifiee techniquement cote serveur (pas seulement une consigne) : un appel sans simulation prealable ni nouveau message utilisateur depuis sera rejete.",
+    "IMPORTANT - memes parametres entre simulation et application : quand l'utilisateur confirme, rappelle apply_sprint_plan avec EXACTEMENT les memes valeurs de `criteria`/`clientOrder`/`velocityFactor`/`capacityOverrides`/`virtualItems`/`itemOverrides`/`fromSprintLabel` que le dernier simulate_sprint_plan de cette conversation - jamais reformules ou re-devines de memoire, le resultat ecrit doit correspondre exactement a ce qui a ete montre. Les parametres du dernier simulate_sprint_plan sont de toute facon toujours repris tels quels cote serveur, quoi que tu transmettes ici.",
     "Les items fictifs (`virtualItems`) affiches par simulate_sprint_plan portent une cle PROVISOIRE (leur `tempKey`, ex. \"V1\") - ce n'est qu'apres apply_sprint_plan qu'ils deviennent de vrais items avec une cle definitive (prefixe du client, ex. \"JIR-004\"). Precise-le si l'utilisateur s'interroge sur cette cle provisoire.",
   ]
   if (role === 'DEV') {
@@ -842,6 +901,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
           break
         }
 
+        const assistantMsgIndex = messages.length - 1
         const resultBlocks: AnthropicToolResultBlock[] = []
         for (const call of toolUses) {
           try {
@@ -849,7 +909,19 @@ export async function aiRoutes(fastify: FastifyInstance) {
               resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: executeReadTool(state, call.name, call.input) })
               continue
             }
-            const result = await executeTool(fastify, state, call.name, call.input, role, req.user.id)
+            let toolInput = call.input
+            if (call.name === 'apply_sprint_plan') {
+              const guard = verifyApplyIsConfirmed(messages, assistantMsgIndex)
+              if (!guard.ok) {
+                resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: guard.reason, is_error: true })
+                continue
+              }
+              // Parametres TOUJOURS repris du dernier simulate_sprint_plan trouve, jamais ceux
+              // que le modele vient de fournir a apply_sprint_plan lui-meme (voir commentaire de
+              // verifyApplyIsConfirmed) - garantie technique plutot qu'une simple consigne de prompt.
+              toolInput = guard.input as unknown as Record<string, unknown>
+            }
+            const result = await executeTool(fastify, state, call.name, toolInput, role, req.user.id)
             state = result.state
             toolCalls.push(result.toolCall)
             resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: result.text })

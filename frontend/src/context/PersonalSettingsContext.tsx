@@ -178,7 +178,7 @@ export function PersonalSettingsProvider({ children }: { children: ReactNode }) 
   // Cartes hierarchiques (2026-08-20) : motif du reflet holo pose en variable CSS globale, lue par
   // `.hc-pattern-holo` (voir styles/hierCards.css) - un seul point de resolution ici plutot que de
   // repasser `getHoloPatternMaskCss` a chaque page/composant qui affiche des cartes. 5 variables
-  // (pas juste l'image) depuis le 2026-08-21 : les motifs fournis par Julien n'ont pas tous la
+  // (pas juste l'image) depuis le 2026-08-20 : les motifs fournis par Julien n'ont pas tous la
   // meme taille/repetition/mode de masquage (voir data/holoPatterns.ts).
   useEffect(() => {
     const mask = getHoloPatternMaskCss(effective.holoPattern)

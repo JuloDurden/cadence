@@ -44,13 +44,19 @@ interface NNLLayersPanelProps {
   // sur son contour.
   selectedFrameId?: string | null
   onSelectFrame?: (id: string | null) => void
+  // Bug calque/forme (2026-08-20, remonte par Julien) : id du calque proprietaire de la forme/
+  // texte/trace actuellement selectionne sur le canevas (NNLCanvas.tsx, `selectedShapeLayerId`) -
+  // met la ligne du calque en surbrillance, meme principe que selectedFrameId ci-dessus pour les
+  // cadres. Jamais renseigne pour un calque verrouille (NNLCanvas.tsx empeche deja la selection
+  // d'y entrer), pas besoin de re-verifier `locked` ici.
+  selectedShapeLayerId?: string | null
 }
 
 // ── Types DnD ─────────────────────────────────────────────────────────────────
 type DropPos = 'above' | 'below' | 'into'
 interface DropTarget { id: string; pos: DropPos }
 
-export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave, selectedFrameId, onSelectFrame }: NNLLayersPanelProps) {
+export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave, selectedFrameId, onSelectFrame, selectedShapeLayerId }: NNLLayersPanelProps) {
   const { state, dispatch, saveToServer } = useCadence()
   const saveCallback = onSave ?? saveToServer
 
@@ -305,6 +311,10 @@ export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave, sel
   // ── Rendu d'une ligne de calque ───────────────────────────────────────────
   function renderLayer(layer: NNLLayer, indent = 0) {
     const isActive     = layer.id === activeLayerId && !layer.isGroup
+    // Bug calque/forme (2026-08-20) : surbrillance plus discrete que isActive (qui reste
+    // reservee au calque cible du prochain dessin) pour signaler "la selection courante du
+    // canevas appartient a ce calque", sans se confondre visuellement avec lui.
+    const ownsSelection = !isActive && !layer.isGroup && layer.id === selectedShapeLayerId
     const groups       = allLayers.filter(l => l.isGroup)
     const nonGroups    = allLayers.filter(l => !l.isGroup)
     const isOnlyNormal = !layer.isGroup && nonGroups.length <= 1
@@ -326,8 +336,8 @@ export function NNLLayersPanel({ activeLayerId, onActiveLayerChange, onSave, sel
         style={{
           display: 'flex', alignItems: 'center', gap: 2,
           padding: `5px 6px 5px ${6 + indent * 12}px`,
-          background: isActive ? 'var(--primary-light)' : 'transparent',
-          borderLeft: `3px solid ${isActive ? 'var(--primary)' : 'transparent'}`,
+          background: isActive ? 'var(--primary-light)' : ownsSelection ? 'var(--surface2)' : 'transparent',
+          borderLeft: `3px solid ${isActive ? 'var(--primary)' : ownsSelection ? 'var(--border-strong)' : 'transparent'}`,
           cursor: layer.locked ? 'not-allowed' : layer.isGroup ? 'default' : 'pointer',
           opacity: layer.visible === false ? 0.4 : 1,
           position: 'relative',

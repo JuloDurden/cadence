@@ -1919,6 +1919,23 @@ export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modal
     return true
   }
 
+  // Bug calque/forme (2026-08-20, remonte par Julien) : un calque verrouille (ou dont le groupe
+  // parent est verrouille, meme propagation que isVisible ci-dessus) doit empecher toute
+  // selection/manipulation de la forme/texte/trace qui lui est rattache sur le canevas - jusqu'ici
+  // `.locked` n'etait consulte que dans NNLLayersPanel.tsx (renommer/supprimer/activer un calque
+  // DEPUIS le panneau), jamais ici cote hit-test du canevas.
+  const isLocked = (layerId?: string) => {
+    if (!layersDefined || !layerId) return false
+    const layer = allLayersMap.get(layerId)
+    if (!layer) return false
+    if (layer.locked) return true
+    if (layer.parentId) {
+      const parent = allLayersMap.get(layer.parentId)
+      if (parent?.locked) return true
+    }
+    return false
+  }
+
   // Ordre de rendu : order croissant → le calque le plus haut (order max) est rendu en dernier = au-dessus
   const layerOrderMap = new Map((state.nnlLayers ?? []).map(l => [l.id, l.order]))
   const byLayerOrder = (layerId?: string) => layerOrderMap.get(layerId ?? '') ?? 0
@@ -2782,16 +2799,19 @@ export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modal
             }
             hitShapes = (st.nnlShapes ?? []).filter(s => {
               if (scope === 'active' && s.layerId !== activeLayer) return false
+              if (isLocked(s.layerId)) return false
               const sc = w2s((s.x + s.x2) / 2, (s.y + s.y2) / 2, oxRef.current, oyRef.current, zoomRef.current)
               return pointInPolygon(sc.x, sc.y, lassoPtsSnap)
             })
             hitTexts = (st.nnlTexts ?? []).filter(t => {
               if (scope === 'active' && t.layerId !== activeLayer) return false
+              if (isLocked(t.layerId)) return false
               const sc = w2s(t.x, t.y, oxRef.current, oyRef.current, zoomRef.current)
               return pointInPolygon(sc.x, sc.y, lassoPtsSnap)
             })
             const hitStrokes = (st.nnlStrokes ?? []).filter(stroke => {
               if (scope === 'active' && stroke.layerId !== activeLayer) return false
+              if (isLocked(stroke.layerId)) return false
               if (stroke.pts.length === 0) return false
               const mid = stroke.pts[Math.floor(stroke.pts.length / 2)]
               const sc = w2s(mid.x, mid.y, oxRef.current, oyRef.current, zoomRef.current)
@@ -2806,15 +2826,18 @@ export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modal
             const wyMin = Math.min(p1.y, p2.y), wyMax = Math.max(p1.y, p2.y)
             hitShapes = (st.nnlShapes ?? []).filter(s => {
               if (scope === 'active' && s.layerId !== activeLayer) return false
+              if (isLocked(s.layerId)) return false
               const mx = (s.x + s.x2) / 2, my = (s.y + s.y2) / 2
               return mx >= wxMin && mx <= wxMax && my >= wyMin && my <= wyMax
             })
             hitTexts = (st.nnlTexts ?? []).filter(t => {
               if (scope === 'active' && t.layerId !== activeLayer) return false
+              if (isLocked(t.layerId)) return false
               return t.x >= wxMin && t.x <= wxMax && t.y >= wyMin && t.y <= wyMax
             })
             const hitStrokes = (st.nnlStrokes ?? []).filter(stroke => {
               if (scope === 'active' && stroke.layerId !== activeLayer) return false
+              if (isLocked(stroke.layerId)) return false
               if (stroke.pts.length === 0) return false
               const mid = stroke.pts[Math.floor(stroke.pts.length / 2)]
               return mid.x >= wxMin && mid.x <= wxMax && mid.y >= wyMin && mid.y <= wyMax
@@ -3006,16 +3029,26 @@ export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modal
       const cp = s2w(sx, sy, ox, oy, zoom)
       const THRESH = 6 / zoom
 
-      // Filtre de portée (calque actif uniquement si scope === 'active')
-      const scopeShapes  = selectScopeRef.current === 'active'
+      // Filtre de portée (calque actif uniquement si scope === 'active'), calques verrouilles
+      // toujours exclus (bug remonte par Julien, 2026-08-20 : un calque verrouille doit empecher
+      // toute selection de la forme/texte/trace qui lui est rattache).
+      // visibleShapes/visibleTexts/visibleStrokes sont deja tries par ordre de calque CROISSANT
+      // (le calque le plus haut = order max = rendu en dernier = visuellement au-dessus, voir plus
+      // haut) : inverser ici pour que le hit-test teste le calque le plus haut EN PREMIER, comme
+      // pour un vrai z-index de clic (sinon .find() renvoie la forme du calque le plus BAS en cas
+      // de superposition, cause du bug "cliquer sur une forme ne selectionne pas la bonne").
+      const scopeShapes  = (selectScopeRef.current === 'active'
         ? visibleShapes.filter(s => s.layerId === activeLayerRef.current)
         : visibleShapes
-      const scopeTexts   = selectScopeRef.current === 'active'
+      ).filter(s => !isLocked(s.layerId)).slice().reverse()
+      const scopeTexts   = (selectScopeRef.current === 'active'
         ? visibleTexts.filter(t => t.layerId === activeLayerRef.current)
         : visibleTexts
-      const scopeStrokes = selectScopeRef.current === 'active'
+      ).filter(t => !isLocked(t.layerId)).slice().reverse()
+      const scopeStrokes = (selectScopeRef.current === 'active'
         ? visibleStrokes.filter(s => s.layerId === activeLayerRef.current)
         : visibleStrokes
+      ).filter(s => !isLocked(s.layerId)).slice().reverse()
 
       // Hit-test formes
       const hit = scopeShapes.find(s => {
@@ -3240,6 +3273,25 @@ export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modal
   const selectedShape = selectedShapeId ? (state.nnlShapes ?? []).find(s => s.id === selectedShapeId) ?? null : null
   const selectedFrame = selectedFrameId ? (state.nnlFrames ?? []).find(f => f.id === selectedFrameId) ?? null : null
   const selectedFrameNode = selectedFrame ? (state.hierarchyNodes ?? []).find(n => n.id === selectedFrame.hierarchyNodeId) : undefined
+  // Bug calque/forme (2026-08-20) : la selection courante (forme, texte, ou trace - un seul type
+  // a la fois en pratique, chaque hit-test ci-dessus vide les 2 autres) met en surbrillance son
+  // calque dans NNLLayersPanel, meme principe que selectedFrameId deja en place pour les cadres.
+  const selectedShapeLayerId = selectedShape?.layerId
+    ?? (selectedTextId ? (state.nnlTexts ?? []).find(t => t.id === selectedTextId)?.layerId : undefined)
+    ?? (selectedStrokeIds[0] ? (state.nnlStrokes ?? []).find(s => s.id === selectedStrokeIds[0])?.layerId : undefined)
+    ?? null
+
+  // Bug calque/forme (2026-08-20), garde defensive : si le calque de la selection courante est
+  // verrouille APRES coup (verrouille depuis le panneau pendant qu'une de ses formes est deja
+  // selectionnee - le hit-test ci-dessus empeche deja une NOUVELLE selection sur un calque
+  // verrouille, mais ne desaffecte pas une selection existante), la selection est desormais
+  // videe pour ne jamais laisser une forme verrouillee manipulable via son panneau de proprietes.
+  useEffect(() => {
+    if (selectedShapeLayerId && isLocked(selectedShapeLayerId)) {
+      setSelectedShapeId(null); setSelectedShapeIds([])
+      setSelectedTextId(null); setSelectedStrokeIds([])
+    }
+  }, [selectedShapeLayerId, state.nnlLayers]) // eslint-disable-line
 
   function handleShapeUpdate(updates: Partial<NNLShape>) {
     if (!selectedShape) return
@@ -4049,7 +4101,8 @@ export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modal
             />
 
             <NNLLayersPanel activeLayerId={activeLayerId} onActiveLayerChange={setActiveLayerId} onSave={saveNNL}
-              selectedFrameId={selectedFrameId} onSelectFrame={handleSelectFrameFromPanel} />
+              selectedFrameId={selectedFrameId} onSelectFrame={handleSelectFrameFromPanel}
+              selectedShapeLayerId={selectedShapeLayerId} />
 
             <button
               data-testid="nnl-snap-toggle"

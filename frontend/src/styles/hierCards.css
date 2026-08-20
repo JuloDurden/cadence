@@ -24,8 +24,8 @@
      assombrissent les 2 effets seulement en mode sombre ci-dessous. */
   --hc-surface-holo-strength: 1;
   --hc-text-holo-strength: 1;
-  /* Motif du reflet holo (2026-08-20, complete le 2026-08-21 pour les 6 motifs fournis par
-     Julien) : 5 variables poses sur <html> par PersonalSettingsContext.tsx a partir du reglage
+  /* Motif du reflet holo (2026-08-20, complete le meme jour pour les motifs fournis par Julien) :
+     5 variables poses sur <html> par PersonalSettingsContext.tsx a partir du reglage
      perso (Reglages > Apparence), voir data/holoPatterns.ts (getHoloPatternMaskCss). Necessaire
      car les motifs n'ont pas tous la meme nature (silhouette SVG carrelee vs degrade CSS colore
      auto-repetitif vs degrade multi-couches avec positions propres, voir commentaire de ce

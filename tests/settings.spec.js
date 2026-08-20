@@ -333,7 +333,7 @@ test.describe('Réglages', () => {
 
   });
 
-  // Cartes hierarchiques Initiative/Epic/Item (2026-08-20/22, v0.98.17) : parallaxe 3D + reflet
+  // Cartes hierarchiques Initiative/Epic/Item (2026-08-20, v0.98.17) : parallaxe 3D + reflet
   // holographique au survol des cartes Epic/item "sommet" (Kanban, Release Planning, Sprint
   // Planning), section AppearanceSection.tsx sous l'onglet "Général", aucune donnee workspace
   // equivalente (purement personnel, comme le reste de la section Apparence) - defauts actifs
@@ -362,7 +362,7 @@ test.describe('Réglages', () => {
       await expect(page.locator('[data-testid="holo-pattern-option-diamonds"]')).toHaveText(/Losanges/);
     });
 
-    // Rosace (fournie par Julien le 2026-08-21) et Trame (motif maison, 2026-08-22) ont toutes
+    // Rosace (fournie par Julien le 2026-08-20) et Trame (motif maison, 2026-08-20) ont toutes
     // deux ete retirees du registre apres coup, jugees peu convaincantes a l'usage - la premiere
     // remplacee par Scanlines/Trame, la seconde par Double Bulle. Verifie qu'aucune des deux ne
     // reapparait dans le selecteur.
