@@ -28,8 +28,11 @@ function toolCallLabel(tc: AiToolCall): string {
     case 'sprint_plan_applied': {
       const parts = [`${tc.newSprints.length} sprint(s) créé(s)`, `${tc.changedItems.length} item(s) réaffecté(s)`]
       if (tc.newItems.length > 0) parts.push(`${tc.newItems.length} item(s) fictif(s) créé(s)`)
+      if (tc.roadmapGoals.length > 0) parts.push(`${tc.roadmapGoals.length} thème(s)/Sprint Goal(s) renseigné(s)`)
       return `Plan de sprints appliqué : ${parts.join(', ')}`
     }
+    case 'roadmap_goal_created': return `Thème/Sprint Goal renseignés : ${tc.goal.name}`
+    case 'roadmap_goal_updated': return `Thème/Sprint Goal mis à jour : ${tc.goal.name}`
   }
 }
 

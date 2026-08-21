@@ -80,6 +80,91 @@ test.describe('Compagnon IA - panneau de chat (v0.98)', () => {
     await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Item créé : FAX-099');
   });
 
+  // Correctif 2026-08-20 (pré-remplissage modal Sprint, Roadmap) : le thème/Sprint Goal/métriques
+  // proposés par le Compagnon puis confirmés doivent réellement se retrouver sur la carte Roadmap
+  // du sprint concerné (s1, "Sprint 1 - FOUNDATION", voir data/demo.ts), pas seulement dans la bulle
+  // de résumé du chat - vérifie tout le câblage ChatContext.tsx (dispatch UPDATE_ROADMAP_GOAL) ->
+  // StateContext.tsx (reducer, déjà SYNCABLE) -> RoadmapPage.tsx (affichage).
+  test('un thème/Sprint Goal renseigné par le chat apparaît sur la carte Roadmap correspondante', async ({ page }) => {
+    await goTo(page, '/roadmap', { role: 'PO' });
+    await mockAiChatApi(page, () => ({
+      reply: 'Thème/Sprint Goal renseignés.',
+      toolCalls: [{
+        kind: 'roadmap_goal_updated',
+        goal: {
+          // id "g1" : l'id réel du RoadmapGoal du sprint s1 dans data/demo.ts, pas un id inventé -
+          // UPDATE_ROADMAP_GOAL (StateContext.tsx) remplace par correspondance d'id, jamais de
+          // sprintId ; un id différent de celui déjà en place ne remplacerait rien silencieusement.
+          id: 'g1', sprintId: 's1', icon: '🚀', color: 'linear-gradient(135deg,#0891b2,#0e7490)',
+          name: 'Fondations & Authentification',
+          goal: 'Poser les bases techniques et livrer la connexion SSO.',
+          metrics: ['100% des US du sprint livrées', 'SSO fonctionnel en recette'],
+        },
+      }],
+    }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('Remplis le thème du Sprint 1');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Thème/Sprint Goal mis à jour : Fondations & Authentification');
+
+    await page.locator('[data-testid="chat-panel"] button[aria-label="Fermer"]').click();
+    await expect(page.getByText('Poser les bases techniques et livrer la connexion SSO.')).toBeVisible();
+    await expect(page.getByText('100% des US du sprint livrées')).toBeVisible();
+  });
+
+  // v0.98.19 : la confirmation avant application d'un plan de sprints (v0.98.18) a été retirée
+  // (voir docs/corrections.md, Addendum 11) - une demande de planification par un compte PO/Admin
+  // s'applique désormais directement, en une seule réponse de l'API (`sprint_plan_applied`), sans
+  // second message ni bouton de confirmation. Ce test vérifie que cette réponse UNIQUE suffit à la
+  // fois à afficher le résumé dans la bulle ET à répercuter le plan sur l'état réel (item réaffecté
+  // à un sprint réel, thème/Sprint Goal mis à jour sur sa carte Roadmap) - même câblage que le test
+  // roadmap_goal_updated ci-dessus (ChatContext.tsx -> StateContext.tsx -> RoadmapPage.tsx), ici
+  // déclenché par sprint_plan_applied plutôt que roadmap_goal_updated seul.
+  test('un plan de sprints appliqué par le chat réaffecte l\'item et met à jour le thème du sprint, en une seule réponse', async ({ page }) => {
+    await goTo(page, '/roadmap', { role: 'PO' });
+    await mockAiChatApi(page, () => ({
+      reply: 'Plan appliqué : 0 sprint(s) créé(s), 1 item(s) réaffecté(s), 1 thème(s)/Sprint Goal(s) renseigné(s).\n\nSprint 4 - BUG-012 : 3 bugs moyennement urgents socle, 15 SP',
+      toolCalls: [{
+        kind: 'sprint_plan_applied',
+        // i12/BUG-012 : item réel de data/demo.ts (initialement Sprint 3), réaffecté au Sprint 4 -
+        // même principe que le test roadmap_goal_updated ci-dessus, reprendre un id réel plutôt
+        // qu'inventé pour que la fusion dans le reducer (APPLY_SPRINT_PLAN, StateContext.tsx)
+        // trouve bien l'item existant à remplacer plutôt que de ne rien faire silencieusement.
+        changedItems: [{
+          id: 'i12', key: 'BUG-012', desc: 'Bugs moyennement urgents – lot 2/2', sp: 15, status: 'todo',
+          clientId: 'cl6', sprintId: 's4', priority: 'medium', assignees: [], tags: ['Dette technique'],
+          type: 'story', epicId: null, createdAt: '2026-06-15T08:00:00Z',
+        }],
+        newItems: [], newSprints: [], keyCounters: {},
+        roadmapGoals: [{
+          created: false,
+          // g4 : id réel du RoadmapGoal du sprint s4 dans data/demo.ts (même principe que g1 dans
+          // le test roadmap_goal_updated ci-dessus).
+          goal: {
+            id: 'g4', sprintId: 's4', icon: '🏆', color: 'linear-gradient(135deg,#15803d,#16a34a)',
+            name: 'DETTE TECHNIQUE',
+            goal: 'Résorber les bugs moyennement urgents du socle en souffrance.',
+            metrics: ['1 item(s) livré(s)'],
+          },
+        }],
+      }],
+    }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('/plan simule un plan avec le critère dette technique');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    // Une seule réponse assistant, directement le résultat appliqué - jamais une demande de
+    // confirmation intermédiaire à laquelle il faudrait répondre par un 2e message.
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Plan appliqué : 0 sprint(s) créé(s), 1 item(s) réaffecté(s)');
+
+    await page.locator('[data-testid="chat-panel"] button[aria-label="Fermer"]').click();
+    await expect(page.getByText('DETTE TECHNIQUE')).toBeVisible();
+    await expect(page.getByText('Résorber les bugs moyennement urgents du socle en souffrance.')).toBeVisible();
+  });
+
   test('une erreur serveur (ex. assistant non configuré) s\'affiche comme une bulle d\'erreur', async ({ page }) => {
     await goTo(page, '/backlog', { role: 'PO' });
     await mockAiChatApi(page, () => ({ status: 400, error: 'Aucun assistant IA configuré. Un Admin doit d\'abord renseigner une clé API Anthropic en Réglages.' }));

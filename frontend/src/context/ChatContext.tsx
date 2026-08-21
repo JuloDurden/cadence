@@ -134,7 +134,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         case 'item_updated': dispatch({ type: 'UPDATE_ITEM', payload: call.item }); break
         case 'node_created': dispatch({ type: 'ADD_HIERARCHY_NODE', payload: call.node, keyCounters: call.keyCounters }); break
         case 'node_updated': dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: call.node }); break
-        case 'sprint_plan_applied': dispatch({ type: 'APPLY_SPRINT_PLAN', payload: { changedItems: call.changedItems, newItems: call.newItems, newSprints: call.newSprints, keyCounters: call.keyCounters } }); break
+        case 'sprint_plan_applied':
+          dispatch({ type: 'APPLY_SPRINT_PLAN', payload: { changedItems: call.changedItems, newItems: call.newItems, newSprints: call.newSprints, keyCounters: call.keyCounters } })
+          // 2026-08-20 : themes/Sprint Goal/metriques voyageant avec le plan (roadmapGoals) -
+          // meme dispatch que les kinds roadmap_goal_created/updated autonomes ci-dessous.
+          call.roadmapGoals.forEach(({ goal, created }) => {
+            dispatch({ type: created ? 'ADD_ROADMAP_GOAL' : 'UPDATE_ROADMAP_GOAL', payload: goal })
+          })
+          break
+        case 'roadmap_goal_created': dispatch({ type: 'ADD_ROADMAP_GOAL', payload: call.goal }); break
+        case 'roadmap_goal_updated': dispatch({ type: 'UPDATE_ROADMAP_GOAL', payload: call.goal }); break
       }
     }
   }, [dispatch])

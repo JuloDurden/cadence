@@ -816,7 +816,18 @@ export type AiToolCall =
   // Phase 6, sous-chantier 4 étape 2/2 (2026-08-12) : apply_sprint_plan peut toucher des dizaines
   // d'items et créer plusieurs sprints en une seule action, contrairement aux 4 kinds ci-dessus (un
   // seul item/node à la fois) - `changedItems`/`newItems`/`newSprints` plutôt qu'un objet unique.
-  | { kind: 'sprint_plan_applied'; changedItems: Item[]; newItems: Item[]; newSprints: Sprint[]; keyCounters: Record<string, number> }
+  // 2026-08-20 (retour Julien, usage reel) : roadmapGoals peut accompagner un plan applique -
+  // theme/Sprint Goal/metriques ecrits ATOMIQUEMENT avec le plan (une seule confirmation deja
+  // couverte par verifyApplyIsConfirmed cote backend), plutot qu'un 2e appel set_roadmap_goal
+  // separe exigeant sa propre confirmation (voir docs/corrections.md).
+  | { kind: 'sprint_plan_applied'; changedItems: Item[]; newItems: Item[]; newSprints: Sprint[]; keyCounters: Record<string, number>; roadmapGoals: { goal: RoadmapGoal; created: boolean }[] }
+  // Compagnon IA, pre-remplissage modal Sprint (Roadmap), 2026-08-20 : le theme/Sprint Goal/
+  // metriques de succes d'un sprint, proposes en texte par le Compagnon puis ecrits seulement apres
+  // confirmation explicite (set_roadmap_goal, routes/ai.ts, usage desormais reserve au cas
+  // autonome - voir roadmapGoals ci-dessus pour le cas combine avec un plan) - kind distinct
+  // creation/mise a jour, meme convention que node_created/node_updated ci-dessus.
+  | { kind: 'roadmap_goal_created'; goal: RoadmapGoal }
+  | { kind: 'roadmap_goal_updated'; goal: RoadmapGoal }
 
 // ── Sprint Review ─────────────────────────────────────────────────────────────
 

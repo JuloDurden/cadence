@@ -60,6 +60,13 @@ export interface KanbanCol { id: string; label: string; isDone?: boolean; isDefa
 // Duplique depuis frontend/src/types/index.ts (AbsenceType/Absence) - meme convention.
 export interface Absence { id: string; memberId: string; start: string; end: string }
 
+// Duplique depuis frontend/src/types/index.ts (RoadmapGoal), ajoute 2026-08-20 (Compagnon IA,
+// pre-remplissage de la modal Sprint - voir routes/ai.ts, set_roadmap_goal) : jusqu'ici la Roadmap
+// transitait sans y toucher via le catch-all `[key: string]: unknown` ci-dessous, comme le reste du
+// blob non porte ici (dailies, retro, nnl...) - necessaire maintenant que le Compagnon doit lire
+// (existe deja pour ce sprint ?) et ecrire ce tableau specifiquement, pas juste le laisser transiter.
+export interface RoadmapGoal { id: string; sprintId: string; icon: string; color: string; name: string; goal: string; metrics: string[] }
+
 export interface CadenceState {
   items: Item[]
   hierarchyNodes: HierarchyNode[]
@@ -70,6 +77,7 @@ export interface CadenceState {
   absences?: Absence[]
   settings?: { defaultCapacity?: number; sprintDuration?: number }
   itemKeyCounters?: Record<string, number>
+  roadmap?: RoadmapGoal[]
   [key: string]: unknown // le reste du blob (dailies, retro, nnl...) transite sans y toucher
 }
 

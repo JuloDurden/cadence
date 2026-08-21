@@ -324,7 +324,7 @@ const SPRINT_PLAN_PARAMS = {
   },
   virtualItems: {
     type: 'array',
-    description: "Items fictifs a inclure dans le plan (n'existent pas reellement dans le Backlog, sauf si le plan est ensuite applique via apply_sprint_plan, qui les cree alors pour de vrai).",
+    description: "Items fictifs a inclure dans le plan (n'existent pas reellement dans le Backlog, sauf pour un compte PO/Admin ou simulate_sprint_plan les cree alors pour de vrai en meme temps que le reste du plan).",
     items: {
       type: 'object',
       properties: {
@@ -339,7 +339,7 @@ const SPRINT_PLAN_PARAMS = {
   },
   itemOverrides: {
     type: 'array',
-    description: 'Modifie un item reel UNIQUEMENT pour ce plan (jamais ecrit dans le Backlog, meme via apply_sprint_plan), pour simuler "et si ce statut/cette priorite/ces SP/ces deps etaient differents".',
+    description: 'Modifie un item reel UNIQUEMENT pour ce plan (jamais ecrit dans le Backlog, meme quand le plan est reellement applique), pour simuler "et si ce statut/cette priorite/ces SP/ces deps etaient differents".',
     items: {
       type: 'object',
       properties: {
@@ -353,14 +353,121 @@ const SPRINT_PLAN_PARAMS = {
   fromSprintLabel: { type: 'string', description: 'Ne planifier qu\'a partir de ce sprint (inclus), ou "current" pour le sprint en cours. Par defaut, tous les sprints ouverts depuis le debut.' },
 }
 
+// Correctif 2026-08-21 (7e puis 8e retour Julien, usage reel - reecriture complete apres 4
+// tentatives infructueuses d'orchestrer ca via le modele conversationnel lui-meme : `roadmapGoals`
+// en parametre du modele (addendums 4 a 7), boucle de reconfirmation jamais fiabilisee malgre 4
+// correctifs successifs). Julien : "je veux que cela ne soit qu'une seule mecanique unie [...] Je ne
+// veux plus aucune emmerde sur cette fonctionnalite [...] tu revois l'ensemble de fond en comble."
+// Le theme/Sprint Goal/metriques ne sont PLUS un parametre que le modele conversationnel doit
+// calculer et transmettre : simulate_sprint_plan/apply_sprint_plan les GENERENT et les INCLUENT
+// eux-memes automatiquement (routes/ai.ts, generateRoadmapGoals plus bas dans ce fichier), a chaque
+// execution, sans que le modele ait quoi que ce soit a decider a ce sujet - retire la source de
+// panne (une orchestration a plusieurs etapes dependant du jugement du modele a chaque etape) plutot
+// que de la corriger une nouvelle fois.
+// Description reecrite le 2026-08-21 (11e retour Julien, Addendum 11, docs/corrections.md) : sur
+// decision explicite de Julien, plus AUCUNE confirmation avant application (retrait temporaire, le
+// temps de stabiliser l'application elle-meme - une etape de confirmation sera reintroduite plus
+// tard). Pour un compte PO/Admin, cet appel simule ET ecrit reellement le plan EN UNE SEULE FOIS
+// (cote serveur, routes/ai.ts) - il n'existe plus de 2e outil separe a appeler ni de confirmation a
+// attendre entre les deux. Pour les autres roles autorises a simuler (Dev, Scrum Master), reste une
+// simulation en lecture seule (aucun droit d'ecriture, verifie cote serveur).
 export const SIMULATE_SPRINT_PLAN_TOOL: AnthropicTool = {
   name: 'simulate_sprint_plan',
-  description: "Simule un plan de sprints (quel item dans quel sprint) en reproduisant exactement l'algorithme de la page Auto-planning, sans rien ecrire. A utiliser pour repondre a toute demande de planification (\"planifie le prochain sprint\", \"et si on priorisait le client X\"). N'ecrit rien : pour ecrire reellement le plan, utilise apply_sprint_plan (reserve PO/Admin) apres accord explicite de l'utilisateur.",
+  description: "Calcule un plan de sprints (quel item dans quel sprint) en reproduisant exactement l'algorithme de la page Auto-planning. Pour un compte PO/Admin, cet appel ECRIT REELLEMENT le plan EN MEME TEMPS qu'il le calcule (reaffecte les items reels, cree les nouveaux sprints necessaires, materialise les items fictifs en vrais items du Backlog) - AUCUN autre outil a appeler, AUCUNE confirmation a demander avant ou apres : l'application a deja eu lieu au moment ou tu recois le resultat. Le resultat inclut AUTOMATIQUEMENT le theme/Sprint Goal/metriques ecrits pour chaque sprint concerne (genere par le serveur, rien a calculer toi-meme) - contente-toi de relayer fidelement tout le texte renvoye par l'outil, plan ET themes, en une seule reponse. A utiliser pour repondre a toute demande de planification (\"planifie le prochain sprint\", \"et si on priorisait le client X\"). Pour les roles sans droit d'ecriture sur la planification (Dev, Scrum Master), reste une simulation en lecture seule, rien n'est ecrit.",
   input_schema: { type: 'object', properties: SPRINT_PLAN_PARAMS, additionalProperties: false },
 }
 
+// APPLY_SPRINT_PLAN_TOOL n'est plus expose au modele depuis l'Addendum 11 (voir routes/ai.ts,
+// `writeTools`) - SIMULATE_SPRINT_PLAN_TOOL ci-dessus applique desormais directement. Conservee ici
+// (schema + executeApplySprintPlan intacts cote routes/ai.ts) pour la reintroduction promise d'une
+// etape de confirmation, sans avoir a reconstruire ce schema depuis zero le moment venu.
 export const APPLY_SPRINT_PLAN_TOOL: AnthropicTool = {
   name: 'apply_sprint_plan',
-  description: "Calcule ET ECRIT REELLEMENT un plan de sprints : reaffecte les items reels aux sprints calcules, cree les nouveaux sprints necessaires, materialise les items fictifs en vrais items du Backlog. Reserve aux comptes PO ou Admin (comme le bouton \"Appliquer\" d'Auto-planning). A n'utiliser qu'apres avoir montre le resultat via simulate_sprint_plan ET obtenu un accord explicite de l'utilisateur (\"applique\", \"vas-y\", \"oui\") - jamais sur une simple demande de planification, qui doit d'abord passer par simulate_sprint_plan.",
+  description: "Calcule ET ECRIT REELLEMENT un plan de sprints : reaffecte les items reels aux sprints calcules, cree les nouveaux sprints necessaires, materialise les items fictifs en vrais items du Backlog, ET ecrit AUTOMATIQUEMENT le theme/Sprint Goal/metriques de chaque sprint concerne (genere par le serveur, meme principe que simulate_sprint_plan - aucun parametre a fournir pour ca), en une seule ecriture atomique avec le reste. Reserve aux comptes PO ou Admin (comme le bouton \"Appliquer\" d'Auto-planning). A n'utiliser qu'apres avoir montre le resultat via simulate_sprint_plan ET obtenu un accord explicite de l'utilisateur (\"applique\", \"vas-y\", \"oui\") - jamais sur une simple demande de planification, qui doit d'abord passer par simulate_sprint_plan.",
   input_schema: { type: 'object', properties: SPRINT_PLAN_PARAMS, additionalProperties: false },
+}
+
+/* ── Generation automatique du theme/Sprint Goal/metriques d'un sprint (2026-08-21) ────────────────
+   Appel Anthropic DIRECT, hors de la boucle agentique conversationnelle (pas d'outils, pas
+   d'historique de conversation, un seul aller-retour question/reponse) - execute par le SERVEUR a
+   chaque simulate_sprint_plan/apply_sprint_plan, jamais par une decision du modele conversationnel.
+   Isole ainsi ce texte du risque d'orchestration multi-etapes qui causait la boucle de
+   reconfirmation (voir docs/corrections.md, Addendums 4 a 7) : ce n'est plus une decision a prendre
+   au fil de la conversation, mais un simple effet de bord deterministe de l'execution de l'outil. */
+export interface RoadmapGoalSprintComposition {
+  sprintLabel: string
+  items: { title: string; epicTitle?: string }[]
+  // planCriteria ajoute le 2026-08-21 (11e retour Julien, usage reel) : sur un plan genere avec le
+  // critere "Dette technique", Julien a releve que le theme du 1er sprint (compose presque
+  // uniquement de bugs, sans Epic dominant clair) aurait du refleter ce critere plutot qu'un theme
+  // derive d'un Epic marginal ("EPIC REMBOURSEMENT" pour un seul item sur 8). Jusqu'ici, la
+  // generation ne connaissait QUE le contenu du sprint (titres/Epics des items), jamais le(s)
+  // critere(s) de planification actifs pour l'ensemble du plan - meme quand ce critere est la raison
+  // meme pour laquelle ces items se retrouvent regroupes ensemble.
+  planCriteria?: string[]
+}
+export interface GeneratedRoadmapGoal { sprintLabel: string; name: string; goal: string; metrics: string[] }
+
+const ROADMAP_GOAL_SYSTEM_PROMPT =
+  "Tu proposes, pour chaque sprint decrit ci-apres (compose de ses items reels), un theme, un Sprint Goal et des metriques de succes. " +
+  "Reponds UNIQUEMENT avec un tableau JSON valide, sans texte autour ni balises markdown, au format : " +
+  '[{"sprintLabel": string, "name": string, "goal": string, "metrics": string[]}, ...], un objet par sprint recu, dans le meme ordre. ' +
+  '"name" : theme COURT (1 a 3 mots, style code-name en MAJUSCULES, ex. "FOUNDATION", "DETTE TECHNIQUE") - jamais une phrase. ' +
+  '"goal" : une seule phrase resumant l\'objectif du sprint, basee sur les items qui le composent (titres, Epics) - jamais un texte generique du type "Livrer les items prevus". ' +
+  '"metrics" : 2 a 3 metriques de succes mesurables, basees sur la composition reelle du sprint. ' +
+  'Si `planCriteria` est fourni pour un sprint, il decrit le(s) critere(s) de planification actifs pour l\'ensemble du plan (ex. "Dette technique") - tiens-en compte pour le theme/Sprint Goal quand la composition du sprint le justifie (ex. un sprint majoritairement compose de bugs sur un plan avec le critere "Dette technique" peut legitimement s\'appeler "DETTE TECHNIQUE"), sans le forcer artificiellement si un Epic clairement dominant est plus pertinent pour ce sprint precis.'
+
+/** Genere le theme/Sprint Goal/metriques de chaque sprint donne en un seul appel Anthropic (isole,
+ *  sans outils). Leve une erreur si la cle API est absente/invalide ou si la reponse n'est pas un
+ *  JSON exploitable - a l'appelant (routes/ai.ts) de retomber sur heuristicRoadmapGoal plutot que de
+ *  faire echouer toute la simulation/application pour ca (cette generation est une amelioration de
+ *  confort, jamais une condition bloquante du plan lui-meme). */
+export async function generateRoadmapGoals(
+  config: AiConfigRow, sprints: RoadmapGoalSprintComposition[]
+): Promise<GeneratedRoadmapGoal[]> {
+  if (sprints.length === 0) return []
+  const response = await anthropicCall(config, {
+    system: ROADMAP_GOAL_SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: JSON.stringify(sprints) }],
+    max_tokens: 1024,
+  })
+  const text = response.content.filter((b): b is AnthropicTextBlock => b.type === 'text').map(b => b.text).join('')
+  // Retire d'eventuelles balises markdown (```json ... ```) - le modele en ajoute parfois malgre la
+  // consigne "sans balises markdown" du prompt systeme ci-dessus.
+  const jsonText = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
+  const parsed: unknown = JSON.parse(jsonText)
+  if (!Array.isArray(parsed)) throw new Error('Reponse de generation des themes invalide (tableau attendu)')
+  return parsed.filter((g): g is GeneratedRoadmapGoal =>
+    !!g && typeof g === 'object' &&
+    typeof (g as GeneratedRoadmapGoal).sprintLabel === 'string' &&
+    typeof (g as GeneratedRoadmapGoal).name === 'string' &&
+    typeof (g as GeneratedRoadmapGoal).goal === 'string' &&
+    Array.isArray((g as GeneratedRoadmapGoal).metrics)
+  )
+}
+
+/* ── Pre-remplissage de la modal Sprint / Roadmap (Compagnon IA, 2026-08-20, reecrit 2026-08-21) ────
+   Une fois un plan de sprints applique (apply_sprint_plan), les 3 champs de la modal Sprint de la
+   page Roadmap (theme, Sprint Goal, metriques de succes) restaient a leur valeur par defaut
+   ("Sprint Goal a definir", metriques vides), a saisir manuellement apres coup. Apres 4 tentatives
+   infructueuses de faire porter cette generation par le modele conversationnel (boucle de
+   reconfirmation jamais fiabilisee, voir docs/corrections.md, Addendums 4 a 7), les themes sont
+   desormais generes AUTOMATIQUEMENT par simulate_sprint_plan/apply_sprint_plan eux-memes
+   (generateRoadmapGoals plus haut dans ce fichier) - set_roadmap_goal ne sert plus a ce cas combine
+   du tout. Il reste utile pour un usage VRAIMENT autonome, sans planification en cours (ex. "remplis
+   le theme du Sprint 5"), garde donc sa propre garantie technique (verifyRoadmapGoalConfirmed). */
+export const SET_ROADMAP_GOAL_TOOL: AnthropicTool = {
+  name: 'set_roadmap_goal',
+  description: "Ecrit le theme, le Sprint Goal et les metriques de succes d'un sprint (modal Sprint, page Roadmap), independamment de toute planification de sprints - propose D'ABORD ces 3 champs en texte dans la conversation, et n'appelle cet outil qu'apres un accord explicite de l'utilisateur (\"vas-y\", \"oui\"). Si un plan vient d'etre simule ou applique dans la conversation, N'UTILISE PAS cet outil : le theme est deja genere et ecrit automatiquement par simulate_sprint_plan/apply_sprint_plan, rien a faire de plus. Peut aussi remplacer un theme/Sprint Goal deja personnalise, si l'utilisateur le demande explicitement en dehors de toute planification. Reserve aux comptes PO ou Admin.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      sprintLabel: { type: 'string', description: 'Sprint concerne, ex. "Sprint 3" ou "current"' },
+      name: { type: 'string', description: 'Theme COURT du sprint (1 a 3 mots, style code-name, ex. "AUTHENTIFICATION"), meme style que les noms de sprints existants (ex. "FOUNDATION", "EXCELLENCE") - jamais une phrase descriptive, ca va dans `goal`. Remplace le nom affiche du sprint.' },
+      goal: { type: 'string', description: 'Sprint Goal : une phrase resumant l\'objectif du sprint' },
+      metrics: { type: 'array', items: { type: 'string' }, description: 'Metriques de succes, une par ligne, mesurables' },
+    },
+    required: ['sprintLabel', 'name', 'goal', 'metrics'],
+    additionalProperties: false,
+  },
 }
