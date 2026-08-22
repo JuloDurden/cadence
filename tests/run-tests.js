@@ -417,249 +417,14 @@ describe('topoSort', () => {
   });
 });
 
-// ── verifyApplyIsConfirmed (Compagnon IA, backend/src/routes/ai.ts) ────────────
-// Reproduction fidele de la fonction reelle (v0.98.18, retour Julien) : garantit
-// techniquement, a partir de l'historique complet de conversation deja recu par
-// /api/ai-chat (le chat reste sans etat persiste cote serveur), qu'un appel
-// apply_sprint_plan est bien precede d'un simulate_sprint_plan ET d'un vrai
-// message utilisateur envoye depuis (distingue d'un tool_result synthetique
-// reinjecte par la boucle agentique via son `content` de type tableau, pas
-// chaine). L'ancre n'est pas systematiquement la simulation : si un plan a deja
-// ete applique depuis, l'ancre devient cette application, pour exiger une
-// nouvelle confirmation avant toute reapplication du meme plan.
-// Correctif 2026-08-21 (7e retour Julien, usage reel) : compare uniquement les champs qui
-// definissent REELLEMENT quel item va dans quel sprint, jamais roadmapGoals (texte libre que le
-// modele ne reproduit jamais a l'identique d'un appel a l'autre, meme pour "le meme" plan) - une
-// comparaison JSON.stringify complete manquait systematiquement ces re-simulations pourtant
-// fonctionnellement identiques.
-function planIdentityKey(input) {
-  return JSON.stringify({
-    criteria: input.criteria ?? null,
-    clientOrder: input.clientOrder ?? null,
-    velocityFactor: input.velocityFactor ?? null,
-    capacityOverrides: input.capacityOverrides ?? null,
-    virtualItems: input.virtualItems ?? null,
-    itemOverrides: input.itemOverrides ?? null,
-    fromSprintLabel: input.fromSprintLabel ?? null,
-  });
-}
-
-function verifyApplyIsConfirmed(messages, beforeIndex) {
-  let simIdx = -1;
-  let simInput = null;
-  let lastApplyIdx = -1;
-  for (let i = 0; i < beforeIndex; i++) {
-    const m = messages[i];
-    if (m.role !== 'assistant' || typeof m.content === 'string') continue;
-    for (const block of m.content) {
-      if (block.type === 'tool_use' && block.name === 'simulate_sprint_plan') {
-        // Correctif 2026-08-20 (4e retour Julien, usage reel) : une re-simulation dont le plan
-        // sous-jacent (planIdentityKey) est identique au precedent n'est pas une nouvelle proposition
-        // - elle ne repousse donc plus l'ancre de confirmation ci-dessous (sinon, un modele qui
-        // "revalide" par lui-meme avant d'appliquer redemande une confirmation deja donnee, en boucle).
-        const newInput = block.input;
-        if (simInput === null || planIdentityKey(newInput) !== planIdentityKey(simInput)) {
-          simIdx = i;
-        }
-        // Toujours la version la PLUS RECENTE, meme quand le plan sous-jacent est identique : son
-        // roadmapGoals peut avoir ete affine/reformule depuis - on reutilise le plus a jour.
-        simInput = newInput;
-      }
-      if (block.type === 'tool_use' && block.name === 'apply_sprint_plan') {
-        lastApplyIdx = i;
-      }
-    }
-  }
-  if (simIdx === -1 || !simInput) {
-    return { ok: false, reason: 'no-simulation' };
-  }
-  const anchorIdx = Math.max(simIdx, lastApplyIdx);
-  const hasRealUserMessageSince = messages
-    .slice(anchorIdx + 1, beforeIndex)
-    .some(m => m.role === 'user' && typeof m.content === 'string');
-  if (!hasRealUserMessageSince) {
-    return { ok: false, reason: lastApplyIdx > simIdx ? 'already-applied' : 'no-confirmation' };
-  }
-  return { ok: true, input: simInput };
-}
-
-describe('verifyApplyIsConfirmed (Compagnon IA, garantie de confirmation)', () => {
-  test('aucune simulation prealable -> rejet', () => {
-    const messages = [
-      { role: 'user', content: 'Planifie les prochains sprints' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'apply_sprint_plan', input: {} }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 1);
-    expect(r.ok).toBe(false);
-    expect(r.reason).toBe('no-simulation');
-  });
-
-  test('simulation puis application dans le meme tour (tool_result seul, pas un vrai message) -> rejet', () => {
-    const messages = [
-      { role: 'user', content: 'Simule puis applique directement' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: { criteria: ['priority'] } }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{"result":"ok"}' }] },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'apply_sprint_plan', input: { criteria: ['priority'] } }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 3);
-    expect(r.ok).toBe(false);
-    expect(r.reason).toBe('no-confirmation');
-  });
-
-  test('simulation + vrai message utilisateur + application -> accepte, memes parametres que la simulation', () => {
-    const simInput = { criteria: ['priority', 'client'], velocityFactor: 0.8 };
-    const messages = [
-      { role: 'user', content: 'Simule un plan' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{"result":"ok"}' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Voici le plan simule.' }] },
-      { role: 'user', content: 'Applique' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'apply_sprint_plan', input: { criteria: ['autre chose'] } }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 5);
-    expect(r.ok).toBe(true);
-    expect(JSON.stringify(r.input)).toBe(JSON.stringify(simInput));
-  });
-
-  test('deux simulations successives -> reprend la derniere, pas la premiere', () => {
-    const simInput1 = { criteria: ['priority'] };
-    const simInput2 = { criteria: ['client'], velocityFactor: 1.2 };
-    const messages = [
-      { role: 'user', content: 'Simule un premier plan' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput1 }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Plan 1.' }] },
-      { role: 'user', content: 'Essaie plutot avec un autre critere' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'simulate_sprint_plan', input: simInput2 }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Plan 2.' }] },
-      { role: 'user', content: 'Applique celui-la' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't3', name: 'apply_sprint_plan', input: simInput1 }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 9);
-    expect(r.ok).toBe(true);
-    expect(JSON.stringify(r.input)).toBe(JSON.stringify(simInput2));
-  });
-
-  test('reapplication sans nouveau message utilisateur apres une premiere application reussie -> rejet', () => {
-    const simInput = { criteria: ['priority'] };
-    const messages = [
-      { role: 'user', content: 'Simule' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Plan.' }] },
-      { role: 'user', content: 'Applique' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'apply_sprint_plan', input: simInput }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: '{"applied":true}' }] },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't3', name: 'apply_sprint_plan', input: simInput }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 7);
-    expect(r.ok).toBe(false);
-    expect(r.reason).toBe('already-applied');
-  });
-
-  // Correctif 2026-08-20 (4e retour Julien) : cause racine de la boucle de reconfirmation observee
-  // en conditions reelles - le modele relancait une simulation "de verification" aux parametres
-  // identiques juste avant d'appliquer, ce qui repoussait l'ancre et invalidait la confirmation deja
-  // donnee (voir docs/corrections.md, Addendum 4).
-  test('re-simulation aux parametres identiques apres confirmation -> ne redemande pas de confirmation', () => {
-    const simInput = { criteria: ['priority', 'client'], velocityFactor: 0.8 };
-    const messages = [
-      { role: 'user', content: 'Simule un plan' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Voici le plan simule.' }] },
-      { role: 'user', content: 'Applique' },
-      // Le modele "revalide" par lui-meme avant d'appliquer, memes parametres exacts.
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'simulate_sprint_plan', input: simInput }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't3', name: 'apply_sprint_plan', input: simInput }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 7);
-    expect(r.ok).toBe(true);
-    expect(JSON.stringify(r.input)).toBe(JSON.stringify(simInput));
-  });
-
-  test('re-simulation a parametres differents apres confirmation -> exige un nouvel accord', () => {
-    const simInput1 = { criteria: ['priority'] };
-    const simInput2 = { criteria: ['client'], velocityFactor: 1.2 };
-    const messages = [
-      { role: 'user', content: 'Simule un plan' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput1 }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Plan 1.' }] },
-      { role: 'user', content: 'Applique' },
-      // Nouvelle simulation avec des parametres reellement differents : c'est une NOUVELLE
-      // proposition, l'accord precedent ne porte plus dessus.
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'simulate_sprint_plan', input: simInput2 }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't3', name: 'apply_sprint_plan', input: simInput2 }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 7);
-    expect(r.ok).toBe(false);
-    expect(r.reason).toBe('no-confirmation');
-  });
-
-  // Correctif 2026-08-21 (7e retour Julien, usage reel) : cause racine du cycle complet observe en
-  // conditions reelles (plusieurs tours sans jamais ecrire, malgre plusieurs "oui"/"applique") - a
-  // l'epoque, roadmapGoals (theme/Sprint Goal/metriques propose par le modele) transitait encore
-  // dans ce parametre et n'etait jamais reproduit a l'identique d'un appel a l'autre (texte libre),
-  // la comparaison stricte (JSON.stringify complet) manquait donc ces re-simulations pourtant
-  // fonctionnellement identiques et repoussait l'ancre a chaque tour. Depuis la reecriture du
-  // 2026-08-21 (8e retour Julien), roadmapGoals a disparu de ce parametre (genere automatiquement
-  // cote serveur, voir generateRoadmapGoals) - ce test reste utile pour verifier que planIdentityKey
-  // ignore bien tout champ etranger au plan lui-meme (ex. un champ que le modele ajouterait par
-  // erreur), et garde toujours la version la plus recente de l'input.
-  test('re-simulation avec un champ etranger au plan legerement different (meme plan sous-jacent) -> ne redemande pas de confirmation, garde la version la plus recente', () => {
-    const simInput1 = { criteria: ['priority'], noteInterne: 'v1' };
-    const simInput2 = { criteria: ['priority'], noteInterne: 'v2 (reformulee)' };
-    const messages = [
-      { role: 'user', content: 'Simule un plan' },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'simulate_sprint_plan', input: simInput1 }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Plan simule.' }] },
-      { role: 'user', content: 'Applique ce plan' },
-      // Le modele re-simule avec le meme plan mais un champ hors-schema legerement different.
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'simulate_sprint_plan', input: simInput2 }] },
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: '{}' }] },
-      { role: 'assistant', content: [{ type: 'tool_use', id: 't3', name: 'apply_sprint_plan', input: simInput2 }] },
-    ];
-    const r = verifyApplyIsConfirmed(messages, 7);
-    expect(r.ok).toBe(true);
-    // Reprend la version la PLUS RECENTE (simInput2), pas la 1re (simInput1).
-    expect(JSON.stringify(r.input)).toBe(JSON.stringify(simInput2));
-  });
-});
-
-// ── looksLikeConfirmation (Compagnon IA, backend/src/routes/ai.ts) ─────────────────────────────
-// La fonction elle-meme reste dans ai.ts (2026-08-21, 9e retour Julien - voir son commentaire dans
-// ai.ts), conservee volontairement pour une reintroduction future d'une etape de confirmation
-// (decision explicite de Julien, Addendum 11 : "On mettra une boucle de confirmation une fois qu'on
-// sera arrive a appliquer a 100% n'importe quel plan"). Le filet AVANT-boucle qui l'utilisait
-// (shouldForceApplyPendingPlan, Addendum 10, teste ici jusqu'au 11e retour) a ete RETIRE du code reel
-// avec l'Addendum 11 : la confirmation elle-meme n'existe plus, simulate_sprint_plan applique
-// desormais directement (voir la suite de tests dedieee a l'application - ai.ts ne fait plus AUCUNE
-// verification de confirmation sur ce chemin). Seule la reproduction de looksLikeConfirmation reste
-// donc pertinente ici, en tant que brique reutilisable, pas testee en tant que garde-fou actif.
-function looksLikeConfirmation(text) {
-  const n = text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-  return ['oui', 'ouais', 'yes', 'vas-y', 'vasy', 'applique', 'confirm', 'go', 'd accord', 'ok'].some(kw => n.includes(kw));
-}
-
-describe('looksLikeConfirmation (Compagnon IA, detection d\'un message de confirmation)', () => {
-  test('reconnait les formulations reellement rencontrees en conditions reelles', () => {
-    expect(looksLikeConfirmation('applique')).toBe(true);
-    expect(looksLikeConfirmation('oui')).toBe(true);
-    expect(looksLikeConfirmation('Oui, je confirme')).toBe(true);
-    expect(looksLikeConfirmation('je te confirme une nouvelle fois pour que tu procedes a l\'application')).toBe(true);
-    expect(looksLikeConfirmation('vas-y, applique ce plan avec ces themes')).toBe(true);
-  });
-
-  test('ne se declenche pas sur une question ou un message sans rapport', () => {
-    expect(looksLikeConfirmation('Quel est le SP total du Sprint 5 ?')).toBe(false);
-    expect(looksLikeConfirmation('Essaie plutot avec le critere client')).toBe(false);
-  });
-});
+// Note (2026-08-22, Addendum 12) : les suites verifyApplyIsConfirmed/planIdentityKey/
+// looksLikeConfirmation qui figuraient ici ont ete retirees en meme temps que leur code source
+// (backend/src/routes/ai.ts) - la confirmation d'application d'un plan de sprints ne repose plus du
+// tout sur une interpretation de texte ou une comparaison d'appels d'outils (10 tentatives echouees,
+// voir docs/corrections.md, Addendums 4 a 11), mais sur un vrai bouton "Appliquer ce plan" cote UI et
+// une route deterministe (POST /api/ai-chat/apply-plan) qui ne consulte jamais le modele - rien a
+// tester ici pour ce mecanisme, la garantie est desormais dans le typage/la route elle-meme, pas dans
+// une fonction d'interpretation.
 
 // ── heuristicRoadmapGoal (Compagnon IA, repli sans API, backend/src/routes/ai.ts) ──────────────
 // Reproduction fidele du repli deterministe utilise par resolveRoadmapGoals quand la generation via
@@ -746,6 +511,80 @@ describe('heuristicRoadmapGoal (Compagnon IA, repli deterministe sans API)', () 
     };
     const result = heuristicRoadmapGoal(composition);
     expect(result.name).toBe('PORTAGE V3');
+  });
+});
+
+// ── applyRoadmapGoalOverrides (Compagnon IA, Addendum 13, backend/src/routes/ai.ts) ─────────────
+// Reproduction fidele - correctif du 2026-08-22 (12e retour Julien, usage reel) : une demande de
+// modification du theme SEUL (composition inchangee) faisait repondre le modele en texte libre
+// ("confirmes-tu ?") faute de parametre pour transmettre le changement, laissant le SEUL bouton
+// actionnable pointer vers les anciens themes - le plan etait alors applique avec les MAUVAIS themes
+// malgre une "confirmation" donnee. `roadmapGoalOverrides` permet au modele de rappeler
+// simulate_sprint_plan avec les memes autres parametres et d'ecraser le texte genere par le texte
+// exact demande, sans jamais repasser par une regeneration API (non deterministe).
+function applyRoadmapGoalOverrides(goals, overrides) {
+  if (!overrides || overrides.length === 0) return goals;
+  const normalize = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const bySprintLabel = new Map(overrides.filter(o => o.sprintLabel).map(o => [normalize(o.sprintLabel), o]));
+  return goals.map(g => {
+    const override = bySprintLabel.get(normalize(g.sprintLabel));
+    if (!override) return g;
+    const metrics = (override.metrics ?? []).map(m => m.trim()).filter(Boolean);
+    return {
+      sprintLabel: g.sprintLabel,
+      name: override.name?.trim() || g.name,
+      goal: override.goal?.trim() || g.goal,
+      metrics: metrics.length > 0 ? metrics : g.metrics,
+    };
+  });
+}
+describe('applyRoadmapGoalOverrides (Compagnon IA, reecriture du theme sans regeneration)', () => {
+  const generated = [
+    { sprintLabel: 'Sprint 4', name: 'EPIC REMBOURSEMENT', goal: 'Avancer sur EPIC REMBOURSEMENT.', metrics: ['8 item(s) livre(s)'] },
+    { sprintLabel: 'Sprint 5', name: 'EPIC PORTAGE', goal: 'Avancer sur EPIC PORTAGE.', metrics: ['15 item(s) livre(s)'] },
+    { sprintLabel: 'Sprint 6', name: 'SPRINT', goal: 'Livrer les 1 item(s) prevu(s).', metrics: ['1 item(s) livre(s)'] },
+  ];
+  test('aucun override -> renvoie les goals generes tels quels', () => {
+    const result = applyRoadmapGoalOverrides(generated, undefined);
+    expect(result).toBe(generated);
+  });
+  test('override sur tous les sprints -> remplace name/goal/metrics exactement comme fourni', () => {
+    const overrides = [
+      { sprintLabel: 'Sprint 4', name: 'DETTE TECHNIQUE', goal: 'Resorber les bugs en souffrance.', metrics: ['0 bug restant'] },
+      { sprintLabel: 'Sprint 5', name: 'FIN PORTAGE V3', goal: 'Achever le portage v3.', metrics: ['100% ecrans portes'] },
+      { sprintLabel: 'Sprint 6', name: 'FINALISATION', goal: 'Finaliser les elements residuels.', metrics: ['Aucune regression'] },
+    ];
+    const result = applyRoadmapGoalOverrides(generated, overrides);
+    expect(result[0].name).toBe('DETTE TECHNIQUE');
+    expect(result[0].goal).toBe('Resorber les bugs en souffrance.');
+    expect(result[0].metrics.join('|')).toBe('0 bug restant');
+    expect(result[1].name).toBe('FIN PORTAGE V3');
+    expect(result[2].name).toBe('FINALISATION');
+    // sprintLabel jamais modifie par l'override, meme si absent de l'objet fourni.
+    expect(result[0].sprintLabel).toBe('Sprint 4');
+  });
+  test('override partiel (un seul sprint) -> les autres sprints restent generes tels quels', () => {
+    const result = applyRoadmapGoalOverrides(generated, [{ sprintLabel: 'Sprint 5', name: 'FIN PORTAGE V3' }]);
+    expect(result[0]).toBe(generated[0]); // Sprint 4 non touche, meme reference
+    expect(result[1].name).toBe('FIN PORTAGE V3');
+    expect(result[1].goal).toBe('Avancer sur EPIC PORTAGE.'); // goal non fourni -> garde le genere
+    expect(result[2]).toBe(generated[2]); // Sprint 6 non touche
+  });
+  test('override avec un seul champ fourni (name) -> goal/metrics generes conserves', () => {
+    const result = applyRoadmapGoalOverrides(generated, [{ sprintLabel: 'Sprint 4', name: 'DETTE TECHNIQUE' }]);
+    expect(result[0].name).toBe('DETTE TECHNIQUE');
+    expect(result[0].goal).toBe('Avancer sur EPIC REMBOURSEMENT.');
+    expect(result[0].metrics.join('|')).toBe('8 item(s) livre(s)');
+  });
+  test('sprintLabel de l\'override insensible a la casse/aux accents', () => {
+    const result = applyRoadmapGoalOverrides(generated, [{ sprintLabel: 'sprint 4', name: 'DETTE TECHNIQUE' }]);
+    expect(result[0].name).toBe('DETTE TECHNIQUE');
+  });
+  test('sprintLabel de l\'override sans correspondance -> ignore silencieusement, aucun sprint touche', () => {
+    const result = applyRoadmapGoalOverrides(generated, [{ sprintLabel: 'Sprint 99', name: 'HORS PLAN' }]);
+    expect(result[0]).toBe(generated[0]);
+    expect(result[1]).toBe(generated[1]);
+    expect(result[2]).toBe(generated[2]);
   });
 });
 
@@ -925,17 +764,19 @@ describe('Retro - id deterministe de la session par defaut', () => {
 
 // Reproduction de verifyRoadmapGoalConfirmed (routes/ai.ts), Compagnon IA, pre-remplissage de la
 // modal Sprint (Roadmap) - 2026-08-20, decision Julien (AskUserQuestion) : le Compagnon propose en
-// texte le theme/Sprint Goal/metriques d'un sprint apres apply_sprint_plan, mais n'appelle
-// set_roadmap_goal qu'apres un accord explicite - meme principe que verifyApplyIsConfirmed
-// (ci-dessus), sans etape de simulation prealable (la "proposition" est juste du texte, pas un
+// texte le theme/Sprint Goal/metriques d'un sprint, mais n'appelle set_roadmap_goal qu'apres un
+// accord explicite, sans etape de simulation prealable (la "proposition" est juste du texte, pas un
 // outil) : l'ancre est le dernier appel a set_roadmap_goal (pour empecher une reecriture silencieuse
-// sans nouveau message), et un VRAI message utilisateur doit avoir ete envoye depuis.
+// sans nouveau message), et un VRAI message utilisateur doit avoir ete envoye depuis. Mecanisme
+// independant de la confirmation d'application d'un plan de sprints (bouton UI depuis l'Addendum 12,
+// voir plus haut) - les fixtures ci-dessous utilisent encore un tool_use nomme "apply_sprint_plan"
+// pour verifier que l'ancre ignore bien tout appel d'outil PRECEDENT sans rapport avec
+// set_roadmap_goal ; ce nom n'a plus besoin de correspondre a un outil reellement expose.
 // Correctif 2026-08-20 (meme jour, 2e retour Julien) : l'ancre incluait initialement aussi le
-// dernier apply_sprint_plan, pour bloquer tout enchainement dans le MEME tour - assoupli, car Julien
-// a signale que c'etait le comportement voulu quand l'utilisateur demande les deux dans un seul
-// message ("applique le plan, tu renseigneras en meme temps les themes..."). apply_sprint_plan a de
-// toute facon deja sa propre garantie (verifyApplyIsConfirmed) : l'exiger une 2e fois ici pour la
-// MEME demande etait une contrainte artificielle, pas une vraie protection supplementaire.
+// dernier appel d'application d'un plan, pour bloquer tout enchainement dans le MEME tour - assoupli,
+// car Julien a signale que c'etait le comportement voulu quand l'utilisateur demande les deux en un
+// seul message ("applique le plan, tu renseigneras en meme temps les themes..."). L'exiger une 2e
+// fois ici pour la MEME demande etait une contrainte artificielle, pas une vraie protection.
 function verifyRoadmapGoalConfirmed(messages, beforeIndex) {
   let anchorIdx = -1;
   for (let i = 0; i < beforeIndex; i++) {

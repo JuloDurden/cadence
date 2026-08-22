@@ -821,6 +821,15 @@ export type AiToolCall =
   // couverte par verifyApplyIsConfirmed cote backend), plutot qu'un 2e appel set_roadmap_goal
   // separe exigeant sa propre confirmation (voir docs/corrections.md).
   | { kind: 'sprint_plan_applied'; changedItems: Item[]; newItems: Item[]; newSprints: Sprint[]; keyCounters: Record<string, number>; roadmapGoals: { goal: RoadmapGoal; created: boolean }[] }
+  // sprint_plan_simulated ajoute le 2026-08-22 (Addendum 12, docs/corrections.md - remplace la
+  // confirmation textuelle, jamais fiabilisee malgre 11 tentatives, par un vrai bouton "Appliquer ce
+  // plan" affiche sous la bulle) : ne mute rien (simulate_sprint_plan reste un outil de lecture cote
+  // serveur), transporte le plan ET les themes DEJA GENERES par cette simulation (figes) - le clic sur
+  // le bouton (ChatPanel.tsx) renvoie ces memes donnees telles quelles a POST /api/ai-chat/apply-plan,
+  // jamais regenerees. `planInput` reste opaque cote frontend (jamais interprete ici, seulement
+  // reexpedie tel quel), `roadmapGoals` ici est la version LEGERE deja generee (sans id/icon/couleur,
+  // attribues seulement a l'ecriture reelle) - a ne pas confondre avec RoadmapGoal ci-dessus.
+  | { kind: 'sprint_plan_simulated'; planInput: Record<string, unknown>; roadmapGoals: { sprintLabel: string; name: string; goal: string; metrics: string[] }[] }
   // Compagnon IA, pre-remplissage modal Sprint (Roadmap), 2026-08-20 : le theme/Sprint Goal/
   // metriques de succes d'un sprint, proposes en texte par le Compagnon puis ecrits seulement apres
   // confirmation explicite (set_roadmap_goal, routes/ai.ts, usage desormais reserve au cas

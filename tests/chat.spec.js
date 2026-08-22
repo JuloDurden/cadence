@@ -113,56 +113,150 @@ test.describe('Compagnon IA - panneau de chat (v0.98)', () => {
     await expect(page.getByText('100% des US du sprint livrées')).toBeVisible();
   });
 
-  // v0.98.19 : la confirmation avant application d'un plan de sprints (v0.98.18) a été retirée
-  // (voir docs/corrections.md, Addendum 11) - une demande de planification par un compte PO/Admin
-  // s'applique désormais directement, en une seule réponse de l'API (`sprint_plan_applied`), sans
-  // second message ni bouton de confirmation. Ce test vérifie que cette réponse UNIQUE suffit à la
-  // fois à afficher le résumé dans la bulle ET à répercuter le plan sur l'état réel (item réaffecté
-  // à un sprint réel, thème/Sprint Goal mis à jour sur sa carte Roadmap) - même câblage que le test
-  // roadmap_goal_updated ci-dessus (ChatContext.tsx -> StateContext.tsx -> RoadmapPage.tsx), ici
-  // déclenché par sprint_plan_applied plutôt que roadmap_goal_updated seul.
-  test('un plan de sprints appliqué par le chat réaffecte l\'item et met à jour le thème du sprint, en une seule réponse', async ({ page }) => {
+  // Addendum 12 (2026-08-22, docs/corrections.md) : la confirmation avant application d'un plan de
+  // sprints, retirée à l'Addendum 11 (v0.98.19) le temps de fiabiliser l'application elle-même, est
+  // réintroduite ici sous une forme radicalement différente des 11 tentatives précédentes (jamais
+  // une interprétation de texte par le modèle) - un vrai bouton "Appliquer ce plan", rendu dans la
+  // bulle du plan simulé (toolCall `sprint_plan_simulated`), qui appelle une route dédiée et
+  // déterministe (POST /api/ai-chat/apply-plan) sans repasser par le modèle. Ce test couvre le
+  // parcours complet en 2 étapes : simulation (lecture seule, rien n'est encore écrit) -> clic sur
+  // le bouton -> application réelle (item réaffecté, thème/Sprint Goal mis à jour sur sa carte
+  // Roadmap) - même câblage que le test roadmap_goal_updated ci-dessus (ChatContext.tsx ->
+  // StateContext.tsx -> RoadmapPage.tsx).
+  test('simuler un plan affiche un bouton "Appliquer ce plan", le cliquer réaffecte l\'item et met à jour le thème du sprint', async ({ page }) => {
     await goTo(page, '/roadmap', { role: 'PO' });
+
+    const simulatedGoal = {
+      sprintLabel: 'Sprint 4', name: 'DETTE TECHNIQUE',
+      goal: 'Résorber les bugs moyennement urgents du socle en souffrance.',
+      metrics: ['1 item(s) livré(s)'],
+    };
+    const planInput = { criteria: ['tech-debt'] };
+
     await mockAiChatApi(page, () => ({
-      reply: 'Plan appliqué : 0 sprint(s) créé(s), 1 item(s) réaffecté(s), 1 thème(s)/Sprint Goal(s) renseigné(s).\n\nSprint 4 - BUG-012 : 3 bugs moyennement urgents socle, 15 SP',
-      toolCalls: [{
-        kind: 'sprint_plan_applied',
-        // i12/BUG-012 : item réel de data/demo.ts (initialement Sprint 3), réaffecté au Sprint 4 -
-        // même principe que le test roadmap_goal_updated ci-dessus, reprendre un id réel plutôt
-        // qu'inventé pour que la fusion dans le reducer (APPLY_SPRINT_PLAN, StateContext.tsx)
-        // trouve bien l'item existant à remplacer plutôt que de ne rien faire silencieusement.
-        changedItems: [{
-          id: 'i12', key: 'BUG-012', desc: 'Bugs moyennement urgents – lot 2/2', sp: 15, status: 'todo',
-          clientId: 'cl6', sprintId: 's4', priority: 'medium', assignees: [], tags: ['Dette technique'],
-          type: 'story', epicId: null, createdAt: '2026-06-15T08:00:00Z',
-        }],
-        newItems: [], newSprints: [], keyCounters: {},
-        roadmapGoals: [{
-          created: false,
-          // g4 : id réel du RoadmapGoal du sprint s4 dans data/demo.ts (même principe que g1 dans
-          // le test roadmap_goal_updated ci-dessus).
-          goal: {
-            id: 'g4', sprintId: 's4', icon: '🏆', color: 'linear-gradient(135deg,#15803d,#16a34a)',
-            name: 'DETTE TECHNIQUE',
-            goal: 'Résorber les bugs moyennement urgents du socle en souffrance.',
-            metrics: ['1 item(s) livré(s)'],
-          },
-        }],
-      }],
+      reply: 'Voici le plan simulé : 0 sprint(s) créé(s), 1 item(s) réaffecté(s).\n\nSprint 4 - BUG-012 : 3 bugs moyennement urgents socle, 15 SP',
+      toolCalls: [{ kind: 'sprint_plan_simulated', planInput, roadmapGoals: [simulatedGoal] }],
     }));
 
     await page.locator('[data-testid="chat-toggle-btn"]').click();
     await page.locator('[data-testid="chat-input"]').fill('/plan simule un plan avec le critère dette technique');
     await page.locator('[data-testid="chat-send-btn"]').click();
 
-    // Une seule réponse assistant, directement le résultat appliqué - jamais une demande de
-    // confirmation intermédiaire à laquelle il faudrait répondre par un 2e message.
+    // Rien n'est encore appliqué : le bouton est affiché, pas le résumé "Plan appliqué".
+    const applyBtn = page.locator('[data-testid="chat-apply-plan-btn"]');
+    await expect(applyBtn).toBeVisible();
+    await expect(applyBtn).toContainText('Appliquer ce plan');
+    await page.locator('[data-testid="chat-panel"] button[aria-label="Fermer"]').click();
+    await expect(page.getByText('DETTE TECHNIQUE')).not.toBeVisible();
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+
+    // i12/BUG-012 : item réel de data/demo.ts (initialement Sprint 3), réaffecté au Sprint 4 - même
+    // principe que le test roadmap_goal_updated ci-dessus, reprendre un id réel plutôt qu'inventé
+    // pour que la fusion dans le reducer (APPLY_SPRINT_PLAN, StateContext.tsx) trouve bien l'item
+    // existant à remplacer plutôt que de ne rien faire silencieusement.
+    await page.route('**/api/ai-chat/apply-plan', async r => {
+      const body = r.request().postDataJSON();
+      expect(body.planInput).toEqual(planInput);
+      expect(body.roadmapGoals).toEqual([simulatedGoal]);
+      return r.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          reply: 'Plan appliqué : 0 sprint(s) créé(s), 1 item(s) réaffecté(s), 1 thème(s)/Sprint Goal(s) renseigné(s).',
+          toolCall: {
+            kind: 'sprint_plan_applied',
+            changedItems: [{
+              id: 'i12', key: 'BUG-012', desc: 'Bugs moyennement urgents – lot 2/2', sp: 15, status: 'todo',
+              clientId: 'cl6', sprintId: 's4', priority: 'medium', assignees: [], tags: ['Dette technique'],
+              type: 'story', epicId: null, createdAt: '2026-06-15T08:00:00Z',
+            }],
+            newItems: [], newSprints: [], keyCounters: {},
+            // g4 : id réel du RoadmapGoal du sprint s4 dans data/demo.ts (même principe que g1 dans
+            // le test roadmap_goal_updated ci-dessus).
+            roadmapGoals: [{
+              created: false,
+              goal: {
+                id: 'g4', sprintId: 's4', icon: '🏆', color: 'linear-gradient(135deg,#15803d,#16a34a)',
+                name: 'DETTE TECHNIQUE',
+                goal: 'Résorber les bugs moyennement urgents du socle en souffrance.',
+                metrics: ['1 item(s) livré(s)'],
+              },
+            }],
+          },
+        }),
+      });
+    });
+
+    await page.locator('[data-testid="chat-apply-plan-btn"]').click();
+
+    // Le bouton disparaît, remplacé par le résumé habituel - toujours dans la MÊME bulle, sans
+    // nouveau message assistant (l'action est rattachée au message qui a proposé le plan).
     await expect(page.locator('[data-testid="chat-message-assistant"]')).toHaveCount(1);
-    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Plan appliqué : 0 sprint(s) créé(s), 1 item(s) réaffecté(s)');
+    await expect(applyBtn).not.toBeVisible();
+    await expect(page.locator('[data-testid="chat-message-assistant"]')).toContainText('Plan de sprints appliqué');
 
     await page.locator('[data-testid="chat-panel"] button[aria-label="Fermer"]').click();
     await expect(page.getByText('DETTE TECHNIQUE')).toBeVisible();
     await expect(page.getByText('Résorber les bugs moyennement urgents du socle en souffrance.')).toBeVisible();
+  });
+
+  // Complète le test ci-dessus : si le clic sur "Appliquer ce plan" échoue (route en erreur), le
+  // bouton doit rester actionnable (pas bloqué indéfiniment sur "Application en cours…") pour que
+  // l'utilisateur puisse réessayer - voir PendingPlanButton (ChatPanel.tsx), état `error`.
+  test('un échec de l\'application du plan réactive le bouton "Appliquer ce plan"', async ({ page }) => {
+    await goTo(page, '/roadmap', { role: 'PO' });
+    await mockAiChatApi(page, () => ({
+      reply: 'Voici le plan simulé.',
+      toolCalls: [{ kind: 'sprint_plan_simulated', planInput: { criteria: ['tech-debt'] }, roadmapGoals: [] }],
+    }));
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('/plan simule un plan avec le critère dette technique');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    await page.route('**/api/ai-chat/apply-plan', r => r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Erreur' }) }));
+
+    const applyBtn = page.locator('[data-testid="chat-apply-plan-btn"]');
+    await applyBtn.click();
+    await expect(page.getByText("Échec de l'application, réessaie.")).toBeVisible();
+    await expect(applyBtn).toBeEnabled();
+    await expect(applyBtn).toContainText('Appliquer ce plan');
+  });
+
+  // Addendum 13 (2026-08-22, docs/corrections.md) : bug réel observé en conditions réelles - une
+  // demande de modification du thème SEUL (ex. "renomme le thème du Sprint 4") faisait répondre le
+  // modèle en texte libre suivi d'une demande de confirmation, alors que le SEUL bouton actionnable
+  // restait celui de la simulation D'ORIGINE (anciens thèmes) : cliquer dessus appliquait le plan
+  // avec les MAUVAIS thèmes malgré la "confirmation" donnée. Le prompt système a été corrigé pour
+  // toujours rappeler simulate_sprint_plan (nouveau bouton à jour) sur ce type de demande - ce test
+  // vérifie le garde-fou structurel ajouté en complément (PendingPlanButton, ChatPanel.tsx) : dès
+  // qu'un plan simulé plus récent apparaît dans la conversation, l'ancien bouton devient inerte
+  // plutôt que de rester cliquable avec un plan potentiellement périmé.
+  test('un nouveau plan simulé rend inerte le bouton "Appliquer ce plan" d\'une proposition précédente', async ({ page }) => {
+    await goTo(page, '/backlog', { role: 'PO' });
+    let call = 0;
+    await mockAiChatApi(page, () => {
+      call++;
+      return call === 1
+        ? { reply: 'Voici le plan simulé (thème EPIC REMBOURSEMENT).', toolCalls: [{ kind: 'sprint_plan_simulated', planInput: { criteria: ['debt'] }, roadmapGoals: [{ sprintLabel: 'Sprint 4', name: 'EPIC REMBOURSEMENT', goal: 'Avancer sur EPIC REMBOURSEMENT.', metrics: [] }] }] }
+        : { reply: 'Voici le plan mis à jour (thème DETTE TECHNIQUE).', toolCalls: [{ kind: 'sprint_plan_simulated', planInput: { criteria: ['debt'] }, roadmapGoals: [{ sprintLabel: 'Sprint 4', name: 'DETTE TECHNIQUE', goal: 'Résorber les bugs.', metrics: [] }] }] };
+    });
+
+    await page.locator('[data-testid="chat-toggle-btn"]').click();
+    await page.locator('[data-testid="chat-input"]').fill('/plan simule un plan avec le critère dette technique');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    const firstBtn = page.locator('[data-testid="chat-apply-plan-btn"]');
+    await expect(firstBtn).toBeVisible();
+    await expect(firstBtn).toHaveCount(1);
+
+    await page.locator('[data-testid="chat-input"]').fill('Renomme le thème du Sprint 4 en DETTE TECHNIQUE');
+    await page.locator('[data-testid="chat-send-btn"]').click();
+
+    // Le 1er bouton devient inerte (remplacé par le texte "Proposition remplacée..."), le 2e reste
+    // seul bouton réellement cliquable - jamais 2 boutons actionnables en même temps.
+    await expect(page.locator('[data-testid="chat-apply-plan-btn-superseded"]')).toBeVisible();
+    await expect(page.locator('[data-testid="chat-apply-plan-btn"]')).toHaveCount(1);
+    await expect(page.locator('[data-testid="chat-message-assistant"]').last().locator('[data-testid="chat-apply-plan-btn"]')).toBeVisible();
   });
 
   test('une erreur serveur (ex. assistant non configuré) s\'affiche comme une bulle d\'erreur', async ({ page }) => {

@@ -88,6 +88,7 @@ interface ChatContextValue {
   sendMessage: (text: string) => void
   editMessage: (id: string, newText: string) => void
   clearConversation: () => void
+  applyPendingPlan: (messageId: string, call: Extract<AiToolCall, { kind: 'sprint_plan_simulated' }>) => Promise<void>
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -166,6 +167,27 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       .finally(() => setSending(false))
   }, [applyToolCalls])
 
+  // Addendum 12 (2026-08-22, 12e retour Julien, docs/corrections.md) : bouton "Appliquer ce plan"
+  // (ChatPanel.tsx) - remplace la confirmation textuelle, jamais fiabilisee malgre 11 tentatives.
+  // `call.planInput`/`call.roadmapGoals` sont repris tels quels du toolCall sprint_plan_simulated qui
+  // a affiche le bouton (jamais reconstruits ici) : POST /api/ai-chat/apply-plan est deterministe,
+  // pas d'appel Anthropic. En cas de succes, le toolCall sprint_plan_applied renvoye REMPLACE (par
+  // identite de reference, `tc === call`) l'entree sprint_plan_simulated dans CE message precis - le
+  // bouton bascule alors vers le meme resume "Plan applique : ..." que l'ancien flux, sans nouveau
+  // message assistant : l'action est rattachee au message qui l'a proposee, pas a un nouveau tour.
+  // Rejette la promesse au lieu de l'avaler (contrairement a postHistory) : ChatPanel a besoin de
+  // savoir si le clic a echoue pour re-activer le bouton plutot que de le laisser bloque "en cours".
+  const applyPendingPlan = useCallback((messageId: string, call: Extract<AiToolCall, { kind: 'sprint_plan_simulated' }>) => {
+    return api.applySprintPlan({ planInput: call.planInput, roadmapGoals: call.roadmapGoals })
+      .then(({ toolCall }) => {
+        applyToolCalls([toolCall])
+        setMessages(prev => prev.map(m => m.id !== messageId ? m : {
+          ...m,
+          toolCalls: (m.toolCalls ?? []).map(tc => tc === call ? toolCall : tc),
+        }))
+      })
+  }, [applyToolCalls])
+
   const sendMessage = useCallback((text: string) => {
     const trimmed = text.trim()
     if (!trimmed || sending) return
@@ -195,7 +217,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [sending, messages, postHistory])
 
   return (
-    <ChatContext.Provider value={{ open, openPanel, closePanel, togglePanel, messages, sending, sendMessage, editMessage, clearConversation }}>
+    <ChatContext.Provider value={{ open, openPanel, closePanel, togglePanel, messages, sending, sendMessage, editMessage, clearConversation, applyPendingPlan }}>
       {children}
     </ChatContext.Provider>
   )

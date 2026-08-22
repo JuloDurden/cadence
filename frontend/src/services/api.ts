@@ -224,4 +224,10 @@ export const api = {
   deleteAiConfig: () => request<void>('/api/ai-config', { method: 'DELETE' }),
   sendChatMessage: (messages: { role: 'user' | 'assistant'; content: string }[]) =>
     request<{ reply: string; toolCalls: AiToolCall[] }>('/api/ai-chat', { method: 'POST', body: JSON.stringify({ messages }) }),
+  // Addendum 12 (2026-08-22, docs/corrections.md) : route dédiée au bouton "Appliquer ce plan"
+  // (ChatPanel.tsx) - déterministe, aucun appel Anthropic (voir backend/src/routes/ai.ts,
+  // executeApplySprintPlan). `planInput`/`roadmapGoals` repris tels quels du toolCall
+  // sprint_plan_simulated qui a affiché le bouton, jamais reconstruits côté frontend.
+  applySprintPlan: (input: { planInput: Record<string, unknown>; roadmapGoals: { sprintLabel: string; name: string; goal: string; metrics: string[] }[] }) =>
+    request<{ reply: string; toolCall: AiToolCall }>('/api/ai-chat/apply-plan', { method: 'POST', body: JSON.stringify(input) }),
 }

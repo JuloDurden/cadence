@@ -33,6 +33,10 @@ function toolCallLabel(tc: AiToolCall): string {
     }
     case 'roadmap_goal_created': return `Thème/Sprint Goal renseignés : ${tc.goal.name}`
     case 'roadmap_goal_updated': return `Thème/Sprint Goal mis à jour : ${tc.goal.name}`
+    // sprint_plan_simulated ne passe jamais par ici en pratique (voir PendingPlanButton plus bas,
+    // rendu à part - un vrai bouton, pas ce résumé texte) : seulement pour satisfaire l'exhaustivité
+    // du switch, au cas où ce kind atteindrait ce chemin par erreur un jour.
+    case 'sprint_plan_simulated': return 'Plan simulé, en attente de confirmation'
   }
 }
 
@@ -213,10 +217,79 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+// Addendum 12 (2026-08-22, 12e retour Julien, docs/corrections.md) : bouton "Appliquer ce plan",
+// intégré à la bulle du plan (option A retenue par Julien sur maquette) plutôt qu'à côté, dans la
+// rangée d'icônes copier/modifier - impossible à manquer ni à confondre avec une simple action
+// secondaire. Remplace définitivement la confirmation textuelle ("oui"/"applique"), jamais fiabilisée
+// malgré 11 tentatives successives (voir l'historique complet du chantier) : le clic envoie
+// directement `call.planInput`/`call.roadmapGoals` - déjà figés au moment de la simulation, jamais
+// reconstruits ici - à une route dédiée, sans repasser par le modèle. Une fois l'application réussie,
+// ChatContext.tsx remplace cette entrée `sprint_plan_simulated` par un `sprint_plan_applied` dans le
+// même message (voir applyPendingPlan) : ce composant se démonte alors de lui-même au prochain rendu,
+// remplacé par le chip vert habituel - pas de state "succès" à gérer ici.
+// `superseded` (2026-08-22, Addendum 13, docs/corrections.md) : garde-fou ajouté après un bug réel -
+// une demande de modification du thème seul (composition inchangée) faisait répondre le modèle en
+// texte libre ("confirmes-tu ?") au lieu de rappeler simulate_sprint_plan, laissant le SEUL bouton
+// actionnable pointer vers les anciens thèmes. Le prompt système a été corrigé pour ne plus jamais
+// laisser ce cas sans nouveau bouton (voir buildSystemPrompt, routes/ai.ts) - mais un plan simulé plus
+// récent peut légitimement apparaître dans la conversation pour d'autres raisons (nouvelle exploration,
+// nouvel essai de critère). Par sécurité structurelle plutôt que de dépendre uniquement du prompt,
+// un bouton "Appliquer ce plan" dont un message PLUS RÉCENT contient déjà un plan simulé ou appliqué
+// devient inerte : mieux vaut forcer l'utilisateur vers la proposition la plus à jour que risquer une
+// application silencieuse d'un plan périmé (thèmes ou composition obsolètes).
+function PendingPlanButton({ messageId, call, superseded }: { messageId: string; call: Extract<AiToolCall, { kind: 'sprint_plan_simulated' }>; superseded: boolean }) {
+  const { applyPendingPlan } = useChat()
+  const [status, setStatus] = useState<'idle' | 'applying' | 'error'>('idle')
+
+  if (superseded) {
+    return (
+      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+        <div
+          data-testid="chat-apply-plan-btn-superseded"
+          style={{
+            width: '100%', border: '1px dashed var(--border)', background: 'none', color: 'var(--text-muted)',
+            borderRadius: 7, fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit',
+            padding: '9px 10px', textAlign: 'center', lineHeight: 1.4,
+          }}
+        >
+          Proposition remplacée par une plus récente ci-dessous - utilise plutôt son bouton.
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+      <button
+        data-testid="chat-apply-plan-btn"
+        disabled={status === 'applying'}
+        style={{
+          width: '100%', border: 'none', background: 'var(--primary)', color: '#fff',
+          borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
+          padding: '9px 0', cursor: status === 'applying' ? 'default' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          opacity: status === 'applying' ? 0.7 : 1,
+        }}
+        onClick={() => {
+          if (status === 'applying') return
+          setStatus('applying')
+          applyPendingPlan(messageId, call).catch(() => setStatus('error'))
+        }}
+      >
+        <Svg d={SVG.check} />
+        {status === 'applying' ? 'Application en cours…' : 'Appliquer ce plan'}
+      </button>
+      <div style={{ fontSize: 11, marginTop: 6, textAlign: 'center', color: status === 'error' ? 'var(--danger, #dc2626)' : 'var(--text-muted)' }}>
+        {status === 'error' ? "Échec de l'application, réessaie." : 'Ou décris ce que tu veux changer'}
+      </div>
+    </div>
+  )
+}
+
 // Édition d'un message utilisateur (2026-08-09, 5e retour Julien) : repasse en mode saisie, la
 // validation tronque la conversation à ce message et la renvoie via editMessage (ChatContext.tsx) -
 // même principe qu'"éditer et regénérer" dans les chats classiques.
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, hasNewerPlan }: { message: ChatMessage; hasNewerPlan: boolean }) {
   const { editMessage, sending } = useChat()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(message.content)
@@ -267,7 +340,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         )}
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {message.toolCalls.map((tc, i) => (
+            {message.toolCalls.map((tc, i) => tc.kind === 'sprint_plan_simulated' ? (
+              <PendingPlanButton key={i} messageId={message.id} call={tc} superseded={hasNewerPlan} />
+            ) : (
               <div key={i} style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6, background: 'var(--success-light, #dcfce7)', color: 'var(--success, #16a34a)' }}>
                 {toolCallLabel(tc)}
               </div>
@@ -509,7 +584,16 @@ export function ChatPanel() {
             Demandez-moi de rédiger une User Story, un Bug, un Epic... ou de créer directement un item dans le Backlog.
           </div>
         )}
-        {messages.map(m => <MessageBubble key={m.id} message={m} />)}
+        {messages.map((m, idx) => (
+          <MessageBubble
+            key={m.id}
+            message={m}
+            // Un plan simulé (bouton) est périmé dès qu'un message PLUS RÉCENT contient déjà un
+            // autre plan simulé ou appliqué - voir le commentaire de PendingPlanButton plus haut.
+            hasNewerPlan={messages.slice(idx + 1).some(m2 =>
+              m2.toolCalls?.some(tc => tc.kind === 'sprint_plan_simulated' || tc.kind === 'sprint_plan_applied'))}
+          />
+        ))}
         {sending && (
           <div data-testid="chat-typing-indicator" style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
             Le Compagnon IA rédige

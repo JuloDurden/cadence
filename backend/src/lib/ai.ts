@@ -351,6 +351,24 @@ const SPRINT_PLAN_PARAMS = {
     },
   },
   fromSprintLabel: { type: 'string', description: 'Ne planifier qu\'a partir de ce sprint (inclus), ou "current" pour le sprint en cours. Par defaut, tous les sprints ouverts depuis le debut.' },
+  // Ajoute le 2026-08-22 (Addendum 13, 12e retour Julien, usage reel, docs/corrections.md) : seul
+  // moyen de modifier le theme/Sprint Goal/metriques d'un plan DEJA simule sans repasser par une
+  // regeneration via l'API (non deterministe) ni par une confirmation en texte seul (qui ne peut
+  // alimenter aucun bouton a jour) - voir la description complete de l'outil plus bas.
+  roadmapGoalOverrides: {
+    type: 'array',
+    description: "Reecrit EXACTEMENT le theme/Sprint Goal/metriques d'un ou plusieurs sprints du plan, a la place de la generation automatique - utilise UNIQUEMENT quand l'utilisateur demande de modifier le theme/Sprint Goal/metriques deja proposes d'un plan qui vient d'etre simule (ex. \"renomme le theme du Sprint 4 en X\"), sans rien changer a la composition. Reprends les MEMES autres parametres (criteria, etc.) que le dernier appel simulate_sprint_plan de cette conversation - seule la composition inchangee garantit que sprintLabel correspond aux memes sprints.",
+    items: {
+      type: 'object',
+      properties: {
+        sprintLabel: { type: 'string', description: 'Doit correspondre exactement au libelle du sprint tel qu\'affiche dans le resultat de la derniere simulation (ex. "Sprint 4").' },
+        name: { type: 'string', description: 'Nouveau theme. Omis = garde le theme genere automatiquement.' },
+        goal: { type: 'string', description: 'Nouveau Sprint Goal. Omis = garde celui genere automatiquement.' },
+        metrics: { type: 'array', items: { type: 'string' }, description: 'Nouvelles metriques (remplace completement la liste generee). Omis = garde celles generees automatiquement.' },
+      },
+      required: ['sprintLabel'],
+    },
+  },
 }
 
 // Correctif 2026-08-21 (7e puis 8e retour Julien, usage reel - reecriture complete apres 4
@@ -373,17 +391,7 @@ const SPRINT_PLAN_PARAMS = {
 // simulation en lecture seule (aucun droit d'ecriture, verifie cote serveur).
 export const SIMULATE_SPRINT_PLAN_TOOL: AnthropicTool = {
   name: 'simulate_sprint_plan',
-  description: "Calcule un plan de sprints (quel item dans quel sprint) en reproduisant exactement l'algorithme de la page Auto-planning. Pour un compte PO/Admin, cet appel ECRIT REELLEMENT le plan EN MEME TEMPS qu'il le calcule (reaffecte les items reels, cree les nouveaux sprints necessaires, materialise les items fictifs en vrais items du Backlog) - AUCUN autre outil a appeler, AUCUNE confirmation a demander avant ou apres : l'application a deja eu lieu au moment ou tu recois le resultat. Le resultat inclut AUTOMATIQUEMENT le theme/Sprint Goal/metriques ecrits pour chaque sprint concerne (genere par le serveur, rien a calculer toi-meme) - contente-toi de relayer fidelement tout le texte renvoye par l'outil, plan ET themes, en une seule reponse. A utiliser pour repondre a toute demande de planification (\"planifie le prochain sprint\", \"et si on priorisait le client X\"). Pour les roles sans droit d'ecriture sur la planification (Dev, Scrum Master), reste une simulation en lecture seule, rien n'est ecrit.",
-  input_schema: { type: 'object', properties: SPRINT_PLAN_PARAMS, additionalProperties: false },
-}
-
-// APPLY_SPRINT_PLAN_TOOL n'est plus expose au modele depuis l'Addendum 11 (voir routes/ai.ts,
-// `writeTools`) - SIMULATE_SPRINT_PLAN_TOOL ci-dessus applique desormais directement. Conservee ici
-// (schema + executeApplySprintPlan intacts cote routes/ai.ts) pour la reintroduction promise d'une
-// etape de confirmation, sans avoir a reconstruire ce schema depuis zero le moment venu.
-export const APPLY_SPRINT_PLAN_TOOL: AnthropicTool = {
-  name: 'apply_sprint_plan',
-  description: "Calcule ET ECRIT REELLEMENT un plan de sprints : reaffecte les items reels aux sprints calcules, cree les nouveaux sprints necessaires, materialise les items fictifs en vrais items du Backlog, ET ecrit AUTOMATIQUEMENT le theme/Sprint Goal/metriques de chaque sprint concerne (genere par le serveur, meme principe que simulate_sprint_plan - aucun parametre a fournir pour ca), en une seule ecriture atomique avec le reste. Reserve aux comptes PO ou Admin (comme le bouton \"Appliquer\" d'Auto-planning). A n'utiliser qu'apres avoir montre le resultat via simulate_sprint_plan ET obtenu un accord explicite de l'utilisateur (\"applique\", \"vas-y\", \"oui\") - jamais sur une simple demande de planification, qui doit d'abord passer par simulate_sprint_plan.",
+  description: "Calcule un plan de sprints (quel item dans quel sprint) en reproduisant exactement l'algorithme de la page Auto-planning - un appel EN LECTURE SEULE, qui n'ecrit jamais rien, quel que soit le role. Le resultat inclut AUTOMATIQUEMENT une proposition de theme/Sprint Goal/metriques pour chaque sprint concerne (generee par le serveur, rien a calculer toi-meme) - relaie fidelement tout le texte renvoye par l'outil, plan ET themes, en une seule reponse. Pour un compte PO/Admin, montre ensuite ce resultat : un bouton \"Appliquer ce plan\" s'affiche automatiquement dans l'interface, qui declenche l'ecriture reelle (reaffectation des items, creation des sprints necessaires, materialisation des items fictifs, ecriture du theme/Sprint Goal/metriques) sans repasser par toi. N'appelle JAMAIS un autre outil pour appliquer ce plan - ce bouton est le SEUL moyen de l'appliquer, y compris si l'utilisateur ecrit \"oui\"/\"applique\"/\"vas-y\" en texte : dans ce cas, indique-lui simplement de cliquer sur le bouton affiche. A utiliser pour repondre a toute demande de planification (\"planifie le prochain sprint\", \"et si on priorisait le client X\"). IMPORTANT - modification d'un plan deja simule dans cette conversation : que la demande porte sur la composition (autres criteres, autre client prioritaire...) ou UNIQUEMENT sur le theme/Sprint Goal/metriques proposes (\"renomme le theme du Sprint 4\"), rappelle TOUJOURS cet outil pour produire un NOUVEAU resultat avec un NOUVEAU bouton a jour - ne propose JAMAIS une modification en texte libre suivie d'une demande de confirmation, ce texte ne peut alimenter aucun bouton et le seul bouton actionnable resterait celui, perime, de la simulation precedente. Pour une modification qui ne touche QUE le theme/Sprint Goal/metriques (composition inchangee), reprends les memes parametres que le dernier appel et ajoute `roadmapGoalOverrides` avec le texte exact demande.",
   input_schema: { type: 'object', properties: SPRINT_PLAN_PARAMS, additionalProperties: false },
 }
 

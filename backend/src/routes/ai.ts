@@ -59,6 +59,14 @@ type AiToolCall =
   // pour chaque sprint concerne, `created` distingue creation/mise a jour par entree comme
   // roadmap_goal_created/updated plus bas, pour le meme dispatch cote frontend.
   | { kind: 'sprint_plan_applied'; changedItems: Item[]; newItems: Item[]; newSprints: Sprint[]; keyCounters: Record<string, number>; roadmapGoals: { goal: RoadmapGoal; created: boolean }[] }
+  // sprint_plan_simulated ajoute a l'Addendum 12 (2026-08-22, docs/corrections.md) : ne mute rien
+  // (simulate_sprint_plan reste un outil de LECTURE), pousse uniquement pour PO/Admin - transporte le
+  // plan ET les themes DEJA GENERES par cette simulation (figes), pour que le frontend puisse a la
+  // fois afficher le bouton "Appliquer ce plan" et renvoyer ces memes donnees telles quelles a
+  // POST /api/ai-chat/apply-plan au clic, sans jamais regenerer les themes une 2e fois. `planInput`
+  // reste `Record<string, unknown>` (pas RawPlanInput, prive a ce fichier) - le frontend n'en a besoin
+  // que pour le reexpedier tel quel, jamais pour l'interpreter lui-meme.
+  | { kind: 'sprint_plan_simulated'; planInput: Record<string, unknown>; roadmapGoals: GeneratedRoadmapGoal[] }
   // Compagnon IA, pre-remplissage modal Sprint (2026-08-20) : 2 kinds distincts (comme node_created/
   // node_updated) plutot qu'un seul, pour que ChatContext.tsx sache directement quelle action
   // dispatcher (ADD_ROADMAP_GOAL/UPDATE_ROADMAP_GOAL) sans avoir a re-verifier l'existence prealable
@@ -254,129 +262,31 @@ interface RawItemOverride { key?: string; status?: string; priority?: string; sp
 // parametres de simulate_sprint_plan/apply_sprint_plan, generes automatiquement par le serveur (voir
 // generateRoadmapGoals, lib/ai.ts, et executeApplySprintPlan/executeSimulateSprintPlan plus bas).
 interface RawRoadmapGoalInput { sprintLabel?: string; name?: string; goal?: string; metrics?: string[] }
+// roadmapGoalOverrides ajoute le 2026-08-22 (Addendum 13, 12e retour Julien, usage reel) : voir le
+// commentaire complet sur applyRoadmapGoalOverrides plus bas - permet de modifier UNIQUEMENT le
+// theme/Sprint Goal/metriques proposes d'un plan deja simule (composition des sprints inchangee),
+// sans passer par une confirmation textuelle qui ne peut ensuite alimenter aucun bouton a jour.
 interface RawPlanInput {
   criteria?: string[]; clientOrder?: string[]; velocityFactor?: number
   capacityOverrides?: RawCapacityOverride[]; virtualItems?: RawVirtualItem[]; itemOverrides?: RawItemOverride[]
   fromSprintLabel?: string
+  roadmapGoalOverrides?: RawRoadmapGoalInput[]
 }
 
-/* ── Garantie technique de confirmation avant application (2026-08-20, retour Julien) ─────────────
-   L'attente d'une confirmation explicite avant apply_sprint_plan, et la reutilisation des memes
-   parametres entre une simulation et l'application qui suit, reposaient jusqu'ici uniquement sur
-   les instructions de buildSystemPrompt plus bas ("ne jamais appliquer sans confirmation", "memes
-   parametres que le dernier simulate_sprint_plan") - jamais sur une verification technique reelle.
-   Le chat reste sans etat PERSISTE cote serveur (voir commentaire plus haut), mais chaque requete
-   /api/ai-chat recoit deja l'historique COMPLET de la conversation (req.body.messages) : on peut
-   donc verifier a partir de cet historique, sans etat supplementaire, que :
-   1. un simulate_sprint_plan a bien precede cet appel dans la conversation ;
-   2. un VRAI message utilisateur a ete envoye depuis - distingue d'un tool_result synthetique
-      reinjecte par la boucle agentique (messages.push plus bas, content: un tableau de blocs) par
-      son `content` de type string (seuls les VRAIS messages tapes par l'utilisateur, mappes depuis
-      req.body.messages, ont un content en simple chaine) : la presence d'un tel message prouve un
-      aller-retour HTTP reel depuis la simulation, donc une confirmation explicite de l'utilisateur,
-      et exclut tout enchainement simulate -> apply dans le MEME tour de boucle agentique (25
-      iterations possibles en une seule requete, voir MAX_ITERATIONS plus bas).
-   Les parametres du plan applique sont en plus TOUJOURS repris du dernier simulate_sprint_plan
-   trouve (jamais ceux de l'appel apply_sprint_plan lui-meme, potentiellement reformules ou
-   re-devines de memoire par le modele), pour garantir que ce qui est ecrit correspond exactement a
-   ce qui a ete simule et montre - meme principe que le commentaire ci-dessus, rendu contraignant. */
-// Correctif 2026-08-21 (7e retour Julien, usage reel) : la comparaison "re-simulation identique"
-// ci-dessous comparait jusqu'ici le JSON COMPLET (JSON.stringify) de chaque appel simulate_sprint_plan,
-// roadmapGoals inclus. En conditions reelles, le modele ne reproduit JAMAIS `roadmapGoals` a
-// l'identique d'un appel a l'autre (texte libre - theme/Sprint Goal/metriques legerement reformules
-// a chaque regeneration, meme quand il "pense" presenter exactement le meme plan) : la comparaison
-// stricte manquait donc systematiquement ces re-simulations pourtant fonctionnellement identiques,
-// ce qui repoussait l'ancre de confirmation a chaque tour et recreait la boucle malgre le correctif
-// du 2026-08-20 cense l'empecher. planIdentityKey ne compare que les champs qui definissent REELLEMENT
-// quel item va dans quel sprint (jamais roadmapGoals) - une re-simulation dont seul le texte des
-// themes differe est donc bien reconnue comme "le meme plan", pas une nouvelle proposition.
-// Note 2026-08-21 : depuis la reecriture complete du theme/Sprint Goal/metriques (generes
-// automatiquement, roadmapGoals a disparu de RawPlanInput), cette exclusion est devenue sans objet -
-// gardee volontairement telle quelle (inoffensive, explicite sur les champs qui comptent vraiment
-// pour l'identite d'un plan) plutot que remplacee par un JSON.stringify complet moins parlant.
-function planIdentityKey(input: RawPlanInput): string {
-  return JSON.stringify({
-    criteria: input.criteria ?? null,
-    clientOrder: input.clientOrder ?? null,
-    velocityFactor: input.velocityFactor ?? null,
-    capacityOverrides: input.capacityOverrides ?? null,
-    virtualItems: input.virtualItems ?? null,
-    itemOverrides: input.itemOverrides ?? null,
-    fromSprintLabel: input.fromSprintLabel ?? null,
-  })
-}
-
-export function verifyApplyIsConfirmed(
-  messages: AnthropicMessage[], beforeIndex: number
-): { ok: true; input: RawPlanInput } | { ok: false; reason: string } {
-  let simIdx = -1
-  let simInput: RawPlanInput | null = null
-  let lastApplyIdx = -1
-  for (let i = 0; i < beforeIndex; i++) {
-    const m = messages[i]
-    if (m.role !== 'assistant' || typeof m.content === 'string') continue
-    for (const block of m.content) {
-      if (block.type === 'tool_use' && block.name === 'simulate_sprint_plan') {
-        // Correctif 2026-08-20 (retour Julien, usage reel, apres plusieurs tentatives infructueuses
-        // de regler ca par consigne de prompt - voir docs/corrections.md) : constate en conditions
-        // reelles, le modele "re-simule" parfois un plan deja simule et confirme, par prudence,
-        // juste avant d'appliquer ("j'ai relance la simulation, resultat identique"). Une re-simulation
-        // dont le plan sous-jacent (planIdentityKey) est IDENTIQUE au precedent n'est pas une nouvelle
-        // proposition - elle ne repousse donc plus l'ancre de confirmation ci-dessous, sous peine
-        // d'exiger un nouveau message a chaque fois que le modele revalide par lui-meme sans rien de
-        // neuf a montrer (c'est exactement ce qui causait la boucle : redemande -> confirmation -> re-
-        // simulation "de verification" -> ancre repoussee -> plus de confirmation valide -> redemande).
-        const newInput = block.input as RawPlanInput
-        if (simInput === null || planIdentityKey(newInput) !== planIdentityKey(simInput)) {
-          simIdx = i
-        }
-        // Toujours la version la PLUS RECENTE, meme quand le plan sous-jacent est identique : son
-        // roadmapGoals peut avoir ete affine/reformule depuis le dernier appel - on reutilise le plus
-        // a jour, jamais une version perimee d'un tour precedent.
-        simInput = newInput
-      }
-      if (block.type === 'tool_use' && block.name === 'apply_sprint_plan') {
-        lastApplyIdx = i
-      }
-    }
-  }
-  if (simIdx === -1 || !simInput) {
-    return { ok: false, reason: "Aucune simulation prealable trouvee dans cette conversation : appelle simulate_sprint_plan et montre le resultat avant d'appliquer quoi que ce soit." }
-  }
-  // L'ancre n'est pas forcement la simulation : si un plan a deja ete applique DEPUIS cette
-  // simulation, une nouvelle confirmation utilisateur est exigee depuis CETTE application, pas
-  // depuis la simulation d'origine - sinon une premiere confirmation resterait valable pour
-  // reappliquer indefiniment le meme plan sans nouvel accord.
-  const anchorIdx = Math.max(simIdx, lastApplyIdx)
-  const hasRealUserMessageSince = messages
-    .slice(anchorIdx + 1, beforeIndex)
-    .some(m => m.role === 'user' && typeof m.content === 'string')
-  if (!hasRealUserMessageSince) {
-    const reason = lastApplyIdx > simIdx
-      ? "Ce plan a deja ete applique : attends un nouveau message explicite de l'utilisateur avant de l'appliquer a nouveau."
-      : "Pas de confirmation explicite de l'utilisateur depuis la derniere simulation : montre le resultat de simulate_sprint_plan et attends un nouveau message de l'utilisateur avant d'appeler apply_sprint_plan."
-    return { ok: false, reason }
-  }
-  return { ok: true, input: simInput }
-}
-
-/* ── Dernier filet : le modele ne rappelle AUCUN outil apres confirmation (2026-08-21, 9e retour
-   Julien) ────────────────────────────────────────────────────────────────────────────────────────
-   Les Addendums 4, 5, 7 et 8 (docs/corrections.md) corrigeaient tous des scenarios ou le modele
-   REAPPELLE un outil (simulate_sprint_plan en boucle) apres confirmation. Mais en conditions reelles,
-   observe une 9e fois malgre la reecriture complete de l'Addendum 8 : le modele n'appelle PARFOIS
-   AUCUN outil du tout pour son tour suivant - juste du texte redemandant une confirmation deja
-   donnee ("j'ai retrouve le plan identique... confirmez-vous ?"), en s'appuyant sur le resultat de
-   simulate_sprint_plan deja visible plus haut dans son propre contexte plutot que de le rappeler.
-   AUCUN des filets precedents ne peut alors se declencher : ils interceptent tous un appel d'outil
-   (tool_use), qui n'existe pas dans ce cas - `toolUses.length === 0` termine directement le tour
-   (voir plus bas). Dernier recours, qui ne depend plus DU TOUT d'un appel d'outil du modele : verifie
-   directement si un vrai message utilisateur ressemble a une confirmation, independamment de ce que
-   le modele choisit de faire ce tour-ci. */
-function looksLikeConfirmation(text: string): boolean {
-  const n = normalize(text)
-  return ['oui', 'ouais', 'yes', 'vas-y', 'vasy', 'applique', 'confirm', 'go', 'd accord', 'ok'].some(kw => n.includes(kw))
-}
+/* ── Confirmation avant application d'un plan de sprints : historique (docs/corrections.md) ───────
+   10 tentatives successives (Addendums 4 a 10) ont essaye de garantir techniquement une confirmation
+   PORTEE PAR LE MODELE (comparaison de parametres entre 2 appels d'outils, detection d'un message de
+   confirmation par mots-cles...) - toutes neutralisees en conditions reelles par une NOUVELLE facon
+   dont le modele deraillait a chaque fois (re-simulation "de verification", aucun appel d'outil du
+   tout, derive du texte genere entre 2 appels...). Les fonctions `verifyApplyIsConfirmed`/
+   `planIdentityKey`/`looksLikeConfirmation` qui portaient ces mecanismes ont ete retirees a l'Addendum
+   12 (2026-08-22) : la confirmation ne depend plus JAMAIS d'une interpretation de texte ou d'un appel
+   d'outil - un vrai bouton "Appliquer ce plan" (ChatPanel.tsx) declenche une route dediee et
+   deterministe (POST /api/ai-chat/apply-plan, voir plus bas), qui ne consulte jamais le modele. Cette
+   classe de bug entiere (comportement du modele imprevisible d'un tour a l'autre) devient sans objet
+   pour ce mecanisme. Si une confirmation textuelle devait un jour redevenir necessaire, l'historique
+   complet (ce qui a ete tente et pourquoi chaque tentative a echoue) reste dans docs/corrections.md -
+   a lire avant de reprendre cette piste plutot que de repartir de zero. */
 
 /* ── Confirmation avant ecriture pour set_roadmap_goal (2026-08-20, meme principe que ci-dessus) ──
    Pas de "simulation" prealable ici (la proposition est simplement le texte que le modele redige en
@@ -635,6 +545,48 @@ async function resolveRoadmapGoals(
   }
 }
 
+/* ── Addendum 13 (2026-08-22, 12e retour Julien, usage reel) : modifier UNIQUEMENT le theme/Sprint
+   Goal/metriques d'un plan deja simule ───────────────────────────────────────────────────────────
+   Bug observe en conditions reelles avec l'Addendum 12 : apres avoir simule un plan (bouton "Appliquer
+   ce plan" affiche, roadmapGoals generes automatiquement), Julien a demande de renommer les themes
+   proposes ("renomme les themes du Sprint 4/5/6..."), SANS rien changer a la composition (quels items
+   dans quel sprint). Le modele n'avait alors aucun moyen de refleter ce changement dans un bouton :
+   rappeler simulate_sprint_plan sans modifier `criteria` etc. aurait REGENERE les themes via l'API
+   (nouvel appel non deterministe, aucune garantie de reprendre les noms exacts demandes), et il
+   n'existait aucun parametre pour transmettre une reecriture precise. Le modele a donc fait ce que ses
+   instructions ne couvraient pas explicitement : proposer les nouveaux themes en TEXTE LIBRE et
+   demander une confirmation ("Confirmes-tu que je procede a l'ecriture ?"), exactement le pattern de
+   confirmation textuelle abandonne a l'Addendum 12 pour l'application elle-meme. Consequence concrete :
+   le SEUL bouton actionnable restait celui de la simulation D'ORIGINE (roadmapGoals figes AVANT la
+   demande de renommage) - cliquer dessus appliquait donc le plan avec les ANCIENS themes, pas les
+   nouveaux, malgre la "confirmation" texte donnee entre-temps.
+   Correctif : `roadmapGoalOverrides` (RawPlanInput) permet au modele de rappeler simulate_sprint_plan
+   avec les MEMES parametres de composition qu'avant (aucun recalcul de placement necessaire) plus ce
+   tableau, qui ECRASE le nom/goal/metriques generes pour les sprints concernes par EXACTEMENT le texte
+   fourni ici (le meme texte qu'il aurait propose en langage libre) - jamais une nouvelle generation
+   via l'API, donc aucune derive possible entre ce qui est propose et ce qui finira dans le bouton.
+   Cela produit un NOUVEAU toolCall sprint_plan_simulated (nouveau bouton, avec les themes a jour) dans
+   la reponse - voir buildSystemPrompt plus bas pour l'instruction correspondante : toute demande de
+   modification, y compris une simple reecriture de theme, doit TOUJOURS se terminer par un appel a cet
+   outil pour rafraichir le bouton, jamais par une confirmation en texte seul. */
+function applyRoadmapGoalOverrides(goals: GeneratedRoadmapGoal[], overrides?: RawRoadmapGoalInput[]): GeneratedRoadmapGoal[] {
+  if (!overrides || overrides.length === 0) return goals
+  const bySprintLabel = new Map(
+    overrides.filter(o => o.sprintLabel).map(o => [normalize(o.sprintLabel!), o])
+  )
+  return goals.map(g => {
+    const override = bySprintLabel.get(normalize(g.sprintLabel))
+    if (!override) return g
+    const metrics = (override.metrics ?? []).map(m => m.trim()).filter(Boolean)
+    return {
+      sprintLabel: g.sprintLabel,
+      name: override.name?.trim() || g.name,
+      goal: override.goal?.trim() || g.goal,
+      metrics: metrics.length > 0 ? metrics : g.metrics,
+    }
+  })
+}
+
 function formatRoadmapGoalsText(goals: GeneratedRoadmapGoal[], applied = false): string {
   if (goals.length === 0) return ''
   const lines: string[] = [applied ? '\nThemes/Sprint Goal/metriques appliques :' : '\nThemes/Sprint Goal/metriques proposes :']
@@ -646,11 +598,18 @@ function formatRoadmapGoalsText(goals: GeneratedRoadmapGoal[], applied = false):
   return lines.join('\n')
 }
 
-async function executeSimulateSprintPlan(aiConfig: AiConfigRow, state: CadenceState, input: RawPlanInput): Promise<string> {
+// Retourne aussi `goals` (pas seulement le texte formate) depuis l'Addendum 12 (2026-08-22) : le
+// traitement de simulate_sprint_plan dans la boucle agentique en a besoin pour les figer dans le
+// toolCall sprint_plan_simulated, reutilise tel quel par le bouton "Appliquer ce plan" au clic (voir
+// commentaire plus haut) - jamais regeneres a l'application.
+async function executeSimulateSprintPlan(aiConfig: AiConfigRow, state: CadenceState, input: RawPlanInput): Promise<{ text: string; goals: GeneratedRoadmapGoal[] }> {
   const { params } = resolvePlanParams(state, input)
   const plan = computeSprintPlan(state, params)
-  const goals = await resolveRoadmapGoals(aiConfig, sprintCompositionsForPlan(state, plan, params.criteria))
-  return formatPlanResult(state, plan, false) + formatRoadmapGoalsText(goals)
+  const generated = await resolveRoadmapGoals(aiConfig, sprintCompositionsForPlan(state, plan, params.criteria))
+  // Addendum 13 : applique EN DERNIER, apres generation - `roadmapGoalOverrides` remplace le texte
+  // genere par celui explicitement fourni, jamais l'inverse (voir applyRoadmapGoalOverrides plus haut).
+  const goals = applyRoadmapGoalOverrides(generated, input.roadmapGoalOverrides)
+  return { text: formatPlanResult(state, plan, false) + formatRoadmapGoalsText(goals), goals }
 }
 
 // Meme palette que RoadmapPage.tsx (COLORS) - dupliquee ici comme le reste des types/constantes
@@ -689,22 +648,25 @@ function computeRoadmapGoalUpdate(state: CadenceState, input: RawRoadmapGoalInpu
   return { updated, created: !existing }
 }
 
-async function executeApplySprintPlan(fastify: FastifyInstance, aiConfig: AiConfigRow, state: CadenceState, input: RawPlanInput, role: string): Promise<ToolExecResult> {
+// Signature revue a l'Addendum 12 (2026-08-22, 12e retour Julien, docs/corrections.md) : n'accepte
+// plus `aiConfig` ni ne regenere le theme/Sprint Goal/metriques via resolveRoadmapGoals - recoit
+// desormais `roadmapGoals` DEJA GENERES (figes au moment de la simulation, voir sprint_plan_simulated
+// et executeSimulateSprintPlan plus haut) et les ecrit tels quels. 2 consequences volontaires : (1) ce
+// que l'utilisateur voit dans le chat avant de cliquer "Appliquer ce plan" est EXACTEMENT ce qui
+// s'ecrit, plus aucun risque de derive entre 2 appels Anthropic distincts a des moments differents
+// (2) cette fonction, et donc POST /api/ai-chat/apply-plan qui l'appelle, n'a plus besoin d'appeler
+// Anthropic du tout - application instantanee, deterministe, sans cout ni latence d'API.
+async function executeApplySprintPlan(
+  fastify: FastifyInstance, state: CadenceState, input: RawPlanInput, roadmapGoals: GeneratedRoadmapGoal[], role: string
+): Promise<ToolExecResult> {
   if (role !== 'ADMIN' && role !== 'PO') throw new Error('Reserve aux comptes PO ou Admin (comme le bouton "Appliquer" d\'Auto-planning)')
   const { params, virtualItems } = resolvePlanParams(state, input)
   const plan = computeSprintPlan(state, params)
   const result = applySprintPlan(state, plan, virtualItems, state.itemKeyCounters ?? {}, uid, nextKeyForPrefix)
 
-  // Reecrit 2026-08-21 (8e retour Julien, usage reel - reecriture complete apres 4 correctifs
-  // infructueux, voir docs/corrections.md, Addendums 4 a 7) : theme/Sprint Goal/metriques GENERES
-  // AUTOMATIQUEMENT (resolveRoadmapGoals plus haut), jamais fournis par le modele - ecrits
-  // ATOMIQUEMENT avec le reste du plan (une seule ecriture, saveState plus bas), sous la meme
-  // confirmation deja verifiee par verifyApplyIsConfirmed, sans dependre d'un parametre ou d'une
-  // decision du modele conversationnel a ce sujet.
-  const generatedGoals = await resolveRoadmapGoals(aiConfig, sprintCompositionsForPlan(state, plan, params.criteria))
   let nextState = result.nextState
   const roadmapGoalResults: { goal: RoadmapGoal; created: boolean }[] = []
-  for (const g of generatedGoals) {
+  for (const g of roadmapGoals) {
     const applied = computeRoadmapGoalUpdate(nextState, { sprintLabel: g.sprintLabel, name: g.name, goal: g.goal, metrics: g.metrics })
     if (!applied) continue
     nextState = { ...nextState, roadmap: [...(nextState.roadmap ?? []).filter(gl => gl.sprintId !== applied.updated.sprintId), applied.updated] }
@@ -723,12 +685,7 @@ async function executeApplySprintPlan(fastify: FastifyInstance, aiConfig: AiConf
   const summaryParts = [`${result.newSprintsCount} sprint(s) cree(s)`, `${result.reassignedCount} item(s) reaffecte(s)`]
   if (result.createdCount > 0) summaryParts.push(`${result.createdCount} item(s) fictif(s) cree(s)`)
   if (roadmapGoalResults.length > 0) summaryParts.push(`${roadmapGoalResults.length} theme(s)/Sprint Goal(s) renseigne(s)`)
-  // formatRoadmapGoalsText(generatedGoals) reajoute ici (2026-08-21, Addendum 11) : depuis la fusion
-  // simulate+apply, l'utilisateur ne voit plus JAMAIS le texte "Themes/Sprint Goal/metriques
-  // proposes" d'une simulation separee (executeSimulateSprintPlan, desormais reservee aux roles en
-  // lecture seule) - sans cet ajout, les themes generes automatiquement n'apparaitraient plus nulle
-  // part dans la reponse du chat alors qu'ils ont bien ete ecrits.
-  const text = `Plan applique : ${summaryParts.join(', ')}.\n\n${formatPlanResult(state, plan, true)}${formatRoadmapGoalsText(generatedGoals, true)}`
+  const text = `Plan applique : ${summaryParts.join(', ')}.\n\n${formatPlanResult(state, plan, true)}${formatRoadmapGoalsText(roadmapGoals, true)}`
 
   return {
     state: nextState, text,
@@ -756,14 +713,16 @@ async function executeSetRoadmapGoal(fastify: FastifyInstance, state: CadenceSta
 }
 
 async function executeTool(
-  fastify: FastifyInstance, aiConfig: AiConfigRow, state: CadenceState, name: string, input: Record<string, unknown>, role: string, userId: string
+  fastify: FastifyInstance, state: CadenceState, name: string, input: Record<string, unknown>, role: string, userId: string
 ): Promise<ToolExecResult> {
   switch (name) {
     case 'create_item': return executeCreateItem(fastify, state, input as CreateItemInput)
     case 'update_item': return executeUpdateItem(fastify, state, input as UpdateItemInput, role, userId)
     case 'create_hierarchy_node': return executeCreateHierarchyNode(fastify, state, input as CreateNodeInput)
     case 'update_hierarchy_node': return executeUpdateHierarchyNode(fastify, state, input as UpdateNodeInput)
-    case 'apply_sprint_plan': return executeApplySprintPlan(fastify, aiConfig, state, input as RawPlanInput, role)
+    // apply_sprint_plan retire (Addendum 12, 2026-08-22) : n'est plus un outil appelable par le
+    // modele du tout - executeApplySprintPlan n'est plus declenchee que par POST /api/ai-chat/apply-plan
+    // (bouton "Appliquer ce plan"), jamais via la boucle agentique.
     case 'set_roadmap_goal': return executeSetRoadmapGoal(fastify, state, input as RawRoadmapGoalInput, role)
     default: throw new Error(`Outil inconnu : ${name}`)
   }
@@ -1066,23 +1025,35 @@ function buildSystemPrompt(state: CadenceState, role: string): string {
     // qui a introduit des totaux incoherents, et avait applique un plan sans attendre de confirmation.
     "5 criteres possibles dans `criteria` (liste ORDONNEE, l'ordre = ordre de priorite entre eux) : \"priority\" (Priorite), \"client\" (Importance client, necessite `clientOrder`), \"socle\" (Socle commun en tete), \"debt\" (Dette technique), \"epic\" (Cohesion Epic/Initiative - un Epic ou une Initiative reste groupe dans un seul sprint autant que possible, place en bloc). Par defaut, seule la priorite est active - comme un nouveau scenario cree depuis la page Auto-planning. Designe toujours un sprint par \"Sprint N\" (son numero, tel que liste ci-dessus) plutot que par son seul nom personnalise, qui peut ne pas exister.",
     "IMPORTANT - fidelite du resultat : ne recalcule JAMAIS toi-meme les totaux, ne reformule ni ne resume les chiffres renvoyes par simulate_sprint_plan dans un tableau reconstruit de memoire - recopie les totaux et cles d'items exactement tels que l'outil les a donnes. Si tu veux presenter les choses plus lisiblement (tableau markdown par exemple), recopie chaque valeur depuis le texte de l'outil, ne les recalcule pas et ne les \"corrige\" pas de toi-meme meme si un total te semble bizarre - dis-le a l'utilisateur plutot que de l'ajuster silencieusement.",
-    // Reecrit le 2026-08-21 (11e retour Julien, Addendum 11, docs/corrections.md) : APRES 10
-    // correctifs successifs (Addendums 4 a 10) tous neutralises par une nouvelle facon dont le
-    // modele derapait sur le cycle simulation -> confirmation -> application, Julien a demande le
-    // retrait PUR ET SIMPLE de toute confirmation, le temps de stabiliser l'application elle-meme :
-    // "terminé la confirmation [...] il la fait avec la proposition [...] et l'applique. Point. On
-    // ne tergiverse pas. On mettra une boucle de confirmation une fois qu'on sera arrive a appliquer
-    // a 100% n'importe quel plan." simulate_sprint_plan APPLIQUE desormais directement le plan pour
-    // un compte PO/Admin (garanti techniquement cote serveur, pas une consigne de prompt) - il n'y a
-    // plus d'outil separe a appeler, plus de second message a attendre.
-    "Planification : pour TOUTE demande de planification (\"/plan\", \"planifie le prochain sprint\", une phrase decrivant un critere, ou les deux), appelle simulate_sprint_plan UNE SEULE FOIS, jamais d'estimation improvisee. Pour un compte PO/Admin, cet appel SIMULE ET APPLIQUE le plan EN UNE SEULE FOIS (le theme/Sprint Goal/metriques de chaque sprint concerne sont generes et ecrits automatiquement avec le reste, rien a calculer ni transmettre toi-meme) - ne redemande JAMAIS de confirmation avant ou apres cet appel, l'application a deja eu lieu au moment ou tu recois le resultat. Relaie fidelement TOUT le texte renvoye (plan, themes, resume de ce qui a ete applique) en une seule reponse. N'appelle JAMAIS une 2e fois simulate_sprint_plan pour le meme plan (ni pour \"re-verifier\", ni pour \"confirmer\") : chaque appel applique reellement, un 2e appel creerait une 2e ecriture inutile.",
-    "Les items fictifs (`virtualItems`) affiches par simulate_sprint_plan portent une cle PROVISOIRE (leur `tempKey`, ex. \"V1\") tant qu'ils ne sont pas encore reellement crees - pour un compte PO/Admin, simulate_sprint_plan les cree deja avec leur cle definitive (prefixe du client, ex. \"JIR-004\") des ce meme appel, la cle provisoire n'apparait donc plus que pour les roles qui ne font qu'une simulation en lecture seule (Dev, Scrum Master).",
-    "set_roadmap_goal reste disponible, mais UNIQUEMENT a la demande explicite de l'utilisateur EN DEHORS de toute planification en cours (\"remplis le theme du Sprint 5\", \"regenere le Sprint Goal du sprint en cours\"), y compris pour remplacer un theme/Sprint Goal deja genere/personnalise. Si un plan vient d'etre simule dans la conversation, N'UTILISE PAS cet outil : le theme est deja genere et ecrit automatiquement, rien a faire de plus.",
+    // Reecrit le 2026-08-22 (12e retour Julien, Addendum 12, docs/corrections.md) : les Addendums 4
+    // a 10 tentaient tous de fiabiliser un cycle simulation -> confirmation -> application PORTE PAR
+    // LE MODELE (texte, appel d'outil, ou une combinaison) - tous neutralises par une nouvelle facon
+    // dont le modele derapait. L'Addendum 11 avait ensuite retire la confirmation entierement (fusion
+    // simulate+apply). Julien a demande de cadrer une vraie reintroduction avant de recoder : "je veux
+    // que le chatbot propose le plan + les infos du sprint et attende ma confirmation pour appliquer,
+    // comme Auto-planning le fait." La confirmation revient donc, mais plus JAMAIS sous une forme que
+    // le modele doit lui-meme interpreter ou declencher : simulate_sprint_plan reste un pur outil de
+    // LECTURE (ne mute plus rien, y compris pour PO/Admin), l'interface affiche un vrai bouton
+    // "Appliquer ce plan" sous le resultat (ChatPanel.tsx), et un clic dessus appelle une route
+    // dediee (POST /api/ai-chat/apply-plan) qui applique SANS jamais repasser par toi. Tu n'as donc
+    // plus AUCUN moyen d'appliquer un plan toi-meme (l'outil apply_sprint_plan n'existe plus) : ton
+    // seul role est de simuler, presenter, et adapter sur demande - jamais d'ecrire.
+    "Planification : pour TOUTE demande de planification (\"/plan\", \"planifie le prochain sprint\", une phrase decrivant un critere, ou les deux), appelle simulate_sprint_plan, jamais d'estimation improvisee. Le resultat inclut AUTOMATIQUEMENT un theme/Sprint Goal/metriques proposes pour chaque sprint concerne (genere par le serveur, rien a calculer toi-meme) - relaie fidelement TOUT le texte renvoye, plan et themes ensemble, en une seule reponse. N'ecrit rien : l'interface affiche elle-meme un bouton \"Appliquer ce plan\" sous ta reponse, c'est le SEUL moyen d'appliquer. Si l'utilisateur ecrit \"oui\"/\"applique\"/\"vas-y\" ou toute autre confirmation en texte, NE FAIS RIEN toi-meme (pas de nouvel appel a simulate_sprint_plan, jamais d'autre outil) : reponds simplement en renvoyant vers le bouton juste au-dessus (\"Clique sur Appliquer ce plan pour valider.\"), en une phrase courte.",
+    "Modification d'un plan deja simule (composition) : si l'utilisateur demande un changement de COMPOSITION (\"utilise plutot le critere client\", \"ajoute aussi la dette technique\", \"enleve la cohesion Epic\"...), interprete la formulation pour savoir si elle REMPLACE les criteres actifs (\"plutot\", \"a la place\", \"non finalement\") ou les CUMULE (\"aussi\", \"en plus\", \"et aussi\") - dans le doute, prefere remplacer plutot que cumuler silencieusement des criteres que l'utilisateur ne voulait peut-etre plus. Rappelle simulate_sprint_plan avec les criteres resultants.",
+    // Addendum 13 (2026-08-22, 12e retour Julien, usage reel, docs/corrections.md) : cause reelle
+    // observee d'un plan applique avec les MAUVAIS themes - une demande de renommage traitee comme la
+    // planification elle-meme ("Confirmes-tu que je procede a l'ecriture ?"), alors que le SEUL bouton
+    // existant restait celui, perime, de la simulation d'origine (anciens themes). Cette ligne couvre
+    // explicitement le cas ou la demande porte UNIQUEMENT sur le theme/Sprint Goal/metriques, pour ne
+    // plus jamais retomber sur ce pattern de confirmation textuelle qui a cause le bug.
+    "Modification d'un plan deja simule (theme/Sprint Goal/metriques uniquement, composition inchangee) : si l'utilisateur demande de changer UNIQUEMENT le theme/Sprint Goal/metriques deja proposes (\"renomme le theme du Sprint 4 en X\", \"le Sprint Goal du Sprint 5 devrait plutot dire...\"), NE PROPOSE JAMAIS ce changement en texte libre suivi d'une demande de confirmation - rappelle IMMEDIATEMENT simulate_sprint_plan avec les MEMES autres parametres que ton dernier appel (composition inchangee) et `roadmapGoalOverrides` contenant, pour chaque sprint concerne, le texte exact demande (sprintLabel + name/goal/metrics). Dans TOUS les cas de modification (composition ou themes seuls), un nouveau resultat et un nouveau bouton remplacent la proposition precedente dans ta reponse - la conversation peut continuer ainsi plusieurs fois avant que l'utilisateur ne clique, mais chaque etape doit produire un bouton a jour, jamais seulement du texte a confirmer.",
+    "Les items fictifs (`virtualItems`) affiches par simulate_sprint_plan portent une cle PROVISOIRE (leur `tempKey`, ex. \"V1\") - ils ne deviennent de vrais items avec une cle definitive (prefixe du client, ex. \"JIR-004\") qu'apres le clic sur \"Appliquer ce plan\". Precise-le si l'utilisateur s'interroge sur cette cle provisoire.",
+    "set_roadmap_goal reste disponible, mais UNIQUEMENT a la demande explicite de l'utilisateur EN DEHORS de toute planification en cours (\"remplis le theme du Sprint 5\", \"regenere le Sprint Goal du sprint en cours\"), y compris pour remplacer un theme/Sprint Goal deja genere/personnalise. Si un plan vient d'etre simule dans la conversation, N'UTILISE PAS cet outil : le theme est deja genere et sera ecrit automatiquement avec le reste au clic sur le bouton, rien a faire de plus.",
   ]
   if (role === 'DEV') {
-    lines.push("Ce compte a le role Dev : impossible de creer un item, ni de modifier son contenu produit (titre, description, priorite, client, Epic...). Seuls le statut, les SP, la Definition of Done, les dependances et l'auto-assignation sont modifiables. Pour toute autre demande de creation/modification, explique que seul un Product Owner (ou Admin) peut le faire. Tu peux simuler un plan de sprints (simulate_sprint_plan), mais pour ce role il reste une simulation en LECTURE SEULE, sans aucune ecriture (set_roadmap_goal est reserve PO/Admin).")
+    lines.push("Ce compte a le role Dev : impossible de creer un item, ni de modifier son contenu produit (titre, description, priorite, client, Epic...). Seuls le statut, les SP, la Definition of Done, les dependances et l'auto-assignation sont modifiables. Pour toute autre demande de creation/modification, explique que seul un Product Owner (ou Admin) peut le faire. Tu peux simuler un plan de sprints (simulate_sprint_plan), mais pour ce role il reste une simulation en LECTURE SEULE, sans aucun bouton d'application (set_roadmap_goal est reserve PO/Admin).")
   } else if (role === 'SCRUM_MASTER') {
-    lines.push("Ce compte n'a pas de droits d'ecriture sur le contenu du Backlog : aide uniquement a la reflexion et a la redaction en texte (par exemple un brouillon de User Story a copier), sans jamais creer ou modifier un item toi-meme. Tu peux en revanche simuler un plan de sprints (simulate_sprint_plan), mais pour ce role il reste une simulation en LECTURE SEULE, sans aucune ecriture (set_roadmap_goal est reserve PO/Admin).")
+    lines.push("Ce compte n'a pas de droits d'ecriture sur le contenu du Backlog : aide uniquement a la reflexion et a la redaction en texte (par exemple un brouillon de User Story a copier), sans jamais creer ou modifier un item toi-meme. Tu peux en revanche simuler un plan de sprints (simulate_sprint_plan), mais pour ce role il reste une simulation en LECTURE SEULE, sans aucun bouton d'application (set_roadmap_goal est reserve PO/Admin).")
   } else if (role === 'STAKEHOLDER') {
     lines.push("Ce compte n'a aucun droit d'ecriture sur le Backlog et pas acces a la simulation de plan de sprints : aide uniquement a la reflexion et a la redaction en texte, sans jamais creer/modifier un item ni simuler de planification toi-meme. Precise-le si on te le demande.")
   }
@@ -1146,13 +1117,11 @@ export async function aiRoutes(fastify: FastifyInstance) {
       const isFullEditor = role === 'ADMIN' || role === 'PO'
       // Outils de lecture : tous les roles y ont acces (lecture seule, memes donnees que les pages
       // Backlog/Dashboard deja visibles). Outils d'ecriture : filtres par role comme avant.
-      // APPLY_SPRINT_PLAN_TOOL retire des outils exposes (2026-08-21, 11e retour Julien, Addendum
-      // 11) : simulate_sprint_plan applique desormais directement le plan pour PO/Admin (voir la
-      // boucle agentique plus bas), plus besoin d'un 2e outil separe a appeler - le laisser expose
-      // aurait risque un appel superflu du modele avec ses PROPRES parametres (potentiellement
-      // reformules/re-devines), hors de toute garantie de fidelite au dernier simulate_sprint_plan.
-      // La route et `executeApplySprintPlan` restent en place (reutilisables telle quelle) pour la
-      // reintroduction promise d'une etape de confirmation, une fois l'application fiable a 100%.
+      // APPLY_SPRINT_PLAN_TOOL n'est plus expose au modele, ni meme defini (retire a l'Addendum 12,
+      // voir plus bas) : l'application d'un plan simule ne passe plus JAMAIS par un outil ni par le
+      // modele - un bouton "Appliquer ce plan" (ChatPanel.tsx) declenche POST /api/ai-chat/apply-plan,
+      // qui reutilise directement les parametres et le theme/Sprint Goal/metriques figes au moment de
+      // simulate_sprint_plan (voir sprint_plan_simulated plus bas), sans nouvel appel Anthropic.
       const writeTools: AnthropicTool[] = isFullEditor
         ? [CREATE_ITEM_TOOL, UPDATE_ITEM_TOOL_FULL, CREATE_HIERARCHY_NODE_TOOL, UPDATE_HIERARCHY_NODE_TOOL, SET_ROADMAP_GOAL_TOOL]
         : role === 'DEV' ? [UPDATE_ITEM_TOOL_DEV] : []
@@ -1167,19 +1136,16 @@ export async function aiRoutes(fastify: FastifyInstance) {
       const messages: AnthropicMessage[] = (req.body.messages ?? []).map(m => ({ role: m.role, content: m.content }))
       if (messages.length === 0) return reply.code(400).send({ error: 'Message vide' })
 
-      // Addendum 11 (2026-08-21, 11e retour Julien, decision explicite : suppression temporaire de
-      // toute confirmation) : les Addendums 4 a 10 tentaient tous de fiabiliser un CYCLE simulation
-      // -> confirmation -> application, chacun neutralise par une nouvelle facon dont le modele
-      // derapait (voir docs/corrections.md pour l'historique complet). Julien, apres un 10e echec
-      // malgre le filet unifie de l'Addendum 10 : "On va prendre le probleme a l'envers [...] terminé
-      // la confirmation [...] On ne tergiverse pas. On mettra une boucle de confirmation une fois
-      // qu'on sera arrive a appliquer a 100% n'importe quel plan." Decision : retirer ENTIEREMENT
-      // l'etape de confirmation pour PO/Admin - simulate_sprint_plan applique desormais directement
-      // (voir plus bas, traitement de simulate_sprint_plan dans la boucle), sans jamais attendre de
-      // second message. Les fonctions `verifyApplyIsConfirmed`/`looksLikeConfirmation` sont
-      // CONSERVEES telles quelles (toujours testees dans tests/run-tests.js) en vue de la
-      // reintroduction promise d'une confirmation, une fois l'application elle-meme fiable a 100% -
-      // seul leur USAGE en tant que garde-fou est retire ici, pas leur code.
+      // Addendum 12 (2026-08-22, 12e retour Julien) : l'Addendum 11 avait retire TOUTE confirmation
+      // (simulate_sprint_plan appliquait directement pour PO/Admin), volontairement, le temps de
+      // stabiliser l'application elle-meme (voir docs/corrections.md, Addendums 4 a 11 pour
+      // l'historique complet des tentatives echouees de fiabiliser une confirmation PORTEE PAR LE
+      // MODELE). Une fois l'application confirmee fiable par Julien en conditions reelles,
+      // reintroduction cadree d'une confirmation - mais plus JAMAIS via le modele : simulate_sprint_plan
+      // redevient une lecture seule pour tous les roles (voir plus bas), et un vrai bouton "Appliquer
+      // ce plan" (ChatPanel.tsx) est le SEUL chemin d'application, via POST /api/ai-chat/apply-plan
+      // (deterministe, sans appel Anthropic). Cette classe de bug (comportement du modele imprevisible
+      // d'un tour a l'autre) devient sans objet pour la confirmation elle-meme.
 
       const toolCalls: AiToolCall[] = []
       let finalText = ''
@@ -1228,23 +1194,24 @@ export async function aiRoutes(fastify: FastifyInstance) {
               // simulate_sprint_plan sort du lot des 4 vrais outils de LECTURE ci-dessous : genere un
               // contenu (theme/Sprint Goal/metriques, voir generateRoadmapGoals) qui demande un appel
               // Anthropic et donc `aiConfig` - traite a part plutot que dans executeReadTool (qui
-              // reste synchrone pour les 4 autres). Depuis l'Addendum 11 (2026-08-21, 11e retour
-              // Julien, decision explicite de retrait temporaire de toute confirmation - voir le
-              // commentaire juste avant la boucle), simulate_sprint_plan APPLIQUE desormais
-              // directement le plan pour PO/Admin plutot que de se contenter de le montrer : il n'y a
-              // plus de second appel (apply_sprint_plan) ni de second message a attendre. Pour
-              // DEV/SCRUM_MASTER (jamais PO/Admin), reste une simple simulation en lecture seule -
-              // executeApplySprintPlan leur refuserait de toute facon l'ecriture (verification interne
-              // du role), inutile de le leur presenter comme applique.
+              // reste synchrone pour les 4 autres).
+              // Addendum 12 (2026-08-22, 12e retour Julien, docs/corrections.md) : redevient un pur
+              // outil de LECTURE pour tous les roles, y compris PO/Admin - la fusion simulate+apply de
+              // l'Addendum 11 est defaite. L'application ne passe plus JAMAIS par le modele (ni par un
+              // texte de confirmation, ni par un appel d'outil automatique) : un bouton "Appliquer ce
+              // plan" affiche cote frontend (voir sprint_plan_simulated ci-dessous) declenche une
+              // application deterministe via POST /api/ai-chat/apply-plan, hors de toute boucle
+              // agentique. Pour un compte PO/Admin, le toolCall sprint_plan_simulated pousse ci-dessous
+              // transporte le plan ET les themes DEJA GENERES (figes) : le bouton les reutilise tels
+              // quels au clic, sans regenerer - ce que l'utilisateur voit avant de cliquer est
+              // EXACTEMENT ce qui s'ecrit, contrairement au risque de derive qui existait entre 2
+              // appels Anthropic distincts (voir Addendum 10).
               if (call.name === 'simulate_sprint_plan') {
+                const { text, goals } = await executeSimulateSprintPlan(aiConfig, state, call.input as RawPlanInput)
                 if (role === 'ADMIN' || role === 'PO') {
-                  const result = await executeApplySprintPlan(fastify, aiConfig, state, call.input as RawPlanInput, role)
-                  state = result.state
-                  toolCalls.push(result.toolCall)
-                  resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: result.text })
-                  continue
+                  toolCalls.push({ kind: 'sprint_plan_simulated', planInput: call.input as Record<string, unknown>, roadmapGoals: goals })
                 }
-                resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: await executeSimulateSprintPlan(aiConfig, state, call.input as RawPlanInput) })
+                resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: text })
                 continue
               }
               resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: executeReadTool(state, call.name, call.input) })
@@ -1258,7 +1225,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
                 continue
               }
             }
-            const result = await executeTool(fastify, aiConfig, state, call.name, toolInput, role, req.user.id)
+            const result = await executeTool(fastify, state, call.name, toolInput, role, req.user.id)
             state = result.state
             toolCalls.push(result.toolCall)
             resultBlocks.push({ type: 'tool_result', tool_use_id: call.id, content: result.text })
@@ -1284,6 +1251,30 @@ export async function aiRoutes(fastify: FastifyInstance) {
       }
 
       return { reply: finalText, toolCalls }
+    }
+  )
+
+  // Addendum 12 (2026-08-22, 12e retour Julien, docs/corrections.md) : route dediee au bouton
+  // "Appliquer ce plan" (ChatPanel.tsx), qui remplace definitivement la confirmation textuelle
+  // (jamais fiabilisee malgre 11 tentatives successives, voir l'historique complet du chantier).
+  // Deterministe et INDEPENDANTE de la boucle agentique : ne consulte JAMAIS le modele, n'a donc pas
+  // besoin de `aiConfig` ni de l'historique de conversation - `planInput`/`roadmapGoals` recus ici
+  // sont exactement ceux du toolCall sprint_plan_simulated qui a affiche le bouton (le frontend les
+  // reexpedie tels quels, sans les reconstruire), donc exactement ce que l'utilisateur a vu avant de
+  // cliquer. Role verifie a l'interieur d'executeApplySprintPlan (meme garantie que les autres routes
+  // d'ecriture), pas besoin de la dupliquer ici.
+  fastify.post<{ Body: { planInput?: RawPlanInput; roadmapGoals?: GeneratedRoadmapGoal[] } }>(
+    '/api/ai-chat/apply-plan',
+    { preHandler: authenticate },
+    async (req, reply) => {
+      const state = await loadState(fastify)
+      if (!state) return reply.code(404).send({ error: 'Aucun etat trouve' })
+      try {
+        const result = await executeApplySprintPlan(fastify, state, req.body.planInput ?? {}, req.body.roadmapGoals ?? [], req.user.role)
+        return { reply: result.text, toolCall: result.toolCall }
+      } catch (e) {
+        return reply.code(400).send({ error: e instanceof Error ? e.message : 'Erreur' })
+      }
     }
   )
 }
