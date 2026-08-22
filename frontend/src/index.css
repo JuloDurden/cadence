@@ -1417,12 +1417,22 @@ body.sb-collapsed .app-header { left: 52px; }
 .cl-tag-perf     { background: #fef3c7; color: #92400e; }
 .cl-tag-test     { background: #d1fae5; color: #065f46; }
 .cl-tag-info     { background: var(--surface2); color: var(--text-muted); }
+/* .cl-tag-improve/.cl-tag-chore ajoutees le 2026-08-22 (Reforme du Changelog) : ChangelogTag
+   comportait deja ces 2 valeurs (utilisees dans data/changelog.ts) mais sans regle dediee - un
+   changement tague "improve"/"chore" retombait silencieusement sur le style de base de .cl-tag
+   (sans couleur de fond) faute de correspondance de classe. Corrige au passage, le nouvel outil de
+   publication (PublishChangelogModal.tsx) propose desormais les 9 tags sans qu'aucun ne reste
+   non stylise. */
+.cl-tag-improve  { background: #dcfce7; color: #15803d; }
+.cl-tag-chore    { background: #f1f5f9; color: #475569; }
 [data-theme="dark"] .cl-tag-feat     { background: #1e3a5f; color: #93c5fd; }
 [data-theme="dark"] .cl-tag-fix      { background: #450a0a; color: #fca5a5; }
 [data-theme="dark"] .cl-tag-ux       { background: #4a0d2b; color: #f9a8d4; }
 [data-theme="dark"] .cl-tag-refactor { background: #2e1065; color: #d8b4fe; }
 [data-theme="dark"] .cl-tag-perf     { background: #451a03; color: #fcd34d; }
 [data-theme="dark"] .cl-tag-test     { background: #022c22; color: #6ee7b7; }
+[data-theme="dark"] .cl-tag-improve  { background: #052e16; color: #86efac; }
+[data-theme="dark"] .cl-tag-chore    { background: var(--surface2); color: var(--text-muted); }
 
 @keyframes fadeIn    { from { opacity: 0; }                          to { opacity: 1; } }
 @keyframes slideDown { from { transform: translateY(-12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

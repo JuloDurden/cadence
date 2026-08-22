@@ -1,4 +1,5 @@
 import type { AiConfig, AiToolCall, ApiToken, ApiTokenCreateResult, AuthUser, GitHubCommitSummary, GitHubConfig, GitHubPullRequestSummary, Invitation, JiraConfig, JiraIssueSummary, JiraProject, ManagedUser, PersonalSettings, PresentationLink, SlackChannel, SlackConfig, UserRole } from '../types'
+import type { ChangelogChange, ChangelogVersion } from '../data/changelog'
 
 // Exporte (2026-08-18) : hooks/useDailyRealtime.ts en derive l'URL du WebSocket dedie (meme hote,
 // schema ws/wss) plutot que de dupliquer la lecture de VITE_API_URL et sa valeur par defaut.
@@ -230,4 +231,10 @@ export const api = {
   // sprint_plan_simulated qui a affiché le bouton, jamais reconstruits côté frontend.
   applySprintPlan: (input: { planInput: Record<string, unknown>; roadmapGoals: { sprintLabel: string; name: string; goal: string; metrics: string[] }[] }) =>
     request<{ reply: string; toolCall: AiToolCall }>('/api/ai-chat/apply-plan', { method: 'POST', body: JSON.stringify(input) }),
+  // Réforme du Changelog (2026-08-22, docs/corrections.md) : l'historique quitte data/changelog.ts
+  // pour la table changelog_entries (voir backend/src/routes/changelog.ts) - ouvert à tout compte
+  // connecté en lecture, réservé Admin pour publier une nouvelle version.
+  listChangelog: () => request<{ entries: ChangelogVersion[] }>('/api/changelog'),
+  publishChangelog: (input: { version: string; date: string; dateISO: string; title: string; changes: ChangelogChange[] }) =>
+    request<{ entry: ChangelogVersion }>('/api/changelog', { method: 'POST', body: JSON.stringify(input) }),
 }

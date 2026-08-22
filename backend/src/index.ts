@@ -19,6 +19,7 @@ import { githubRoutes } from './routes/github'
 import { slackRoutes } from './routes/slack'
 import { jiraRoutes } from './routes/jira'
 import { aiRoutes } from './routes/ai'
+import { changelogRoutes } from './routes/changelog'
 
 const fastify = Fastify({ logger: true })
 
@@ -52,6 +53,7 @@ async function start() {
   await fastify.register(slackRoutes)
   await fastify.register(jiraRoutes)
   await fastify.register(aiRoutes)
+  await fastify.register(changelogRoutes)
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 

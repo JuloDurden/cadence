@@ -228,6 +228,34 @@ model AiConfig {
   @@map("ai_config")
 }
 
+// Reforme du Changelog (2026-08-22, decision Julien) : l'historique etait jusqu'ici un tableau en
+// dur dans frontend/src/data/changelog.ts (1400+ lignes, ~100 versions) - editable uniquement en
+// modifiant du code TypeScript et en redeployant. Migre vers une table dediee, publiee depuis un
+// nouvel outil dans l'app (POST /api/changelog, reserve Admin - voir routes/changelog.ts) plutot que
+// depuis le code. `changes` reste un blob JSON (tableau de { tag, text }), meme pattern que
+// WorkspaceState.data/User.personalSettings ci-dessus : le detail d'une version est une petite liste
+// de forme variable, pas une relation qui justifie une table separee. `order` (et non `date`/`dateISO`
+// seuls) est la cle de tri faisant foi : plusieurs versions peuvent partager exactement la meme date,
+// et une comparaison de chaines sur `version` (ex. "v0.9" vs "v0.10") n'est pas fiable numeriquement -
+// un entier strictement croissant, assigne a la creation, evite ces deux pieges (meme principe que
+// `sprint.number` deja utilise pour trier les sprints, voir sortSprints() cote frontend). Un seul
+// enregistrement porte `current: true` a la fois ; le publier en bascule un autre (transaction, voir
+// routes/changelog.ts).
+model ChangelogEntry {
+  id        String   @id @default(cuid())
+  version   String   @unique
+  date      String
+  dateISO   String
+  title     String
+  current   Boolean  @default(false)
+  changes   Json
+  order     Int      @unique
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@map("changelog_entries")
+}
+
 // Phase 2 (roadmap v1) — roles specifiques Cadence, remplace l'ancien trio generique
 // ADMIN/MEMBER/VIEWER (voir docs/roadmap-v1.md, sous-chantier 1). PO/SCRUM_MASTER/DEV/
 // STAKEHOLDER portent les permissions fines des sous-chantiers suivants ; ADMIN reste

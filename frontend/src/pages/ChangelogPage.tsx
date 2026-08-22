@@ -1,6 +1,8 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useMemo } from 'react'
 import { Header } from '../components/layout/Header'
-import { CHANGELOG } from '../data/changelog'
+import { useAuth } from '../hooks/useAuth'
+import { api } from '../services/api'
+import { PublishChangelogModal } from '../components/changelog/PublishChangelogModal'
 import type { ChangelogVersion } from '../data/changelog'
 
 function highlight(text: string, q: string): string {
@@ -10,13 +12,13 @@ function highlight(text: string, q: string): string {
 }
 
 const TIMEFRAMES = [
-  { label: '15 j', days: 15 },
   { label: '1 mois', days: 30 },
   { label: '3 mois', days: 90 },
   { label: '6 mois', days: 180 },
+  { label: '1 an', days: 365 },
 ]
 
-/** Une version est "mineure" (retrait dans la nav) si :
+/** Une version est "mineure" (regroupable, retrait dans la nav) si :
  *  - patch > 0 : v0.84.1, v0.19.1… (déjà le cas avant)
  *  - ET si ce n'est PAS : la version courante, l'une des 9 premières (v0.1–v0.9),
  *    ni un "jalon dizaine" (v0.10, v0.20, v0.30…)
@@ -32,43 +34,146 @@ function isNavMinor(v: ChangelogVersion): boolean {
   return true                           // tout le reste : en retrait
 }
 
+function versionPrefix(v: string): string {
+  const m = v.match(/^v(\d+)\.(\d+)/)
+  return m ? `v${m[1]}.${m[2]}` : v
+}
+
+// Reforme du Changelog (2026-08-22, maquette validee par Julien - option A "nav groupee" + option
+// B "pagination") : les versions "mineures" consecutives (isNavMinor, meme prefixe major.minor) sont
+// regroupees en un seul bloc repliable plutot que d'occuper chacune leur propre ligne de nav/carte -
+// c'est ce qui rend une liste de 170 versions praticable sans jamais rien cacher definitivement. Un
+// groupe garde un id STABLE (prefixe + version la plus recente du groupe) pour que l'etat replie/
+// deplie (`expandedGroups`, une simple liste d'ids) survive a un re-render meme si la liste filtree
+// change de forme.
+type NavGroup =
+  | { kind: 'single'; id: string; entry: ChangelogVersion }
+  | { kind: 'cluster'; id: string; prefix: string; entries: ChangelogVersion[] }
+
+function buildGroups(entries: ChangelogVersion[]): NavGroup[] {
+  const groups: NavGroup[] = []
+  let i = 0
+  while (i < entries.length) {
+    const e = entries[i]
+    if (!isNavMinor(e)) {
+      groups.push({ kind: 'single', id: e.version, entry: e })
+      i++
+      continue
+    }
+    const prefix = versionPrefix(e.version)
+    const cluster: ChangelogVersion[] = [e]
+    let j = i + 1
+    while (j < entries.length && isNavMinor(entries[j]) && versionPrefix(entries[j].version) === prefix) {
+      cluster.push(entries[j])
+      j++
+    }
+    groups.push({ kind: 'cluster', id: `${prefix}-${e.version}`, prefix, entries: cluster })
+    i = j
+  }
+  return groups
+}
+
+const GROUPS_PAGE_SIZE = 12
+const DAY_LABELS = ['Lun', '', 'Mer', '', 'Ven', '', '']
+
 export function ChangelogPage() {
+  const { userRole } = useAuth()
+  const isAdmin = userRole === 'ADMIN'
+
+  const [entries, setEntries] = useState<ChangelogVersion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [publishOpen, setPublishOpen] = useState(false)
+
   const [search, setSearch] = useState('')
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [timeframe, setTimeframe] = useState(30)
+  const [timeframe, setTimeframe] = useState(90)
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [visibleGroupCount, setVisibleGroupCount] = useState(GROUPS_PAGE_SIZE)
+
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const navItemRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  function loadEntries() {
+    setLoading(true)
+    setLoadError(false)
+    api.listChangelog()
+      .then(({ entries }) => setEntries(entries))
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false))
+  }
+  useEffect(loadEntries, [])
+
   const q = search.trim().toLowerCase()
   const filtered: ChangelogVersion[] = q
-    ? CHANGELOG.filter(v =>
+    ? entries.filter(v =>
         v.version.toLowerCase().includes(q) ||
         v.title.toLowerCase().includes(q) ||
         v.changes.some(c => c.text.toLowerCase().includes(q))
       )
-    : CHANGELOG
+    : entries
 
-  /* ── Heatmap ── */
+  // Pendant une recherche, tous les groupes sont deplies et la pagination est desactivee - un
+  // resultat de recherche ne doit jamais rester cache derriere un "charger plus" ou un groupe replie.
+  const groups = useMemo(() => buildGroups(filtered), [filtered])
+  const visibleGroups = q ? groups : groups.slice(0, visibleGroupCount)
+  const hasMoreGroups = !q && groups.length > visibleGroupCount
+
+  function isGroupExpanded(g: NavGroup): boolean {
+    if (g.kind === 'single') return true
+    return q ? true : expandedGroups.has(g.id)
+  }
+  function toggleGroup(id: string) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  /* ── Heatmap façon GitHub (grille semaine/jour) ── */
   const DAYS = timeframe
   const today = new Date()
-  const heatData: Record<string, number> = {}
-  CHANGELOG.forEach(v => {
+  const heatByDay: Record<string, number> = {}
+  entries.forEach(v => {
     if (!v.dateISO) return
     const k = v.dateISO.slice(0, 10)
-    heatData[k] = (heatData[k] ?? 0) + v.changes.length
+    heatByDay[k] = (heatByDay[k] ?? 0) + v.changes.length
   })
-  const cells = Array.from({ length: DAYS }, (_, i) => {
-    const dt = new Date(today)
-    dt.setDate(dt.getDate() - (DAYS - 1 - i))
+  // Grille alignee sur le vrai jour de la semaine (lundi en haut) : on part du DAYS-ieme jour avant
+  // aujourd'hui, puis on recule jusqu'au lundi precedent pour que la 1re colonne soit complete,
+  // comme le fait le contribution graph de GitHub plutot qu'une grille tronquee sur le cote gauche.
+  const rangeStart = new Date(today)
+  rangeStart.setDate(rangeStart.getDate() - (DAYS - 1))
+  const startWeekday = (rangeStart.getDay() + 6) % 7 // 0 = lundi
+  const gridStart = new Date(rangeStart)
+  gridStart.setDate(gridStart.getDate() - startWeekday)
+  const totalCells = startWeekday + DAYS
+  const weeks = Math.ceil(totalCells / 7)
+  const cells: { k: string; n: number; label: string; inRange: boolean }[] = Array.from({ length: weeks * 7 }, (_, i) => {
+    const dt = new Date(gridStart)
+    dt.setDate(dt.getDate() + i)
     const k = dt.toISOString().slice(0, 10)
-    const n = heatData[k] ?? 0
-    return { k, n, label: dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) }
+    const inRange = dt >= rangeStart && dt <= today
+    return { k, n: inRange ? (heatByDay[k] ?? 0) : 0, label: dt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }), inRange }
   })
   const maxN = Math.max(...cells.map(c => c.n), 1)
   const COLORS = ['var(--border)', '#bbf7d0', '#6ee7a4', '#22c55e', '#15803d']
-  const totalChanges = CHANGELOG.reduce((a, v) => a + v.changes.length, 0)
-  const activeDays = cells.filter(c => c.n > 0).length
+  const totalChanges = entries.reduce((a, v) => a + v.changes.length, 0)
+  const activeDays = Object.keys(heatByDay).length
+
+  // Libelles de mois : un par colonne dont la 1re ligne (lundi) entre dans un nouveau mois.
+  const monthLabels: { col: number; label: string }[] = []
+  let lastMonth = -1
+  for (let w = 0; w < weeks; w++) {
+    const dt = new Date(gridStart)
+    dt.setDate(dt.getDate() + w * 7)
+    if (dt.getMonth() !== lastMonth) {
+      monthLabels.push({ col: w, label: dt.toLocaleDateString('fr-FR', { month: 'short' }) })
+      lastMonth = dt.getMonth()
+    }
+  }
 
   /* ── IntersectionObserver nav sync ── */
   useEffect(() => {
@@ -79,17 +184,17 @@ export function ChangelogPage() {
       if (!vis.length) return
       const top = vis.reduce((a, b) =>
         a.boundingClientRect.top < b.boundingClientRect.top ? a : b)
-      setActiveId((top.target as HTMLElement).dataset.version ?? null)
+      setActiveId((top.target as HTMLElement).dataset.groupId ?? null)
     }, { rootMargin: '0px 0px -65% 0px', threshold: 0 })
     cardRefs.current.forEach(el => obs.observe(el))
     return () => obs.disconnect()
-  }, [filtered.length])
+  }, [visibleGroups.length])
 
-  function scrollTo(ver: string) {
-    cardRefs.current.get(ver)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  function scrollTo(id: string) {
+    cardRefs.current.get(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  /* ── Effet Dock macOS ── */
+  /* ── Effet Dock macOS (nav) ── */
   function handleNavMouseMove(e: React.MouseEvent) {
     const mouseY = e.clientY
     navItemRefs.current.forEach(item => {
@@ -129,6 +234,13 @@ export function ChangelogPage() {
     })
   }
 
+  function handlePublished(entry: ChangelogVersion) {
+    // La nouvelle entree devient l'unique "current" - meme garantie que cote serveur (transaction,
+    // routes/changelog.ts), reproduite ici pour un affichage immediat sans recharger toute la liste.
+    setEntries(prev => [entry, ...prev.map(e => ({ ...e, current: false }))])
+    setPublishOpen(false)
+  }
+
   return (
     <>
       <Header title="Changelog" />
@@ -154,36 +266,56 @@ export function ChangelogPage() {
                     </button>
                   ))}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: 'var(--text-muted)' }}>
-                  <span>Moins</span>
-                  {COLORS.slice(0, 4).map((c, i) => (
-                    <div key={i} style={{ width: 11, height: 11, borderRadius: 3, background: c }} />
-                  ))}
-                  <span>Plus</span>
-                </div>
+                {isAdmin && (
+                  <button data-testid="publish-changelog-btn" onClick={() => setPublishOpen(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--primary)', color: '#fff', border: 'none',
+                      fontSize: 11, fontWeight: 700, padding: '5px 10px', borderRadius: 6, cursor: 'pointer' }}>
+                    + Publier une version
+                  </button>
+                )}
               </div>
             </div>
-            <div className="cl-heatmap-bars">
-              {cells.map(cell => {
-                const pct = cell.n / maxN
-                const lvl = cell.n === 0 ? 0 : pct <= .15 ? 1 : pct <= .4 ? 2 : pct <= .7 ? 3 : 4
-                const h = cell.n === 0 ? 6 : Math.round(6 + pct * 34)
-                return (
-                  <div key={cell.k} className="cl-heatmap-bar"
-                    title={`${cell.label}${cell.n ? ` : ${cell.n} changement${cell.n > 1 ? 's' : ''}` : ''}`}
-                    style={{ height: h, background: COLORS[lvl], cursor: cell.n ? 'pointer' : 'default' }}
-                    onClick={() => {
-                      if (!cell.n) return
-                      const v = CHANGELOG.find(x => x.dateISO?.startsWith(cell.k))
-                      if (v) scrollTo(v.version)
-                    }} />
-                )
-              })}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 9, color: 'var(--text-muted)' }}>
-              <span>{cells[0].label}</span>
-              <span>{cells[Math.floor(DAYS / 2)].label}</span>
-              <span>Aujourd'hui</span>
+
+            {/* Grille façon GitHub : jours en lignes, semaines en colonnes */}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0, paddingTop: 14 }}>
+                {DAY_LABELS.map((d, i) => (
+                  <span key={i} style={{ height: 11, fontSize: 9, color: 'var(--text-muted)', lineHeight: '11px' }}>{d}</span>
+                ))}
+              </div>
+              <div style={{ overflowX: 'auto', flex: 1 }}>
+                <div style={{ display: 'flex', gap: 3, marginBottom: 3, height: 11 }}>
+                  {monthLabels.map((m, i) => (
+                    <span key={i} style={{ position: 'relative', left: m.col * 14, fontSize: 9, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{m.label}</span>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateRows: 'repeat(7, 11px)', gridAutoFlow: 'column', gap: 3, width: 'max-content' }}>
+                  {cells.map(cell => (
+                    <div key={cell.k}
+                      title={cell.inRange ? `${cell.label}${cell.n ? ` : ${cell.n} changement${cell.n > 1 ? 's' : ''}` : ''}` : ''}
+                      style={{
+                        width: 11, height: 11, borderRadius: 2,
+                        background: cell.inRange ? COLORS[cell.n === 0 ? 0 : cell.n / maxN <= .15 ? 1 : cell.n / maxN <= .4 ? 2 : cell.n / maxN <= .7 ? 3 : 4] : 'transparent',
+                        cursor: cell.n ? 'pointer' : 'default',
+                      }}
+                      onClick={() => {
+                        if (!cell.n) return
+                        const v = entries.find(x => x.dateISO?.startsWith(cell.k))
+                        if (!v) return
+                        const g = groups.find(gr => gr.kind === 'single' ? gr.entry.version === v.version : gr.entries.some(e => e.version === v.version))
+                        if (g && !isGroupExpanded(g)) toggleGroup(g.id)
+                        if (g) scrollTo(g.id)
+                      }} />
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, color: 'var(--text-muted)', flexShrink: 0, alignSelf: 'flex-end' }}>
+                <span>Moins</span>
+                {COLORS.slice(0, 4).map((c, i) => (
+                  <div key={i} style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
+                ))}
+                <span>Plus</span>
+              </div>
             </div>
           </div>
 
@@ -198,69 +330,137 @@ export function ChangelogPage() {
               style={{ paddingLeft: 32 }} />
           </div>
 
-          {/* Layout */}
-          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+          {loading && (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 13 }}>Chargement du changelog…</div>
+          )}
+          {!loading && loadError && (
+            <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+              Impossible de charger le changelog. <button className="btn btn-secondary" style={{ marginLeft: 8, fontSize: 11, padding: '3px 10px' }} onClick={loadEntries}>Réessayer</button>
+            </div>
+          )}
 
-            {/* Left nav */}
-            <div className="cl-nav" style={{ flexShrink: 0, width: 108 }}
-              onMouseMove={handleNavMouseMove}
-              onMouseLeave={handleNavMouseLeave}>
-              {filtered.map(v => {
-                const minor  = isNavMinor(v)
-                const isActive = activeId === v.version
-                return (
-                  <div
-                    key={v.version}
-                    ref={el => { if (el) navItemRefs.current.set(v.version, el); else navItemRefs.current.delete(v.version) }}
-                    data-major={minor ? '0' : '1'}
-                    className={`cl-nav-item${isActive ? ' active' : ''}${v.current ? ' current' : ''}`}
-                    onClick={() => scrollTo(v.version)}
+          {!loading && !loadError && (
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+
+              {/* Left nav */}
+              <div className="cl-nav" style={{ flexShrink: 0, width: 118 }}
+                onMouseMove={handleNavMouseMove}
+                onMouseLeave={handleNavMouseLeave}>
+                {visibleGroups.map(g => {
+                  const isMajor = g.kind === 'single'
+                  const isActive = activeId === g.id
+                  const label = g.kind === 'single' ? g.entry.version : `${g.prefix}.x`
+                  const isCurrent = g.kind === 'single' && !!g.entry.current
+                  return (
+                    <div
+                      key={g.id}
+                      ref={el => { if (el) navItemRefs.current.set(g.id, el); else navItemRefs.current.delete(g.id) }}
+                      data-major={isMajor ? '1' : '0'}
+                      className={`cl-nav-item${isActive ? ' active' : ''}${isCurrent ? ' current' : ''}`}
+                      onClick={() => scrollTo(g.id)}
+                    >
+                      <div className={`cl-nav-dot${isCurrent ? ' current' : ''}${!isMajor ? ' minor' : ''}`} />
+                      <span className={`cl-nav-ver${!isMajor ? ' minor' : ''}`}>{label}</span>
+                      {g.kind === 'cluster' && <span style={{ fontSize: 9, color: 'var(--text-muted)', marginLeft: 4 }}>· {g.entries.length}</span>}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Cards */}
+              <div ref={scrollRef} style={{ flex: 1, minWidth: 0 }}>
+                {filtered.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                    Aucun resultat pour "{search}"
+                  </div>
+                )}
+                {visibleGroups.map(g => {
+                  if (g.kind === 'single') {
+                    const v = g.entry
+                    return (
+                      <div
+                        key={g.id}
+                        data-group-id={g.id}
+                        ref={el => { if (el) cardRefs.current.set(g.id, el); else cardRefs.current.delete(g.id) }}
+                        className={`cl-card${v.current ? ' current' : ''}`}
+                      >
+                        <div className="cl-card-meta">
+                          <span className="cl-card-ver">{v.version}</span>
+                          {v.current && <span className="cl-card-badge">En cours</span>}
+                          <span className="cl-card-date">{v.date}</span>
+                        </div>
+                        <div className="cl-card-title">{v.title}</div>
+                        <ul className="cl-changes">
+                          {v.changes.map((c, i) => (
+                            <li key={i} className="cl-change">
+                              <span className={`cl-tag cl-tag-${c.tag}`}>{c.tag.toUpperCase()}</span>
+                              <span dangerouslySetInnerHTML={{ __html: highlight(c.text, q) }} />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )
+                  }
+
+                  const expanded = isGroupExpanded(g)
+                  return (
+                    <div key={g.id} data-group-id={g.id} ref={el => { if (el) cardRefs.current.set(g.id, el); else cardRefs.current.delete(g.id) }} style={{ marginBottom: 14 }}>
+                      <div
+                        data-testid="cl-group-header"
+                        onClick={() => toggleGroup(g.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer',
+                          background: 'var(--surface2)', borderRadius: 10, padding: '10px 16px',
+                        }}
+                      >
+                        <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                          {g.entries[g.entries.length - 1].version} → {g.entries[0].version}
+                          <strong style={{ color: 'var(--text)', marginLeft: 6 }}>· {g.entries.length} version{g.entries.length > 1 ? 's' : ''}</strong>
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{expanded ? '▲' : '▼'}</span>
+                      </div>
+                      {expanded && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10, paddingLeft: 12, borderLeft: '2px solid var(--border)' }}>
+                          {g.entries.map(v => (
+                            <div key={v.version} className="cl-card">
+                              <div className="cl-card-meta">
+                                <span className="cl-card-ver">{v.version}</span>
+                                <span className="cl-card-date">{v.date}</span>
+                              </div>
+                              <div className="cl-card-title">{v.title}</div>
+                              <ul className="cl-changes">
+                                {v.changes.map((c, i) => (
+                                  <li key={i} className="cl-change">
+                                    <span className={`cl-tag cl-tag-${c.tag}`}>{c.tag.toUpperCase()}</span>
+                                    <span dangerouslySetInnerHTML={{ __html: highlight(c.text, q) }} />
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {hasMoreGroups && (
+                  <button
+                    data-testid="cl-load-more-btn"
+                    onClick={() => setVisibleGroupCount(c => c + GROUPS_PAGE_SIZE)}
+                    style={{ width: '100%', background: 'none', border: '1px dashed var(--border)', color: 'var(--text-muted)', fontSize: 12, padding: 10, borderRadius: 8, cursor: 'pointer' }}
                   >
-                    <div className={`cl-nav-dot${v.current ? ' current' : ''}${minor ? ' minor' : ''}`} />
-                    <span className={`cl-nav-ver${minor ? ' minor' : ''}`}>{v.version}</span>
-                  </div>
-                )
-              })}
+                    Charger les versions précédentes
+                  </button>
+                )}
+              </div>
             </div>
-
-            {/* Cards */}
-            <div ref={scrollRef} style={{ flex: 1, minWidth: 0 }}>
-              {filtered.length === 0 && (
-                <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 13 }}>
-                  Aucun resultat pour "{search}"
-                </div>
-              )}
-              {filtered.map(v => (
-                <div
-                  key={v.version}
-                  data-version={v.version}
-                  ref={el => { if (el) cardRefs.current.set(v.version, el); else cardRefs.current.delete(v.version) }}
-                  className={`cl-card${v.current ? ' current' : ''}`}
-                >
-                  {/* Card header */}
-                  <div className="cl-card-meta">
-                    <span className="cl-card-ver">{v.version}</span>
-                    {v.current && <span className="cl-card-badge">En cours</span>}
-                    <span className="cl-card-date">{v.date}</span>
-                  </div>
-                  <div className="cl-card-title">{v.title}</div>
-
-                  {/* Changes */}
-                  <ul className="cl-changes">
-                    {v.changes.map((c, i) => (
-                      <li key={i} className="cl-change">
-                        <span className={`cl-tag cl-tag-${c.tag}`}>{c.tag.toUpperCase()}</span>
-                        <span dangerouslySetInnerHTML={{ __html: highlight(c.text, q) }} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
         </div>
       </div>
+
+      {publishOpen && <PublishChangelogModal onPublished={handlePublished} onClose={() => setPublishOpen(false)} />}
     </>
   )
 }

@@ -9,11 +9,26 @@
 
 const BASE_URL = 'http://localhost:4321';
 
+// Réforme du Changelog (2026-08-22) : la page fetch désormais GET /api/changelog AU MONTAGE, comme
+// /api/onboarding déjà géré ci-dessous - sans mock dédié, le `{ data: null }` générique laisserait
+// `entries` à `undefined`, cassant tout test qui visite /changelog (même indirectement, voir
+// what-if.spec.js). Petit jeu de données par défaut suffisant pour les assertions courantes (version
+// courante avec badge, recherche, nav non vide) ; `opts.changelogEntries` permet de le remplacer
+// entièrement pour un test qui a besoin d'un contenu précis (voir tests/changelog.spec.js).
+const DEFAULT_CHANGELOG_ENTRIES = [
+  { version: 'v0.98.20', date: '22 Août 2026', dateISO: '2026-08-22', title: 'Version courante de test', current: true,
+    changes: [{ tag: 'feat', text: 'Changement de test sur la version courante' }] },
+  { version: 'v0.98.19', date: '21 Août 2026', dateISO: '2026-08-21', title: 'Version mineure de test', current: false,
+    changes: [{ tag: 'fix', text: 'Correctif de test' }] },
+  { version: 'v0.90', date: '10 Août 2026', dateISO: '2026-08-10', title: 'Jalon de test', current: false,
+    changes: [{ tag: 'feat', text: 'Fonctionnalité majeure de test' }] },
+];
+
 /**
  * Charge une route React avec auth injectee.
  * @param {import('@playwright/test').Page} page
  * @param {string} route  ex: '/backlog', '/kanban', '/'
- * @param {{ role?: string, name?: string, userId?: string, onboardingSeenAt?: string|null, onboardingCompletedItems?: string[] }} [opts]
+ * @param {{ role?: string, name?: string, userId?: string, onboardingSeenAt?: string|null, onboardingCompletedItems?: string[], changelogEntries?: object[] }} [opts]
  *   Phase 2 (roadmap v1) — simule un compte connecte avec un role/nom/id donnes
  *   (cadence_user_role/cadence_user/cadence_user_id, lus par useAuth.ts). Sans ces options, le
  *   comportement est identique a avant (valeurs vides, comme au login normal sans injection) — a
@@ -23,7 +38,8 @@ const BASE_URL = 'http://localhost:4321';
  *   Phase 2.5, Onboarding, points 2-4 (v0.95) : reponse mockee de GET /api/onboarding. Par defaut
  *   "deja vu" (compte existant, comme la tres grande majorite des tests qui n'ont rien a voir avec
  *   l'Onboarding) — passer `onboardingSeenAt: null` pour simuler un compte reellement neuf, voir
- *   tests/onboarding.spec.js.
+ *   tests/onboarding.spec.js. `changelogEntries` (2026-08-22, Réforme du Changelog) : réponse mockée
+ *   de GET /api/changelog, voir DEFAULT_CHANGELOG_ENTRIES ci-dessus.
  */
 async function goTo(page, route = '/backlog', opts = {}) {
   // Intercepter les appels API pour eviter les erreurs reseau
@@ -40,6 +56,12 @@ async function goTo(page, route = '/backlog', opts = {}) {
           onboardingSeenAt: opts.onboardingSeenAt !== undefined ? opts.onboardingSeenAt : '2026-01-01T00:00:00.000Z',
           onboardingCompletedItems: opts.onboardingCompletedItems ?? [],
         }),
+      });
+    }
+    if (r.request().url().includes('/api/changelog')) {
+      return r.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ entries: opts.changelogEntries ?? DEFAULT_CHANGELOG_ENTRIES }),
       });
     }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: null }) });
