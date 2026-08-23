@@ -399,6 +399,7 @@ export function SprintReviewPage() {
         authorId: userId || undefined,
         createdAt: new Date().toISOString(),
         attachments: [],
+        replies: [],
       }
       updatedItem.notes = [...(item.notes ?? []), note]
     }

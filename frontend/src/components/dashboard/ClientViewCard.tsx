@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import type { LegendPayload } from 'recharts'
 import type { Client, Item, KanbanCol, Sprint } from '../../types'
 import type { ClientViewDisplay, DashboardWidgetSize } from '../../data/dashboardWidgets'
 import { isItemDone } from '../../utils/status'
@@ -98,7 +99,7 @@ export function ClientViewCard({ sprints, items, clients, kanbanCols, editable, 
 
   const windowSprints = sprints.filter(s => s.closed).sort((a, b) => a.number - b.number).slice(-WINDOW_SIZE)
   const windowSprintIds = new Set(windowSprints.map(s => s.id))
-  const activeClients = clients.filter(c => items.some(i => i.clientId === c.id && windowSprintIds.has(i.sprintId)))
+  const activeClients = clients.filter(c => items.some(i => i.clientId === c.id && i.sprintId != null && windowSprintIds.has(i.sprintId)))
 
   function deliveredSP(clientId: string, sprintId: string): number {
     return items
@@ -142,8 +143,8 @@ export function ClientViewCard({ sprints, items, clients, kanbanCols, editable, 
             {!compact && (
               <Legend
                 wrapperStyle={{ fontSize: 11, cursor: 'pointer' }}
-                onClick={(e: { dataKey?: string | number }) => e.dataKey != null && toggleHidden(String(e.dataKey))}
-                formatter={(value: string, entry: { dataKey?: string | number }) => {
+                onClick={(e: LegendPayload) => e.dataKey != null && toggleHidden(String(e.dataKey))}
+                formatter={(value: string, entry: LegendPayload) => {
                   const id = entry.dataKey != null ? String(entry.dataKey) : ''
                   const faded = hiddenIds.has(id) || (highlightedId != null && highlightedId !== id)
                   const emphasized = highlightedId === id

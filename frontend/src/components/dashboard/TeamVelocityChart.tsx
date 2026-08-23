@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import type { LegendPayload } from 'recharts'
 import type { Sprint, Item, TeamMember, KanbanCol } from '../../types'
 import type { DashboardWidgetSize, TeamVelocityMetric } from '../../data/dashboardWidgets'
 import { isItemDone } from '../../utils/status'
@@ -136,8 +137,8 @@ export function TeamVelocityChart({ sprints, team, items, kanbanCols, editable, 
             {!compact && (
               <Legend
                 wrapperStyle={{ fontSize: 11, cursor: 'pointer' }}
-                onClick={(e: { dataKey?: string | number }) => e.dataKey != null && toggleHidden(String(e.dataKey))}
-                formatter={(value: string, entry: { dataKey?: string | number }) => {
+                onClick={(e: LegendPayload) => e.dataKey != null && toggleHidden(String(e.dataKey))}
+                formatter={(value: string, entry: LegendPayload) => {
                   const id = entry.dataKey != null ? String(entry.dataKey) : ''
                   const faded = hiddenIds.has(id) || (highlightedId != null && highlightedId !== id)
                   const emphasized = highlightedId === id

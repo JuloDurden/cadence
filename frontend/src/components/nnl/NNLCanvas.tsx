@@ -515,7 +515,7 @@ function ShapeLayer({ shapes, strokes, previewShape, previewStroke, ox, oy, zoom
     const wBBox = { minX, minY, maxX, maxY }
     const TL = w2s(minX, maxY, ox, oy, zoom), BR = w2s(maxX, minY, ox, oy, zoom)
     const rx = TL.x, ry = TL.y, rw = BR.x - TL.x, rh = BR.y - TL.y
-    const cx = (TL.x + BR.x) / 2, cy = (TL.y + BR.y) / 2
+    const cx = (TL.x + BR.x) / 2
     // Coin de rotation (au-dessus du centre, 24px)
     const rotSy = ry - 24
     const corners: Array<['nw'|'ne'|'sw'|'se', number, number]> = [
@@ -772,7 +772,6 @@ function InlineTextEditor({ text, ox, oy, zoom, onCommit }: {
         {/* G / I / S — preventDefault évite la perte de focus/sélection */}
         {(['bold', 'italic', 'underline'] as const).map(fmt => {
           const active = activeFmts[fmt]
-          const labels = { bold: 'G', italic: 'I', underline: 'S' }
           const titles = { bold: 'Gras (Ctrl+B)', italic: 'Italique (Ctrl+I)', underline: 'Souligné (Ctrl+U)' }
           const cmds   = { bold: 'bold', italic: 'italic', underline: 'underline' }
           return (

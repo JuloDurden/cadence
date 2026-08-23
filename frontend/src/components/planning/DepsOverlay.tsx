@@ -46,11 +46,8 @@ export function DepsOverlay({ containerRef, items }: Props) {
         const fromX = fromR.left - rect.left + scrollLeft + fromR.width
         const fromY = fromR.top  - rect.top  + scrollTop  + fromR.height / 2
 
-        // "late" = le bloquant est dans un sprint ultérieur (ordre inversé)
-        const fromSprint = depItem.sprintId
-        const toSprint   = item.sprintId
-        const sprintNums = {} as Record<string, number>
-        // On ne connaît pas les numeros ici, mais on peut comparer les IDs par position dans DOM
+        // "late" = le bloquant est dans un sprint ultérieur (ordre inversé). On ne connaît pas les
+        // numéros de sprint ici, mais on peut comparer les positions DOM des deux cartes.
         const late = fromX > toX  // visuellement à droite = ordre inversé
 
         newArrows.push({

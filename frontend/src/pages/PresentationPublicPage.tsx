@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import type { ReactElement } from 'react'
 import { useParams } from 'react-router-dom'
 import { StateProvider, useCadence } from '../context/StateContext'
 import { AuthOverrideProvider } from '../context/AuthOverrideContext'
@@ -40,7 +41,7 @@ function VisionNNLPage() {
   return <VisionPage initialView="nnl" />
 }
 
-const PAGE_COMPONENTS: Record<PresentablePageId, () => JSX.Element> = {
+const PAGE_COMPONENTS: Record<PresentablePageId, () => ReactElement> = {
   dashboard: DashboardPage,
   vision: VisionPage,
   nnl: VisionNNLPage,

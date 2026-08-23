@@ -105,25 +105,6 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
     setShowTagSug(false)
   }
 
-  /** Redimensionne l'image à max maxPx px, convertit en WebP 85% */
-  function resizeImage(src: string, maxPx: number): Promise<string> {
-    return new Promise(resolve => {
-      const img = new window.Image()
-      img.onload = () => {
-        let w = img.naturalWidth, h = img.naturalHeight
-        if (w > maxPx || h > maxPx) {
-          const r = Math.min(maxPx / w, maxPx / h)
-          w = Math.round(w * r); h = Math.round(h * r)
-        }
-        const canvas = document.createElement('canvas')
-        canvas.width = w; canvas.height = h
-        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
-        resolve(canvas.toDataURL('image/webp', 0.85))
-      }
-      img.src = src
-    })
-  }
-
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return

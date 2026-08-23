@@ -30,17 +30,6 @@ function sprintDateLabel(start: string, end: string): string {
   return `${fmtDateShort(start)} → ${fmtDateShort(end)}`
 }
 
-const BTN: React.CSSProperties = {
-  fontSize: 10, padding: '2px 8px', border: '1px solid rgba(255,255,255,.4)',
-  borderRadius: 5, background: 'rgba(255,255,255,.15)', color: '#fff',
-  cursor: 'pointer', fontWeight: 600, backdropFilter: 'blur(2px)',
-}
-const BTN_DARK: React.CSSProperties = {
-  fontSize: 10, padding: '2px 8px', border: '1px solid var(--border)',
-  borderRadius: 5, background: 'transparent', color: 'var(--text-muted)',
-  cursor: 'pointer', fontWeight: 600,
-}
-
 // ── Header helpers ─────────────────────────────────────────────────────
 const ICO_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
 
@@ -78,14 +67,6 @@ const ICO_TRASH =
   '<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>' +
   '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>'
 
-// Vue Sprints — icône custom (fournie par l'utilisateur)
-// viewBox: 0 250 1650 1100  (x: 0→1650, y: 250→1350)
-const ICO_VIEW_SPRINTS =
-  '<path d="M704.74,570.727l-375.261,186.977l75.575,-412.395l299.686,225.418Z"/>' +
-  '<path d="M40.088,1224.64c0,0 751.133,5.291 824.115,0c34.149,-2.476 364.511,-112.873 348.1,-448.755c-18.03,-369.01 -482.471,-550.438 -702.49,-257.929" style="fill:none;stroke:currentColor;stroke-width:125px;"/>' +
-  '<path d="M1182.088,1165.793l307.617,0l95.312,65.155l-95.312,57.241l-469.805,0c16.367,-8.791 122.887,-86.632 162.188,-122.396Z"/>' +
-  '<path d="M568.529,824.115l136.304,136.304l251.638,-257.929" style="fill:none;stroke:currentColor;stroke-width:91.67px;stroke-linecap:round;"/>'
-const ICO_VIEW_SPRINTS_BOX = "0 250 1650 1100"
 
 function ViewIco({ d, viewBox = "0 0 24 24", fill = "none" }: { d: string; viewBox?: string; fill?: string }) {
   return (

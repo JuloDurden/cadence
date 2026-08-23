@@ -47,7 +47,7 @@ interface Props {
   standalone?: boolean
 }
 
-function KanbanCardImpl({ item, clients, team, colColor, cardDraggable, onEdit, onRemoveFromSprint, onDragStart, readOnly = false, standalone = false }: Props) {
+function KanbanCardImpl({ item, clients, team, cardDraggable, onEdit, onRemoveFromSprint, onDragStart, readOnly = false, standalone = false }: Props) {
   const client    = clients.find(c => c.id === item.clientId)
   const assignees = item.assignees.map(id => team.find(m => m.id === id)).filter(Boolean)
 

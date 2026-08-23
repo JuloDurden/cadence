@@ -80,13 +80,6 @@ function computeAutoAssign(
   const avgRemaining = availableTeam.reduce((s, m) => s + Math.max(0, caps[m.id] - used[m.id]), 0)
     / Math.max(1, availableTeam.length)
 
-  // Fonction de score d'un dev pour un item donné
-  const scoreOf = (m: TeamMember): number => {
-    if (caps[m.id] <= 0 || (caps[m.id] - used[m.id]) <= 0) return -Infinity
-    const tagMatch = 0  // sera calculé par l'appelant avec l'item courant
-    return tagMatch
-  }
-
   const results: AutoResult[] = []
 
   for (const item of sorted) {

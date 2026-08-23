@@ -1078,6 +1078,193 @@ describe('buildFlatRowEntries (virtualisation Backlog, Phase 7)', () => {
   });
 });
 
+// ── zoneFromWorld / clampDistanceToZone (utils/nnlZones.ts, Phase 7 tests) ──────────────────────
+// Reproduction fidele des fonctions pures exportees (jamais testees depuis leur extraction du
+// canevas NNL, sous-chantier 6, 2026-07-30 - trouve en auditant la couverture pour la Phase 7,
+// sous-chantier 3/5 "Tests").
+function zoneFromWorld(wx, wy, r1, r2) {
+  const d = Math.sqrt(wx * wx + wy * wy);
+  return d < r1 ? 'now' : d < r2 ? 'next' : 'later';
+}
+function clampDistanceToZone(x, y, zone, r1, r2) {
+  const d = Math.sqrt(x * x + y * y);
+  if (d === 0) return { x, y };
+  const margin = 1;
+  const targetD = zone === 'now' ? Math.min(d, r1 - margin)
+    : zone === 'next' ? Math.min(Math.max(d, r1 + margin), r2 - margin)
+    : Math.max(d, r2 + margin);
+  const scale = targetD / d;
+  return { x: x * scale, y: y * scale };
+}
+describe('zoneFromWorld (zones Now/Next/Later du canevas NNL, Phase 7 tests)', () => {
+  test('point proche de l\'origine -> now', () => {
+    expect(zoneFromWorld(100, 0, 400, 800)).toBe('now');
+  });
+  test('point entre r1 et r2 -> next', () => {
+    expect(zoneFromWorld(600, 0, 400, 800)).toBe('next');
+  });
+  test('point au-dela de r2 -> later', () => {
+    expect(zoneFromWorld(0, 900, 400, 800)).toBe('later');
+  });
+  test('exactement sur r1 -> next (limite incluse cote next)', () => {
+    expect(zoneFromWorld(400, 0, 400, 800)).toBe('next');
+  });
+});
+describe('clampDistanceToZone (ejection post-it, meme angle conserve, Phase 7 tests)', () => {
+  test('point a l\'origine exacte (d=0) : renvoye tel quel', () => {
+    const r = clampDistanceToZone(0, 0, 'later', 400, 800);
+    expect(r.x).toBe(0);
+    expect(r.y).toBe(0);
+  });
+  test('point deja dans la zone now : inchange', () => {
+    const r = clampDistanceToZone(100, 0, 'now', 400, 800);
+    expect(r.x).toBe(100);
+    expect(r.y).toBe(0);
+  });
+  test('point trop loin pour la zone now : ramene juste sous r1, meme angle', () => {
+    const r = clampDistanceToZone(1000, 0, 'now', 400, 800);
+    expect(r.y).toBe(0);
+    expect(r.x).toBeLessThan(400);
+    expect(r.x).toBeGreaterThan(0);
+  });
+  test('point trop proche pour later : repousse juste au-dela de r2', () => {
+    const r = clampDistanceToZone(100, 0, 'later', 400, 800);
+    expect(r.x).toBeGreaterThan(800);
+  });
+});
+
+// ── Cadres NNL (utils/nnlFrames.ts, Phase 7 tests) ───────────────────────────────────────────────
+// Meme constat que zoneFromWorld : fonctions pures exportees depuis le sous-chantier 6 (2026-07-29),
+// jamais couvertes par tests/run-tests.js (seulement indirectement par des E2E qui ne testent pas
+// les cas limites geometriques). Reproduction fidele ci-dessous.
+function frameBounds(frame) {
+  return {
+    minX: Math.min(frame.x, frame.x2),
+    maxX: Math.max(frame.x, frame.x2),
+    minY: Math.min(frame.y, frame.y2),
+    maxY: Math.max(frame.y, frame.y2),
+  };
+}
+function frameArea(frame) {
+  const b = frameBounds(frame);
+  return (b.maxX - b.minX) * (b.maxY - b.minY);
+}
+function isItemInFrame(item, frame) {
+  const b = frameBounds(frame);
+  return item.x >= b.minX && item.x <= b.maxX && item.y >= b.minY && item.y <= b.maxY;
+}
+function framesContainingItem(item, frames) {
+  return frames.filter(f => isItemInFrame(item, f)).sort((a, b) => frameArea(a) - frameArea(b));
+}
+function mostSpecificFrameForItem(item, frames) {
+  return framesContainingItem(item, frames)[0];
+}
+function ejectPointFromFrame(x, y, frame, margin) {
+  margin = margin === undefined ? 40 : margin;
+  const b = frameBounds(frame);
+  const distLeft = x - b.minX;
+  const distRight = b.maxX - x;
+  const distTop = y - b.minY;
+  const distBottom = b.maxY - y;
+  const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+  if (minDist === distLeft) return { x: b.minX - margin, y };
+  if (minDist === distRight) return { x: b.maxX + margin, y };
+  if (minDist === distTop) return { x, y: b.minY - margin };
+  return { x, y: b.maxY + margin };
+}
+describe('frameBounds / isItemInFrame (cadres NNL, Phase 7 tests)', () => {
+  test('bornes recalculees meme si x2/y2 sont "avant" x/y (coins inverses)', () => {
+    const b = frameBounds({ x: 500, y: 500, x2: 100, y2: 100 });
+    expect(b.minX).toBe(100);
+    expect(b.maxX).toBe(500);
+  });
+  test('point au centre du cadre : dedans', () => {
+    expect(isItemInFrame({ x: 50, y: 50 }, { x: 0, y: 0, x2: 100, y2: 100 })).toBeTruthy();
+  });
+  test('point hors cadre : dehors', () => {
+    expect(isItemInFrame({ x: 200, y: 50 }, { x: 0, y: 0, x2: 100, y2: 100 })).toBeFalsy();
+  });
+  test('point exactement sur la bordure : dedans (bornes incluses)', () => {
+    expect(isItemInFrame({ x: 100, y: 50 }, { x: 0, y: 0, x2: 100, y2: 100 })).toBeTruthy();
+  });
+});
+describe('mostSpecificFrameForItem (cadre le plus petit, imbrication Epic/Initiative, Phase 7 tests)', () => {
+  test('post-it dans un Epic imbrique dans une Initiative : retourne le cadre Epic (le plus petit)', () => {
+    const item = { x: 50, y: 50 };
+    const initiative = { id: 'init', x: 0, y: 0, x2: 500, y2: 500 };
+    const epic = { id: 'epic', x: 0, y: 0, x2: 100, y2: 100 };
+    const result = mostSpecificFrameForItem(item, [initiative, epic]);
+    expect(result.id).toBe('epic');
+  });
+  test('post-it hors de tout cadre : undefined', () => {
+    const result = mostSpecificFrameForItem({ x: 999, y: 999 }, [{ id: 'epic', x: 0, y: 0, x2: 100, y2: 100 }]);
+    expect(result).toBe(undefined);
+  });
+});
+describe('ejectPointFromFrame (sortie desassociation Epic, Phase 7 tests)', () => {
+  test('point proche du bord gauche : ejecte a gauche', () => {
+    const r = ejectPointFromFrame(10, 50, { x: 0, y: 0, x2: 100, y2: 100 });
+    expect(r.x).toBe(-40);
+    expect(r.y).toBe(50);
+  });
+  test('point proche du bord bas (y max) : ejecte en bas', () => {
+    const r = ejectPointFromFrame(50, 95, { x: 0, y: 0, x2: 100, y2: 100 });
+    expect(r.x).toBe(50);
+    expect(r.y).toBe(140);
+  });
+});
+
+// ── Calcul WSJF / RICE (ItemModal.tsx calcWSJF/calcRICE, Phase 7 tests) ─────────────────────────
+// Formules dupliquees fidelement (fonctions locales au composant, pas exportees - meme convention
+// que le reste de cette suite) : jamais testees jusqu'ici alors qu'elles determinent la priorite
+// affichee/appliquee a un item en scoring WSJF/RICE.
+function calcWSJF(wBV, wTC, wRR, sp) {
+  const jobSize = sp || 1;
+  const score = (wBV + wTC + wRR) / jobSize;
+  return { score: +score.toFixed(2), prio: score >= 8 ? 'critical' : score >= 5 ? 'high' : score >= 3 ? 'medium' : 'low' };
+}
+function calcRICE(rReach, rImpact, rConf, rEffort) {
+  const effort = rEffort || 1;
+  const score = (rReach * rImpact * rConf) / effort;
+  return { score: +score.toFixed(1), prio: score >= 100 ? 'critical' : score >= 50 ? 'high' : score >= 20 ? 'medium' : 'low' };
+}
+describe('calcWSJF (priorisation Backlog, Phase 7 tests)', () => {
+  test('Job Size a 0 : repli sur 1 (pas de division par zero)', () => {
+    const r = calcWSJF(3, 3, 3, 0);
+    expect(r.score).toBe(9);
+  });
+  test('score >= 8 -> critical', () => {
+    expect(calcWSJF(10, 10, 10, 1).prio).toBe('critical');
+  });
+  test('score >= 5 et < 8 -> high', () => {
+    expect(calcWSJF(5, 5, 5, 2).prio).toBe('high');
+  });
+  test('score >= 3 et < 5 -> medium', () => {
+    expect(calcWSJF(3, 3, 3, 2).prio).toBe('medium');
+  });
+  test('score < 3 -> low', () => {
+    expect(calcWSJF(1, 1, 1, 2).prio).toBe('low');
+  });
+});
+describe('calcRICE (priorisation Backlog, Phase 7 tests)', () => {
+  test('Effort a 0 : repli sur 1 (pas de division par zero)', () => {
+    const r = calcRICE(10, 2, 1, 0);
+    expect(r.score).toBe(20);
+  });
+  test('score >= 100 -> critical', () => {
+    expect(calcRICE(100, 2, 1, 1).prio).toBe('critical');
+  });
+  test('score >= 50 et < 100 -> high', () => {
+    expect(calcRICE(50, 1, 1, 1).prio).toBe('high');
+  });
+  test('score >= 20 et < 50 -> medium', () => {
+    expect(calcRICE(20, 2, 1, 1).prio).toBe('medium');
+  });
+  test('score < 20 -> low', () => {
+    expect(calcRICE(5, 2, 1, 1).prio).toBe('low');
+  });
+});
+
 // ── Bilan ────────────────────────────────────────────────────────────────────
 
 console.log('\n' + '-'.repeat(50));

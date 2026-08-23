@@ -185,7 +185,6 @@ export function AutoPlanningPage() {
   const [openCurrentSections, setOpenCurrentSections] = useState<Set<string>>(() => new Set(['clients']))
 
   function getScenario(id: string) { return _scenarios.find(s => s.id === id)! }
-  const active = getScenario(activeId)
   const planningClientIds = new Set(state.clients.filter(c => !c.excludeFromPlanning).map(c => c.id))
 
   function updateScenario(id: string, patch: Partial<Scenario>) {
@@ -1285,7 +1284,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
     if (vis.has(id)) return 0; vis.add(id)
     const it = byId.get(id)
     if (!it || !(it.deps ?? []).length) { lvlCache.set(id, 0); return 0 }
-    const lv = 1 + Math.max(0, ...it.deps.map(d => topoLvl(d, new Set(vis))))
+    const lv = 1 + Math.max(0, ...(it.deps ?? []).map(d => topoLvl(d, new Set(vis))))
     lvlCache.set(id, lv); return lv
   }
   const hovChain = hoveredId ? depChain(hoveredId) : null
@@ -1486,7 +1485,7 @@ function ProposalPanel({ scenario, allScenarios: _all, state, sprintsMeta, onOve
                     const hasDeps      = itemDeps.length > 0
                     const level        = hasDeps ? topoLvl(item.id) : 0
                     // Clés lisibles des deps directes (comme dans le Backlog)
-                    const depKeys      = itemDeps.map(depId =>
+                    const depKeys      = itemDeps.map((depId: string) =>
                       ((state.items as Item[]).find((i: Item) => i.id === depId))?.key ?? depId
                     )
                     const wasHere      = !isVirt && (item as Item).sprintId === slot.sprintId
