@@ -131,6 +131,18 @@ export async function stateRoutes(fastify: FastifyInstance) {
     '/api/state',
     { preHandler: authenticate },
     async (req, reply) => {
+      // Phase 7, sécurité (2026-08-23) : `data` était jusqu'ici accepté en `unknown` sans aucun
+      // contrôle - n'importe quel body JSON valide (y compris `null`, un tableau, une chaîne...)
+      // écrasait l'état du workspace. Une validation de structure complète (chaque champ de chaque
+      // item/sprint/HierarchyNode...) serait disproportionnée vu la taille et l'évolution constante
+      // de cette forme ; on se limite donc à rejeter ce qui ne peut de toute façon jamais être un
+      // état de workspace valide - un objet non nul, pas un tableau. La taille du body reste bornée
+      // par la limite par défaut de Fastify (1 Mo, `bodyLimit` non surchargé dans index.ts) - déjà
+      // un filet contre un payload abusif, pas besoin d'en ajouter un ici.
+      if (typeof req.body?.data !== 'object' || req.body.data === null || Array.isArray(req.body.data)) {
+        return reply.code(400).send({ error: "Le champ 'data' doit être un objet" })
+      }
+
       const slackConfig = await fastify.prisma.slackConfig.findFirst()
       if (slackConfig?.blockedEnabled && slackConfig.blockedChannelId) {
         const previous = await fastify.prisma.workspaceState.findUnique({ where: { id: SINGLETON_ID } })

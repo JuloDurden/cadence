@@ -4,11 +4,16 @@ import { useAuth } from '../hooks/useAuth'
 import { api } from '../services/api'
 import { PublishChangelogModal } from '../components/changelog/PublishChangelogModal'
 import type { ChangelogVersion } from '../data/changelog'
+import { escapeHtml } from '../utils/escapeHtml'
 
+// Phase 7, sécurité (2026-08-23) : `text` échappé AVANT le surlignage - une entrée de changelog
+// contenant du HTML (même si la publication est réservée Admin, voir routes/changelog.ts) ne doit
+// jamais s'exécuter tel quel chez qui consulte la page. Voir docs/corrections.md.
 function highlight(text: string, q: string): string {
-  if (!q) return text
+  const safe = escapeHtml(text)
+  if (!q) return safe
   const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return text.replace(new RegExp(`(${esc})`, 'gi'), '<mark style="background:#fef08a;border-radius:2px;padding:0 1px">$1</mark>')
+  return safe.replace(new RegExp(`(${esc})`, 'gi'), '<mark style="background:#fef08a;border-radius:2px;padding:0 1px">$1</mark>')
 }
 
 const TIMEFRAMES = [

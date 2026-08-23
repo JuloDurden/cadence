@@ -179,6 +179,21 @@ export function SettingsPage() {
     reader.onload = ev => {
       try {
         const data = JSON.parse(ev.target?.result as string)
+        // Phase 7, sécurité (2026-08-23) : jusqu'ici, n'importe quel JSON syntaxiquement valide
+        // (même `null`, un tableau, ou un objet sans rapport) était chargé tel quel dans l'état
+        // vivant de l'app ET sauvegardé côté serveur sans le moindre contrôle de forme - un fichier
+        // "export Cadence" corrompu ou forgé pouvait planter l'app ou écraser silencieusement le
+        // workspace. On vérifie ici la forme minimale d'un vrai export (voir exportJSON ci-dessus :
+        // toujours un objet avec `items` et `settings`), pas une validation complète de chaque champ
+        // - même logique de proportionnalité que la garde ajoutée sur PUT /api/state
+        // (backend/src/routes/state.ts). Le contenu HTML potentiellement dangereux d'un import
+        // malveillant (texte NNL, voir NNLCanvas.tsx) reste de toute façon neutralisé au rendu par
+        // DOMPurify, indépendamment de ce contrôle.
+        if (typeof data !== 'object' || data === null || Array.isArray(data) || !Array.isArray(data.items) || typeof data.settings !== 'object' || data.settings === null) {
+          showToast("Ce fichier ne correspond pas à un export Cadence valide.", 'error')
+          e.target.value = ''
+          return
+        }
         dispatch({ type: 'SET_STATE', payload: data })
         saveToServer(data)
         setSettings({ ...data.settings })
@@ -630,7 +645,7 @@ export function SettingsPage() {
             <button className="hdr-ctx-btn" onClick={exportJSON}>Exporter JSON</button>
             <label className="hdr-ctx-btn" style={{ cursor: 'pointer' }}>
               Importer JSON
-              <input type="file" accept=".json" style={{ display: 'none' }} onChange={importJSON} />
+              <input type="file" accept=".json" data-testid="input-import-json" style={{ display: 'none' }} onChange={importJSON} />
             </label>
           </div>
 

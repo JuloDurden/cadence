@@ -9,6 +9,7 @@ import { canAccessRoute } from '../../utils/permissions'
 import { useOnboarding } from '../../context/OnboardingContext'
 import { usePresentationMode } from '../../context/PresentationModeContext'
 import { useChat } from '../../context/ChatContext'
+import { escapeHtml } from '../../utils/escapeHtml'
 
 /* ── Tiny inline SVG helper ─────────────────────────────────────── */
 function Svg({ d, size = 16 }: { d: string; size?: number }) {
@@ -75,10 +76,15 @@ function SearchModal({ onClose }: { onClose: () => void }) {
       }).slice(0, 20)
     : []
 
+  // Phase 7, sécurité (2026-08-23) : `text` échappé AVANT le surlignage - `it.desc` est un champ
+  // libre modifiable par n'importe quel compte Dev/PO, sans quoi du HTML tapé dans une description
+  // d'item s'exécutait tel quel chez qui tombait dessus en cherchant (faille XSS stockée trouvée en
+  // auditant le code). Voir docs/corrections.md et frontend/src/utils/escapeHtml.ts.
   function hl(text: string) {
-    if (!q) return text
+    const safe = escapeHtml(text)
+    if (!q) return safe
     const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    return text.replace(new RegExp(`(${esc})`, 'gi'), '<mark style="background:#fef08a;border-radius:2px;padding:0 1px">$1</mark>')
+    return safe.replace(new RegExp(`(${esc})`, 'gi'), '<mark style="background:#fef08a;border-radius:2px;padding:0 1px">$1</mark>')
   }
 
   function handleKey(e: React.KeyboardEvent) {

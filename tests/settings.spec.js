@@ -597,6 +597,50 @@ test.describe('Réglages', () => {
 
   });
 
+  // Import JSON (Phase 7, sécurité, 2026-08-23) : jusqu'ici, n'importe quel JSON syntaxiquement
+  // valide (même sans rapport avec un export Cadence) était chargé tel quel dans l'état vivant de
+  // l'app ET sauvegardé côté serveur - voir importJSON, SettingsPage.tsx. La garde ajoutée vérifie
+  // la forme minimale d'un vrai export (`items` tableau + `settings` objet, voir exportJSON) avant
+  // d'accepter. Test complémentaire à isValidCadenceExport (tests/run-tests.js, logique isolée) :
+  // ici on vérifie le vrai composant, message d'erreur inclus.
+  test.describe('Import JSON (Phase 7, sécurité)', () => {
+
+    test('un JSON valide mais sans rapport avec un export Cadence est rejeté avec un message clair', async ({ page }) => {
+      await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
+      await page.setInputFiles('[data-testid="input-import-json"]', {
+        name: 'fichier.json', mimeType: 'application/json',
+        buffer: Buffer.from(JSON.stringify({ foo: 'bar' })),
+      });
+      await expect(page.getByText("Ce fichier ne correspond pas à un export Cadence valide.")).toBeVisible();
+    });
+
+    test('un fichier non-JSON affiche toujours le message "Fichier JSON invalide."', async ({ page }) => {
+      await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
+      await page.setInputFiles('[data-testid="input-import-json"]', {
+        name: 'fichier.json', mimeType: 'application/json',
+        buffer: Buffer.from('ceci n\'est pas du JSON'),
+      });
+      await expect(page.getByText('Fichier JSON invalide.')).toBeVisible();
+    });
+
+    test('réimporter le fichier exporté (round-trip) reste accepté', async ({ page }) => {
+      await goTo(page, '/settings');
+      await openSettingsTab(page, 'import-export');
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.getByRole('button', { name: 'Exporter JSON' }).click(),
+      ]);
+      const filePath = await download.path();
+      expect(filePath).toBeTruthy();
+
+      await page.setInputFiles('[data-testid="input-import-json"]', filePath);
+      await expect(page.getByText('Import réussi !')).toBeVisible();
+    });
+
+  });
+
   // Export/Import Excel du Backlog (v0.97.8, 2026-08-07, Phase 5 roadmap v1), export scopé au
   // Product Backlog (items) + Epics/Initiatives, sur 2 feuilles distinctes ("Backlog" et "Epics &
   // Initiatives") ; import via une fenêtre de correspondance des colonnes plutôt qu'une

@@ -894,6 +894,94 @@ describe('canDeleteRetroItem (Retro, suppression restreinte auteur/PO/Admin)', (
   });
 });
 
+// Reproduction de utils/escapeHtml.ts (Phase 7, securite, 2026-08-23) - faille XSS stockee trouvee
+// en auditant le code : Header.tsx (recherche globale, surlignage de it.desc) et ChangelogPage.tsx
+// (surlignage de changelog) injectaient du texte utilisateur en HTML brut sans l'echapper.
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// Reproduction de la fonction highlight()/hl() (Header.tsx, ChangelogPage.tsx), version post-
+// correctif : echappe TOUJOURS le texte source avant d'ajouter le <mark> de surlignage.
+function highlightSafe(text, q) {
+  const safe = escapeHtml(text);
+  if (!q) return safe;
+  const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return safe.replace(new RegExp('(' + esc + ')', 'gi'), '<mark>$1</mark>');
+}
+describe('escapeHtml / highlightSafe (securite, faille XSS stockee corrigee)', () => {
+  test('texte normal inchange (hors caracteres speciaux)', () => {
+    expect(escapeHtml('Mode hors-ligne FAXFA')).toBe('Mode hors-ligne FAXFA');
+  });
+  test('un payload <img onerror=...> ne contient plus de balise HTML exploitable', () => {
+    const out = escapeHtml('<img src=x onerror=alert(1)>');
+    expect(out).toBe('&lt;img src=x onerror=alert(1)&gt;');
+    expect(out.includes('<img')).toBeFalsy();
+  });
+  test('un payload <script> est neutralise', () => {
+    const out = escapeHtml('<script>alert(1)</script>');
+    expect(out.includes('<script>')).toBeFalsy();
+  });
+  test('highlightSafe surligne toujours normalement un texte sans HTML', () => {
+    expect(highlightSafe('Mode hors-ligne FAXFA', 'faxfa')).toBe('Mode hors-ligne <mark>FAXFA</mark>');
+  });
+  test('highlightSafe neutralise un payload meme quand une recherche matche dedans', () => {
+    const out = highlightSafe('<img src=x onerror=alert(1)>', 'img');
+    expect(out.includes('<img')).toBeFalsy();
+  });
+  test('highlightSafe sans requete echappe quand meme le texte', () => {
+    expect(highlightSafe('<b>test</b>', '')).toBe('&lt;b&gt;test&lt;/b&gt;');
+  });
+});
+
+// Reproduction de la garde ajoutee sur PUT /api/state (backend/src/routes/state.ts, Phase 7,
+// securite, 2026-08-23) : `data` doit etre un objet non nul, pas un tableau.
+function isValidStateBody(data) {
+  return typeof data === 'object' && data !== null && !Array.isArray(data);
+}
+describe('isValidStateBody (garde PUT /api/state, Phase 7 securite)', () => {
+  test('un objet valide est accepte', () => {
+    expect(isValidStateBody({ items: [], settings: {} })).toBeTruthy();
+  });
+  test('null est rejete', () => {
+    expect(isValidStateBody(null)).toBeFalsy();
+  });
+  test('un tableau est rejete', () => {
+    expect(isValidStateBody([1, 2, 3])).toBeFalsy();
+  });
+  test('une chaine est rejetee', () => {
+    expect(isValidStateBody('not an object')).toBeFalsy();
+  });
+  test('undefined est rejete', () => {
+    expect(isValidStateBody(undefined)).toBeFalsy();
+  });
+});
+
+// Reproduction de la garde ajoutee sur importJSON (frontend/src/pages/SettingsPage.tsx, Phase 7,
+// securite, 2026-08-23) : un export Cadence valide a toujours `items` (tableau) et `settings` (objet).
+function isValidCadenceExport(data) {
+  return typeof data === 'object' && data !== null && !Array.isArray(data)
+    && Array.isArray(data.items) && typeof data.settings === 'object' && data.settings !== null;
+}
+describe('isValidCadenceExport (garde import JSON, Phase 7 securite)', () => {
+  test('un export valide est accepte', () => {
+    expect(isValidCadenceExport({ items: [], settings: {} })).toBeTruthy();
+  });
+  test('un JSON sans rapport (mais syntaxiquement valide) est rejete', () => {
+    expect(isValidCadenceExport({ foo: 'bar' })).toBeFalsy();
+  });
+  test('un tableau est rejete', () => {
+    expect(isValidCadenceExport([{ items: [] }])).toBeFalsy();
+  });
+  test('null est rejete', () => {
+    expect(isValidCadenceExport(null)).toBeFalsy();
+  });
+});
+
 // ── Bilan ────────────────────────────────────────────────────────────────────
 
 console.log('\n' + '-'.repeat(50));

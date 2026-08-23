@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/react-router-dom": "^5.3.3",
+    "dompurify": "^3.4.14",
     "exceljs": "^4.4.0",
     "polygon-clipping": "^0.15.7",
     "react": "^19.2.7",

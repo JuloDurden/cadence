@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
+import DOMPurify from 'dompurify'
 import { useCadence } from '../../context/StateContext'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../hooks/useAuth'
@@ -601,7 +602,7 @@ function TextBlock({ text, ox, oy, zoom, onDoubleClick, onMouseDown, onResizeSta
           outlineOffset: isSelected ? '2px' : undefined,
           borderRadius: 2, boxSizing: 'border-box',
         }}
-        dangerouslySetInnerHTML={{ __html: text.content }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(text.content) }}
       />
       {/* Handle de resize (largeur) */}
       {isSelected && onResizeStart && (
@@ -656,7 +657,11 @@ function InlineTextEditor({ text, ox, oy, zoom, onCommit }: {
 
   useEffect(() => {
     const el = edRef.current; if (!el) return
-    el.innerHTML = text.content
+    // Phase 7, sécurité (2026-08-23) : sanitisé même ici, pas seulement à l'affichage - une
+    // assignation directe à innerHTML exécute déjà tout gestionnaire d'événement inline (ex.
+    // onerror sur une balise img) présent dans un contenu importé/restauré sans être passé par
+    // l'éditeur (voir DOMPurify.sanitize ci-dessous et sur le rendu, plus haut dans ce fichier).
+    el.innerHTML = DOMPurify.sanitize(text.content)
     el.focus()
     const range = document.createRange()
     range.selectNodeContents(el)
@@ -684,7 +689,10 @@ function InlineTextEditor({ text, ox, oy, zoom, onCommit }: {
   function commit() {
     if (committedRef.current) return
     committedRef.current = true
-    onCommit(edRef.current?.innerHTML ?? text.content)
+    // Sanitisé une dernière fois avant sauvegarde (filet en plus des 2 autres points ci-dessus,
+    // coût négligeable) : le contenu vient normalement de execCommand (déjà sûr), mais on ne
+    // sauvegarde jamais de HTML non filtré dans l'état, quelle que soit sa provenance.
+    onCommit(DOMPurify.sanitize(edRef.current?.innerHTML ?? text.content))
   }
 
   // Sauvegarde la sélection courante
