@@ -6,10 +6,13 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { EXTRA_STAGES, statusOptionsForItemModal } from '../utils/kanbanStages'
 import { HierarchyNodeModal } from '../components/backlog/HierarchyNodeModal'
 import { BacklogGroupCard } from '../components/backlog/BacklogGroupCard'
-// Phase 7, perf (2026-08-24) : BacklogRow (ligne du tableau, extraite + mémoïsée) - voir
-// docs/corrections.md, "Chantier Phase 7 - Performance". PRIO_LABEL/TYPE_LABEL/dorDodStat
-// réexportés depuis ce fichier, seule source désormais (plus de doublon ici).
-import { BacklogRow, PRIO_LABEL, TYPE_LABEL, dorDodStat } from '../components/backlog/BacklogRow'
+// Phase 7, perf (2026-08-24) : PRIO_LABEL/TYPE_LABEL/dorDodStat réexportés depuis BacklogRow.tsx,
+// seule source désormais (plus de doublon ici) - voir docs/corrections.md, "Chantier Phase 7 -
+// Performance". BacklogItemsTable (table plate ou mini-table de groupe, avec bascule automatique
+// vers une liste virtualisée au-delà de VIRTUALIZE_THRESHOLD items) remplace le rendu direct de
+// <table>/<BacklogTableHead>/<tbody> aux 4 points d'appel de cette page.
+import { PRIO_LABEL, TYPE_LABEL, dorDodStat } from '../components/backlog/BacklogRow'
+import { BacklogItemsTable } from '../components/backlog/BacklogItemsTable'
 import { findEpicChildren, detachEpicChildren, findHierarchyChildren, detachHierarchyChildren, findDependents, detachDependents } from '../utils/cascadeDelete'
 import { withHistoryEntry } from '../utils/history'
 import { canManageBacklog, canEditBacklogOperational } from '../utils/permissions'
@@ -221,42 +224,9 @@ function FilterRow({ label, value, onChange, options, testId }: {
 // 2026-08-24) - dorDodStat réimporté ci-dessus car encore utilisé par le filtre "DoR/DoD prêt"
 // ci-dessous ; DorDodBadge est désormais privé à BacklogRow.tsx (plus utilisé qu'à cet endroit).
 
-/** En-tête de tableau partagé (15 colonnes, 16 avec la case à cocher), réutilisé par la table
- *  plate (mode "Grouper : aucun") et par la mini-table de chaque card de groupe (sous-chantier 4,
- *  2026-07-29). Colonne de sélection (Phase 5, roadmap v1, 2026-08-08) réservée PO/Admin
- *  (`selectable`, même périmètre que `canManage`, le Client est un champ "contenu produit") : la
- *  case du header sélectionne/désélectionne tous les items FILTRÉS de la page entière, pas
- *  seulement ceux de la card où on clique (une seule sélection globale, cohérente d'une card à
- *  l'autre plutôt qu'une sélection isolée par groupe). */
-function BacklogTableHead({ selectable, allSelected, onToggleAll }: { selectable: boolean; allSelected: boolean; onToggleAll: () => void }) {
-  return (
-    <thead>
-      <tr>
-        {selectable && (
-          <th style={{ width: 24, textAlign: 'center' }}>
-            <input type="checkbox" data-testid="backlog-select-all" checked={allSelected}
-              onChange={onToggleAll} title="Sélectionner/désélectionner tous les items filtrés" />
-          </th>
-        )}
-        <th style={{ width: 28 }} />
-        <th style={{ width: 46, textAlign: 'center' }}>Prio.</th>
-        <th style={{ width: 72, textAlign: 'center' }}>Clé</th>
-        <th style={{ width: 68, textAlign: 'center' }}>Type</th>
-        <th style={{ width: 50 }}>Sprint</th>
-        <th style={{ width: 100, textAlign: 'center' }}>Client</th>
-        <th style={{ width: 90, textAlign: 'center' }}>Statut</th>
-        <th style={{ maxWidth: 200 }}>Description</th>
-        <th style={{ width: 200, textAlign: 'center' }}>Tags</th>
-        <th style={{ width: 72, textAlign: 'center' }}>Assignés</th>
-        <th style={{ width: 42, textAlign: 'center' }}>SP</th>
-        <th style={{ width: 120 }}>Dépendances</th>
-        <th style={{ width: 38, textAlign: 'center' }} title="Definition of Ready">DoR</th>
-        <th style={{ width: 38, textAlign: 'center' }} title="Definition of Done">DoD</th>
-        <th style={{ width: 64, textAlign: 'center' }}>Actions</th>
-      </tr>
-    </thead>
-  )
-}
+// BacklogTableHead déplacé vers components/backlog/BacklogItemsTable.tsx (Phase 7, perf,
+// 2026-08-24, virtualisation) - seul ce fichier en a désormais besoin (BacklogPage.tsx ne rend
+// plus de <table> directement, voir renderItemsTable() plus bas).
 
 /* ─── Component ─────────────────────────────────────────────────── */
 export function BacklogPage() {
@@ -782,27 +752,34 @@ export function BacklogPage() {
    *  wrapper ne fait plus que dériver les valeurs primitives (selected/isExpanded/depDepth) et
    *  passer les tranches d'état + callbacks stables. Voir docs/corrections.md, "Chantier Phase 7
    *  Performance". */
-  function renderItemRow(item: Item) {
+  /** Table Backlog (table plate ou mini-table d'une card de groupe) - wrapper autour de
+   *  BacklogItemsTable.tsx qui fournit les tranches d'état + callbacks communs aux 4 points
+   *  d'appel de cette page, plutôt que de les répéter à chacun. `testId` : seule la table plate
+   *  (mode "Grouper : aucun") le porte (voir tests/backlog.spec.js, `[data-testid="backlog-table"]`
+   *  attendu en nombre 1 sur la page quel que soit le mode). Phase 7, perf (2026-08-24). */
+  function renderItemsTable(items: Item[], testId?: string) {
     return (
-      <BacklogRow
-        key={item.id}
-        item={item}
+      <BacklogItemsTable
+        items={items}
         clients={state.clients}
         team={state.team}
         sprints={state.sprints}
         kanbanCols={state.kanbanCols}
         hierarchyNodes={state.hierarchyNodes}
         itemsById={itemsById}
-        depDepth={depChain.get(item.id)}
-        selected={selectedIds.has(item.id)}
-        isExpanded={expandedIds.has(item.id)}
+        depChain={depChain}
+        selectedIds={selectedIds}
+        expandedIds={expandedIds}
         canManage={canManage}
         canOperate={canOperate}
+        allSelected={allFilteredSelected}
         onToggleSelect={toggleSelect}
         onToggleExpand={toggleExpand}
+        onToggleAll={toggleSelectAllFiltered}
         onEdit={setModalItem}
         onDelete={handleDelete}
         onHover={setHoveredId}
+        testId={testId}
       />
     )
   }
@@ -870,10 +847,7 @@ export function BacklogPage() {
         actions={group.node ? renderGroupActions(group.node) : undefined}
       >
         {group.items.length > 0 ? (
-          <table className="backlog-table">
-            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
-            <tbody>{group.items.map(renderItemRow)}</tbody>
-          </table>
+          renderItemsTable(group.items)
         ) : (
           <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0, textAlign: 'center', padding: '6px 0' }}>Aucun item.</p>
         )}
@@ -909,12 +883,7 @@ export function BacklogPage() {
         actions={renderGroupActions(initiative)}
       >
         {epicDisplayGroups.map(g => renderGroupCard(g, 1))}
-        {section.directItems.length > 0 && (
-          <table className="backlog-table">
-            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
-            <tbody>{section.directItems.map(renderItemRow)}</tbody>
-          </table>
-        )}
+        {section.directItems.length > 0 && renderItemsTable(section.directItems)}
         {section.epics.length === 0 && section.directItems.length === 0 && (
           <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0, textAlign: 'center', padding: '6px 0' }}>Aucun Epic ni item rattaché.</p>
         )}
@@ -936,10 +905,7 @@ export function BacklogPage() {
           label="Sans Initiative"
           badge={<span>{section.directItems.length} item{section.directItems.length !== 1 ? 's' : ''} · {sp} SP</span>}
         >
-          <table className="backlog-table">
-            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
-            <tbody>{section.directItems.map(renderItemRow)}</tbody>
-          </table>
+          {renderItemsTable(section.directItems)}
         </BacklogGroupCard>
       )
     }
@@ -1156,10 +1122,7 @@ export function BacklogPage() {
           // Pas de regroupement actif : table plate inchangée (retour Julien, 2026-07-29 —
           // seuls les modes de regroupement passent en cards, ce mode par défaut n'a rien à
           // "regrouper" visuellement).
-          <table className="backlog-table" data-testid="backlog-table">
-            <BacklogTableHead selectable={canManage} allSelected={allFilteredSelected} onToggleAll={toggleSelectAllFiltered} />
-            <tbody>{filtered.map(renderItemRow)}</tbody>
-          </table>
+          renderItemsTable(filtered, 'backlog-table')
         ) : (
           <div className="backlog-group-cards" data-testid="backlog-table">
             {groupBy === 'initiative' ? (

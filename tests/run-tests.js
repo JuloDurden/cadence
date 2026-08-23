@@ -1026,6 +1026,58 @@ describe('tri Backlog par Sprint (bug tri par sprintId opaque corrige, Phase 7)'
   });
 });
 
+// Reproduction de buildFlatRowEntries (frontend/src/components/backlog/BacklogItemsTable.tsx,
+// Phase 7 perf, 2026-08-24, virtualisation Backlog) : aplatit une liste d'items en entrees
+// "ligne" / "panneau US-CA deplie", necessaire pour que TableVirtuoso (react-virtuoso) associe
+// un seul <tr> a chaque entree - un item deplie ne peut plus etre un Fragment a 2 <tr>.
+function hasExpandPanel(item) {
+  const hasUS = !!(item.role || item.need || item.benefit);
+  return hasUS || (item.criteria ?? []).length > 0;
+}
+function buildFlatRowEntries(items, expandedIds) {
+  const out = [];
+  for (const item of items) {
+    out.push({ key: item.id, kind: 'row', item });
+    if (expandedIds.has(item.id) && hasExpandPanel(item)) {
+      out.push({ key: item.id + '-expand', kind: 'expand', item });
+    }
+  }
+  return out;
+}
+describe('buildFlatRowEntries (virtualisation Backlog, Phase 7)', () => {
+  test('un item sans panneau US/CA ne produit qu\'une entree "row"', () => {
+    const items = [{ id: 'i1', role: '', need: '', benefit: '', criteria: [] }];
+    const entries = buildFlatRowEntries(items, new Set(['i1']));
+    expect(entries.length).toBe(1);
+    expect(entries[0].kind).toBe('row');
+  });
+  test('un item deplie AVEC panneau US/CA produit 2 entrees consecutives (row puis expand)', () => {
+    const items = [{ id: 'i1', role: 'PO', need: '', benefit: '', criteria: [] }];
+    const entries = buildFlatRowEntries(items, new Set(['i1']));
+    expect(entries.length).toBe(2);
+    expect(entries[0].kind).toBe('row');
+    expect(entries[1].kind).toBe('expand');
+    expect(entries[1].key).toBe('i1-expand');
+  });
+  test('un item AVEC panneau mais non deplie ne produit qu\'une entree "row"', () => {
+    const items = [{ id: 'i1', role: 'PO', need: '', benefit: '', criteria: [] }];
+    const entries = buildFlatRowEntries(items, new Set());
+    expect(entries.length).toBe(1);
+  });
+  test('plusieurs items, un seul deplie : ordre et nombre d\'entrees corrects', () => {
+    const items = [
+      { id: 'i1', role: '', need: '', benefit: '', criteria: [] },
+      { id: 'i2', role: 'PO', need: '', benefit: '', criteria: [] },
+      { id: 'i3', role: '', need: '', benefit: '', criteria: [] },
+    ];
+    const entries = buildFlatRowEntries(items, new Set(['i2']));
+    const kinds = entries.map(e => e.kind + ':' + e.item.id);
+    if (JSON.stringify(kinds) !== JSON.stringify(['row:i1', 'row:i2', 'expand:i2', 'row:i3'])) {
+      throw new Error('Ordre/nombre d\'entrees inattendu: ' + JSON.stringify(kinds));
+    }
+  });
+});
+
 // ── Bilan ────────────────────────────────────────────────────────────────────
 
 console.log('\n' + '-'.repeat(50));

@@ -1564,6 +1564,21 @@ tr:hover .ca-toggle { opacity: 1; }
 .ca-expand-cell { padding: 0 !important; }
 .ca-expand-inner { padding: 10px 16px 14px 48px; }
 .ca-label-top { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; }
+
+/* ─── User Story (ligne dépliée du Backlog, retour Julien 2026-08-24) : "En tant que"/
+   "je souhaite"/"afin de" n'avaient jamais eu de règle CSS dédiée depuis leur introduction -
+   collés au contenu qui suit, sans séparation visuelle. Même langage visuel que les badges
+   given/when/then juste en dessous (.ca-badge), une 4e couleur pour rester distincte. ─── */
+.ca-us-block { margin-bottom: 12px; }
+.ca-us-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  font-size: 12px; line-height: 1.5; margin-bottom: 6px;
+}
+.ca-us-prefix {
+  flex-shrink: 0; border-radius: 4px; padding: 1px 6px;
+  font-size: 9px; font-weight: 800; color: #fff; background: #2563eb;
+}
+
 .ca-criteria-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .ca-criterion { background: var(--surface); border-radius: 8px; padding: 10px 14px; border: 1px solid var(--border); }
 .ca-criterion-num { font-size: 9px; font-weight: 800; color: var(--text-faint); margin-bottom: 6px; }

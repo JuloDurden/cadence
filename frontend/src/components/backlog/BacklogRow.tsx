@@ -23,6 +23,15 @@ export function dorDodStat(items: { done: boolean }[] | undefined): { done: numb
   return { done: items.filter(c => c.done).length, total: items.length }
 }
 
+/** Une ligne a un panneau US/CA dépliable si elle porte une User Story ou au moins un critère
+ *  d'acceptation. Réexportée (Phase 7, perf, 2026-08-24) : BacklogItemsTable.tsx en a besoin
+ *  pour savoir, côté virtualisé, si une entrée "expand" doit exister dans la liste aplatie -
+ *  même condition que le bouton de dépli ci-dessous, une seule source de vérité. */
+export function hasExpandPanel(item: Item): boolean {
+  const hasUS = !!(item.role || item.need || item.benefit)
+  return hasUS || (item.criteria ?? []).length > 0
+}
+
 /** Pastille DoR ou DoD : coche verte si 100%, "X/N" sinon. */
 function DorDodBadge({ stat, label }: { stat: { done: number; total: number } | null; label: string }) {
   if (!stat) return <span style={{ color: 'var(--text-faint)', fontSize: 10 }}>-</span>
@@ -57,7 +66,7 @@ const SVG_DEL    = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 
 const SVG_CHEV_R = '<path d="m9 18 6-6-6-6"/>'
 const SVG_CHEV_D = '<path d="m6 9 6 6 6-6"/>'
 
-interface BacklogRowProps {
+interface BacklogRowCellsProps {
   item: Item
   // Phase 7, perf (2026-08-24) : tranches d'état stables (clients/team/sprints/kanbanCols/
   // hierarchyNodes/itemsById) plutôt que `state: CadenceState` entier - même raison que
@@ -70,10 +79,6 @@ interface BacklogRowProps {
   kanbanCols: KanbanCol[]
   hierarchyNodes: HierarchyNode[]
   itemsById: Map<string, Item>
-  // Valeurs déjà dérivées par BacklogPage.tsx (primitives, comparables par valeur) plutôt que les
-  // structures brutes (`selectedIds`/`expandedIds`/`depChain`) : une ligne dont le statut de
-  // sélection/dépli/profondeur de dépendance n'a pas changé ne re-rend pas, même si le Set/Map
-  // source a changé de référence ailleurs sur la page (une autre ligne cochée, un autre survol...).
   depDepth: number | undefined
   selected: boolean
   isExpanded: boolean
@@ -83,14 +88,17 @@ interface BacklogRowProps {
   onToggleExpand: (id: string) => void
   onEdit: (item: Item) => void
   onDelete: (id: string) => void
-  onHover: (id: string | null) => void
 }
 
-function BacklogRowImpl({
+/** Contenu (cellules `<td>`) d'une ligne d'item - sans le `<tr>` englobant, pour pouvoir être
+ *  réutilisé aussi bien dans un `<tr>` classique (BacklogRow ci-dessous) que comme `itemContent`
+ *  de `TableVirtuoso` (BacklogItemsTable.tsx, Phase 7 perf, 2026-08-24), qui fournit lui-même le
+ *  `<tr>` via son composant `TableRow`. Aucune logique métier dupliquée entre les deux chemins. */
+export function BacklogRowCells({
   item, clients, team, sprints, kanbanCols, hierarchyNodes, itemsById, depDepth,
   selected, isExpanded, canManage, canOperate,
-  onToggleSelect, onToggleExpand, onEdit, onDelete, onHover,
-}: BacklogRowProps) {
+  onToggleSelect, onToggleExpand, onEdit, onDelete,
+}: BacklogRowCellsProps) {
   const client   = clients.find(c => c.id === item.clientId)
   const sprint   = item.sprintId ? sprints.find(s => s.id === item.sprintId) : null
   const status   = kanbanCols.find(c => c.id === item.status) ?? EXTRA_STAGES.find(s => s.id === item.status)
@@ -99,9 +107,192 @@ function BacklogRowImpl({
   const dl       = item.deadline
   const criteria = item.criteria ?? []
   const hasUS = !!(item.role || item.need || item.benefit)
-
-  const hasDeps = (item.deps ?? []).length > 0
   const DEP_COLOR = 'var(--primary)'
+
+  return (
+    <>
+      {/* Sélection (Phase 5, roadmap v1, 2026-08-08), réservée PO/Admin, même périmètre que
+          les autres actions sur `canManage` de cette table. */}
+      {canManage && (
+        <td style={{ textAlign: 'center' }}>
+          <input type="checkbox" data-testid={`item-select-${item.id}`} checked={selected}
+            onChange={() => onToggleSelect(item.id)} onClick={e => e.stopPropagation()} />
+        </td>
+      )}
+      {/* Expand */}
+      <td style={{ textAlign: 'center', padding: '0 4px' }}>
+        {(criteria.length > 0 || hasUS) && (
+          <button className="btn-icon" style={{ opacity: .55 }}
+            onClick={e => { e.stopPropagation(); onToggleExpand(item.id) }}
+            title={isExpanded ? 'Masquer' : `US${criteria.length > 0 ? ' + CA' : ''}`}>
+            <Svg d={isExpanded ? SVG_CHEV_D : SVG_CHEV_R} size={12} />
+          </button>
+        )}
+      </td>
+
+      {/* Prio */}
+      <td style={{ textAlign: 'center' }}>
+        <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: PRIO_COLOR[item.priority], color: PRIO_TEXT[item.priority], whiteSpace: 'nowrap' }}>
+          {PRIO_LABEL[item.priority]}
+        </span>
+      </td>
+
+      {/* Clé */}
+      <td style={{ textAlign: 'center' }}>
+        <span className="item-key">{item.key}</span>
+      </td>
+
+      {/* Type */}
+      <td style={{ textAlign: 'center' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ display: 'inline-block', padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: TYPE_BG[iType], color: TYPE_FG[iType], whiteSpace: 'nowrap' }}>
+            {TYPE_LABEL[iType]}
+          </span>
+          {iType === 'bug' && item.severity && (
+            <span title={SEV_LABEL[item.severity]} style={{ width: 7, height: 7, borderRadius: '50%', background: SEV_COLOR[item.severity], display: 'inline-block', flexShrink: 0 }} />
+          )}
+        </span>
+      </td>
+
+      {/* Sprint */}
+      <td style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+        {sprint ? `S${sprint.number}` : '-'}
+      </td>
+
+      {/* Client */}
+      <td style={{ textAlign: 'center' }}>
+        {client && <span style={{ fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap' }}>{client.name}</span>}
+      </td>
+
+      {/* Statut */}
+      <td style={{ textAlign: 'center' }}>
+        {status && <span className="badge" style={{ background: status.color + '20', color: status.color }}>{status.label}</span>}
+      </td>
+
+      {/* Description */}
+      <td style={{ maxWidth: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+          <div style={{ minWidth: 0 }}>
+            {item.epicId && (() => {
+              const ep = hierarchyNodes.find(x => x.id === item.epicId)
+              const epColor = ep ? (clients.find(c => c.id === ep.clientId)?.color ?? 'var(--primary)') : 'var(--primary)'
+              return ep ? <span title={ep.desc} style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: epColor + '18', color: epColor, marginBottom: 2, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.key}</span> : null
+            })()}
+            <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 12, lineHeight: 1.4 }}>
+              {item.desc}
+            </div>
+            {dl?.type !== 'none' && dl?.date && (
+              <span className={`deadline-badge deadline-${dl.type}`} style={{ marginTop: 3, display: 'inline-flex' }}>
+                {fmtDate(dl.date)}
+              </span>
+            )}
+          </div>
+        </div>
+      </td>
+
+      {/* Tags */}
+      <td style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+          {item.tags.map(t => <span key={t} className="tag">{t}</span>)}
+        </div>
+      </td>
+
+      {/* Assignés */}
+      <td style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          {item.assignees.map(id => {
+            const m = team.find(mem => mem.id === id)
+            return m ? <span key={id} className="avatar" title={m.name}>{m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}</span> : null
+          })}
+        </div>
+      </td>
+
+      {/* SP */}
+      <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>
+        {item.sp}
+      </td>
+
+      {/* Dépendances */}
+      <td style={{ whiteSpace: 'nowrap' }}>
+        {depItems.length === 0 && !depDepth && <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>-</span>}
+        {depItems.slice(0, 2).map(d => (
+          <span key={d.id} style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 4, padding: '1px 5px', marginRight: 3 }}>{d.key}</span>
+        ))}
+        {depItems.length > 2 && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 3 }}>{depItems.length} dép.</span>}
+        {depDepth !== undefined && (
+          <span className="dep-level-badge" style={{ background: DEP_COLOR }}>Niv.{depDepth}</span>
+        )}
+      </td>
+
+      {/* DoR */}
+      <td style={{ textAlign: 'center' }} data-testid="dor-cell">
+        <DorDodBadge stat={dorDodStat(item.dor)} label="DoR" />
+      </td>
+
+      {/* DoD */}
+      <td style={{ textAlign: 'center' }} data-testid="dod-cell">
+        <DorDodBadge stat={dorDodStat(item.dod)} label="DoD" />
+      </td>
+
+      {/* Actions - Modifier : PO/Admin (accès complet) ou Dev (sous-ensemble opérationnel).
+          Supprimer : PO/Admin uniquement (voir utils/permissions.ts). */}
+      <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+        {(canManage || canOperate) && (
+          <button className="btn-icon" onClick={() => onEdit(item)} title="Modifier"><Svg d={SVG_EDIT} /></button>
+        )}
+        {canManage && (
+          <button className="btn-icon danger" onClick={() => onDelete(item.id)} title="Supprimer"><Svg d={SVG_DEL} /></button>
+        )}
+      </td>
+    </>
+  )
+}
+
+/** Contenu (`<td colSpan>`) du panneau US/CA déplié - même remarque que BacklogRowCells :
+ *  extrait pour être réutilisable tel quel côté virtualisé. */
+export function BacklogRowExpandCells({ item, canManage }: { item: Item; canManage: boolean }) {
+  const criteria = item.criteria ?? []
+  const hasUS = !!(item.role || item.need || item.benefit)
+  return (
+    <td colSpan={canManage ? 16 : 15} className="ca-expand-cell">
+      <div className="ca-expand-inner">
+        {hasUS && (
+          <div className="ca-us-block">
+            <div className="ca-label-top">User Story</div>
+            {item.role && <div className="ca-us-row"><span className="ca-us-prefix">En tant que</span><span>{item.role}</span></div>}
+            {item.need && <div className="ca-us-row"><span className="ca-us-prefix">je souhaite</span><span>{item.need}</span></div>}
+            {item.benefit && <div className="ca-us-row"><span className="ca-us-prefix">afin de</span><span>{item.benefit}</span></div>}
+          </div>
+        )}
+        {criteria.length > 0 && (
+          <div className="ca-bdd-block">
+            <div className="ca-label-top">
+              {item.type === 'bug' ? 'Critères de résolution' : "Critères d'acceptation"}
+            </div>
+            {criteria.map((c, ci) => (
+              <div key={c.id} className="ca-bdd-row">
+                <span className="ca-bdd-num">#{ci + 1}</span>
+                <span className="ca-bdd-field given"><span className="ca-badge given">Étant donné que</span> {c.given}</span>
+                <span className="ca-bdd-sep">→</span>
+                <span className="ca-bdd-field when"><span className="ca-badge when">Quand</span> {c.when}</span>
+                <span className="ca-bdd-sep">→</span>
+                <span className="ca-bdd-field then"><span className="ca-badge then">Alors</span> {c.then}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </td>
+  )
+}
+
+interface BacklogRowProps extends BacklogRowCellsProps {
+  onHover: (id: string | null) => void
+}
+
+function BacklogRowImpl(props: BacklogRowProps) {
+  const { item, depDepth, isExpanded, canManage, onEdit, onHover } = props
+  const hasDeps = (item.deps ?? []).length > 0
 
   return (
     <React.Fragment>
@@ -111,173 +302,13 @@ function BacklogRowImpl({
         onMouseLeave={() => onHover(null)}
         className={depDepth ? `dep-hl dep-hl-${depDepth}` : ''}
         style={{ cursor: 'default' }}>
-        {/* Sélection (Phase 5, roadmap v1, 2026-08-08), réservée PO/Admin, même périmètre que
-            les autres actions sur `canManage` de cette table. */}
-        {canManage && (
-          <td style={{ textAlign: 'center' }}>
-            <input type="checkbox" data-testid={`item-select-${item.id}`} checked={selected}
-              onChange={() => onToggleSelect(item.id)} onClick={e => e.stopPropagation()} />
-          </td>
-        )}
-        {/* Expand */}
-        <td style={{ textAlign: 'center', padding: '0 4px' }}>
-          {(criteria.length > 0 || hasUS) && (
-            <button className="btn-icon" style={{ opacity: .55 }}
-              onClick={e => { e.stopPropagation(); onToggleExpand(item.id) }}
-              title={isExpanded ? 'Masquer' : `US${criteria.length > 0 ? ' + CA' : ''}`}>
-              <Svg d={isExpanded ? SVG_CHEV_D : SVG_CHEV_R} size={12} />
-            </button>
-          )}
-        </td>
-
-        {/* Prio */}
-        <td style={{ textAlign: 'center' }}>
-          <span style={{ display: 'inline-block', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: PRIO_COLOR[item.priority], color: PRIO_TEXT[item.priority], whiteSpace: 'nowrap' }}>
-            {PRIO_LABEL[item.priority]}
-          </span>
-        </td>
-
-        {/* Clé */}
-        <td style={{ textAlign: 'center' }}>
-          <span className="item-key">{item.key}</span>
-        </td>
-
-        {/* Type */}
-        <td style={{ textAlign: 'center' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ display: 'inline-block', padding: '1px 5px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: TYPE_BG[iType], color: TYPE_FG[iType], whiteSpace: 'nowrap' }}>
-              {TYPE_LABEL[iType]}
-            </span>
-            {iType === 'bug' && item.severity && (
-              <span title={SEV_LABEL[item.severity]} style={{ width: 7, height: 7, borderRadius: '50%', background: SEV_COLOR[item.severity], display: 'inline-block', flexShrink: 0 }} />
-            )}
-          </span>
-        </td>
-
-        {/* Sprint */}
-        <td style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-          {sprint ? `S${sprint.number}` : '-'}
-        </td>
-
-        {/* Client */}
-        <td style={{ textAlign: 'center' }}>
-          {client && <span style={{ fontSize: 11, color: 'var(--text)', whiteSpace: 'nowrap' }}>{client.name}</span>}
-        </td>
-
-        {/* Statut */}
-        <td style={{ textAlign: 'center' }}>
-          {status && <span className="badge" style={{ background: status.color + '20', color: status.color }}>{status.label}</span>}
-        </td>
-
-        {/* Description */}
-        <td style={{ maxWidth: 200 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-            <div style={{ minWidth: 0 }}>
-              {item.epicId && (() => {
-                const ep = hierarchyNodes.find(x => x.id === item.epicId)
-                const epColor = ep ? (clients.find(c => c.id === ep.clientId)?.color ?? 'var(--primary)') : 'var(--primary)'
-                return ep ? <span title={ep.desc} style={{ display: 'inline-block', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, background: epColor + '18', color: epColor, marginBottom: 2, whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.key}</span> : null
-              })()}
-              <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontSize: 12, lineHeight: 1.4 }}>
-                {item.desc}
-              </div>
-              {dl?.type !== 'none' && dl?.date && (
-                <span className={`deadline-badge deadline-${dl.type}`} style={{ marginTop: 3, display: 'inline-flex' }}>
-                  {fmtDate(dl.date)}
-                </span>
-              )}
-            </div>
-          </div>
-        </td>
-
-        {/* Tags */}
-        <td style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
-            {item.tags.map(t => <span key={t} className="tag">{t}</span>)}
-          </div>
-        </td>
-
-        {/* Assignés */}
-        <td style={{ textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            {item.assignees.map(id => {
-              const m = team.find(mem => mem.id === id)
-              return m ? <span key={id} className="avatar" title={m.name}>{m.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}</span> : null
-            })}
-          </div>
-        </td>
-
-        {/* SP */}
-        <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: 12 }}>
-          {item.sp}
-        </td>
-
-        {/* Dépendances */}
-        <td style={{ whiteSpace: 'nowrap' }}>
-          {depItems.length === 0 && !depDepth && <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>-</span>}
-          {depItems.slice(0, 2).map(d => (
-            <span key={d.id} style={{ fontFamily: 'monospace', fontSize: 9, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-light)', borderRadius: 4, padding: '1px 5px', marginRight: 3 }}>{d.key}</span>
-          ))}
-          {depItems.length > 2 && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 3 }}>{depItems.length} dép.</span>}
-          {depDepth !== undefined && (
-            <span className="dep-level-badge" style={{ background: DEP_COLOR }}>Niv.{depDepth}</span>
-          )}
-        </td>
-
-        {/* DoR */}
-        <td style={{ textAlign: 'center' }} data-testid="dor-cell">
-          <DorDodBadge stat={dorDodStat(item.dor)} label="DoR" />
-        </td>
-
-        {/* DoD */}
-        <td style={{ textAlign: 'center' }} data-testid="dod-cell">
-          <DorDodBadge stat={dorDodStat(item.dod)} label="DoD" />
-        </td>
-
-        {/* Actions - Modifier : PO/Admin (accès complet) ou Dev (sous-ensemble opérationnel).
-            Supprimer : PO/Admin uniquement (voir utils/permissions.ts). */}
-        <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-          {(canManage || canOperate) && (
-            <button className="btn-icon" onClick={() => onEdit(item)} title="Modifier"><Svg d={SVG_EDIT} /></button>
-          )}
-          {canManage && (
-            <button className="btn-icon danger" onClick={() => onDelete(item.id)} title="Supprimer"><Svg d={SVG_DEL} /></button>
-          )}
-        </td>
+        <BacklogRowCells {...props} />
       </tr>
 
       {/* US + CA expand */}
-      {isExpanded && (hasUS || criteria.length > 0) && (
+      {isExpanded && hasExpandPanel(item) && (
         <tr className="ca-expand-row">
-          <td colSpan={canManage ? 16 : 15} className="ca-expand-cell">
-            <div className="ca-expand-inner">
-              {hasUS && (
-                <div className="ca-us-block">
-                  <div className="ca-label-top">User Story</div>
-                  {item.role && <div className="ca-us-row"><span className="ca-us-prefix">En tant que</span><span>{item.role}</span></div>}
-                  {item.need && <div className="ca-us-row"><span className="ca-us-prefix">je souhaite</span><span>{item.need}</span></div>}
-                  {item.benefit && <div className="ca-us-row"><span className="ca-us-prefix">afin de</span><span>{item.benefit}</span></div>}
-                </div>
-              )}
-              {criteria.length > 0 && (
-                <div className="ca-bdd-block">
-                  <div className="ca-label-top">
-                    {item.type === 'bug' ? 'Critères de résolution' : "Critères d'acceptation"}
-                  </div>
-                  {criteria.map((c, ci) => (
-                    <div key={c.id} className="ca-bdd-row">
-                      <span className="ca-bdd-num">#{ci + 1}</span>
-                      <span className="ca-bdd-field given"><span className="ca-badge given">Étant donné que</span> {c.given}</span>
-                      <span className="ca-bdd-sep">→</span>
-                      <span className="ca-bdd-field when"><span className="ca-badge when">Quand</span> {c.when}</span>
-                      <span className="ca-bdd-sep">→</span>
-                      <span className="ca-bdd-field then"><span className="ca-badge then">Alors</span> {c.then}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </td>
+          <BacklogRowExpandCells item={item} canManage={canManage} />
         </tr>
       )}
     </React.Fragment>
@@ -285,7 +316,7 @@ function BacklogRowImpl({
 }
 
 // Phase 7, perf (2026-08-24) : memo() + props narrowed (voir BacklogRowProps ci-dessus). Les
-// appelants (BacklogPage.tsx) doivent passer des callbacks stables (useCallback) et des valeurs
-// dérivées primitives (pas les Set/Map bruts) pour que ce memo() serve à quelque chose - voir
-// KanbanCard.tsx pour la justification complète.
+// appelants (BacklogPage.tsx, BacklogItemsTable.tsx) doivent passer des callbacks stables
+// (useCallback) et des valeurs dérivées primitives (pas les Set/Map bruts) pour que ce memo()
+// serve à quelque chose - voir KanbanCard.tsx pour la justification complète.
 export const BacklogRow = memo(BacklogRowImpl)
