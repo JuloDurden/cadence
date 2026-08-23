@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Phase 7, PWA (sous-chantier 5/5, 2026-08-23) : icône d'écran d'accueil iOS - pas générée
+         automatiquement par vite-plugin-pwa (contrairement au <link rel="manifest">, lui injecté
+         au build), Safari/iOS ne lit pas l'icône "maskable" du manifeste. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#4f46e5" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cadence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">

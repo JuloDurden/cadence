@@ -3,7 +3,7 @@ import { TableVirtuoso } from 'react-virtuoso'
 import type { Item, Client, TeamMember, Sprint, KanbanCol, HierarchyNode } from '../../types'
 import { BacklogRow, BacklogRowCells, BacklogRowExpandCells, hasExpandPanel } from './BacklogRow'
 
-// Phase 7, perf (2026-08-24) : au-delà de ce nombre d'items visibles dans UNE table (table plate
+// Phase 7, perf (2026-08-23) : au-delà de ce nombre d'items visibles dans UNE table (table plate
 // "Grouper : aucun", ou la mini-table d'une card de groupe Sprint/Client/Type/Statut/Epic), on
 // bascule sur une liste virtualisée (react-virtuoso) plutôt que de rendre tous les <tr> d'un coup.
 // Volontairement bien en dessous du seuil de 500 items déjà mentionné dans docs/roadmap-v1.md
@@ -32,7 +32,7 @@ export function buildFlatRowEntries(items: Item[], expandedIds: Set<string>): Fl
 }
 
 /** En-tête de tableau partagé (15 colonnes, 16 avec la case à cocher) - déplacé depuis
- *  BacklogPage.tsx (Phase 7, perf, 2026-08-24) : seul ce fichier en a désormais besoin, à la fois
+ *  BacklogPage.tsx (Phase 7, perf, 2026-08-23) : seul ce fichier en a désormais besoin, à la fois
  *  pour le `<thead>` classique (BacklogTableHead) et pour `fixedHeaderContent` du chemin
  *  virtualisé (BacklogTableHeadRow seule, sans le `<thead>` - TableVirtuoso fournit le sien). */
 function BacklogTableHeadRow({ selectable, allSelected, onToggleAll }: { selectable: boolean; allSelected: boolean; onToggleAll: () => void }) {
@@ -95,7 +95,7 @@ interface BacklogItemsTableProps {
 /** Table Backlog (table plate "Grouper : aucun" OU mini-table d'une card de groupe) - centralise
  *  le choix entre rendu classique (petites listes, inchangé) et virtualisé (react-virtuoso,
  *  au-delà de VIRTUALIZE_THRESHOLD items) pour ne pas dupliquer cette décision aux 4 points
- *  d'appel de BacklogPage.tsx. Phase 7, perf, 2026-08-24 - voir docs/corrections.md. */
+ *  d'appel de BacklogPage.tsx. Phase 7, perf, 2026-08-23 - voir docs/corrections.md. */
 export function BacklogItemsTable({
   items, clients, team, sprints, kanbanCols, hierarchyNodes, itemsById, depChain,
   selectedIds, expandedIds, canManage, canOperate, allSelected,

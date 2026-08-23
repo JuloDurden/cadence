@@ -983,7 +983,7 @@ describe('isValidCadenceExport (garde import JSON, Phase 7 securite)', () => {
 });
 
 // Reproduction du tri "Sprint" du Backlog (frontend/src/pages/BacklogPage.tsx, `filtered`
-// useMemo) : corrige le 2026-08-24 (retour Julien, testant l'extraction BacklogRow.tsx) - le tri
+// useMemo) : corrige le 2026-08-23 (retour Julien, testant l'extraction BacklogRow.tsx) - le tri
 // comparait auparavant `sprintId` (identifiant opaque, `'s' + uid()` aleatoire) via localeCompare,
 // ce qui ne correspondait a aucun ordre visible (un Sprint 6 pouvait apparaitre avant un Sprint 1).
 function sortItemsBySprintNumber(items, sprints) {
@@ -1027,7 +1027,7 @@ describe('tri Backlog par Sprint (bug tri par sprintId opaque corrige, Phase 7)'
 });
 
 // Reproduction de buildFlatRowEntries (frontend/src/components/backlog/BacklogItemsTable.tsx,
-// Phase 7 perf, 2026-08-24, virtualisation Backlog) : aplatit une liste d'items en entrees
+// Phase 7 perf, 2026-08-23, virtualisation Backlog) : aplatit une liste d'items en entrees
 // "ligne" / "panneau US-CA deplie", necessaire pour que TableVirtuoso (react-virtuoso) associe
 // un seul <tr> a chaque entree - un item deplie ne peut plus etre un Fragment a 2 <tr>.
 function hasExpandPanel(item) {

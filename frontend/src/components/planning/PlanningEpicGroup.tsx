@@ -19,7 +19,7 @@ interface Props {
   epicId: string
   epic: HierarchyNode | undefined
   stories: Item[]
-  // Phase 7, perf (2026-08-24) : voir PlanningCard.tsx pour la justification (state -> tranches).
+  // Phase 7, perf (2026-08-23) : voir PlanningCard.tsx pour la justification (state -> tranches).
   clients: Client[]
   team: TeamMember[]
   kanbanCols: KanbanCol[]
@@ -113,5 +113,5 @@ function PlanningEpicGroupImpl({
   )
 }
 
-// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx/PlanningCard.tsx pour la justification.
+// Phase 7, perf (2026-08-23) : voir KanbanCard.tsx/PlanningCard.tsx pour la justification.
 export const PlanningEpicGroup = memo(PlanningEpicGroupImpl)

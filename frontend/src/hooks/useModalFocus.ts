@@ -16,7 +16,7 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
 
 /**
  * Focus initial + piège Tab (focus trap) + restauration du focus à la fermeture, pour une modale
- * (Phase 7, accessibilité, 2026-08-24 - suite de `useEscapeToClose.ts` : Échap fermait déjà les
+ * (Phase 7, accessibilité, 2026-08-23 - suite de `useEscapeToClose.ts` : Échap fermait déjà les
  * modales, mais rien ne gérait le focus lui-même - Tab pouvait sortir de la modale vers la page en
  * dessous, et fermer une modale ne rendait jamais le focus à l'élément qui l'avait ouverte).
  *

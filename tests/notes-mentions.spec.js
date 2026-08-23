@@ -25,7 +25,7 @@ async function openBugNotes(page, opts) {
 test.describe('Phase 2 — interactions nominatives : attribution des notes', () => {
 
   test('une note écrite par un compte non lié à une fiche Équipe est attribuée à son propre nom (pas "Invité", pas de crash)', async ({ page }) => {
-    // Comportement corrigé le 2026-08-24 (voir docs/corrections.md, "Bug : auteur 'Invité' sur les
+    // Comportement corrigé le 2026-08-23 (voir docs/corrections.md, "Bug : auteur 'Invité' sur les
     // notes de l'ItemModal") : sa PROPRE note affiche désormais le nom du compte connecté
     // (currentUserName), même si ce compte n'est lié à aucune fiche Équipe : "Invité" ne doit
     // apparaître que pour la note d'un AUTRE compte non lié (non couvert ici, voir limite ci-dessus).

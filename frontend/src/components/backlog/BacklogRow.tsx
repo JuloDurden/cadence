@@ -3,7 +3,7 @@ import type { Item, ItemType, BugSeverity, Client, TeamMember, Sprint, KanbanCol
 import { EXTRA_STAGES } from '../../utils/kanbanStages'
 import { fmtDate } from '../../utils/dates'
 
-// Phase 7, perf (2026-08-24) : constantes d'affichage déplacées depuis BacklogPage.tsx lors de
+// Phase 7, perf (2026-08-23) : constantes d'affichage déplacées depuis BacklogPage.tsx lors de
 // l'extraction de la ligne du tableau en composant dédié mémoïsé (voir docs/corrections.md,
 // "Chantier Phase 7 - Performance"). PRIO_LABEL/TYPE_LABEL réexportées car encore utilisées
 // ailleurs sur la page (actions en masse, groupement "Type") ; les autres sont exclusives à la
@@ -24,7 +24,7 @@ export function dorDodStat(items: { done: boolean }[] | undefined): { done: numb
 }
 
 /** Une ligne a un panneau US/CA dépliable si elle porte une User Story ou au moins un critère
- *  d'acceptation. Réexportée (Phase 7, perf, 2026-08-24) : BacklogItemsTable.tsx en a besoin
+ *  d'acceptation. Réexportée (Phase 7, perf, 2026-08-23) : BacklogItemsTable.tsx en a besoin
  *  pour savoir, côté virtualisé, si une entrée "expand" doit exister dans la liste aplatie -
  *  même condition que le bouton de dépli ci-dessous, une seule source de vérité. */
 export function hasExpandPanel(item: Item): boolean {
@@ -68,7 +68,7 @@ const SVG_CHEV_D = '<path d="m6 9 6 6 6-6"/>'
 
 interface BacklogRowCellsProps {
   item: Item
-  // Phase 7, perf (2026-08-24) : tranches d'état stables (clients/team/sprints/kanbanCols/
+  // Phase 7, perf (2026-08-23) : tranches d'état stables (clients/team/sprints/kanbanCols/
   // hierarchyNodes/itemsById) plutôt que `state: CadenceState` entier - même raison que
   // KanbanCard.tsx/PlanningCard.tsx (docs/corrections.md, "Chantier Phase 7 Performance").
   // `itemsById` (Map construite une fois par `useMemo` côté BacklogPage.tsx) remplace l'ancien
@@ -92,7 +92,7 @@ interface BacklogRowCellsProps {
 
 /** Contenu (cellules `<td>`) d'une ligne d'item - sans le `<tr>` englobant, pour pouvoir être
  *  réutilisé aussi bien dans un `<tr>` classique (BacklogRow ci-dessous) que comme `itemContent`
- *  de `TableVirtuoso` (BacklogItemsTable.tsx, Phase 7 perf, 2026-08-24), qui fournit lui-même le
+ *  de `TableVirtuoso` (BacklogItemsTable.tsx, Phase 7 perf, 2026-08-23), qui fournit lui-même le
  *  `<tr>` via son composant `TableRow`. Aucune logique métier dupliquée entre les deux chemins. */
 export function BacklogRowCells({
   item, clients, team, sprints, kanbanCols, hierarchyNodes, itemsById, depDepth,
@@ -315,7 +315,7 @@ function BacklogRowImpl(props: BacklogRowProps) {
   )
 }
 
-// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir BacklogRowProps ci-dessus). Les
+// Phase 7, perf (2026-08-23) : memo() + props narrowed (voir BacklogRowProps ci-dessus). Les
 // appelants (BacklogPage.tsx, BacklogItemsTable.tsx) doivent passer des callbacks stables
 // (useCallback) et des valeurs dérivées primitives (pas les Set/Map bruts) pour que ce memo()
 // serve à quelque chose - voir KanbanCard.tsx pour la justification complète.

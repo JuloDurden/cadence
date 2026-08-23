@@ -71,7 +71,7 @@ const BTN_DANGER_ICON: React.CSSProperties = {
   ...BTN_DANGER, padding: '2px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 
-// Phase 7, perf (2026-08-24) : SprintColumn elle-meme n'est PAS enveloppee dans memo() - contrairement
+// Phase 7, perf (2026-08-23) : SprintColumn elle-meme n'est PAS enveloppee dans memo() - contrairement
 // a KanbanColumn.tsx, elle calcule sa PROPRE en-tete (capacite, faisabilite, alertes deadline...) a
 // partir d'un grand nombre de tranches de `state` (hierarchyNodes, team, absences, sprints, settings),
 // pas juste d'une ou deux. Un memo() ici demanderait de tout narrower en props individuelles pour un

@@ -55,7 +55,7 @@ export function ImageCropModal({ src, shape = 'circle', title = 'Recadrer la pho
     setScale(s => Math.max(0.5, Math.min(6, s + (e.deltaY < 0 ? 0.08 : -0.08))))
   }
   // Équivalent clavier au glisser-déposer/molette souris (recadrage jusque-là non
-  // utilisable au clavier, retour Julien du 2026-08-24 : flèches pour déplacer, +/- pour zoomer.
+  // utilisable au clavier, retour Julien du 2026-08-23 : flèches pour déplacer, +/- pour zoomer.
   const MOVE_STEP = 10
   function onKeyDown(e: React.KeyboardEvent) {
     switch (e.key) {

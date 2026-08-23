@@ -42,7 +42,7 @@ export function SwimlanesView({
   const viewRef = useRef<HTMLDivElement>(null)
   useHierCardTilt(viewRef)
 
-  // Phase 7, perf (2026-08-24) : `dragIds` est une ref (stable par nature) - ces callbacks
+  // Phase 7, perf (2026-08-23) : `dragIds` est une ref (stable par nature) - ces callbacks
   // n'ont donc besoin d'aucune dépendance pour rester stables eux-mêmes, condition nécessaire
   // pour que memo(PlanningCard)/memo(PlanningEpicGroup) serve à quelque chose ici. Remplace les
   // 3 fonctions fléchées inline précédemment recréées à chaque rendu (une par cellule visitée).

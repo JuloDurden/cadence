@@ -21,7 +21,7 @@ const TYPE_CFG: Record<HistoryEventType, { bg: string; color: string; label: str
   item_sprint_change: { bg: '#e0e7ff', color: '#3730a3', label: 'CHANGT SPRINT' },
   // Actions en masse du Backlog (sélection multi-items, voir BacklogPage.tsx) : type ajouté au
   // HistoryEventType sans entrée correspondante ici (trouvé en auditant tsc, Phase 7, sous-chantier
-  // Tests, 2026-08-24) - ne cassait rien (repli existant sur TYPE_CFG.other plus bas dans ce
+  // Tests, 2026-08-23) - ne cassait rien (repli existant sur TYPE_CFG.other plus bas dans ce
   // fichier), mais rendait ces entrées indiscernables d'un evenement générique dans l'Historique.
   item_bulk_change:   { bg: '#ede9fe', color: '#5b21b6', label: 'ACTION EN MASSE' },
   // Changement d'epicId déclenché par un post-it NNL déplacé dans/hors d'un cadre (sous-chantier 6, point 4, 2026-07-30)

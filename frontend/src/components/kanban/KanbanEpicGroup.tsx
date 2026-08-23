@@ -26,7 +26,7 @@ interface Props {
   groupKey: string
   epic: HierarchyNode | undefined
   items: Item[]
-  // Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification (state -> clients/team).
+  // Phase 7, perf (2026-08-23) : voir KanbanCard.tsx pour la justification (state -> clients/team).
   clients: Client[]
   team: TeamMember[]
   colColor: string
@@ -104,5 +104,5 @@ function KanbanEpicGroupImpl({
   )
 }
 
-// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification complète.
+// Phase 7, perf (2026-08-23) : voir KanbanCard.tsx pour la justification complète.
 export const KanbanEpicGroup = memo(KanbanEpicGroupImpl)

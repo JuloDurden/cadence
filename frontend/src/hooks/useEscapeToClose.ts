@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
 
 /**
- * Ferme une modale/panneau au clavier avec Échap (Phase 7, accessibilité, 2026-08-24) - audit du
- * 2026-08-24 : sur 16 `.modal-overlay` du projet, un seul (le dialogue générique de confirmation,
+ * Ferme une modale/panneau au clavier avec Échap (Phase 7, accessibilité, 2026-08-23) - audit du
+ * 2026-08-23 : sur 16 `.modal-overlay` du projet, un seul (le dialogue générique de confirmation,
  * `DialogContext.tsx`) fermait déjà au clavier - toutes les autres modales (édition d'item, de
  * client, de node hiérarchique, publication de changelog, recadrage d'image...) n'étaient
  * fermables qu'en cliquant le fond ou le bouton de fermeture, aucune sortie clavier. Ce hook

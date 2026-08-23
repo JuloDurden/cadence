@@ -135,6 +135,23 @@ body {
    toute la zone barre + panneau devient un seul bloc survolable sans trou. Un délai avant
    disparition (`transition-delay` sur la sortie seulement, pas sur l'entrée) ajoute une marge de
    tolérance en plus. */
+/* Phase 7, PWA (sous-chantier 5/5, 2026-08-23) : bandeau hors connexion (OfflineBanner.tsx), visible
+   sur toutes les pages tant que navigator.onLine reste faux - z-index au-dessus des modales (1000-
+   1100) : le statut de connexion reste pertinent même une fenêtre ouverte. */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2000;
+  background: var(--warning-light);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--warning);
+}
 .presentation-bar-wrap {
   position: fixed;
   bottom: 16px;
@@ -1565,7 +1582,7 @@ tr:hover .ca-toggle { opacity: 1; }
 .ca-expand-inner { padding: 10px 16px 14px 48px; }
 .ca-label-top { font-size: 10px; font-weight: 800; letter-spacing: .06em; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; }
 
-/* ─── User Story (ligne dépliée du Backlog, retour Julien 2026-08-24) : "En tant que"/
+/* ─── User Story (ligne dépliée du Backlog, retour Julien 2026-08-23) : "En tant que"/
    "je souhaite"/"afin de" n'avaient jamais eu de règle CSS dédiée depuis leur introduction -
    collés au contenu qui suit, sans séparation visuelle. Même langage visuel que les badges
    given/when/then juste en dessous (.ca-badge), une 4e couleur pour rester distincte. ─── */

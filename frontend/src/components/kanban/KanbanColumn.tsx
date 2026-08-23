@@ -17,7 +17,7 @@ const SKELETON_CHROME_HEIGHT = 200
 interface Props {
   col: KanbanCol
   items: Item[]
-  // Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification (state -> tranches
+  // Phase 7, perf (2026-08-23) : voir KanbanCard.tsx pour la justification (state -> tranches
   // stables). `hierarchyNodes` reste nécessaire ici pour le regroupement par Epic ci-dessous.
   hierarchyNodes: HierarchyNode[]
   clients: Client[]
@@ -178,5 +178,5 @@ function KanbanColumnImpl({
   )
 }
 
-// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification complète.
+// Phase 7, perf (2026-08-23) : voir KanbanCard.tsx pour la justification complète.
 export const KanbanColumn = memo(KanbanColumnImpl)

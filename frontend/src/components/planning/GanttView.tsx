@@ -57,7 +57,7 @@ interface EpicGroupBlockProps {
   // couleur/traitement propre à l'Epic, contrairement à Release Planning et Kanban - portée en
   // même temps que le reste du chantier) : nécessaire pour retrouver la couleur du client de
   // l'Epic (voir KanbanEpicGroup.tsx/PlanningEpicGroup.tsx, même principe).
-  // Phase 7, perf (2026-08-24) : `clients` (tranche stable) plutôt que `state: CadenceState`
+  // Phase 7, perf (2026-08-23) : `clients` (tranche stable) plutôt que `state: CadenceState`
   // entier, même raison que KanbanCard.tsx/PlanningCard.tsx (docs/corrections.md, "Chantier
   // Phase 7 Performance").
   clients: Client[]
@@ -94,7 +94,7 @@ function EpicGroupBlockImpl({ groupKey, epic, count, sp, clients, children }: Ep
     </div>
   )
 }
-// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir EpicGroupBlockProps). `children`
+// Phase 7, perf (2026-08-23) : memo() + props narrowed (voir EpicGroupBlockProps). `children`
 // (les cartes de ce groupe) doit lui aussi rester référentiellement stable côté appelant pour
 // que ce memo() serve à quelque chose ; le `.map()` produisant `children` recrée de toute façon
 // un nouveau tableau JSX à chaque rendu de GanttView, ce memo évite donc surtout le re-rendu du
@@ -104,7 +104,7 @@ const EpicGroupBlock = memo(EpicGroupBlockImpl)
 // ── Carte item non-attribué ───────────────────────────────────────────────
 interface UItemProps {
   item: Item
-  // Phase 7, perf (2026-08-24) : `clients` plutôt que `state: CadenceState` entier, même raison
+  // Phase 7, perf (2026-08-23) : `clients` plutôt que `state: CadenceState` entier, même raison
   // que ci-dessus.
   clients: Client[]
   dragging: boolean; readOnly?: boolean
@@ -177,7 +177,7 @@ function UnassignedCardImpl({ item, clients, dragging, readOnly = false, standal
     </div>
   )
 }
-// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir UItemProps). Les appelants
+// Phase 7, perf (2026-08-23) : memo() + props narrowed (voir UItemProps). Les appelants
 // (GanttView.tsx) doivent passer des callbacks stables (useCallback) pour que ce memo() serve
 // à quelque chose - voir KanbanCard.tsx pour la justification complète.
 const UnassignedCard = memo(UnassignedCardImpl)
@@ -190,7 +190,7 @@ interface MemberItemRowProps {
   // `false`. `clients` nécessaire pour retrouver la couleur du client (absente jusqu'ici sur les
   // cartes membre, autre incohérence comblée en même temps que ce chantier).
   standalone?: boolean
-  // Phase 7, perf (2026-08-24) : `clients` plutôt que `state: CadenceState` entier, même raison
+  // Phase 7, perf (2026-08-23) : `clients` plutôt que `state: CadenceState` entier, même raison
   // que UnassignedCard ci-dessus.
   clients: Client[]
   onDragStart: (id: string) => void; onDragEnd: () => void; onEdit: (i: Item) => void
@@ -270,7 +270,7 @@ function MemberItemRowImpl({ item, mySP, over, co = false, dragging, readOnly = 
     </div>
   )
 }
-// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir MemberItemRowProps), même principe
+// Phase 7, perf (2026-08-23) : memo() + props narrowed (voir MemberItemRowProps), même principe
 // que UnassignedCard ci-dessus.
 const MemberItemRow = memo(MemberItemRowImpl)
 
@@ -278,7 +278,7 @@ const MemberItemRow = memo(MemberItemRowImpl)
 export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = false }: Props) {
   const [dragId,  setDragId]  = useState<string | null>(null)
   const [dropCol, setDropCol] = useState<string | null>(null)
-  // Phase 7, perf (2026-08-24) : callbacks stables pour que memo() sur UnassignedCard/
+  // Phase 7, perf (2026-08-23) : callbacks stables pour que memo() sur UnassignedCard/
   // MemberItemRow serve à quelque chose - remplace les fermetures inline `() => setDragId(item.id)`
   // recréées à chaque rendu (une par item visité), même principe que SwimlanesView.tsx.
   const handleDragStart = useCallback((id: string) => setDragId(id), [])

@@ -29,6 +29,7 @@ import { ChatProvider } from './context/ChatContext'
 import { ChatPanel } from './components/chat/ChatPanel'
 import { PresentationModeProvider, usePresentationMode } from './context/PresentationModeContext'
 import { PresentationBar } from './components/presentation/PresentationBar'
+import { OfflineBanner } from './components/layout/OfflineBanner'
 import { PresentationPublicPage } from './pages/PresentationPublicPage'
 import { useAuth } from './hooks/useAuth'
 import { useGlobalUndoRedoShortcut } from './hooks/useGlobalUndoRedoShortcut'
@@ -84,17 +85,21 @@ function AppShell() {
 
   if (!stateLoaded) {
     return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: '100vh', color: 'var(--text-muted)', fontSize: 13,
-      }}>
-        Chargement…
-      </div>
+      <>
+        <OfflineBanner />
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          height: '100vh', color: 'var(--text-muted)', fontSize: 13,
+        }}>
+          Chargement…
+        </div>
+      </>
     )
   }
 
   return (
     <div className={`app-shell${presentationActive ? ' presentation-active' : ''}`}>
+      <OfflineBanner />
       {!presentationActive && <Sidebar />}
       <div className="main-area">
         <Routes>

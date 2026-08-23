@@ -420,7 +420,7 @@ export function SprintPlanningPage() {
     setShowAutoModal(false)
   }
 
-  // Phase 7, perf (2026-08-24) : callback stable pour que memo() sur UnassignedCard/MemberItemRow
+  // Phase 7, perf (2026-08-23) : callback stable pour que memo() sur UnassignedCard/MemberItemRow
   // (GanttView.tsx) serve à quelque chose - une fonction fléchée inline recréée à chaque rendu
   // de cette page (ex. dispatch d'un item sans rapport) invaliderait le memo sur toutes les cartes.
   const handleEditItem = useCallback((item: Item) => setModalItem(item), [])

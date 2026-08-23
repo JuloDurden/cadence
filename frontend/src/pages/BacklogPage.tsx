@@ -6,7 +6,7 @@ import { ItemModal } from '../components/backlog/ItemModal'
 import { EXTRA_STAGES, statusOptionsForItemModal } from '../utils/kanbanStages'
 import { HierarchyNodeModal } from '../components/backlog/HierarchyNodeModal'
 import { BacklogGroupCard } from '../components/backlog/BacklogGroupCard'
-// Phase 7, perf (2026-08-24) : PRIO_LABEL/TYPE_LABEL/dorDodStat réexportés depuis BacklogRow.tsx,
+// Phase 7, perf (2026-08-23) : PRIO_LABEL/TYPE_LABEL/dorDodStat réexportés depuis BacklogRow.tsx,
 // seule source désormais (plus de doublon ici) - voir docs/corrections.md, "Chantier Phase 7 -
 // Performance". BacklogItemsTable (table plate ou mini-table de groupe, avec bascule automatique
 // vers une liste virtualisée au-delà de VIRTUALIZE_THRESHOLD items) remplace le rendu direct de
@@ -55,7 +55,7 @@ class ModalErrorBoundary extends React.Component<
 /* ─── Constants ─────────────────────────────────────────────────── */
 
 // PRIO_LABEL/TYPE_LABEL désormais importés depuis components/backlog/BacklogRow.tsx (Phase 7,
-// perf, 2026-08-24) - seule source, plus de doublon ici. PRIO_ORDER reste local : uniquement
+// perf, 2026-08-23) - seule source, plus de doublon ici. PRIO_ORDER reste local : uniquement
 // utilisé par le tri de cette page, jamais par la ligne du tableau elle-même.
 const PRIO_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
 
@@ -221,11 +221,11 @@ function FilterRow({ label, value, onChange, options, testId }: {
 }
 
 // dorDodStat/DorDodBadge déplacés vers components/backlog/BacklogRow.tsx (Phase 7, perf,
-// 2026-08-24) - dorDodStat réimporté ci-dessus car encore utilisé par le filtre "DoR/DoD prêt"
+// 2026-08-23) - dorDodStat réimporté ci-dessus car encore utilisé par le filtre "DoR/DoD prêt"
 // ci-dessous ; DorDodBadge est désormais privé à BacklogRow.tsx (plus utilisé qu'à cet endroit).
 
 // BacklogTableHead déplacé vers components/backlog/BacklogItemsTable.tsx (Phase 7, perf,
-// 2026-08-24, virtualisation) - seul ce fichier en a désormais besoin (BacklogPage.tsx ne rend
+// 2026-08-23, virtualisation) - seul ce fichier en a désormais besoin (BacklogPage.tsx ne rend
 // plus de <table> directement, voir renderItemsTable() plus bas).
 
 /* ─── Component ─────────────────────────────────────────────────── */
@@ -274,7 +274,7 @@ export function BacklogPage() {
   const [bulkField, setBulkField] = useState<BulkField>('client')
   const [bulkValue, setBulkValue] = useState('')
 
-  // Phase 7, perf (2026-08-24) : ref synchronisée sur `state`, lue par handleDelete (useCallback)
+  // Phase 7, perf (2026-08-23) : ref synchronisée sur `state`, lue par handleDelete (useCallback)
   // à la place d'une fermeture directe sur `state` - même principe déjà établi ailleurs
   // (KanbanPage.tsx, handleRemoveFromSprint ; voir docs/corrections.md).
   const stateRef = useRef(state)
@@ -410,7 +410,7 @@ export function BacklogPage() {
     // Sous-chantier 4 (2026-07-29) : Initiative effective d'un item — directe si `epicId`
     // pointe dessus, transitive via l'Epic parent sinon (utils/hierarchyScore.ts).
     if (filterInitiative) items = items.filter(i => getItemInitiativeId(i, state.hierarchyNodes) === filterInitiative)
-    // Tri "Sprint" (retour Julien, 2026-08-24) : comparait `sprintId` (identifiant opaque,
+    // Tri "Sprint" (retour Julien, 2026-08-23) : comparait `sprintId` (identifiant opaque,
     // `'s' + uid()` aléatoire, StateContext.tsx) via localeCompare - ne correspondait donc à
     // aucun ordre visible (un Sprint 6 pouvait apparaître avant un Sprint 1 selon la valeur de
     // l'id généré à sa création). Comparaison désormais faite sur le numéro réel du sprint
@@ -535,7 +535,7 @@ export function BacklogPage() {
     // ci-dessus, son `history` ne contient donc pas encore cette entrée sans ce helper.
     saveToServer(withHistoryEntry({ ...state, items: base, ...(keyCounters ? { itemKeyCounters: keyCounters } : {}) }, historyEntry))
   }
-  // Phase 7, perf (2026-08-24) : useCallback + stateRef.current plutôt que `state` fermé
+  // Phase 7, perf (2026-08-23) : useCallback + stateRef.current plutôt que `state` fermé
   // directement - même principe déjà établi ailleurs (KanbanPage.tsx, handleRemoveFromSprint) -
   // pour que ce callback reste stable côté BacklogRow.tsx (memo()) tout en lisant un état
   // toujours à jour, y compris après l'attente asynchrone de la confirmation.
@@ -635,7 +635,7 @@ export function BacklogPage() {
     const remainingItems = childItems.length > 0 ? detachEpicChildren(state.items, id) : state.items
     saveToServer(withHistoryEntry({ ...state, items: remainingItems, hierarchyNodes: remainingNodes }, historyEntry))
   }
-  // toggleExpand/toggleSelect déplacés plus haut (Phase 7, perf, 2026-08-24) : désormais en
+  // toggleExpand/toggleSelect déplacés plus haut (Phase 7, perf, 2026-08-23) : désormais en
   // useCallback, pour rester stables côté BacklogRow.tsx (voir docs/corrections.md).
   const allFilteredSelected = filtered.length > 0 && filtered.every(i => selectedIds.has(i.id))
   function toggleSelectAllFiltered() {
@@ -720,7 +720,7 @@ export function BacklogPage() {
   /* ── lookups ── */
   function getStatus(id: string) { return state.kanbanCols.find(c => c.id === id) ?? EXTRA_STAGES.find(s => s.id === id) }
 
-  // Phase 7, perf (2026-08-24) : Map construite une seule fois par changement de state.items,
+  // Phase 7, perf (2026-08-23) : Map construite une seule fois par changement de state.items,
   // remplace l'ancien getDepItems() qui parcourait state.items en entier à CHAQUE ligne du
   // tableau à chaque rendu de la page. Passée telle quelle à BacklogRow (tranche stable, même
   // raison que clients/team/... ci-dessous).
@@ -747,7 +747,7 @@ export function BacklogPage() {
 
   /** Ligne d'un item (+ sa ligne d'expand US/CA) — extrait (sous-chantier 4, 2026-07-29) car
    *  désormais utilisé à la fois par la table plate (mode "Grouper : aucun") et par la
-   *  mini-table de chaque card de groupe, plutôt que dupliqué. Phase 7, perf (2026-08-24) :
+   *  mini-table de chaque card de groupe, plutôt que dupliqué. Phase 7, perf (2026-08-23) :
    *  la ligne elle-même est désormais BacklogRow.tsx (composant mémoïsé, props narrowed) - ce
    *  wrapper ne fait plus que dériver les valeurs primitives (selected/isExpanded/depDepth) et
    *  passer les tranches d'état + callbacks stables. Voir docs/corrections.md, "Chantier Phase 7
@@ -756,7 +756,7 @@ export function BacklogPage() {
    *  BacklogItemsTable.tsx qui fournit les tranches d'état + callbacks communs aux 4 points
    *  d'appel de cette page, plutôt que de les répéter à chacun. `testId` : seule la table plate
    *  (mode "Grouper : aucun") le porte (voir tests/backlog.spec.js, `[data-testid="backlog-table"]`
-   *  attendu en nombre 1 sur la page quel que soit le mode). Phase 7, perf (2026-08-24). */
+   *  attendu en nombre 1 sur la page quel que soit le mode). Phase 7, perf (2026-08-23). */
   function renderItemsTable(items: Item[], testId?: string) {
     return (
       <BacklogItemsTable

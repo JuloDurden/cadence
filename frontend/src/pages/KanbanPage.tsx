@@ -100,7 +100,7 @@ export function KanbanPage() {
   const dragGroupIds = useRef<string[] | null>(null)
   const addColBtnRef = useRef<HTMLButtonElement>(null)
 
-  // Phase 7, perf (2026-08-24) : ref toujours à jour sur `state`, même principe déjà établi sur
+  // Phase 7, perf (2026-08-23) : ref toujours à jour sur `state`, même principe déjà établi sur
   // DailyPage.tsx (handleChange/stateRef). Permet à `handleRemoveFromSprint` ci-dessous de rester
   // une identité STABLE (useCallback, deps vides) tout en lisant l'état réellement à jour au
   // moment de l'appel - nécessaire pour que le memo() de KanbanCard.tsx serve à quelque chose
@@ -229,11 +229,11 @@ export function KanbanPage() {
   }
 
   // ── Drag handlers ────────────────────────────────────────────────────
-  // Phase 7, perf (2026-08-24) : useCallback (deps vides, `setDragOverColId` est stable par
+  // Phase 7, perf (2026-08-23) : useCallback (deps vides, `setDragOverColId` est stable par
   // garantie React) - passé tel quel à chaque KanbanColumn, désormais memo() lui aussi.
   const handleDragOver = useCallback((colId: string) => { setDragOverColId(colId) }, [])
 
-  // Phase 7, perf (2026-08-24) : useCallback + `dragItemId`/`dragColId`/`dragGroupIds` (refs
+  // Phase 7, perf (2026-08-23) : useCallback + `dragItemId`/`dragColId`/`dragGroupIds` (refs
   // stables) - ces 3 handlers ne touchent jamais `state`, aucune raison qu'ils changent
   // d'identité d'un rendu à l'autre.
   const handleCardDragStart  = useCallback((id: string) => { dragItemId.current = id; dragColId.current = null; dragGroupIds.current = null }, [])
@@ -405,7 +405,7 @@ export function KanbanPage() {
     setModalItem(undefined)
   }
 
-  // Phase 7, perf (2026-08-24) : useCallback + `stateRef.current` (déclaré plus haut) plutôt que
+  // Phase 7, perf (2026-08-23) : useCallback + `stateRef.current` (déclaré plus haut) plutôt que
   // de fermer directement sur `state` - identité stable requise pour que le memo() de
   // KanbanCard.tsx (bouton "Retirer du sprint") serve à quelque chose. `readOnly`/`userName`
   // changent trop rarement pour justifier le même traitement, inclus tels quels en dépendances.

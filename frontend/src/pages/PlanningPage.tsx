@@ -79,7 +79,7 @@ export function PlanningPage() {
   const dragIds        = useRef<string[]>([])
   const gridContainerRef = useRef<HTMLDivElement | null>(null)
 
-  // Phase 7, perf (2026-08-24) : callbacks stables (deps vides, `dragIds` est une ref) pour que
+  // Phase 7, perf (2026-08-23) : callbacks stables (deps vides, `dragIds` est une ref) pour que
   // memo(PlanningCard)/memo(PlanningEpicGroup) serve à quelque chose - voir KanbanPage.tsx pour
   // la même correction sur le Kanban. Remplacent les fonctions fléchées inline précédemment
   // passées à SwimlanesView/SprintColumn/PlanningEpicGroup/PlanningCard.

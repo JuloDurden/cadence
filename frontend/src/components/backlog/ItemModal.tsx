@@ -246,7 +246,7 @@ interface Props {
   // Nom du compte connecté (voir getAuthorName plus bas) - permet d'afficher le vrai nom sur SES
   // PROPRES notes/réponses même quand le compte n'est relié à aucune fiche Équipe (ex. Admin, qui
   // n'a pas vocation à être un TeamMember), au lieu du repli générique "Invité" (bug remonté par
-  // Julien, 2026-08-24 : une note ajoutée avec le compte Admin affichait "Invité").
+  // Julien, 2026-08-23 : une note ajoutée avec le compte Admin affichait "Invité").
   currentUserName?: string
 }
 
@@ -455,7 +455,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
   // pas d'un TeamMember). Résolution donc via `linkedUserId`, pas `TeamMember.id` — cohérent avec
   // canEditTeamMember/canEditDailyCard (sous-chantiers 3-4). Toujours "Invité" si le compte n'est
   // relié à aucune fiche Équipe (ex. compte seedé avant l'auto-liaison du sous-chantier 4).
-  // Correctif 2026-08-24 (retour Julien) : ce repli "Invité" touchait aussi le compte EN TRAIN de
+  // Correctif 2026-08-23 (retour Julien) : ce repli "Invité" touchait aussi le compte EN TRAIN de
   // rédiger sa propre note quand il n'est relié à aucune fiche Équipe - cas très courant pour Admin,
   // qui n'a pas vocation à être un membre d'équipe. Comme on connaît déjà son vrai nom
   // (`currentUserName`, prop transmise par chaque page), on le préfère à la recherche `state.team`

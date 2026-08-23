@@ -12,7 +12,7 @@ function fmtDeadline(iso: string) {
 
 interface Props {
   item: Item
-  // Phase 7, perf (2026-08-24) : `clients`/`team`/`kanbanCols` plutôt que `state: CadenceState`
+  // Phase 7, perf (2026-08-23) : `clients`/`team`/`kanbanCols` plutôt que `state: CadenceState`
   // entier - même raison que KanbanCard.tsx (voir docs/corrections.md, "Chantier Phase 7
   // Performance") : ces 3 tranches gardent leur référence tant qu'elles ne changent pas
   // elles-mêmes (reducer par spread), contrairement à `state` qui change à chaque dispatch.
@@ -107,7 +107,7 @@ function PlanningCardImpl({ item, clients, team, kanbanCols, highlightClient, hi
   )
 }
 
-// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification complète. Les appelants
+// Phase 7, perf (2026-08-23) : voir KanbanCard.tsx pour la justification complète. Les appelants
 // (PlanningEpicGroup.tsx, SprintColumn.tsx, SwimlanesView.tsx) doivent passer des callbacks
 // stables (useCallback) pour que ce memo() serve à quelque chose.
 export const PlanningCard = memo(PlanningCardImpl)

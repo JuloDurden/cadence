@@ -21,7 +21,7 @@ const ICO = {
 
 interface Props {
   item: Item
-  // Phase 7, perf (2026-08-24) : `clients`/`team` plutôt que `state: CadenceState` entier - un
+  // Phase 7, perf (2026-08-23) : `clients`/`team` plutôt que `state: CadenceState` entier - un
   // memo() sur ce composant (voir export en bas de fichier) ne sert à rien si la prop reçue est
   // l'objet d'état global, remplacé par une nouvelle référence à chaque dispatch même quand rien
   // ne concerne cette carte. `clients`/`team` sont des tranches de l'état qui gardent la MÊME
@@ -114,7 +114,7 @@ function KanbanCardImpl({ item, clients, team, cardDraggable, onEdit, onRemoveFr
   )
 }
 
-// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir Props ci-dessus) - un board avec
+// Phase 7, perf (2026-08-23) : memo() + props narrowed (voir Props ci-dessus) - un board avec
 // plusieurs colonnes x dizaines de cartes ne re-rend plus TOUTES les cartes à chaque
 // dispatch/déplacement, seulement celle réellement concernée. `onEdit`/`onRemoveFromSprint`/
 // `onDragStart` doivent rester des callbacks stables (useCallback) côté appelant (KanbanPage.tsx)
