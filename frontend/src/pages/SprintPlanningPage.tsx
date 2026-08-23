@@ -3,6 +3,8 @@ import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { GanttView } from '../components/planning/GanttView'
 import { ItemModal } from '../components/backlog/ItemModal'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
+import { useModalFocus } from '../hooks/useModalFocus'
 import type { Item, TeamMember, Sprint, CadenceState, HistoryEntry } from '../types'
 import { computeMemberCapacity, isMemberFullyAbsent, isMemberPartiallyAbsent } from '../utils/sprintCapacity'
 import { getCurrentSprint } from '../utils/sprints'
@@ -142,6 +144,8 @@ function AutoAssignModal({
   remainingCap, availableDevs, preview,
   maxCoAssign, onChangeMax, onApply, onClose,
 }: AutoModalProps) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const assignedCount = preview.length
   const leftover      = unassignedCount - assignedCount
   const spAssigned    = preview.reduce((s, r) => s + r.itemSP, 0)
@@ -149,7 +153,7 @@ function AutoAssignModal({
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ maxWidth: 520 }}>
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ maxWidth: 520 }}>
 
         {/* Header */}
         <div className="modal-header">
@@ -157,7 +161,7 @@ function AutoAssignModal({
             <Svg d={ICO_WAND} size={16} stroke="var(--primary)" />
             <span className="modal-title">Auto-attribution</span>
           </div>
-          <button className="modal-close" onClick={onClose}><Svg d={ICO_CLOSE} size={13} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Fermer"><Svg d={ICO_CLOSE} size={13} /></button>
         </div>
 
         {/* Body */}
@@ -554,6 +558,7 @@ export function SprintPlanningPage() {
           onSave={handleSave}
           onClose={() => setModalItem(undefined)}
           currentUserId={userId}
+          currentUserName={userName}
           canManage={!readOnly}
           canOperate={!readOnly}
         />

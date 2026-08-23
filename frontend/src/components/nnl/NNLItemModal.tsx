@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useCadence } from '../../context/StateContext'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 import type { NNLItem, NNLItemType, NNLZone, Note, NoteAttachment } from '../../types'
 
 // ── Icônes SVG ───────────────────────────────────────────────────────────────
@@ -63,6 +65,8 @@ export function NNLItemModal({
   open, item, defaultZone = 'now', defaultType = 'feature',
   onSave, onDelete, onClose, onCreateLinkedItem, readOnly = false,
 }: NNLItemModalProps) {
+  useEscapeToClose(onClose, open)
+  const modalRef = useModalFocus<HTMLDivElement>(open)
   const { state } = useCadence()
 
   // ── View mode (persisté comme ItemModal) ────────────────────────────────────
@@ -207,7 +211,7 @@ export function NNLItemModal({
           </span>
           {!readOnly && (
             <button className="btn-icon danger" style={{ padding: 2 }}
-              onClick={() => setNotes(n => n.filter(x => x.id !== note.id))}>
+              onClick={() => setNotes(n => n.filter(x => x.id !== note.id))} aria-label="Supprimer la note">
               <Svg d={ICO_TRASH} size={11} />
             </button>
           )}
@@ -330,7 +334,7 @@ export function NNLItemModal({
               <img src={image} alt="aperçu" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 8, border: '1px solid var(--border)', display: 'block' }} />
               {!readOnly && (
                 <button className="btn-icon danger" style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,.5)', color: '#fff', borderRadius: 4 }}
-                  onClick={() => setImage(undefined)}><Svg d={ICO_CLOSE} size={12} /></button>
+                  onClick={() => setImage(undefined)} aria-label="Retirer l'image"><Svg d={ICO_CLOSE} size={12} /></button>
               )}
             </div>
           ) : !readOnly ? (
@@ -422,7 +426,7 @@ export function NNLItemModal({
             <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: 'var(--primary)' }}>{linkedItem.key}</span>
             <span style={{ flex: 1, fontSize: 12 }}>{linkedItem.desc}</span>
             {!readOnly && (
-              <button className="btn-icon danger" onClick={() => setLinkedId(undefined)}>
+              <button className="btn-icon danger" onClick={() => setLinkedId(undefined)} aria-label="Dissocier l'item lié">
                 <Svg d={ICO_CLOSE} size={12} />
               </button>
             )}
@@ -487,14 +491,14 @@ export function NNLItemModal({
         </span>
         {/* View switcher */}
         <div style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
-          {([['modal', ICO_VIEW_MODAL], ['side', ICO_VIEW_SIDE], ['fullpage', ICO_VIEW_FULLPAGE]] as [ModalView, string][]).map(([v, ico]) => (
+          {([['modal', ICO_VIEW_MODAL, 'Fenêtre centrée'], ['side', ICO_VIEW_SIDE, 'Volet latéral'], ['fullpage', ICO_VIEW_FULLPAGE, 'Pleine page']] as [ModalView, string, string][]).map(([v, ico, label]) => (
             <button key={v} className={`btn-icon${view === v ? ' active' : ''}`}
-              onClick={() => switchView(v)} style={{ opacity: view === v ? 1 : 0.5 }}>
+              onClick={() => switchView(v)} style={{ opacity: view === v ? 1 : 0.5 }} title={label} aria-label={label}>
               <Svg d={ico} size={14} />
             </button>
           ))}
         </div>
-        <button className="modal-close btn-icon" onClick={onClose}><Svg d={ICO_CLOSE} size={16} /></button>
+        <button className="modal-close btn-icon" onClick={onClose} aria-label="Fermer"><Svg d={ICO_CLOSE} size={16} /></button>
       </div>
 
       {/* Tabs */}
@@ -539,7 +543,7 @@ export function NNLItemModal({
 
   if (view === 'side') return (
     <div className="modal-side-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-side" style={{ width: sideWidth }} onClick={e => e.stopPropagation()}>
+      <div className="modal-side" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: sideWidth }} onClick={e => e.stopPropagation()}>
         <div className="modal-side-handle" onMouseDown={onResizeStart} />
         {inner}
       </div>
@@ -547,7 +551,7 @@ export function NNLItemModal({
   )
 
   if (view === 'fullpage') return (
-    <div className="modal-fullpage">
+    <div className="modal-fullpage" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1}>
       <div className="modal-fullpage-inner" style={{ maxWidth: 900 }}>
         {inner}
       </div>
@@ -556,7 +560,7 @@ export function NNLItemModal({
 
   return (
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ width: 620, maxWidth: '95vw' }}>
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: 620, maxWidth: '95vw' }}>
         {inner}
       </div>
     </div>

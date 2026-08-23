@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { CadenceState, HierarchyNode, HierarchyLevel, Deadline } from '../../types'
 import { statusOptionsForItemModal } from '../../utils/kanbanStages'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 function uid() { return Math.random().toString(36).slice(2, 10) }
 
@@ -24,6 +26,8 @@ const NEW_LABEL: Record<HierarchyLevel, string> = { epic: 'Nouvel Epic', initiat
  * plutôt que de laisser Epic sans UI de création/édition pendant la transition.
  */
 export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Props) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const [desc,     setDesc]     = useState(node?.desc ?? '')
   const [clientId, setClientId] = useState(node?.clientId ?? '')
   const [sprintId, setSprintId] = useState(node?.sprintId ?? '')
@@ -76,7 +80,7 @@ export function HierarchyNodeModal({ node, level, state, onSave, onClose }: Prop
 
   return (
     <div className="modal-overlay" data-testid="hierarchy-node-modal" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1}>
         <div className="modal-header">
           <h2 style={{ fontSize: 16, fontWeight: 700 }}>
             {node ? `Modifier ${node.key}` : NEW_LABEL[level]}

@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { ClientModal } from '../components/clients/ClientModal'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
+import { useModalFocus } from '../hooks/useModalFocus'
 import { fmtDateShort } from '../utils/dates'
 import { isItemDone } from '../utils/status'
 import { findClientItems, detachClientReferences, removeClientFromGroups } from '../utils/cascadeDelete'
@@ -164,6 +166,8 @@ function GroupModal({ group, clients, onSave, onClose }: {
   group: ClientGroup | null; clients: Client[]
   onSave: (g: ClientGroup) => void; onClose: () => void
 }) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const [name, setName] = useState(group?.name ?? '')
   const [color, setColor] = useState(group?.color ?? '#6366f1')
   const [selectedIds, setSelectedIds] = useState<string[]>(group?.clientIds ?? [])
@@ -179,10 +183,10 @@ function GroupModal({ group, clients, onSave, onClose }: {
   return (
     <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) onClose() }}
       data-testid="group-modal">
-      <div className="modal" style={{ maxWidth: 420 }}>
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ maxWidth: 420 }}>
         <div className="modal-header">
           <span className="modal-title">{group ? 'Modifier le groupe' : 'Nouveau groupe'}</span>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="form-group">

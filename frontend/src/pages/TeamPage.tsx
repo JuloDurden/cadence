@@ -8,6 +8,8 @@ import { isItemDone } from '../utils/status'
 import { findMemberAssignedItems, detachMemberReferences } from '../utils/cascadeDelete'
 import { useDialog } from '../context/DialogContext'
 import { useAuth } from '../hooks/useAuth'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
+import { useModalFocus } from '../hooks/useModalFocus'
 import { api } from '../services/api'
 // Extrait dans un composant partagé (2026-08-19), voir ImageCropModal.tsx, réutilisé par le
 // logo d'équipe (AppearanceSection.tsx).
@@ -60,6 +62,8 @@ function sprintImpact(absence: Absence, sprints: Sprint[], spPerDay: number) {
 interface MemberModalProps { member: TeamMember | null; onSave: (m: TeamMember) => void; onClose: () => void }
 
 function MemberModal({ member, onSave, onClose }: MemberModalProps) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const { state } = useCadence()
   const { userRole, userId } = useAuth()
   const isAdmin = userRole === 'ADMIN'
@@ -126,10 +130,10 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
   return (
     <>
       <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-        <div className="modal" style={{ width: 500 }}>
+        <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: 500 }}>
           <div className="modal-header">
             <h2 className="modal-title">{member ? 'Modifier le membre' : 'Nouveau membre'}</h2>
-            <button className="modal-close" onClick={onClose}>✕</button>
+            <button className="modal-close" onClick={onClose} aria-label="Fermer">✕</button>
           </div>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
@@ -263,7 +267,9 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
                   onBlur={() => setTimeout(() => setShowTagSug(false), 150)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') { e.preventDefault(); addTag() }
-                    if (e.key === 'Escape') { setTagInput(''); setShowTagSug(false) }
+                    // stopPropagation : ne doit fermer que les suggestions, pas toute la modale
+                    // (voir useEscapeToClose.ts, écoute globale ajoutée sur .modal-overlay).
+                    if (e.key === 'Escape') { e.stopPropagation(); setTagInput(''); setShowTagSug(false) }
                   }} />
                 {showTagSug && tagSuggestions.length > 0 && (
                   <div style={{
@@ -322,6 +328,8 @@ function MemberModal({ member, onSave, onClose }: MemberModalProps) {
 interface AbsenceModalProps { absence: Absence | null; onSave: (a: Absence) => void; onClose: () => void }
 
 function AbsenceModal({ absence, onSave, onClose }: AbsenceModalProps) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const { state } = useCadence()
   const today = new Date().toISOString().split('T')[0]
 
@@ -339,10 +347,10 @@ function AbsenceModal({ absence, onSave, onClose }: AbsenceModalProps) {
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal" style={{ width: 520 }}>
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: 520 }}>
         <div className="modal-header">
           <h2 className="modal-title">{absence ? "Modifier l'absence" : '🏖 Ajouter une absence'}</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 

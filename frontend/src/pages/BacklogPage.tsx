@@ -1143,7 +1143,7 @@ export function BacklogPage() {
       {modalItem !== undefined && (
         <ModalErrorBoundary key={modalItem?.id ?? 'new'} onClose={() => setModalItem(undefined)}>
           <ItemModal item={modalItem} state={state} onSave={handleSave} onClose={() => setModalItem(undefined)}
-            canManage={canManage} canOperate={canOperate} currentUserId={userId} currentUserRole={userRole} />
+            canManage={canManage} canOperate={canOperate} currentUserId={userId} currentUserRole={userRole} currentUserName={userName} />
         </ModalErrorBoundary>
       )}
 

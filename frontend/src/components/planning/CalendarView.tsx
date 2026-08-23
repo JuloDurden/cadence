@@ -40,9 +40,9 @@ export function CalendarView({ state }: Props) {
     <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
       {/* Navigation */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
-        <button className="btn-icon" onClick={prevMonth}>◀</button>
+        <button className="btn-icon" onClick={prevMonth} aria-label="Mois précédent">◀</button>
         <span style={{ fontWeight: 700, fontSize: 15 }}>{MONTHS[month]} {year}</span>
-        <button className="btn-icon" onClick={nextMonth}>▶</button>
+        <button className="btn-icon" onClick={nextMonth} aria-label="Mois suivant">▶</button>
       </div>
       {/* Jours de la semaine */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>

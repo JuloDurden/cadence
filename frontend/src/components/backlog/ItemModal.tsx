@@ -6,6 +6,8 @@ import { statusOptionsForItemModal } from '../../utils/kanbanStages'
 import type { UserRole } from '../../types'
 import { canToggleBacklogAssignee } from '../../utils/permissions'
 import { api } from '../../services/api'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 /* ─── Constants ──────────────────────────────────────────────────── */
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
@@ -241,10 +243,17 @@ interface Props {
   canOperate?: boolean
   currentUserId?: string
   currentUserRole?: UserRole | ''
+  // Nom du compte connecté (voir getAuthorName plus bas) - permet d'afficher le vrai nom sur SES
+  // PROPRES notes/réponses même quand le compte n'est relié à aucune fiche Équipe (ex. Admin, qui
+  // n'a pas vocation à être un TeamMember), au lieu du repli générique "Invité" (bug remonté par
+  // Julien, 2026-08-24 : une note ajoutée avec le compte Admin affichait "Invité").
+  currentUserName?: string
 }
 
 /* ─── Component ─────────────────────────────────────────────────── */
-export function ItemModal({ item, state, onSave, onClose, canManage = true, canOperate = true, currentUserId, currentUserRole }: Props) {
+export function ItemModal({ item, state, onSave, onClose, canManage = true, canOperate = true, currentUserId, currentUserRole, currentUserName }: Props) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const { dispatch } = useCadence()
   const isNew = !item
   const defaultStatus = state.kanbanCols.find(c => c.isDefault)?.id ?? state.kanbanCols[0]?.id ?? 'todo'
@@ -446,8 +455,16 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
   // pas d'un TeamMember). Résolution donc via `linkedUserId`, pas `TeamMember.id` — cohérent avec
   // canEditTeamMember/canEditDailyCard (sous-chantiers 3-4). Toujours "Invité" si le compte n'est
   // relié à aucune fiche Équipe (ex. compte seedé avant l'auto-liaison du sous-chantier 4).
+  // Correctif 2026-08-24 (retour Julien) : ce repli "Invité" touchait aussi le compte EN TRAIN de
+  // rédiger sa propre note quand il n'est relié à aucune fiche Équipe - cas très courant pour Admin,
+  // qui n'a pas vocation à être un membre d'équipe. Comme on connaît déjà son vrai nom
+  // (`currentUserName`, prop transmise par chaque page), on le préfère à la recherche `state.team`
+  // avant de retomber sur "Invité" - ne résout PAS le cas plus large d'une note lue en tant que
+  // spectateur d'un AUTRE compte non lié (donnée non disponible côté frontend hors Admin, `/api/users`
+  // étant réservé - voir docs/corrections futures.md).
   function getAuthorName(authorId?: string) {
     if (!authorId) return 'Invité'
+    if (authorId === currentUserId && currentUserName) return currentUserName
     return state.team.find(m => m.linkedUserId === authorId)?.name ?? 'Invité'
   }
   function getAuthorInitials(authorId?: string) {
@@ -500,18 +517,33 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
     setNotes(n => n.map(note => note.id !== noteId ? note : { ...note, replies: note.replies.filter(r => r.id !== replyId) }))
   }
 
+  function openImagePreview(url: string, name: string) {
+    // Les pièces jointes image sont stockées en data URL. Chrome bloque la navigation
+    // directe d'un nouvel onglet vers une data URL via window.open(url, '_blank')
+    // (fenêtre ouverte mais vide) : on ouvre une fenêtre vide puis on y écrit le document.
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(`<!DOCTYPE html><html><head>
+      <title>${name}</title>
+      <style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:100%;max-height:100vh}</style>
+    </head><body>
+      <img src="${url}" alt="${name}" />
+    </body></html>`)
+    win.document.close()
+  }
+
   function renderAttachment(att: NoteAttachment, removable = false, onRemove?: () => void) {
     if (att.type === 'image') return (
       <div key={att.id} className="note-att-image">
-        <img src={att.url} alt={att.name} onClick={() => window.open(att.url, '_blank')} />
-        {removable && <button className="note-att-remove btn-icon danger" onClick={onRemove}><Svg d={ICO_CLOSE} size={10} /></button>}
+        <img src={att.url} alt={att.name} onClick={() => openImagePreview(att.url, att.name)} />
+        {removable && <button className="note-att-remove btn-icon danger" onClick={onRemove} aria-label={`Retirer la pièce jointe ${att.name}`}><Svg d={ICO_CLOSE} size={10} /></button>}
       </div>
     )
     if (att.type === 'pdf') return (
       <div key={att.id} className="note-att-file">
         <Svg d={ICO_PDF_ATTACH} size={13} />
         <a href={att.url} download={att.name}>{att.name}</a>
-        {removable && <button className="btn-icon danger" onClick={onRemove}><Svg d={ICO_CLOSE} size={10} /></button>}
+        {removable && <button className="btn-icon danger" onClick={onRemove} aria-label={`Retirer la pièce jointe ${att.name}`}><Svg d={ICO_CLOSE} size={10} /></button>}
       </div>
     )
     if (att.type === 'link') {
@@ -520,7 +552,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
         <div key={att.id} className="note-att-link">
           {domain && <img src={`https://www.google.com/s2/favicons?domain=${domain}`} width={13} height={13} alt="" />}
           <a href={att.url} target="_blank" rel="noopener noreferrer">{att.name || att.url}</a>
-          {removable && <button className="btn-icon danger" onClick={onRemove}><Svg d={ICO_CLOSE} size={10} /></button>}
+          {removable && <button className="btn-icon danger" onClick={onRemove} aria-label={`Retirer la pièce jointe ${att.name || att.url}`}><Svg d={ICO_CLOSE} size={10} /></button>}
         </div>
       )
     }
@@ -724,7 +756,9 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
               onBlur={() => setTimeout(() => setShowTagSug(false), 150)}
               onKeyDown={e => {
                 if (e.key === 'Enter') { e.preventDefault(); addTag() }
-                if (e.key === 'Escape') { setTagInput(''); setShowTagSug(false) }
+                // stopPropagation : ne doit fermer que les suggestions, pas toute la modale
+                // (voir useEscapeToClose.ts, écoute globale ajoutée sur .modal-overlay).
+                if (e.key === 'Escape') { e.stopPropagation(); setTagInput(''); setShowTagSug(false) }
               }} />
             {showTagSug && tagSuggestions.length > 0 && (
               <div style={{
@@ -1134,7 +1168,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
                   <span className="note-date">{formatNoteDate(note.createdAt)}</span>
                 </div>
               </div>
-              {canEditOps && <button className="btn-icon danger" onClick={() => deleteNote(note.id)}><Svg d={ICO_TRASH} size={12} /></button>}
+              {canEditOps && <button className="btn-icon danger" onClick={() => deleteNote(note.id)} aria-label="Supprimer la note"><Svg d={ICO_TRASH} size={12} /></button>}
             </div>
             {note.text && <div className="note-text">{renderNoteText(note.text)}</div>}
             {(note.attachments?.length ?? 0) > 0 && (
@@ -1159,7 +1193,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
                           <span className="note-date">{formatNoteDate(reply.createdAt)}</span>
                         </div>
                       </div>
-                      {canEditOps && <button className="btn-icon danger" onClick={() => deleteReply(note.id, reply.id)}><Svg d={ICO_TRASH} size={11} /></button>}
+                      {canEditOps && <button className="btn-icon danger" onClick={() => deleteReply(note.id, reply.id)} aria-label="Supprimer la réponse"><Svg d={ICO_TRASH} size={11} /></button>}
                     </div>
                     {reply.text && <div className="note-text" style={{ fontSize: 11 }}>{renderNoteText(reply.text)}</div>}
                     {(reply.attachments?.length ?? 0) > 0 && (
@@ -1418,7 +1452,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
   if (view === 'side') {
     return (
       <div className="modal-side-overlay" data-testid="item-modal" onClick={onClose}>
-        <div className="modal-side" style={{ width: sideWidth }} onClick={e => e.stopPropagation()}>
+        <div className="modal-side" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: sideWidth }} onClick={e => e.stopPropagation()}>
           <div className="modal-side-handle" onMouseDown={onResizeStart} />
           {innerContent}
         </div>
@@ -1429,7 +1463,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
   // ── Mode pleine page ──────────────────────────────────────────────────────
   if (view === 'fullpage') {
     return (
-      <div className="modal-fullpage" data-testid="item-modal">
+      <div className="modal-fullpage" data-testid="item-modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1}>
         <div style={{ maxWidth: 860, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           {innerContent}
         </div>
@@ -1440,7 +1474,7 @@ export function ItemModal({ item, state, onSave, onClose, canManage = true, canO
   // ── Mode modal centré (défaut) ────────────────────────────────────────────
   return (
     <div className="modal-overlay" data-testid="item-modal" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-lg">
+      <div className="modal modal-lg" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1}>
         {innerContent}
       </div>
     </div>

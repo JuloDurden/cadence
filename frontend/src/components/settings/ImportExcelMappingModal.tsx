@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { RawSheet, SheetTarget } from '../../utils/excelBacklog'
 import { ITEM_FIELDS, EPIC_FIELDS, SHEET_TARGET_LABEL, guessFieldMapping } from '../../utils/excelBacklog'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 export interface SheetMapping { target: SheetTarget; mapping: (string | null)[] }
 
@@ -29,6 +31,8 @@ function fieldsFor(target: SheetTarget) {
  * `guessFieldMapping`/`applyMapping` dans `utils/excelBacklog.ts`.
  */
 export function ImportExcelMappingModal({ sheets, onCancel, onConfirm }: Props) {
+  useEscapeToClose(onCancel)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const [targets, setTargets] = useState<SheetTarget[]>(() => sheets.map(s => s.suggestedTarget))
   const [mappings, setMappings] = useState<(string | null)[][]>(
     () => sheets.map(s => guessFieldMapping(s.headers, fieldsFor(s.suggestedTarget)))
@@ -49,10 +53,10 @@ export function ImportExcelMappingModal({ sheets, onCancel, onConfirm }: Props) 
 
   return (
     <div className="modal-overlay open" data-testid="import-excel-mapping-modal" onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div className="modal modal-lg" style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="modal modal-lg" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
         <div className="modal-header">
           <h2 className="modal-title">Faire correspondre les colonnes</h2>
-          <button className="modal-close" onClick={onCancel}>✕</button>
+          <button className="modal-close" onClick={onCancel} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body" style={{ overflowY: 'auto' }}>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>

@@ -7,6 +7,8 @@ import { fmtDateShort, cascadeSprintDates } from '../utils/dates'
 import { getCurrentSprint } from '../utils/sprints'
 import { activateSprint, closeSprint, reopenSprint, sprintLifecycleHistoryEntry, getUnresolvedUnfinishedItems, getSprintDeletionBlockReason, deleteSprintCascade, buildSprintCloseNotification, buildDependencyBlockNotification } from '../utils/sprintLifecycle'
 import { useAuth } from '../hooks/useAuth'
+import { useEscapeToClose } from '../hooks/useEscapeToClose'
+import { useModalFocus } from '../hooks/useModalFocus'
 import { isReadOnlyForRole, canManageSprintLifecycle } from '../utils/permissions'
 import { withHistoryEntry } from '../utils/history'
 import { useDialog } from '../context/DialogContext'
@@ -105,6 +107,8 @@ export function RoadmapPage() {
   const [groupBy, setGroupBy] = useState<'client' | 'group'>('client')
   const [editGoal, setEditGoal] = useState<RoadmapGoal | null>(null)
   const [form, setForm] = useState({ icon: '', name: '', goal: '', metrics: '', startDate: '', endDate: '' })
+  useEscapeToClose(() => setEditGoal(null), !!editGoal)
+  const modalRef = useModalFocus<HTMLDivElement>(!!editGoal)
 
   const activeSprintId = getCurrentSprint(state)?.id ?? null
 
@@ -681,10 +685,10 @@ export function RoadmapPage() {
 
       {editGoal && (
         <div className="modal-overlay open" onClick={e => { if (e.target === e.currentTarget) setEditGoal(null) }}>
-          <div className="modal" style={{ maxWidth: 500 }}>
+          <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ maxWidth: 500 }}>
             <div className="modal-header">
               <span className="modal-title">Modifier l objectif</span>
-              <button className="modal-close" onClick={() => setEditGoal(null)}>X</button>
+              <button className="modal-close" onClick={() => setEditGoal(null)} aria-label="Fermer">X</button>
             </div>
             <div className="modal-body" style={{ padding: '16px 20px', gap: 14, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', gap: 12 }}>

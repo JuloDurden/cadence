@@ -577,6 +577,7 @@ export function KanbanPage() {
           onSave={handleSave}
           onClose={() => setModalItem(undefined)}
           currentUserId={userId}
+          currentUserName={userName}
           canManage={!readOnly}
           canOperate={!readOnly}
         />

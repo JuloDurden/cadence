@@ -517,6 +517,7 @@ export function PlanningPage() {
           onSave={handleSave}
           onClose={() => setModalItem(undefined)}
           currentUserId={userId}
+          currentUserName={userName}
           canManage={!readOnly}
           canOperate={!readOnly}
         />

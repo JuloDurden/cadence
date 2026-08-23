@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 interface Counts {
   items: number
@@ -35,13 +37,20 @@ const KEYWORD = 'SUPPRIMER'
  */
 export function ResetAllDataModal({ open, counts, onCancel, onConfirm }: Props) {
   const [text, setText] = useState('')
-  if (!open) return null
-  const canConfirm = text === KEYWORD
 
   function close() {
     setText('')
     onCancel()
   }
+
+  // Échap = ANNULER uniquement, jamais confirmer (cohérent avec le refus plus haut de réutiliser
+  // DialogContext, dont Entrée valide sans vérifier le mot-clé - voir la JSDoc du composant) :
+  // fermer au clavier ne pose aucun risque ici, contrairement à un Entrée qui validerait.
+  useEscapeToClose(close, open)
+  const modalRef = useModalFocus<HTMLDivElement>(open)
+
+  if (!open) return null
+  const canConfirm = text === KEYWORD
 
   function confirm() {
     if (!canConfirm) return
@@ -51,10 +60,10 @@ export function ResetAllDataModal({ open, counts, onCancel, onConfirm }: Props) 
 
   return (
     <div className="modal-overlay open" data-testid="reset-all-modal" onClick={e => e.target === e.currentTarget && close()}>
-      <div className="modal" style={{ width: 460, maxWidth: '95vw' }}>
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: 460, maxWidth: '95vw' }}>
         <div className="modal-header">
           <h2 className="modal-title" style={{ color: 'var(--danger)' }}>Réinitialiser toutes les données ?</h2>
-          <button className="modal-close" onClick={close}>✕</button>
+          <button className="modal-close" onClick={close} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body">
           <p style={{ fontSize: 12, lineHeight: 1.6, margin: 0 }}>

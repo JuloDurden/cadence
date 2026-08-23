@@ -953,6 +953,7 @@ export function SprintReviewPage() {
           onSave={handleItemModalSave}
           onClose={() => { setModalItem(undefined); setModalOrigin(null) }}
           currentUserId={userId}
+          currentUserName={userName}
           canManage={!readOnly}
           canOperate={!readOnly}
         />

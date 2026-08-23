@@ -92,7 +92,7 @@ export function RetroColumnCard({ label, color, icon, items, team, currentUserId
                     {(item.dislikes ?? []).length}
                   </button>
                   {canDelete(item) && (
-                    <button className="btn-icon danger" style={{ padding: '2px 4px' }} onClick={() => onDelete(item.id)}>
+                    <button className="btn-icon danger" style={{ padding: '2px 4px' }} onClick={() => onDelete(item.id)} aria-label="Supprimer cet item">
                       <Ico d={CLOSE} size={11} />
                     </button>
                   )}

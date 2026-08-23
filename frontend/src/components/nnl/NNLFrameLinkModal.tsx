@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { CadenceState, HierarchyNode, HierarchyLevel } from '../../types'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 interface Props {
   open: boolean
@@ -19,6 +21,8 @@ const LEVEL_LABEL: Record<HierarchyLevel, string> = { epic: 'Epic', initiative: 
  * du Backlog, voir `onCreateNew`). Annuler ici abandonne le tracé sans créer de cadre.
  */
 export function NNLFrameLinkModal({ open, state, onLink, onCreateNew, onCancel }: Props) {
+  useEscapeToClose(onCancel, open)
+  const modalRef = useModalFocus<HTMLDivElement>(open)
   const [level,  setLevel]  = useState<HierarchyLevel>('epic')
   const [search, setSearch] = useState('')
 
@@ -33,7 +37,7 @@ export function NNLFrameLinkModal({ open, state, onLink, onCreateNew, onCancel }
   return (
     <div className="modal-overlay open" data-testid="nnl-frame-link-modal"
       onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div className="modal" style={{ width: 460, maxWidth: '95vw' }}>
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: 460, maxWidth: '95vw' }}>
         <div className="modal-header">
           <h2 style={{ fontSize: 16, fontWeight: 700 }}>Lier ce cadre</h2>
           <button className="btn-icon" onClick={onCancel} aria-label="Fermer">✕</button>

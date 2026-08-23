@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Client, Contact } from '../../types'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 const TIERS = ['Enterprise', 'Mid-Market', 'SMB', 'Startup']
 const RAGS = [{ v: 'G', label: '🟢 OK' }, { v: 'A', label: '🟡 Attention' }, { v: 'R', label: '🔴 Critique' }]
@@ -14,6 +16,8 @@ interface Props {
 }
 
 export function ClientModal({ client, onSave, onClose }: Props) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const [form, setForm] = useState<Partial<Client>>({
     name: '', prefix: '', tier: 'Enterprise', annualRevenue: 0, rag: 'G', color: '#4f46e5', contacts: []
   })
@@ -51,10 +55,10 @@ export function ClientModal({ client, onSave, onClose }: Props) {
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1}>
         <div className="modal-header">
           <h2 style={{ fontSize: 16, fontWeight: 700 }}>{client ? `Modifier ${client.name}` : 'Nouveau client'}</h2>
-          <button className="btn-icon" onClick={onClose}>✕</button>
+          <button className="btn-icon" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body">
           <div className="form-row">
@@ -116,7 +120,7 @@ export function ClientModal({ client, onSave, onClose }: Props) {
                 <input value={c.role} onChange={e => updateContact(c.id, 'role', e.target.value)} placeholder="Rôle" style={{ fontSize: 12 }} />
                 <input value={c.email} onChange={e => updateContact(c.id, 'email', e.target.value)} placeholder="Email" style={{ fontSize: 12 }} />
                 <input value={c.phone ?? ''} onChange={e => updateContact(c.id, 'phone', e.target.value)} placeholder="Téléphone" style={{ fontSize: 12 }} />
-                <button className="btn-icon danger" onClick={() => removeContact(c.id)}>✕</button>
+                <button className="btn-icon danger" onClick={() => removeContact(c.id)} aria-label={`Retirer le contact ${c.name || ''}`.trim()}>✕</button>
               </div>
             ))}
           </div>

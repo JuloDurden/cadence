@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { ChangelogChange, ChangelogTag, ChangelogVersion } from '../../data/changelog'
 import { api } from '../../services/api'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 // Réforme du Changelog (2026-08-22, décision Julien : "on peut utiliser une modale comme on l'a
 // fait précédemment pour les items ou les sprints") - même chrome que ClientModal.tsx/HierarchyNodeModal.tsx
@@ -39,6 +41,8 @@ interface Props {
 }
 
 export function PublishChangelogModal({ onPublished, onClose }: Props) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const [version, setVersion] = useState('')
   const [title, setTitle] = useState('')
   const [changes, setChanges] = useState<DraftChange[]>([{ id: uid(), tag: 'feat', text: '' }])
@@ -75,7 +79,7 @@ export function PublishChangelogModal({ onPublished, onClose }: Props) {
 
   return (
     <div className="modal-overlay" data-testid="publish-changelog-modal" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1}>
         <div className="modal-header">
           <h2 style={{ fontSize: 16, fontWeight: 700 }}>Publier une version</h2>
           <button className="btn-icon" aria-label="Fermer" onClick={onClose}>✕</button>

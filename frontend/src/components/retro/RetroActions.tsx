@@ -38,7 +38,7 @@ export function RetroActions({ actions, team, onAdd, onToggle, onDelete }: Props
               <span style={{ flex: 1, fontSize: 12, textDecoration: action.done ? 'line-through' : 'none', color: action.done ? 'var(--text-muted)' : 'var(--text)' }}>{action.text}</span>
               {owner && <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{owner.name.split(' ')[0]}</span>}
               {action.dueDate && <span style={{ fontSize: 10, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{new Date(action.dueDate).toLocaleDateString('fr-FR')}</span>}
-              <button className="btn-icon danger" style={{ padding: '2px 4px', fontSize: 11 }} onClick={() => onDelete(action.id)}>✕</button>
+              <button className="btn-icon danger" style={{ padding: '2px 4px', fontSize: 11 }} onClick={() => onDelete(action.id)} aria-label="Supprimer cette action">✕</button>
             </div>
           )
         })}

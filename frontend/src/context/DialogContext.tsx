@@ -9,6 +9,7 @@
 // rendre la fonction appelante `async`, et ajouter `await` devant chaque appel.
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
+import { useModalFocus } from '../hooks/useModalFocus'
 
 export interface ConfirmOptions {
   title?: string
@@ -77,6 +78,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const current = queue[0]
+  const modalRef = useModalFocus<HTMLDivElement>(!!current)
 
   const close = useCallback((value: boolean) => {
     setQueue(q => {
@@ -107,11 +109,11 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           data-testid="dialog-overlay"
           onClick={e => { if (e.target === e.currentTarget) close(false) }}
         >
-          <div className="modal dialog-modal" role="alertdialog" aria-modal="true">
+          <div className="modal dialog-modal" role="alertdialog" aria-modal="true" ref={modalRef} tabIndex={-1}>
             {current.title && (
               <div className="modal-header">
                 <span className="modal-title">{current.title}</span>
-                <button className="modal-close" data-testid="dialog-close" onClick={() => close(false)}>×</button>
+                <button className="modal-close" data-testid="dialog-close" onClick={() => close(false)} aria-label="Fermer">×</button>
               </div>
             )}
             <div className="modal-body">

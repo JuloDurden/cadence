@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { DASHBOARD_WIDGET_CATALOG, DASHBOARD_ZONE_LABELS, widgetScope } from '../../data/dashboardWidgets'
 import type { DashboardWidgetDef, DashboardWidgetId, DashboardWidgetScope, DashboardWidgetSize } from '../../data/dashboardWidgets'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 interface Props {
   onAdd: (id: DashboardWidgetId, zone: DashboardWidgetScope) => void
@@ -558,6 +560,8 @@ function ToolbarButton({ active, onClick, children, testId }: { active: boolean;
 // `useMemo`) avant le rendu de la grille, le reste du composant (cartes, `AddZoneMenu`) ne change
 // pas. Voir `ToolbarButton`/`SizeBadges`/`MockupFrame` ci-dessus.
 export function AddWidgetModal({ onAdd, onClose }: Props) {
+  useEscapeToClose(onClose)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortMode>('az')
   const [sizeFilter, setSizeFilter] = useState<Set<DashboardWidgetSize>>(new Set())
@@ -587,10 +591,10 @@ export function AddWidgetModal({ onAdd, onClose }: Props) {
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-lg" data-testid="dashboard-add-widget-modal">
+      <div className="modal modal-lg" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} data-testid="dashboard-add-widget-modal">
         <div className="modal-header">
           <h2 className="modal-title">Ajouter un widget</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body">
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>

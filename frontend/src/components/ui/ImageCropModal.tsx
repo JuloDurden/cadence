@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import { useEscapeToClose } from '../../hooks/useEscapeToClose'
+import { useModalFocus } from '../../hooks/useModalFocus'
 
 // Recadrage d'image (déplacement + zoom), extrait de TeamPage.tsx (2026-08-19) pour être
 // réutilisé par le logo d'équipe (AppearanceSection.tsx, retour Julien : "ce serait bien de
@@ -16,6 +18,8 @@ interface ImageCropModalProps {
 }
 
 export function ImageCropModal({ src, shape = 'circle', title = 'Recadrer la photo', onConfirm, onCancel }: ImageCropModalProps) {
+  useEscapeToClose(onCancel)
+  const modalRef = useModalFocus<HTMLDivElement>()
   const SIZE = 220
   const [pos, setPos]   = useState({ x: 0, y: 0 })
   const [scale, setScale] = useState(1)
@@ -49,6 +53,24 @@ export function ImageCropModal({ src, shape = 'circle', title = 'Recadrer la pho
   function onWheel(e: React.WheelEvent) {
     e.preventDefault()
     setScale(s => Math.max(0.5, Math.min(6, s + (e.deltaY < 0 ? 0.08 : -0.08))))
+  }
+  // Équivalent clavier au glisser-déposer/molette souris (recadrage jusque-là non
+  // utilisable au clavier, retour Julien du 2026-08-24 : flèches pour déplacer, +/- pour zoomer.
+  const MOVE_STEP = 10
+  function onKeyDown(e: React.KeyboardEvent) {
+    switch (e.key) {
+      case 'ArrowUp':    e.preventDefault(); setPos(p => ({ ...p, y: p.y - MOVE_STEP })); break
+      case 'ArrowDown':  e.preventDefault(); setPos(p => ({ ...p, y: p.y + MOVE_STEP })); break
+      case 'ArrowLeft':  e.preventDefault(); setPos(p => ({ ...p, x: p.x - MOVE_STEP })); break
+      case 'ArrowRight': e.preventDefault(); setPos(p => ({ ...p, x: p.x + MOVE_STEP })); break
+      case '+':
+      case '=':
+        e.preventDefault(); setScale(s => Math.min(6, s + 0.08)); break
+      case '-':
+      case '_':
+        e.preventDefault(); setScale(s => Math.max(0.5, s - 0.08)); break
+      default: break
+    }
   }
 
   function confirm() {
@@ -85,16 +107,19 @@ export function ImageCropModal({ src, shape = 'circle', title = 'Recadrer la pho
 
   return (
     <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={e => e.target === e.currentTarget && onCancel()}>
-      <div className="modal" style={{ width: 340 }}>
+      <div className="modal" role="dialog" aria-modal="true" ref={modalRef} tabIndex={-1} style={{ width: 340 }}>
         <div className="modal-header">
           <h2 className="modal-title">{title}</h2>
-          <button className="modal-close" onClick={onCancel}>✕</button>
+          <button className="modal-close" onClick={onCancel} aria-label="Fermer">✕</button>
         </div>
         <div className="modal-body" style={{ alignItems: 'center', gap: 14 }}>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-            Glisser pour repositionner · Molette pour zoomer
+            Glisser pour repositionner · Molette pour zoomer · Flèches et +/- au clavier
           </p>
           <div
+            role="application"
+            tabIndex={0}
+            aria-label="Zone de recadrage. Flèches pour déplacer l'image, plus et moins pour zoomer."
             style={{
               width: SIZE, height: SIZE, borderRadius: shape === 'circle' ? '50%' : 16, overflow: 'hidden',
               cursor: dragging ? 'grabbing' : 'grab', border: '3px solid var(--primary)',
@@ -105,6 +130,7 @@ export function ImageCropModal({ src, shape = 'circle', title = 'Recadrer la pho
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseUp}
             onWheel={onWheel}
+            onKeyDown={onKeyDown}
           >
             <img
               ref={imgRef}

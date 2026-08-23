@@ -4154,6 +4154,7 @@ export function NNLCanvas({ modalOpen, onModalClose, readOnly = false }: { modal
           onSave={handleLinkedItemSave}
           onClose={() => setLinkingCallback(null)}
           currentUserId={userId}
+          currentUserName={userName}
         />
       )}
 

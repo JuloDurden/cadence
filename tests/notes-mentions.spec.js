@@ -24,14 +24,19 @@ async function openBugNotes(page, opts) {
 
 test.describe('Phase 2 — interactions nominatives : attribution des notes', () => {
 
-  test('une note écrite par un compte non lié à une fiche Équipe reste attribuée à "Invité" (pas de crash)', async ({ page }) => {
-    await openBugNotes(page, { role: 'PO', userId: 'u-po-not-linked' });
+  test('une note écrite par un compte non lié à une fiche Équipe est attribuée à son propre nom (pas "Invité", pas de crash)', async ({ page }) => {
+    // Comportement corrigé le 2026-08-24 (voir docs/corrections.md, "Bug : auteur 'Invité' sur les
+    // notes de l'ItemModal") : sa PROPRE note affiche désormais le nom du compte connecté
+    // (currentUserName), même si ce compte n'est lié à aucune fiche Équipe : "Invité" ne doit
+    // apparaître que pour la note d'un AUTRE compte non lié (non couvert ici, voir limite ci-dessus).
+    await openBugNotes(page, { role: 'PO', userId: 'u-po-not-linked', name: 'PO Sans Fiche' });
     await page.locator('[data-testid="item-note-input"]').fill('Une première note de test.');
     // Scopé à la modale : le header Backlog a aussi un bouton "Ajouter" (data-testid="btn-add-menu")
     // avec le même nom accessible, resté dans le DOM derrière la modale (mode strict Playwright).
     await page.locator('[data-testid="item-modal"]').getByRole('button', { name: 'Ajouter', exact: true }).click();
     const note = page.locator('.note-item').filter({ hasText: 'Une première note de test.' });
-    await expect(note).toContainText('Invité');
+    await expect(note).toContainText('PO Sans Fiche');
+    await expect(note).not.toContainText('Invité');
   });
 });
 
