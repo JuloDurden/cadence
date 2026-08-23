@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { GanttView } from '../components/planning/GanttView'
@@ -423,6 +423,11 @@ export function SprintPlanningPage() {
     setShowAutoModal(false)
   }
 
+  // Phase 7, perf (2026-08-24) : callback stable pour que memo() sur UnassignedCard/MemberItemRow
+  // (GanttView.tsx) serve à quelque chose - une fonction fléchée inline recréée à chaque rendu
+  // de cette page (ex. dispatch d'un item sans rapport) invaliderait le memo sur toutes les cartes.
+  const handleEditItem = useCallback((item: Item) => setModalItem(item), [])
+
   function handleSave(item: Item, keyCounters?: Record<string, number>) {
     if (readOnly) { setModalItem(undefined); return }
     const isNew = !state.items.find(i => i.id === item.id)
@@ -529,7 +534,7 @@ export function SprintPlanningPage() {
         <GanttView
           state={state}
           sprintId={selectedSprintId}
-          onEdit={item => setModalItem(item)}
+          onEdit={handleEditItem}
           onUpdateItem={handleUpdateItem}
           readOnly={readOnly}
         />

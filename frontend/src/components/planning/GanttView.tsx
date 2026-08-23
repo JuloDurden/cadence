@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback, memo } from 'react'
 import type { ReactNode } from 'react'
-import type { Item, CadenceState, TeamMember, HierarchyNode } from '../../types'
+import type { Item, CadenceState, Client, TeamMember, HierarchyNode } from '../../types'
 import { computeMemberCapacity, isMemberFullyAbsent } from '../../utils/sprintCapacity'
 import { groupItemsByEpic, getEpicSP } from '../../utils/hierarchyScore'
 import { useHierCardTilt } from '../../hooks/useHierCardTilt'
@@ -57,12 +57,15 @@ interface EpicGroupBlockProps {
   // couleur/traitement propre à l'Epic, contrairement à Release Planning et Kanban - portée en
   // même temps que le reste du chantier) : nécessaire pour retrouver la couleur du client de
   // l'Epic (voir KanbanEpicGroup.tsx/PlanningEpicGroup.tsx, même principe).
-  state: CadenceState
+  // Phase 7, perf (2026-08-24) : `clients` (tranche stable) plutôt que `state: CadenceState`
+  // entier, même raison que KanbanCard.tsx/PlanningCard.tsx (docs/corrections.md, "Chantier
+  // Phase 7 Performance").
+  clients: Client[]
   children: ReactNode
 }
-function EpicGroupBlock({ groupKey, epic, count, sp, state, children }: EpicGroupBlockProps) {
+function EpicGroupBlockImpl({ groupKey, epic, count, sp, clients, children }: EpicGroupBlockProps) {
   const [collapsed, setCollapsed] = useState(false)
-  const client = state.clients.find(c => c.id === epic.clientId)
+  const client = clients.find(c => c.id === epic.clientId)
   return (
     <div
       className={`epic-group epic-group-compact${collapsed ? ' epic-group-collapsed' : ''} hc-card hc-epic`}
@@ -91,24 +94,34 @@ function EpicGroupBlock({ groupKey, epic, count, sp, state, children }: EpicGrou
     </div>
   )
 }
+// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir EpicGroupBlockProps). `children`
+// (les cartes de ce groupe) doit lui aussi rester référentiellement stable côté appelant pour
+// que ce memo() serve à quelque chose ; le `.map()` produisant `children` recrée de toute façon
+// un nouveau tableau JSX à chaque rendu de GanttView, ce memo évite donc surtout le re-rendu du
+// groupe quand un tout AUTRE groupe/membre change (dragId, dropCol...), pas au sein du même passage.
+const EpicGroupBlock = memo(EpicGroupBlockImpl)
 
 // ── Carte item non-attribué ───────────────────────────────────────────────
 interface UItemProps {
-  item: Item; state: CadenceState; dragging: boolean; readOnly?: boolean
+  item: Item
+  // Phase 7, perf (2026-08-24) : `clients` plutôt que `state: CadenceState` entier, même raison
+  // que ci-dessus.
+  clients: Client[]
+  dragging: boolean; readOnly?: boolean
   // Cartes hierarchiques (2026-08-20) : voir KanbanCard.tsx/PlanningCard.tsx (même principe) -
   // sommet de groupe (dégradé + motif + reflet) quand hors Epic, carte plate sinon. Défaut `false`.
   standalone?: boolean
-  onDragStart: () => void; onDragEnd: () => void; onEdit: (i: Item) => void
+  onDragStart: (id: string) => void; onDragEnd: () => void; onEdit: (i: Item) => void
 }
-function UnassignedCard({ item, state, dragging, readOnly = false, standalone = false, onDragStart, onDragEnd, onEdit }: UItemProps) {
-  const client = state.clients.find(c => c.id === item.clientId)
+function UnassignedCardImpl({ item, clients, dragging, readOnly = false, standalone = false, onDragStart, onDragEnd, onEdit }: UItemProps) {
+  const client = clients.find(c => c.id === item.clientId)
   const pCol   = PRIORITY_COLOR[item.priority ?? 'low'] ?? '#6b7280'
 
   return (
     <div
       className={`sp-uitem hc-card hc-item${standalone ? ' hc-standalone' : ''}`}
       draggable={!readOnly}
-      onDragStart={readOnly ? undefined : onDragStart}
+      onDragStart={readOnly ? undefined : () => onDragStart(item.id)}
       onDragEnd={onDragEnd}
       onClick={() => onEdit(item)}
       style={{
@@ -164,21 +177,27 @@ function UnassignedCard({ item, state, dragging, readOnly = false, standalone = 
     </div>
   )
 }
+// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir UItemProps). Les appelants
+// (GanttView.tsx) doivent passer des callbacks stables (useCallback) pour que ce memo() serve
+// à quelque chose - voir KanbanCard.tsx pour la justification complète.
+const UnassignedCard = memo(UnassignedCardImpl)
 
 // ── Ligne item dans la card membre ────────────────────────────────────────
 interface MemberItemRowProps {
   item: Item; mySP: number; over: boolean; co?: boolean; dragging: boolean; readOnly?: boolean
   team: TeamMember[]
   // Cartes hierarchiques (2026-08-20) : voir UnassignedCard ci-dessus (même principe). Défaut
-  // `false`. `state` nécessaire pour retrouver la couleur du client (absente jusqu'ici sur les
+  // `false`. `clients` nécessaire pour retrouver la couleur du client (absente jusqu'ici sur les
   // cartes membre, autre incohérence comblée en même temps que ce chantier).
   standalone?: boolean
-  state: CadenceState
-  onDragStart: () => void; onDragEnd: () => void; onEdit: (i: Item) => void
+  // Phase 7, perf (2026-08-24) : `clients` plutôt que `state: CadenceState` entier, même raison
+  // que UnassignedCard ci-dessus.
+  clients: Client[]
+  onDragStart: (id: string) => void; onDragEnd: () => void; onEdit: (i: Item) => void
 }
-function MemberItemRow({ item, mySP, over, co = false, dragging, readOnly = false, standalone = false, team, state, onDragStart, onDragEnd, onEdit }: MemberItemRowProps) {
+function MemberItemRowImpl({ item, mySP, over, co = false, dragging, readOnly = false, standalone = false, team, clients, onDragStart, onDragEnd, onEdit }: MemberItemRowProps) {
   const pCol        = PRIORITY_COLOR[item.priority ?? 'low'] ?? '#6b7280'
-  const client       = state.clients.find(c => c.id === item.clientId)
+  const client       = clients.find(c => c.id === item.clientId)
   const coAssignees = !co && item.assignees.length > 1
     ? item.assignees.slice(1).map(id => team.find(m => m.id === id)).filter(Boolean) as TeamMember[]
     : []
@@ -187,7 +206,7 @@ function MemberItemRow({ item, mySP, over, co = false, dragging, readOnly = fals
     <div
       className={`sp-member-item${co ? ' sp-member-item-co' : ''} hc-card hc-item${standalone ? ' hc-standalone' : ''}`}
       draggable={!readOnly}
-      onDragStart={readOnly ? undefined : onDragStart}
+      onDragStart={readOnly ? undefined : () => onDragStart(item.id)}
       onDragEnd={onDragEnd}
       onClick={() => onEdit(item)}
       style={{
@@ -251,11 +270,19 @@ function MemberItemRow({ item, mySP, over, co = false, dragging, readOnly = fals
     </div>
   )
 }
+// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir MemberItemRowProps), même principe
+// que UnassignedCard ci-dessus.
+const MemberItemRow = memo(MemberItemRowImpl)
 
 // ── Vue principale ────────────────────────────────────────────────────────
 export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = false }: Props) {
   const [dragId,  setDragId]  = useState<string | null>(null)
   const [dropCol, setDropCol] = useState<string | null>(null)
+  // Phase 7, perf (2026-08-24) : callbacks stables pour que memo() sur UnassignedCard/
+  // MemberItemRow serve à quelque chose - remplace les fermetures inline `() => setDragId(item.id)`
+  // recréées à chaque rendu (une par item visité), même principe que SwimlanesView.tsx.
+  const handleDragStart = useCallback((id: string) => setDragId(id), [])
+  const handleDragEnd   = useCallback(() => setDragId(null), [])
 
   const sprint      = state.sprints.find(s => s.id === sprintId)
   const sprintItems = sprint ? state.items.filter(i => i.sprintId === sprintId) : []
@@ -306,15 +333,15 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
               epic={epic}
               count={groupItems.length}
               sp={getEpicSP(epic, groupItems)}
-              state={state}
+              clients={state.clients}
             >
               {groupItems.map(item => (
                 <UnassignedCard
-                  key={item.id} item={item} state={state}
+                  key={item.id} item={item} clients={state.clients}
                   dragging={dragId === item.id}
                   readOnly={readOnly}
-                  onDragStart={() => setDragId(item.id)}
-                  onDragEnd={() => setDragId(null)}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
                   onEdit={onEdit}
                 />
               ))}
@@ -322,12 +349,12 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
           ))}
           {unassignedOrphans.map(item => (
             <UnassignedCard
-              key={item.id} item={item} state={state}
+              key={item.id} item={item} clients={state.clients}
               dragging={dragId === item.id}
               readOnly={readOnly}
               standalone
-              onDragStart={() => setDragId(item.id)}
-              onDragEnd={() => setDragId(null)}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
               onEdit={onEdit}
             />
           ))}
@@ -414,17 +441,17 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                       epic={epic}
                       count={groupItems.length}
                       sp={getEpicSP(epic, groupItems)}
-                      state={state}
+                      clients={state.clients}
                     >
                       {groupItems.map(item => (
                         <MemberItemRow
                           key={item.id} item={item}
                           mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                          over={over} co={false} team={state.team} state={state}
+                          over={over} co={false} team={state.team} clients={state.clients}
                           dragging={dragId === item.id}
                           readOnly={readOnly}
-                          onDragStart={() => setDragId(item.id)}
-                          onDragEnd={() => setDragId(null)}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
                           onEdit={onEdit}
                         />
                       ))}
@@ -434,12 +461,12 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                     <MemberItemRow
                       key={item.id} item={item}
                       mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                      over={over} co={false} team={state.team} state={state}
+                      over={over} co={false} team={state.team} clients={state.clients}
                       dragging={dragId === item.id}
                       readOnly={readOnly}
                       standalone
-                      onDragStart={() => setDragId(item.id)}
-                      onDragEnd={() => setDragId(null)}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
                       onEdit={onEdit}
                     />
                   ))}
@@ -456,17 +483,17 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                           epic={epic}
                           count={groupItems.length}
                           sp={getEpicSP(epic, groupItems)}
-                          state={state}
+                          clients={state.clients}
                         >
                           {groupItems.map(item => (
                             <MemberItemRow
                               key={item.id} item={item}
                               mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                              over={over} co={true} team={state.team} state={state}
+                              over={over} co={true} team={state.team} clients={state.clients}
                               dragging={dragId === item.id}
                               readOnly={readOnly}
-                              onDragStart={() => setDragId(item.id)}
-                              onDragEnd={() => setDragId(null)}
+                              onDragStart={handleDragStart}
+                              onDragEnd={handleDragEnd}
                               onEdit={onEdit}
                             />
                           ))}
@@ -476,12 +503,12 @@ export function GanttView({ state, sprintId, onEdit, onUpdateItem, readOnly = fa
                         <MemberItemRow
                           key={item.id} item={item}
                           mySP={Math.round(item.sp / Math.max(1, item.assignees.length) * 10) / 10}
-                          over={over} co={true} team={state.team} state={state}
+                          over={over} co={true} team={state.team} clients={state.clients}
                           dragging={dragId === item.id}
                           readOnly={readOnly}
                           standalone
-                          onDragStart={() => setDragId(item.id)}
-                          onDragEnd={() => setDragId(null)}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
                           onEdit={onEdit}
                         />
                       ))}

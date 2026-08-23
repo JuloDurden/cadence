@@ -982,6 +982,50 @@ describe('isValidCadenceExport (garde import JSON, Phase 7 securite)', () => {
   });
 });
 
+// Reproduction du tri "Sprint" du Backlog (frontend/src/pages/BacklogPage.tsx, `filtered`
+// useMemo) : corrige le 2026-08-24 (retour Julien, testant l'extraction BacklogRow.tsx) - le tri
+// comparait auparavant `sprintId` (identifiant opaque, `'s' + uid()` aleatoire) via localeCompare,
+// ce qui ne correspondait a aucun ordre visible (un Sprint 6 pouvait apparaitre avant un Sprint 1).
+function sortItemsBySprintNumber(items, sprints) {
+  const sprintNumberById = new Map(sprints.map(s => [s.id, s.number]));
+  return [...items].sort((a, b) => {
+    const an = a.sprintId ? sprintNumberById.get(a.sprintId) : undefined;
+    const bn = b.sprintId ? sprintNumberById.get(b.sprintId) : undefined;
+    if (an === undefined && bn === undefined) return 0;
+    if (an === undefined) return 1;
+    if (bn === undefined) return -1;
+    return an - bn;
+  });
+}
+describe('tri Backlog par Sprint (bug tri par sprintId opaque corrige, Phase 7)', () => {
+  const sprints = [
+    { id: 's-aaa', number: 6 },
+    { id: 's-bbb', number: 1 },
+    { id: 's-ccc', number: 3 },
+  ];
+  test('les items sont ordonnes par numero de sprint croissant, pas par sprintId', () => {
+    const items = [
+      { id: 'i1', sprintId: 's-aaa' }, // Sprint 6
+      { id: 'i2', sprintId: 's-bbb' }, // Sprint 1
+      { id: 'i3', sprintId: 's-ccc' }, // Sprint 3
+    ];
+    const sorted = sortItemsBySprintNumber(items, sprints).map(i => i.id);
+    if (JSON.stringify(sorted) !== JSON.stringify(['i2', 'i3', 'i1'])) {
+      throw new Error('Expected [i2, i3, i1] (Sprint 1, 3, 6), got ' + JSON.stringify(sorted));
+    }
+  });
+  test('les items non assignes passent toujours en dernier', () => {
+    const items = [
+      { id: 'i1', sprintId: null },
+      { id: 'i2', sprintId: 's-bbb' }, // Sprint 1
+    ];
+    const sorted = sortItemsBySprintNumber(items, sprints).map(i => i.id);
+    if (JSON.stringify(sorted) !== JSON.stringify(['i2', 'i1'])) {
+      throw new Error('Expected [i2, i1], got ' + JSON.stringify(sorted));
+    }
+  });
+});
+
 // ── Bilan ────────────────────────────────────────────────────────────────────
 
 console.log('\n' + '-'.repeat(50));
