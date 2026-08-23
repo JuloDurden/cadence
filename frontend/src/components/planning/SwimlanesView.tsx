@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
 import type { Item, CadenceState } from '../../types'
 import { PlanningCard } from './PlanningCard'
 import { PlanningEpicGroup } from './PlanningEpicGroup'
@@ -41,6 +41,13 @@ export function SwimlanesView({
   // chaque cellule independamment - exactement comme s'il y en avait un par cellule.
   const viewRef = useRef<HTMLDivElement>(null)
   useHierCardTilt(viewRef)
+
+  // Phase 7, perf (2026-08-24) : `dragIds` est une ref (stable par nature) - ces callbacks
+  // n'ont donc besoin d'aucune dépendance pour rester stables eux-mêmes, condition nécessaire
+  // pour que memo(PlanningCard)/memo(PlanningEpicGroup) serve à quelque chose ici. Remplace les
+  // 3 fonctions fléchées inline précédemment recréées à chaque rendu (une par cellule visitée).
+  const handleDragItemStart  = useCallback((id: string) => { dragIds.current = [id] }, [dragIds])
+  const handleDragGroupStart = useCallback((ids: string[]) => { dragIds.current = ids }, [dragIds])
 
   if (clientsWithItems.length === 0) {
     return (
@@ -121,14 +128,16 @@ export function SwimlanesView({
                       epicId={epicId}
                       epic={epic}
                       stories={stories}
-                      state={state}
+                      clients={state.clients}
+                      team={state.team}
+                      kanbanCols={state.kanbanCols}
                       highlightClient={highlightClient}
                       highlightType={highlightType}
                       sprintEndDate={sprint.endDate}
                       compact
                       onEdit={onEdit}
-                      onDragGroup={ids => { dragIds.current = ids }}
-                      onDragItem={id  => { dragIds.current = [id] }}
+                      onDragGroup={handleDragGroupStart}
+                      onDragItem={handleDragItemStart}
                       readOnly={readOnly}
                     />
                   ))}
@@ -136,12 +145,14 @@ export function SwimlanesView({
                     <PlanningCard
                       key={item.id}
                       item={item}
-                      state={state}
+                      clients={state.clients}
+                      team={state.team}
+                      kanbanCols={state.kanbanCols}
                       highlightClient={highlightClient}
                       highlightType={highlightType}
                       sprintEndDate={sprint.endDate}
                       onEdit={onEdit}
-                      onDragStart={id => { dragIds.current = [id] }}
+                      onDragStart={handleDragItemStart}
                       readOnly={readOnly}
                       standalone
                     />
@@ -171,11 +182,13 @@ export function SwimlanesView({
                     <PlanningCard
                       key={item.id}
                       item={item}
-                      state={state}
+                      clients={state.clients}
+                      team={state.team}
+                      kanbanCols={state.kanbanCols}
                       highlightClient={highlightClient}
                       highlightType={highlightType}
                       onEdit={onEdit}
-                      onDragStart={id => { dragIds.current = [id] }}
+                      onDragStart={handleDragItemStart}
                       readOnly={readOnly}
                       standalone
                     />

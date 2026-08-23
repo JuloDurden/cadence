@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { SprintColumn } from '../components/planning/SprintColumn'
@@ -78,6 +78,13 @@ export function PlanningPage() {
   const [dragOverSprint, setDragOverSprint] = useState<string | null>(null)
   const dragIds        = useRef<string[]>([])
   const gridContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // Phase 7, perf (2026-08-24) : callbacks stables (deps vides, `dragIds` est une ref) pour que
+  // memo(PlanningCard)/memo(PlanningEpicGroup) serve à quelque chose - voir KanbanPage.tsx pour
+  // la même correction sur le Kanban. Remplacent les fonctions fléchées inline précédemment
+  // passées à SwimlanesView/SprintColumn/PlanningEpicGroup/PlanningCard.
+  const handleDragItemStart  = useCallback((id: string) => { dragIds.current = [id] }, [])
+  const handleDragGroupStart = useCallback((ids: string[]) => { dragIds.current = ids }, [])
   // Cartes hierarchiques (2026-08-20) : panneau "Non assigné", même principe qu'une colonne de
   // sprint (voir SprintColumn.tsx) - un hook dédié, ce panneau n'est pas dans le même DOM que
   // les colonnes de sprint.
@@ -402,7 +409,7 @@ export function PlanningPage() {
             onDragOver={key => setDragOverSprint(key)}
             onDragLeave={() => setDragOverSprint(null)}
             onDrop={handleDrop}
-            onEdit={item => setModalItem(item)}
+            onEdit={setModalItem}
             readOnly={readOnly}
           />
         ) : (
@@ -420,11 +427,11 @@ export function PlanningPage() {
                   isActive={sprint.id === activeSprintId}
                   highlightClient={highlightClient}
                   highlightType={highlightType}
-                  onDragStart={id  => { dragIds.current = [id] }}
-                  onDragGroup={ids => { dragIds.current = ids }}
+                  onDragStart={handleDragItemStart}
+                  onDragGroup={handleDragGroupStart}
                   onDragOver={sprintId => setDragOverSprint(sprintId)}
                   onDrop={handleDrop}
-                  onEdit={item => setModalItem(item)}
+                  onEdit={setModalItem}
                   onUpdateDates={handleUpdateDates}
                   onActivate={handleActivate}
                   onClose={handleClose}
@@ -465,12 +472,14 @@ export function PlanningPage() {
                   epicId={epicId}
                   epic={epic}
                   stories={stories}
-                  state={state}
+                  clients={state.clients}
+                  team={state.team}
+                  kanbanCols={state.kanbanCols}
                   highlightClient={highlightClient}
                   highlightType={highlightType}
-                  onEdit={item => setModalItem(item)}
-                  onDragGroup={ids => { dragIds.current = ids }}
-                  onDragItem={id  => { dragIds.current = [id] }}
+                  onEdit={setModalItem}
+                  onDragGroup={handleDragGroupStart}
+                  onDragItem={handleDragItemStart}
                   readOnly={readOnly}
                 />
               ))}
@@ -479,11 +488,13 @@ export function PlanningPage() {
                 <PlanningCard
                   key={item.id}
                   item={item}
-                  state={state}
+                  clients={state.clients}
+                  team={state.team}
+                  kanbanCols={state.kanbanCols}
                   highlightClient={highlightClient}
                   highlightType={highlightType}
-                  onEdit={item => setModalItem(item)}
-                  onDragStart={id => { dragIds.current = [id] }}
+                  onEdit={setModalItem}
+                  onDragStart={handleDragItemStart}
                   readOnly={readOnly}
                   standalone
                 />

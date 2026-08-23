@@ -1,4 +1,5 @@
-import type { Item, CadenceState } from '../../types'
+import { memo } from 'react'
+import type { Item, Client, TeamMember, KanbanCol } from '../../types'
 
 const PRIORITY_DOT: Record<string, string> = {
   critical: '#ff3b30', high: '#ff9500', medium: '#34c759', low: '#aeaeb2'
@@ -11,7 +12,13 @@ function fmtDeadline(iso: string) {
 
 interface Props {
   item: Item
-  state: CadenceState
+  // Phase 7, perf (2026-08-24) : `clients`/`team`/`kanbanCols` plutôt que `state: CadenceState`
+  // entier - même raison que KanbanCard.tsx (voir docs/corrections.md, "Chantier Phase 7
+  // Performance") : ces 3 tranches gardent leur référence tant qu'elles ne changent pas
+  // elles-mêmes (reducer par spread), contrairement à `state` qui change à chaque dispatch.
+  clients: Client[]
+  team: TeamMember[]
+  kanbanCols: KanbanCol[]
   highlightClient?: string
   highlightType?: string
   sprintEndDate?: string   // pour détecter les dépassements de deadline
@@ -28,10 +35,10 @@ interface Props {
   standalone?: boolean
 }
 
-export function PlanningCard({ item, state, highlightClient, highlightType, sprintEndDate, onEdit, onDragStart, readOnly = false, standalone = false }: Props) {
-  const client = state.clients.find(c => c.id === item.clientId)
-  const status = state.kanbanCols.find(c => c.id === item.status)
-  const assignees = item.assignees.map(id => state.team.find(m => m.id === id)).filter(Boolean)
+function PlanningCardImpl({ item, clients, team, kanbanCols, highlightClient, highlightType, sprintEndDate, onEdit, onDragStart, readOnly = false, standalone = false }: Props) {
+  const client = clients.find(c => c.id === item.clientId)
+  const status = kanbanCols.find(c => c.id === item.status)
+  const assignees = item.assignees.map(id => team.find(m => m.id === id)).filter(Boolean)
   const clientMismatch = !!highlightClient && item.clientId !== highlightClient
   const typeMismatch   = !!highlightType   && item.type    !== highlightType
   const isDimmed = clientMismatch || typeMismatch
@@ -99,3 +106,8 @@ export function PlanningCard({ item, state, highlightClient, highlightType, spri
     </div>
   )
 }
+
+// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification complète. Les appelants
+// (PlanningEpicGroup.tsx, SprintColumn.tsx, SwimlanesView.tsx) doivent passer des callbacks
+// stables (useCallback) pour que ce memo() serve à quelque chose.
+export const PlanningCard = memo(PlanningCardImpl)

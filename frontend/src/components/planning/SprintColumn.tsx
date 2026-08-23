@@ -71,6 +71,13 @@ const BTN_DANGER_ICON: React.CSSProperties = {
   ...BTN_DANGER, padding: '2px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
 }
 
+// Phase 7, perf (2026-08-24) : SprintColumn elle-meme n'est PAS enveloppee dans memo() - contrairement
+// a KanbanColumn.tsx, elle calcule sa PROPRE en-tete (capacite, faisabilite, alertes deadline...) a
+// partir d'un grand nombre de tranches de `state` (hierarchyNodes, team, absences, sprints, settings),
+// pas juste d'une ou deux. Un memo() ici demanderait de tout narrower en props individuelles pour un
+// gain marginal (peu de colonnes de sprint a la fois, contrairement aux dizaines de cartes). Seul ce
+// qui atteint PlanningCard/PlanningEpicGroup (clients/team/kanbanCols, voir plus bas) a ete corrige -
+// c'est la ou etait le vrai cout (voir KanbanCard.tsx pour la justification complete).
 export function SprintColumn({
   sprint, items, state, isOver, isActive, highlightClient, highlightType,
   onDragStart, onDragGroup, onDragOver, onDrop, onEdit, onUpdateDates,
@@ -363,14 +370,16 @@ export function SprintColumn({
                 epicId={epicId}
                 epic={epic}
                 stories={stories}
-                state={state}
+                clients={state.clients}
+                team={state.team}
+                kanbanCols={state.kanbanCols}
                 highlightClient={highlightClient}
                 highlightType={highlightType}
                 compact
                 sprintEndDate={sprint.endDate}
                 onEdit={onEdit}
-                onDragGroup={ids => onDragGroup(ids)}
-                onDragItem={id  => onDragStart(id)}
+                onDragGroup={onDragGroup}
+                onDragItem={onDragStart}
                 readOnly={readOnly}
               />
             ))}
@@ -378,7 +387,9 @@ export function SprintColumn({
               <PlanningCard
                 key={item.id}
                 item={item}
-                state={state}
+                clients={state.clients}
+                team={state.team}
+                kanbanCols={state.kanbanCols}
                 highlightClient={highlightClient}
                 highlightType={highlightType}
                 sprintEndDate={sprint.endDate}

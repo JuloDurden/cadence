@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { Item, CadenceState, HierarchyNode } from '../../types'
+import { useState, memo } from 'react'
+import type { Item, Client, TeamMember, KanbanCol, HierarchyNode } from '../../types'
 import { PlanningCard } from './PlanningCard'
 import { getEpicSP } from '../../utils/hierarchyScore'
 
@@ -19,7 +19,10 @@ interface Props {
   epicId: string
   epic: HierarchyNode | undefined
   stories: Item[]
-  state: CadenceState
+  // Phase 7, perf (2026-08-24) : voir PlanningCard.tsx pour la justification (state -> tranches).
+  clients: Client[]
+  team: TeamMember[]
+  kanbanCols: KanbanCol[]
   highlightClient?: string
   highlightType?: string
   compact?: boolean
@@ -32,11 +35,11 @@ interface Props {
   readOnly?: boolean
 }
 
-export function PlanningEpicGroup({
-  epicId, epic, stories, state, highlightClient, highlightType, compact, sprintEndDate,
+function PlanningEpicGroupImpl({
+  epicId, epic, stories, clients, team, kanbanCols, highlightClient, highlightType, compact, sprintEndDate,
   onEdit, onDragGroup, onDragItem, readOnly = false,
 }: Props) {
-  const client   = epic ? state.clients.find(c => c.id === epic.clientId) : undefined
+  const client   = epic ? clients.find(c => c.id === epic.clientId) : undefined
   const groupIds = epic ? [epic.id, ...stories.map(s => s.id)] : stories.map(s => s.id)
   // SP de l'Epic (2026-07-28, corrigé le même jour) : soit un score attribué arbitrairement
   // à l'Epic (champ sp propre, saisi dans Backlog), soit la somme des SP de ses US — jamais
@@ -93,12 +96,14 @@ export function PlanningEpicGroup({
             <PlanningCard
               key={story.id}
               item={story}
-              state={state}
+              clients={clients}
+              team={team}
+              kanbanCols={kanbanCols}
               highlightClient={highlightClient}
               highlightType={highlightType}
               sprintEndDate={sprintEndDate}
               onEdit={onEdit}
-              onDragStart={id => onDragItem(id)}
+              onDragStart={onDragItem}
               readOnly={readOnly}
             />
           ))}
@@ -107,3 +112,6 @@ export function PlanningEpicGroup({
     </div>
   )
 }
+
+// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx/PlanningCard.tsx pour la justification.
+export const PlanningEpicGroup = memo(PlanningEpicGroupImpl)
