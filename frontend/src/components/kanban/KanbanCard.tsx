@@ -1,4 +1,5 @@
-import type { Item, CadenceState } from '../../types'
+import { memo } from 'react'
+import type { Item, Client, TeamMember } from '../../types'
 
 const PRIORITY_DOT: Record<string, string> = {
   critical: '#ff3b30', high: '#ff9500', medium: '#34c759', low: '#aeaeb2',
@@ -20,7 +21,15 @@ const ICO = {
 
 interface Props {
   item: Item
-  state: CadenceState
+  // Phase 7, perf (2026-08-24) : `clients`/`team` plutôt que `state: CadenceState` entier - un
+  // memo() sur ce composant (voir export en bas de fichier) ne sert à rien si la prop reçue est
+  // l'objet d'état global, remplacé par une nouvelle référence à chaque dispatch même quand rien
+  // ne concerne cette carte. `clients`/`team` sont des tranches de l'état qui gardent la MÊME
+  // référence tant qu'elles ne changent pas elles-mêmes (reducer par spread, StateContext.tsx),
+  // donc un vrai gain : ~50 cartes de plus sur un board ne re-rendent plus au moindre déplacement
+  // d'une autre carte. Voir docs/corrections.md, chantier Phase 7 Performance.
+  clients: Client[]
+  team: TeamMember[]
   colColor: string
   cardDraggable: boolean
   onEdit: (item: Item) => void
@@ -38,9 +47,9 @@ interface Props {
   standalone?: boolean
 }
 
-export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRemoveFromSprint, onDragStart, readOnly = false, standalone = false }: Props) {
-  const client    = state.clients.find(c => c.id === item.clientId)
-  const assignees = item.assignees.map(id => state.team.find(m => m.id === id)).filter(Boolean)
+function KanbanCardImpl({ item, clients, team, colColor, cardDraggable, onEdit, onRemoveFromSprint, onDragStart, readOnly = false, standalone = false }: Props) {
+  const client    = clients.find(c => c.id === item.clientId)
+  const assignees = item.assignees.map(id => team.find(m => m.id === id)).filter(Boolean)
 
   return (
     <div
@@ -104,3 +113,11 @@ export function KanbanCard({ item, state, colColor, cardDraggable, onEdit, onRem
     </div>
   )
 }
+
+// Phase 7, perf (2026-08-24) : memo() + props narrowed (voir Props ci-dessus) - un board avec
+// plusieurs colonnes x dizaines de cartes ne re-rend plus TOUTES les cartes à chaque
+// dispatch/déplacement, seulement celle réellement concernée. `onEdit`/`onRemoveFromSprint`/
+// `onDragStart` doivent rester des callbacks stables (useCallback) côté appelant (KanbanPage.tsx)
+// pour que ce memo serve à quelque chose - une nouvelle fonction inline à chaque rendu annulerait
+// le bénéfice.
+export const KanbanCard = memo(KanbanCardImpl)

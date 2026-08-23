@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { Item, CadenceState, HierarchyNode } from '../../types'
+import { useState, memo } from 'react'
+import type { Item, Client, TeamMember, HierarchyNode } from '../../types'
 import { KanbanCard } from './KanbanCard'
 import { getEpicSP } from '../../utils/hierarchyScore'
 
@@ -26,7 +26,9 @@ interface Props {
   groupKey: string
   epic: HierarchyNode | undefined
   items: Item[]
-  state: CadenceState
+  // Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification (state -> clients/team).
+  clients: Client[]
+  team: TeamMember[]
   colColor: string
   onEdit: (item: Item) => void
   onRemoveFromSprint: (id: string) => void
@@ -40,10 +42,10 @@ interface Props {
   readOnly?: boolean
 }
 
-export function KanbanEpicGroup({
-  groupKey, epic, items, state, colColor, onEdit, onRemoveFromSprint, onDragItem, onDragGroup, readOnly = false,
+function KanbanEpicGroupImpl({
+  groupKey, epic, items, clients, team, colColor, onEdit, onRemoveFromSprint, onDragItem, onDragGroup, readOnly = false,
 }: Props) {
-  const client = epic ? state.clients.find(c => c.id === epic.clientId) : undefined
+  const client = epic ? clients.find(c => c.id === epic.clientId) : undefined
   const groupIds = epic ? [epic.id, ...items.map(i => i.id)] : items.map(i => i.id)
   const totalSP = getEpicSP(epic, items)
   const [collapsed, setCollapsed] = useState(false)
@@ -86,7 +88,8 @@ export function KanbanEpicGroup({
             <KanbanCard
               key={item.id}
               item={item}
-              state={state}
+              clients={clients}
+              team={team}
               colColor={colColor}
               cardDraggable={!readOnly}
               onEdit={onEdit}
@@ -100,3 +103,6 @@ export function KanbanEpicGroup({
     </div>
   )
 }
+
+// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification complète.
+export const KanbanEpicGroup = memo(KanbanEpicGroupImpl)

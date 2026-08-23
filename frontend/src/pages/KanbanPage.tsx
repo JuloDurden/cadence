@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useCadence } from '../context/StateContext'
 import { Header } from '../components/layout/Header'
 import { KanbanColumn } from '../components/kanban/KanbanColumn'
@@ -99,6 +99,16 @@ export function KanbanPage() {
   // groupIds), traité séparément du drag d'une carte seule (dragItemId).
   const dragGroupIds = useRef<string[] | null>(null)
   const addColBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Phase 7, perf (2026-08-24) : ref toujours à jour sur `state`, même principe déjà établi sur
+  // DailyPage.tsx (handleChange/stateRef). Permet à `handleRemoveFromSprint` ci-dessous de rester
+  // une identité STABLE (useCallback, deps vides) tout en lisant l'état réellement à jour au
+  // moment de l'appel - nécessaire pour que le memo() de KanbanCard.tsx serve à quelque chose
+  // (une nouvelle fonction `onRemoveFromSprint` à chaque rendu annulerait le memo). `handleDrop`/
+  // `handleDeleteCol` (plus gros, moins souvent appelés) restent volontairement non convertis
+  // pour l'instant - voir docs/corrections futures.md.
+  const stateRef = useRef(state)
+  useEffect(() => { stateRef.current = state }, [state])
 
   const currentSprint = useMemo(
     () => state.sprints.find(s => s.id === sprintId),
@@ -219,7 +229,16 @@ export function KanbanPage() {
   }
 
   // ── Drag handlers ────────────────────────────────────────────────────
-  function handleDragOver(colId: string) { setDragOverColId(colId) }
+  // Phase 7, perf (2026-08-24) : useCallback (deps vides, `setDragOverColId` est stable par
+  // garantie React) - passé tel quel à chaque KanbanColumn, désormais memo() lui aussi.
+  const handleDragOver = useCallback((colId: string) => { setDragOverColId(colId) }, [])
+
+  // Phase 7, perf (2026-08-24) : useCallback + `dragItemId`/`dragColId`/`dragGroupIds` (refs
+  // stables) - ces 3 handlers ne touchent jamais `state`, aucune raison qu'ils changent
+  // d'identité d'un rendu à l'autre.
+  const handleCardDragStart  = useCallback((id: string) => { dragItemId.current = id; dragColId.current = null; dragGroupIds.current = null }, [])
+  const handleGroupDragStart = useCallback((ids: string[]) => { dragGroupIds.current = ids; dragItemId.current = null; dragColId.current = null }, [])
+  const handleColDragStart   = useCallback((id: string) => { dragColId.current = id; dragItemId.current = null; dragGroupIds.current = null }, [])
 
   function handleDrop(targetId: string) {
     if (readOnly) return
@@ -386,8 +405,13 @@ export function KanbanPage() {
     setModalItem(undefined)
   }
 
-  function handleRemoveFromSprint(itemId: string) {
+  // Phase 7, perf (2026-08-24) : useCallback + `stateRef.current` (déclaré plus haut) plutôt que
+  // de fermer directement sur `state` - identité stable requise pour que le memo() de
+  // KanbanCard.tsx (bouton "Retirer du sprint") serve à quelque chose. `readOnly`/`userName`
+  // changent trop rarement pour justifier le même traitement, inclus tels quels en dépendances.
+  const handleRemoveFromSprint = useCallback((itemId: string) => {
     if (readOnly) return
+    const state = stateRef.current
     const item = state.items.find(i => i.id === itemId)
     if (!item) return
     const updated = { ...item, status: 'backlog', sprintId: null }
@@ -414,7 +438,7 @@ export function KanbanPage() {
       if (before && before.sprintId !== node.sprintId) dispatch({ type: 'UPDATE_HIERARCHY_NODE', payload: node })
     })
     saveToServer(withHistoryEntry({ ...state, items: updatedItems, hierarchyNodes: updatedNodes }, historyEntry))
-  }
+  }, [readOnly, userName, dispatch, saveToServer])
 
   const currentSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label ?? 'Priorité'
   const reorgBtnStyle: React.CSSProperties = reorgMode
@@ -525,17 +549,19 @@ export function KanbanPage() {
                 key={col.id}
                 col={col}
                 items={itemsByCol[col.id] ?? []}
-                state={state}
+                hierarchyNodes={state.hierarchyNodes}
+                clients={state.clients}
+                team={state.team}
                 isBase={BASE_COL_IDS.includes(col.id)}
                 reorgMode={reorgMode}
                 isDragOver={dragOverColId === col.id}
-                onCardDragStart={id => { dragItemId.current = id; dragColId.current = null; dragGroupIds.current = null }}
-                onGroupDragStart={ids => { dragGroupIds.current = ids; dragItemId.current = null; dragColId.current = null }}
-                onColDragStart={id  => { dragColId.current  = id; dragItemId.current = null; dragGroupIds.current = null }}
+                onCardDragStart={handleCardDragStart}
+                onGroupDragStart={handleGroupDragStart}
+                onColDragStart={handleColDragStart}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
                 onDeleteCol={handleDeleteCol}
-                onEdit={item => setModalItem(item)}
+                onEdit={setModalItem}
                 onRemoveFromSprint={handleRemoveFromSprint}
                 readOnly={readOnly}
               />

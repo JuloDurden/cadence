@@ -1,5 +1,5 @@
-import { useMemo, useRef } from 'react'
-import type { Item, KanbanCol, CadenceState } from '../../types'
+import { useMemo, useRef, memo } from 'react'
+import type { Item, KanbanCol, HierarchyNode, Client, TeamMember } from '../../types'
 import { KanbanCard } from './KanbanCard'
 import { KanbanCardSkeleton } from './KanbanCardSkeleton'
 import { KanbanEpicGroup } from './KanbanEpicGroup'
@@ -17,7 +17,11 @@ const SKELETON_CHROME_HEIGHT = 200
 interface Props {
   col: KanbanCol
   items: Item[]
-  state: CadenceState
+  // Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification (state -> tranches
+  // stables). `hierarchyNodes` reste nécessaire ici pour le regroupement par Epic ci-dessous.
+  hierarchyNodes: HierarchyNode[]
+  clients: Client[]
+  team: TeamMember[]
   isBase: boolean
   reorgMode: boolean
   isDragOver: boolean
@@ -46,8 +50,8 @@ const ICO = {
   circleMinus: '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/>',
 }
 
-export function KanbanColumn({
-  col, items, state, isBase, reorgMode, isDragOver,
+function KanbanColumnImpl({
+  col, items, hierarchyNodes, clients, team, isBase, reorgMode, isDragOver,
   onCardDragStart, onGroupDragStart, onColDragStart, onDragOver, onDrop,
   onDeleteCol, onEdit, onRemoveFromSprint, readOnly = false,
 }: Props) {
@@ -57,8 +61,8 @@ export function KanbanColumn({
   // notion de "scope stable" (Epics assignés au sprint via leur propre sprintId), une colonne
   // Kanban n'a pas d'équivalent : seuls les Epics ayant au moins un item ici apparaissent.
   const { groups: epicGroups, orphans } = useMemo(
-    () => groupItemsByEpic(items, state.hierarchyNodes),
-    [items, state.hierarchyNodes]
+    () => groupItemsByEpic(items, hierarchyNodes),
+    [items, hierarchyNodes]
   )
   // Nombre de squelettes en mode Réorganiser : indépendant du nombre d'items réels de la
   // colonne (docs/corrections futures.md, Kanban — "pas juste celles existantes"), calé sur
@@ -139,7 +143,8 @@ export function KanbanColumn({
                   groupKey={`${col.id}-${epicId}`}
                   epic={epic}
                   items={groupItems}
-                  state={state}
+                  clients={clients}
+                  team={team}
                   colColor={col.color}
                   onEdit={onEdit}
                   onRemoveFromSprint={onRemoveFromSprint}
@@ -152,7 +157,8 @@ export function KanbanColumn({
                 <KanbanCard
                   key={item.id}
                   item={item}
-                  state={state}
+                  clients={clients}
+                  team={team}
                   colColor={col.color}
                   cardDraggable={!readOnly}
                   onEdit={onEdit}
@@ -171,3 +177,6 @@ export function KanbanColumn({
     </div>
   )
 }
+
+// Phase 7, perf (2026-08-24) : voir KanbanCard.tsx pour la justification complète.
+export const KanbanColumn = memo(KanbanColumnImpl)
