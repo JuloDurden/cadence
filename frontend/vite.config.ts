@@ -10,6 +10,13 @@ import { VitePWA } from 'vite-plugin-pwa'
 const apiUrl = process.env.VITE_API_URL ?? 'http://localhost:3001'
 const apiOrigin = new URL(apiUrl).origin
 
+// Échappe les caractères spéciaux d'une regex (ex. les `.` et `:` d'une origine comme
+// "https://cadence-demo.up.railway.app") - nécessaire pour construire le RegExp de
+// `runtimeCaching` ci-dessous à partir de `apiOrigin`, voir le commentaire à cet endroit.
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // Phase 7, sécurité (2026-08-23) : CSP stricte injectée uniquement dans le build de production
 // (`vite build`), jamais en dev (`vite dev`) - le serveur de dev de Vite s'appuie sur des scripts
 // injectés et sur `eval` pour le Hot Module Replacement, qu'une CSP stricte casserait aussitôt.
@@ -91,8 +98,19 @@ function pwaPlugin() {
           // sont jamais interceptées par cette règle et partent donc toujours en réseau direct,
           // avec l'échec silencieux déjà en place hors connexion (voir commentaire au-dessus) -
           // pas de nouvelle route ajoutée ici qui laisserait croire à une sauvegarde offline.
-          urlPattern: ({ url, request }) =>
-            request.method === 'GET' && url.origin === apiOrigin && url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/ws'),
+          // Bug trouvé le 2026-09-09 (test réel sur un déploiement, jamais rencontré en local) :
+          // un `urlPattern` fonction ne peut PAS s'appuyer sur une variable extérieure comme
+          // `apiOrigin` - Workbox sérialise la fonction en texte (`.toString()`) pour l'écrire
+          // dans le service worker généré, qui n'a plus aucune idée de ce qu'est `apiOrigin` à
+          // l'exécution (`ReferenceError: apiOrigin is not defined` dans sw.js, une erreur qui
+          // interrompt le filtrage Workbox sur CHAQUE requête, pas seulement celles vers l'API).
+          // Un RegExp, contrairement à une fonction, est correctement sérialisé tel quel (sa
+          // représentation textuelle ne dépend d'aucune variable) - `apiOrigin` doit donc être
+          // résolu en une vraie chaîne AVANT la sérialisation, ici, plutôt que référencé par son
+          // nom. Le filtre de méthode (`request.method === 'GET'`) est supprimé du motif : le
+          // champ `method: 'GET'` juste en dessous fait déjà ce travail, sans avoir besoin d'y
+          // accéder depuis le motif lui-même.
+          urlPattern: new RegExp(`^${escapeRegExp(apiOrigin)}/api/(?!ws)`),
           handler: 'NetworkFirst',
           method: 'GET',
           options: {
