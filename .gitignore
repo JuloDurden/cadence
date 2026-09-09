@@ -40,6 +40,7 @@ backend/.env
 frontend/dist/
 backend/dist/
 mcp/dist/
+*.tsbuildinfo
 # Fichier de sondage temporaire (verrouillé par la synchro OneDrive, voir docs/corrections.md)
 mcp/probe.mjs
 

@@ -148,7 +148,7 @@ function SearchModal({ onClose }: { onClose: () => void }) {
 }
 
 export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
-  const { token, logout, userName, userRole } = useAuth()
+  const { token, logout, userName, userRole, isDemo } = useAuth()
   // Phase 2 (roadmap v1), sous-chantier 1 : userName/userRole étaient déjà capturés au login
   // (useAuth.ts) mais jamais consommés ici — le panneau profil affichait "Admin" en dur, déconnecté
   // du compte réellement connecté.
@@ -305,8 +305,10 @@ export function Header({ title, children, hideUndoRedo = false }: HeaderProps) {
             le visiteur "invité" du lien de présentation publique (`token: null`, voir
             AuthOverrideContext.tsx) : POST /api/ai-chat exige une authentification que ce visiteur
             n'a pas, et un lien public n'a de toute façon pas vocation à exposer l'assistant IA de
-            l'équipe. */}
-        {token && (
+            l'équipe. Démo publique v1 (2026-09-09) : masqué aussi pour le compte démo (`isDemo`) -
+            la route est bloquée côté serveur (routes/ai.ts, `forbidDemo`) de toute façon, masquer le
+            bouton évite juste au recruteur de cliquer sur quelque chose qui ne mène nulle part. */}
+        {token && !isDemo && (
           <button className="hdr-btn" title="Compagnon IA" aria-label="Compagnon IA" data-testid="chat-toggle-btn" onClick={toggleChat}>
             <Svg d={SVG.bot} />
           </button>

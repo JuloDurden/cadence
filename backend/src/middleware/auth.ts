@@ -5,10 +5,13 @@ import { FastifyRequest, FastifyReply } from 'fastify'
 // `jti` ajoute en Phase 5 (roadmap v1), MCP Claude (Cadence) : uniquement present sur un jeton
 // d'acces personnel (PAT, voir routes/apiTokens.ts), absent d'un jeton de session normal emis par
 // POST /api/auth/login, c'est ce qui distingue les deux en aval dans `authenticate` ci-dessous.
+// `isDemo` ajouté à la Démo publique v1 (2026-09-09) : optionnel, absent/`false` sur un jeton émis
+// avant ce chantier, jamais vrai en dehors du déploiement de démo dédié (voir schema.prisma, champ
+// `User.isDemo`).
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { id: string; email: string; role: string; jti?: string }
-    user: { id: string; email: string; role: string; jti?: string }
+    payload: { id: string; email: string; role: string; jti?: string; isDemo?: boolean }
+    user: { id: string; email: string; role: string; jti?: string; isDemo?: boolean }
   }
 }
 
@@ -47,5 +50,15 @@ export function requireRole(...roles: string[]) {
     if (!role || !roles.includes(role)) {
       reply.code(403).send({ error: 'Accès réservé à un rôle non autorisé pour ce compte' })
     }
+  }
+}
+
+// Démo publique v1 (2026-09-09) : à chaîner APRES `authenticate`, même principe que `requireRole`.
+// N'importe quel rôle passe `requireRole('ADMIN')` sur le compte démo (il est réellement Admin, pour
+// montrer toute l'étendue de l'outil) - seule cette garde bloque spécifiquement les routes coûteuses
+// (Compagnon IA, voir routes/ai.ts) pour ce compte précis, sans toucher au reste de ses droits.
+export async function forbidDemo(req: FastifyRequest, reply: FastifyReply) {
+  if (req.user?.isDemo) {
+    reply.code(403).send({ error: 'Fonctionnalité désactivée sur le compte de démonstration' })
   }
 }

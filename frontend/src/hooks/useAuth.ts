@@ -6,6 +6,8 @@ const TOKEN_KEY     = 'cadence_token'
 const USER_KEY       = 'cadence_user'
 const USER_ID_KEY   = 'cadence_user_id'
 const USER_ROLE_KEY = 'cadence_user_role'
+// Démo publique v1 (2026-09-09) : voir backend/prisma/schema.prisma (`User.isDemo`).
+const USER_IS_DEMO_KEY = 'cadence_user_is_demo'
 
 export function useAuth() {
   const [token, setToken]       = useState<string | null>(() => localStorage.getItem(TOKEN_KEY))
@@ -14,6 +16,7 @@ export function useAuth() {
   // voir Chantier J, docs/corrections.md). Déjà renvoyés par /api/auth/login mais jetés jusqu'ici.
   const [userId, setUserId]     = useState<string>(() => localStorage.getItem(USER_ID_KEY) ?? '')
   const [userRole, setUserRole] = useState<UserRole | ''>(() => (localStorage.getItem(USER_ROLE_KEY) as UserRole | null) ?? '')
+  const [isDemo, setIsDemo]     = useState<boolean>(() => localStorage.getItem(USER_IS_DEMO_KEY) === 'true')
 
   // Phase 3 (roadmap v1), Mode présentation — un visiteur du lien public (PresentationPublicPage.tsx)
   // n'a pas de compte du tout : `AuthOverrideProvider` lui impose une identité "invité" en lecture
@@ -27,7 +30,7 @@ export function useAuth() {
   if (override) {
     return {
       token: null, login: () => {}, logout: () => {},
-      userName: override.userName, userId: '', userRole: override.userRole,
+      userName: override.userName, userId: '', userRole: override.userRole, isDemo: false,
     }
   }
 
@@ -38,9 +41,11 @@ export function useAuth() {
       localStorage.setItem(USER_KEY, user.name)
       localStorage.setItem(USER_ID_KEY, user.id)
       localStorage.setItem(USER_ROLE_KEY, user.role)
+      localStorage.setItem(USER_IS_DEMO_KEY, user.isDemo ? 'true' : 'false')
       setUserName(user.name)
       setUserId(user.id)
       setUserRole(user.role)
+      setIsDemo(!!user.isDemo)
     }
   }
 
@@ -49,11 +54,13 @@ export function useAuth() {
     localStorage.removeItem(USER_KEY)
     localStorage.removeItem(USER_ID_KEY)
     localStorage.removeItem(USER_ROLE_KEY)
+    localStorage.removeItem(USER_IS_DEMO_KEY)
     setToken(null)
     setUserName('Admin')
     setUserId('')
     setUserRole('')
+    setIsDemo(false)
   }
 
-  return { token, login, logout, userName, userId, userRole }
+  return { token, login, logout, userName, userId, userRole, isDemo }
 }

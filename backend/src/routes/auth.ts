@@ -20,8 +20,14 @@ export async function authRoutes(fastify: FastifyInstance) {
       if (!user || !match) {
         return reply.code(401).send({ error: 'Email ou mot de passe incorrect' })
       }
-      const token = fastify.jwt.sign({ id: user.id, email: user.email, role: user.role })
-      return { token, user: { id: user.id, email: user.email, name: user.name, role: user.role } }
+      // Démo publique v1, sous-chantier 3/5 (2026-09-09) : voir schema.prisma, User.lastLoginAt -
+      // seul point d'écriture de ce champ, utilisé par lib/demoReset.ts pour mesurer la "session"
+      // du compte démo. Faite avant l'émission du jeton plutôt qu'après (best-effort, pas bloquant
+      // pour la connexion elle-même) : si cette écriture échouait pour une raison quelconque, mieux
+      // vaut connecter la personne quand même que la bloquer pour une fonctionnalité annexe.
+      await fastify.prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+      const token = fastify.jwt.sign({ id: user.id, email: user.email, role: user.role, isDemo: user.isDemo })
+      return { token, user: { id: user.id, email: user.email, name: user.name, role: user.role, isDemo: user.isDemo } }
     }
   )
 

@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { authenticate, requireRole } from '../middleware/auth'
+import { authenticate, requireRole, forbidDemo } from '../middleware/auth'
 import {
   validateAnthropicKey, callWithTools, maskApiKey, generateRoadmapGoals,
   CREATE_ITEM_TOOL, UPDATE_ITEM_TOOL_FULL, UPDATE_ITEM_TOOL_DEV, CREATE_HIERARCHY_NODE_TOOL, UPDATE_HIERARCHY_NODE_TOOL,
@@ -1062,8 +1062,13 @@ function buildSystemPrompt(state: CadenceState, role: string): string {
 
 export async function aiRoutes(fastify: FastifyInstance) {
   const adminOnly = [authenticate, requireRole('ADMIN')]
+  // Démo publique v1 (2026-09-09) : le Compagnon IA appelle une vraie clé Anthropic partagée par
+  // toute l'instance (AiConfig, une seule ligne) - coûte réellement, contrairement au reste de
+  // l'app. Seule fonctionnalité bloquée côté backend pour le compte démo (voir middleware/auth.ts).
+  const demoBlockedAdminOnly = [authenticate, requireRole('ADMIN'), forbidDemo]
+  const demoBlocked = [authenticate, forbidDemo]
 
-  fastify.get('/api/ai-config', { preHandler: adminOnly }, async () => {
+  fastify.get('/api/ai-config', { preHandler: demoBlockedAdminOnly }, async () => {
     const config = await fastify.prisma.aiConfig.findFirst()
     return { config: config ? toPublicConfig(config) : null }
   })
@@ -1073,7 +1078,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
   // aupres d'Anthropic AVANT d'ecrire quoi que ce soit, meme logique que githubRoutes.
   fastify.put<{ Body: { apiKey?: string; model?: string } }>(
     '/api/ai-config',
-    { schema: { body: { type: 'object', properties: { apiKey: { type: 'string' }, model: { type: 'string' } } } }, preHandler: adminOnly },
+    { schema: { body: { type: 'object', properties: { apiKey: { type: 'string' }, model: { type: 'string' } } } }, preHandler: demoBlockedAdminOnly },
     async (req, reply) => {
       const existing = await fastify.prisma.aiConfig.findFirst()
       const apiKey = req.body.apiKey?.trim() || existing?.apiKey
@@ -1093,7 +1098,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
     }
   )
 
-  fastify.delete('/api/ai-config', { preHandler: adminOnly }, async (_req, reply) => {
+  fastify.delete('/api/ai-config', { preHandler: demoBlockedAdminOnly }, async (_req, reply) => {
     await fastify.prisma.aiConfig.deleteMany({})
     return reply.code(204).send()
   })
@@ -1105,7 +1110,7 @@ export async function aiRoutes(fastify: FastifyInstance) {
   // l'historique de la conversation a chaque appel (ChatContext.tsx le maintient cote frontend).
   fastify.post<{ Body: { messages: { role: 'user' | 'assistant'; content: string }[] } }>(
     '/api/ai-chat',
-    { preHandler: authenticate },
+    { preHandler: demoBlocked },
     async (req, reply) => {
       const aiConfig: AiConfigRow | null = await fastify.prisma.aiConfig.findFirst()
       if (!aiConfig) return reply.code(400).send({ error: "Aucun assistant IA configure. Un Admin doit d'abord renseigner une cle API Anthropic en Reglages." })

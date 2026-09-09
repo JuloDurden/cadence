@@ -40,6 +40,23 @@ model User {
   // monde").
   personalSettings Json?
 
+  // Démo publique v1 (2026-09-09, décision Julien : donner un lien de démo à des recruteurs sans
+  // exposer le vrai espace de travail ni les crédits API du Compagnon IA). Ce champ n'a de sens que
+  // sur le déploiement de démo dédié (base séparée de l'instance réelle, voir docs/corrections.md,
+  // "Démo publique") - jamais vrai sur l'instance de production de Julien. Seul effet concret :
+  // bloque côté backend l'accès aux routes du Compagnon IA (routes/ai.ts, middleware `forbidDemo`),
+  // quel que soit le rôle par ailleurs (le compte démo reste ADMIN pour montrer toute l'étendue de
+  // l'outil - voir décision "Admin avec blocages ciblés").
+  isDemo Boolean @default(false)
+
+  // Démo publique v1, sous-chantier 3/5 (2026-09-09) : posé à chaque connexion réussie
+  // (routes/auth.ts, POST /api/auth/login), pour tous les comptes - pas seulement `isDemo`, champ
+  // volontairement générique plutôt que dédié à la démo. Sert aujourd'hui uniquement à
+  // `lib/demoReset.ts` pour mesurer depuis quand la "session" du compte démo a commencé et décider
+  // du reset automatique (1h-2h, décision Julien) - remis à `null` par ce même reset, pour ne
+  // déclencher le suivant qu'après une nouvelle connexion.
+  lastLoginAt DateTime?
+
   @@map("users")
 }
 

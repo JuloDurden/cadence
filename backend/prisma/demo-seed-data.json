@@ -1,0 +1,1384 @@
+{
+  "sprints": [
+    {
+      "id": "s1",
+      "number": 1,
+      "label": "Sprint 1 - FOUNDATION",
+      "startDate": "2026-06-15",
+      "endDate": "2026-06-28",
+      "capacity": 100,
+      "closed": true,
+      "goal": "Satisfaction clients majeurs + stabilité de la plateforme",
+      "velocitySnapshot": 100
+    },
+    {
+      "id": "s2",
+      "number": 2,
+      "label": "Sprint 2 - MODERNISATION",
+      "startDate": "2026-06-29",
+      "endDate": "2026-07-12",
+      "capacity": 100,
+      "closed": false,
+      "goal": "Modernisation FAXFA V3 et fiabilité technique"
+    },
+    {
+      "id": "s3",
+      "number": 3,
+      "label": "Sprint 3 - INTELLIGENCE",
+      "startDate": "2026-07-13",
+      "endDate": "2026-07-26",
+      "capacity": 100,
+      "closed": false,
+      "goal": "Migration V3 complète et valeur ajoutée IA"
+    },
+    {
+      "id": "s4",
+      "number": 4,
+      "label": "Sprint 4 - EXCELLENCE",
+      "startDate": "2026-07-27",
+      "endDate": "2026-08-09",
+      "capacity": 100,
+      "closed": false,
+      "goal": "Excellence opérationnelle et livraison PME"
+    }
+  ],
+  "items": [
+    {
+      "id": "i1",
+      "key": "BUG-001",
+      "desc": "15 bugs urgents en production (bloquants)",
+      "sp": 15,
+      "status": "done",
+      "clientId": "cl6",
+      "sprintId": "s1",
+      "priority": "critical",
+      "assignees": [
+        "m2",
+        "m5"
+      ],
+      "tags": [
+        "Sécurité"
+      ],
+      "type": "story",
+      "role": "équipe de développement",
+      "need": "corriger les 15 bugs urgents identifiés en production",
+      "benefit": "rétablir la stabilité de la plateforme pour tous les utilisateurs",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "qu'un bug urgent est identifié en production",
+          "when": "le correctif est déployé",
+          "then": "le bug n'est plus reproductible et aucune régression n'est constatée"
+        },
+        {
+          "id": "cr_1",
+          "given": "que tous les bugs urgents sont corrigés",
+          "when": "le sprint est livré",
+          "then": "le taux d'erreur en production revient à son niveau nominal"
+        }
+      ],
+      "dor": [
+        {
+          "id": "i1_dor0",
+          "text": "User Story rédigée (rôle / besoin / objectif)",
+          "done": true
+        },
+        {
+          "id": "i1_dor1",
+          "text": "Critères d'acceptation définis (Gherkin)",
+          "done": true
+        },
+        {
+          "id": "i1_dor2",
+          "text": "Estimé en SP par l'équipe",
+          "done": true
+        },
+        {
+          "id": "i1_dor3",
+          "text": "Dépendances identifiées et prises en compte",
+          "done": true
+        },
+        {
+          "id": "i1_dor4",
+          "text": "Aucun bloqueur connu",
+          "done": true
+        }
+      ],
+      "dod": [
+        {
+          "id": "i1_dod0",
+          "text": "Code développé et en revue (code review)",
+          "done": true
+        },
+        {
+          "id": "i1_dod1",
+          "text": "Tests unitaires écrits et passants",
+          "done": true
+        },
+        {
+          "id": "i1_dod2",
+          "text": "Recette fonctionnelle validée par le PO",
+          "done": true
+        },
+        {
+          "id": "i1_dod3",
+          "text": "Déployé en environnement de recette",
+          "done": true
+        },
+        {
+          "id": "i1_dod4",
+          "text": "Documentation mise à jour",
+          "done": true
+        }
+      ],
+      "moscow": "must",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i5",
+      "key": "PME-005",
+      "desc": "Formulaire contact + bug bloquant + évol mobile + e-commerce 1/4 + site 1/4",
+      "sp": 25,
+      "status": "done",
+      "clientId": "cl5",
+      "sprintId": "s1",
+      "priority": "critical",
+      "assignees": [
+        "m7",
+        "m8",
+        "m9"
+      ],
+      "tags": [
+        "Front",
+        "Back"
+      ],
+      "type": "story",
+      "role": "PME cliente",
+      "need": "bénéficier d'un formulaire de contact fonctionnel et de la correction du bug bloquant",
+      "benefit": "assurer la continuité de mon activité en ligne",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "qu'un visiteur remplit le formulaire de contact",
+          "when": "il clique sur Envoyer",
+          "then": "un email est transmis au responsable et un message de confirmation s'affiche"
+        }
+      ],
+      "dor": [
+        {
+          "id": "i5_dor0",
+          "text": "User Story rédigée (rôle / besoin / objectif)",
+          "done": true
+        },
+        {
+          "id": "i5_dor1",
+          "text": "Critères d'acceptation définis (Gherkin)",
+          "done": true
+        },
+        {
+          "id": "i5_dor2",
+          "text": "Estimé en SP par l'équipe",
+          "done": true
+        },
+        {
+          "id": "i5_dor3",
+          "text": "Dépendances identifiées et prises en compte",
+          "done": true
+        },
+        {
+          "id": "i5_dor4",
+          "text": "Aucun bloqueur connu",
+          "done": true
+        }
+      ],
+      "dod": [
+        {
+          "id": "i5_dod0",
+          "text": "Code développé et en revue (code review)",
+          "done": true
+        },
+        {
+          "id": "i5_dod1",
+          "text": "Tests unitaires écrits et passants",
+          "done": false
+        },
+        {
+          "id": "i5_dod2",
+          "text": "Recette fonctionnelle validée par le PO",
+          "done": false
+        },
+        {
+          "id": "i5_dod3",
+          "text": "Déployé en environnement de recette",
+          "done": false
+        },
+        {
+          "id": "i5_dod4",
+          "text": "Documentation mise à jour",
+          "done": false
+        }
+      ],
+      "scoringFramework": "rice",
+      "rice": {
+        "reach": 500,
+        "impact": 2,
+        "confidence": 0.8,
+        "effort": 3
+      },
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i6",
+      "key": "BUG-006",
+      "desc": "Bugs moyennement urgents – lot 1/2",
+      "sp": 15,
+      "status": "todo",
+      "clientId": "cl6",
+      "sprintId": "s2",
+      "priority": "high",
+      "assignees": [
+        "m2",
+        "m5"
+      ],
+      "tags": [
+        "Dette technique"
+      ],
+      "type": "story",
+      "role": "équipe de développement",
+      "need": "corriger le premier lot de bugs moyennement urgents",
+      "benefit": "réduire la dette technique et améliorer la stabilité",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "qu'un bug du lot 1 est sélectionné",
+          "when": "le correctif est développé et testé",
+          "then": "le bug est résolu sans régression sur les fonctionnalités adjacentes"
+        }
+      ],
+      "dor": [
+        {
+          "id": "i6_dor0",
+          "text": "User Story rédigée (rôle / besoin / objectif)",
+          "done": true
+        },
+        {
+          "id": "i6_dor1",
+          "text": "Critères d'acceptation définis (Gherkin)",
+          "done": true
+        },
+        {
+          "id": "i6_dor2",
+          "text": "Estimé en SP par l'équipe",
+          "done": true
+        },
+        {
+          "id": "i6_dor3",
+          "text": "Dépendances identifiées et prises en compte",
+          "done": true
+        },
+        {
+          "id": "i6_dor4",
+          "text": "Aucun bloqueur connu",
+          "done": true
+        }
+      ],
+      "dod": [
+        {
+          "id": "i6_dod0",
+          "text": "Code développé et en revue (code review)",
+          "done": false
+        },
+        {
+          "id": "i6_dod1",
+          "text": "Tests unitaires écrits et passants",
+          "done": false
+        },
+        {
+          "id": "i6_dod2",
+          "text": "Recette fonctionnelle validée par le PO",
+          "done": false
+        },
+        {
+          "id": "i6_dod3",
+          "text": "Déployé en environnement de recette",
+          "done": false
+        },
+        {
+          "id": "i6_dod4",
+          "text": "Documentation mise à jour",
+          "done": false
+        }
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i10",
+      "key": "SOC-010",
+      "desc": "3 bugs urgents socle + réglementaire code assurance",
+      "sp": 15,
+      "status": "done",
+      "clientId": "cl4",
+      "sprintId": "s2",
+      "priority": "high",
+      "assignees": [
+        "m5",
+        "m10"
+      ],
+      "tags": [
+        "Dette technique",
+        "Sécurité"
+      ],
+      "type": "story",
+      "role": "Product Owner",
+      "need": "corriger les 3 bugs urgents du socle et intégrer la modification réglementaire",
+      "benefit": "maintenir la conformité légale et la stabilité pour tous les clients",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que la modification du code des assurances est applicable",
+          "when": "un nouveau dossier est créé",
+          "then": "les nouvelles règles de calcul s'appliquent automatiquement"
+        }
+      ],
+      "dor": [
+        {
+          "id": "i10_dor0",
+          "text": "User Story rédigée (rôle / besoin / objectif)",
+          "done": true
+        },
+        {
+          "id": "i10_dor1",
+          "text": "Critères d'acceptation définis (Gherkin)",
+          "done": true
+        },
+        {
+          "id": "i10_dor2",
+          "text": "Estimé en SP par l'équipe",
+          "done": true
+        },
+        {
+          "id": "i10_dor3",
+          "text": "Dépendances identifiées et prises en compte",
+          "done": false
+        },
+        {
+          "id": "i10_dor4",
+          "text": "Aucun bloqueur connu",
+          "done": false
+        }
+      ],
+      "dod": [
+        {
+          "id": "i10_dod0",
+          "text": "Code développé et en revue (code review)",
+          "done": false
+        },
+        {
+          "id": "i10_dod1",
+          "text": "Tests unitaires écrits et passants",
+          "done": false
+        },
+        {
+          "id": "i10_dod2",
+          "text": "Recette fonctionnelle validée par le PO",
+          "done": false
+        },
+        {
+          "id": "i10_dod3",
+          "text": "Déployé en environnement de recette",
+          "done": false
+        },
+        {
+          "id": "i10_dod4",
+          "text": "Documentation mise à jour",
+          "done": false
+        }
+      ],
+      "moscow": "must",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i11",
+      "key": "PME-011",
+      "desc": "Bug important + bug non bloquant + évol mobile + e-commerce 2/3 + site 2/4",
+      "sp": 10,
+      "status": "doing",
+      "clientId": "cl5",
+      "sprintId": "s2",
+      "priority": "high",
+      "assignees": [
+        "m7",
+        "m9"
+      ],
+      "tags": [
+        "Front",
+        "Back"
+      ],
+      "type": "story",
+      "role": "PME cliente",
+      "need": "voir les bugs corrigés et la deuxième partie de ma boutique développée",
+      "benefit": "offrir une expérience d'achat complète à mes clients",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que la partie 2 de la boutique est déployée",
+          "when": "un client navigue sur le site",
+          "then": "le panier et la page produits sont fonctionnels"
+        }
+      ],
+      "deps": [
+        "i5"
+      ],
+      "scoringFramework": "rice",
+      "rice": {
+        "reach": 500,
+        "impact": 2,
+        "confidence": 0.7,
+        "effort": 2
+      },
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i12",
+      "key": "BUG-012",
+      "desc": "Bugs moyennement urgents – lot 2/2",
+      "sp": 15,
+      "status": "todo",
+      "clientId": "cl6",
+      "sprintId": "s3",
+      "priority": "medium",
+      "assignees": [],
+      "tags": [
+        "Dette technique"
+      ],
+      "type": "story",
+      "role": "équipe de développement",
+      "need": "corriger le second lot de bugs moyennement urgents",
+      "benefit": "finaliser la résolution des anomalies et stabiliser la base de code",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que tous les bugs du lot 2 sont développés",
+          "when": "la recette est effectuée",
+          "then": "aucun bug du lot n'est reproductible en production"
+        }
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i16",
+      "key": "SOC-016",
+      "desc": "3 bugs moyennement urgents socle",
+      "sp": 15,
+      "status": "todo",
+      "clientId": "cl4",
+      "sprintId": "s3",
+      "priority": "medium",
+      "assignees": [],
+      "tags": [
+        "Dette technique"
+      ],
+      "type": "story",
+      "role": "Product Owner",
+      "need": "corriger les 3 bugs moyennement urgents du socle commun",
+      "benefit": "améliorer la qualité globale pour l'ensemble des clients",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que les 3 bugs sont corrigés et testés",
+          "when": "les tests de régression sont exécutés",
+          "then": "aucun nouveau bug n'est introduit"
+        }
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i17",
+      "key": "PME-017",
+      "desc": "Bug mineur ×2 + évol mobile + e-commerce 3/3 + site 3/4",
+      "sp": 10,
+      "status": "todo",
+      "clientId": "cl5",
+      "sprintId": "s3",
+      "priority": "medium",
+      "assignees": [
+        "m7",
+        "m8"
+      ],
+      "tags": [
+        "Front",
+        "Back"
+      ],
+      "type": "story",
+      "role": "PME cliente",
+      "need": "finaliser ma boutique e-commerce et continuer les évolutions de mon site",
+      "benefit": "disposer d'une boutique entièrement fonctionnelle",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que la partie 3 de la boutique est déployée",
+          "when": "un client passe une commande",
+          "then": "le paiement est traité et une confirmation est envoyée par email"
+        }
+      ],
+      "deps": [
+        "i11"
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i18",
+      "key": "BUG-018",
+      "desc": "Bugs mineurs – quand l'équipe a du temps",
+      "sp": 15,
+      "status": "todo",
+      "clientId": "cl6",
+      "sprintId": "s4",
+      "priority": "low",
+      "assignees": [],
+      "tags": [
+        "Dette technique"
+      ],
+      "type": "story",
+      "role": "équipe de développement",
+      "need": "traiter les bugs mineurs lors des disponibilités",
+      "benefit": "réduire la dette technique sans impacter les livraisons prioritaires",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que l'équipe dispose de temps dans le sprint",
+          "when": "un bug mineur est sélectionné",
+          "then": "il est traité, testé et intégré dans la release"
+        }
+      ],
+      "moscow": "could",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i19",
+      "key": "FAX-019",
+      "desc": "15 bugs en souffrance FAXFA (1–5 SP)",
+      "sp": 30,
+      "status": "todo",
+      "clientId": "cl1",
+      "sprintId": "s4",
+      "priority": "low",
+      "assignees": [],
+      "tags": [
+        "Dette technique"
+      ],
+      "type": "story",
+      "epicId": "i7",
+      "role": "utilisateur FAXFA",
+      "need": "voir les anomalies signalées depuis plus d'un an enfin corrigées",
+      "benefit": "utiliser le logiciel sans les irritants qui nuisent à la vélocité",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "qu'un bug en souffrance est sélectionné",
+          "when": "le correctif est livré",
+          "then": "le bug n'est plus reproductible et le ticket est clôturé"
+        }
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i20",
+      "key": "MAN-020",
+      "desc": "20 bugs en souffrance MANFIFE (2 SP chacun)",
+      "sp": 20,
+      "status": "todo",
+      "clientId": "cl2",
+      "sprintId": "s4",
+      "priority": "low",
+      "assignees": [],
+      "tags": [
+        "Dette technique"
+      ],
+      "type": "story",
+      "role": "utilisateur MANFIFE",
+      "need": "voir les 20 anomalies signalées depuis 6 mois corrigées",
+      "benefit": "retrouver un outil fiable et limiter les contournements manuels",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que les 20 bugs MANFIFE sont corrigés",
+          "when": "la recette est validée",
+          "then": "les tickets sont clôturés et l'équipe MANFIFE confirme la résolution"
+        }
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i21",
+      "key": "AGA-021",
+      "desc": "10 bugs en souffrance AGANOR (1 SP chacun)",
+      "sp": 10,
+      "status": "todo",
+      "clientId": "cl3",
+      "sprintId": "s4",
+      "priority": "low",
+      "assignees": [],
+      "tags": [
+        "Dette technique"
+      ],
+      "type": "story",
+      "role": "utilisateur AGANOR",
+      "need": "voir les 10 anomalies signalées depuis 1 an et demi corrigées",
+      "benefit": "éliminer les erreurs récurrentes qui génèrent des tickets de support",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que les 10 bugs AGANOR sont corrigés",
+          "when": "les tests sont validés",
+          "then": "le volume de tickets de support liés à ces bugs diminue de 100 %"
+        }
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i22",
+      "key": "SOC-022",
+      "desc": "Optimisation base de données",
+      "sp": 15,
+      "status": "todo",
+      "clientId": "cl4",
+      "sprintId": "s4",
+      "priority": "low",
+      "assignees": [
+        "m2",
+        "m10"
+      ],
+      "tags": [
+        "Back",
+        "Performance"
+      ],
+      "type": "story",
+      "role": "Product Owner",
+      "need": "optimiser la base de données du socle commun",
+      "benefit": "améliorer les performances globales et réduire les temps de réponse",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que l'optimisation BDD est déployée",
+          "when": "une recherche de dossier est effectuée",
+          "then": "le temps de réponse est inférieur à 500 ms pour 95 % des requêtes"
+        }
+      ],
+      "scoringFramework": "wsjf",
+      "wsjf": {
+        "businessValue": 6,
+        "timeCriticality": 3,
+        "riskReduction": 7
+      },
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i23",
+      "key": "PME-023",
+      "desc": "Bug mineur ×2 + évol mobile + 5 bugs ×1 SP + site vitrine 4/4",
+      "sp": 10,
+      "status": "todo",
+      "clientId": "cl5",
+      "sprintId": "s4",
+      "priority": "low",
+      "assignees": [],
+      "tags": [
+        "Front",
+        "UX"
+      ],
+      "type": "story",
+      "role": "PME cliente",
+      "need": "finaliser mon site vitrine et corriger les derniers bugs mineurs",
+      "benefit": "disposer d'un site complet et sans anomalie connue",
+      "criteria": [
+        {
+          "id": "cr_0",
+          "given": "que la partie 4 du site est déployée",
+          "when": "un visiteur accède au site",
+          "then": "toutes les sections s'affichent correctement sur mobile, tablette et desktop"
+        }
+      ],
+      "deps": [
+        "i17"
+      ],
+      "moscow": "should",
+      "scoringFramework": "moscow",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i24",
+      "key": "FAX-024",
+      "desc": "US : Intégration dashboard prédiction accidents",
+      "sp": 8,
+      "status": "doing",
+      "clientId": "cl1",
+      "sprintId": "s2",
+      "priority": "high",
+      "epicId": "i7",
+      "assignees": [
+        "m1"
+      ],
+      "tags": [
+        "Front",
+        "IA"
+      ],
+      "type": "story",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i25",
+      "key": "MAN-025",
+      "desc": "US : Migration données historiques remboursements COVID",
+      "sp": 5,
+      "status": "todo",
+      "clientId": "cl2",
+      "sprintId": "s2",
+      "priority": "high",
+      "epicId": "i8",
+      "assignees": [
+        "m2"
+      ],
+      "tags": [
+        "Back",
+        "Migration"
+      ],
+      "type": "story",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i26",
+      "key": "FAX-026",
+      "desc": "US : Tests E2E composants React v3",
+      "sp": 5,
+      "status": "todo",
+      "clientId": "cl1",
+      "sprintId": "s3",
+      "priority": "medium",
+      "epicId": "i13",
+      "assignees": [
+        "m6"
+      ],
+      "tags": [
+        "Front",
+        "Tests"
+      ],
+      "type": "story",
+      "createdAt": "2026-06-15T08:00:00Z"
+    }
+  ],
+  "hierarchyNodes": [
+    {
+      "id": "i2",
+      "key": "FAX-002",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC Carte interactive – partenaire le plus proche",
+      "sp": 30,
+      "status": "done",
+      "clientId": "cl1",
+      "sprintId": "s1",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i3",
+      "key": "MAN-003",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC App mobile mode déconnecté",
+      "sp": 20,
+      "status": "done",
+      "clientId": "cl2",
+      "sprintId": "s1",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i4",
+      "key": "AGA-004",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC Nouveau contrat + rétro-commission",
+      "sp": 10,
+      "status": "done",
+      "clientId": "cl3",
+      "sprintId": "s1",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i7",
+      "key": "FAX-007",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC IA Prédiction accidents & CA",
+      "sp": 30,
+      "status": "done",
+      "clientId": "cl1",
+      "sprintId": "s2",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i8",
+      "key": "MAN-008",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC Remboursement COVID adhérents",
+      "sp": 20,
+      "status": "doing",
+      "clientId": "cl2",
+      "sprintId": "s2",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i9",
+      "key": "AGA-009",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC Norme IFRS 18 états financiers",
+      "sp": 10,
+      "status": "todo",
+      "clientId": "cl3",
+      "sprintId": "s2",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i13",
+      "key": "FAX-013",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC Nouvelle version 3 React.js",
+      "sp": 30,
+      "status": "todo",
+      "clientId": "cl1",
+      "sprintId": "s3",
+      "deadline": {
+        "date": "2026-06-30",
+        "type": "imposed"
+      },
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i14",
+      "key": "MAN-014",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC Portage v3 MANFIFE",
+      "sp": 20,
+      "status": "todo",
+      "clientId": "cl2",
+      "sprintId": "s3",
+      "createdAt": "2026-06-15T08:00:00Z"
+    },
+    {
+      "id": "i15",
+      "key": "AGA-015",
+      "level": "epic",
+      "parentId": null,
+      "desc": "EPIC Portage v3 AGANOR",
+      "sp": 10,
+      "status": "todo",
+      "clientId": "cl3",
+      "sprintId": "s3",
+      "createdAt": "2026-06-15T08:00:00Z"
+    }
+  ],
+  "team": [
+    {
+      "id": "m1",
+      "name": "Aldo Raines",
+      "role": "Dev Full-Stack",
+      "spPerDay": 1,
+      "tags": [
+        "Front",
+        "Back",
+        "API"
+      ]
+    },
+    {
+      "id": "m2",
+      "name": "Brienne de Torth",
+      "role": "Dev Back-End",
+      "spPerDay": 1,
+      "tags": [
+        "Back",
+        "API",
+        "Sécurité"
+      ]
+    },
+    {
+      "id": "m3",
+      "name": "Ellen Ripley",
+      "role": "Dev Full-Stack",
+      "spPerDay": 1,
+      "tags": [
+        "Front",
+        "Back"
+      ]
+    },
+    {
+      "id": "m4",
+      "name": "Ellie Williams",
+      "role": "Dev Back-End",
+      "spPerDay": 1,
+      "tags": [
+        "Back",
+        "API"
+      ]
+    },
+    {
+      "id": "m5",
+      "name": "Henry Jones Jr",
+      "role": "Dev Back-End",
+      "spPerDay": 1,
+      "tags": [
+        "Back",
+        "Performance"
+      ]
+    },
+    {
+      "id": "m6",
+      "name": "Hugo Stiglitz",
+      "role": "Dev Front-End",
+      "spPerDay": 1,
+      "tags": [
+        "Front",
+        "UX"
+      ]
+    },
+    {
+      "id": "m7",
+      "name": "June Osbourne",
+      "role": "Dev Front-End",
+      "spPerDay": 1,
+      "tags": [
+        "Front"
+      ]
+    },
+    {
+      "id": "m8",
+      "name": "Miles Morales",
+      "role": "Dev Front-End",
+      "spPerDay": 1,
+      "tags": [
+        "Front",
+        "UX"
+      ]
+    },
+    {
+      "id": "m9",
+      "name": "Selina Kyle",
+      "role": "Dev Front-End",
+      "spPerDay": 1,
+      "tags": [
+        "Front",
+        "API"
+      ]
+    },
+    {
+      "id": "m10",
+      "name": "Snake Plissken",
+      "role": "Dev Back-End",
+      "spPerDay": 1,
+      "tags": [
+        "Back",
+        "Infra",
+        "Performance"
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "id": "cl1",
+      "name": "FAXFA",
+      "tier": "major",
+      "annualRevenue": 450000,
+      "rag": "G",
+      "color": "#1d4ed8",
+      "prefix": "FAX",
+      "notes": "Assureur automobile - 12 ans de partenariat"
+    },
+    {
+      "id": "cl2",
+      "name": "MANFIFE",
+      "tier": "major",
+      "annualRevenue": 320000,
+      "rag": "A",
+      "color": "#15803d",
+      "prefix": "MAN",
+      "notes": "Mutuelle nationale - 8 ans de partenariat"
+    },
+    {
+      "id": "cl3",
+      "name": "AGANOR",
+      "tier": "major",
+      "annualRevenue": 210000,
+      "rag": "G",
+      "color": "#7c3aed",
+      "prefix": "AGA",
+      "notes": "Courtier régional - 5 ans de partenariat"
+    },
+    {
+      "id": "cl4",
+      "name": "Socle",
+      "tier": "internal",
+      "annualRevenue": 0,
+      "rag": "G",
+      "color": "#475569",
+      "prefix": "SOC",
+      "notes": "Fonctionnalités transverses mutualisées"
+    },
+    {
+      "id": "cl5",
+      "name": "PME",
+      "tier": "minor",
+      "annualRevenue": 85000,
+      "rag": "A",
+      "color": "#c2410c",
+      "prefix": "PME",
+      "notes": "Petites et moyennes entreprises - nouveau périmètre 2026"
+    },
+    {
+      "id": "cl6",
+      "name": "Bugs transverses",
+      "tier": "internal",
+      "annualRevenue": 0,
+      "rag": "G",
+      "color": "#6b7280",
+      "prefix": "BUG",
+      "notes": "Bugs non rattachés à un client spécifique"
+    }
+  ],
+  "kanbanCols": [
+    {
+      "id": "todo",
+      "label": "À faire",
+      "color": "#6b7280",
+      "isDone": false,
+      "isDefault": true
+    },
+    {
+      "id": "doing",
+      "label": "En cours",
+      "color": "#d97706",
+      "isDone": false
+    },
+    {
+      "id": "done",
+      "label": "Terminé",
+      "color": "#16a34a",
+      "isDone": true
+    },
+    {
+      "id": "staging",
+      "label": "En recette",
+      "color": "#0891b2",
+      "isDone": false
+    },
+    {
+      "id": "delivered",
+      "label": "Livré",
+      "color": "#0d9488",
+      "isDone": true
+    }
+  ],
+  "settings": {
+    "sprintDuration": 2,
+    "defaultCapacity": 100,
+    "theme": "light"
+  },
+  "retroSessions": [],
+  "history": [
+    {
+      "id": "h1",
+      "type": "item_status",
+      "timestamp": "2026-07-01T10:30:58Z",
+      "author": "m2",
+      "sprintId": "s1",
+      "itemKey": "AGA-004",
+      "detail": "AGA-004 : En cours → Terminé"
+    },
+    {
+      "id": "h2",
+      "type": "item_status",
+      "timestamp": "2026-07-01T10:30:59Z",
+      "author": "m1",
+      "sprintId": "s1",
+      "itemKey": "PME-005",
+      "detail": "PME-005 : En cours → Terminé"
+    },
+    {
+      "id": "h3",
+      "type": "sprint_activate",
+      "timestamp": "2026-07-01T10:31:08Z",
+      "author": "m3",
+      "sprintId": "s1",
+      "detail": "Sprint 1 - FOUNDATION activé"
+    },
+    {
+      "id": "h4",
+      "type": "item_status",
+      "timestamp": "2026-07-01T10:31:13Z",
+      "author": "m6",
+      "sprintId": "s1",
+      "itemKey": "FAX-002",
+      "detail": "FAX-002 : En cours → Terminé"
+    },
+    {
+      "id": "h5",
+      "type": "item_status",
+      "timestamp": "2026-07-01T10:31:14Z",
+      "author": "m4",
+      "sprintId": "s1",
+      "itemKey": "MAN-003",
+      "detail": "MAN-003 : En cours → Terminé"
+    },
+    {
+      "id": "h6",
+      "type": "sprint_activate",
+      "timestamp": "2026-07-01T10:31:16Z",
+      "author": "m3",
+      "sprintId": "s2",
+      "detail": "Sprint 2 - MODERNISATION activé"
+    },
+    {
+      "id": "h7",
+      "type": "item_status",
+      "timestamp": "2026-07-01T10:31:17Z",
+      "author": "m1",
+      "sprintId": "s2",
+      "itemKey": "FAX-007",
+      "detail": "FAX-007 : À faire → En cours"
+    },
+    {
+      "id": "h8",
+      "type": "item_status",
+      "timestamp": "2026-07-01T10:31:19Z",
+      "author": "m2",
+      "sprintId": "s2",
+      "itemKey": "MAN-008",
+      "detail": "MAN-008 : À faire → En cours"
+    },
+    {
+      "id": "h9",
+      "type": "item_status",
+      "timestamp": "2026-07-01T10:31:20Z",
+      "author": "m3",
+      "sprintId": "s2",
+      "itemKey": "FAX-013",
+      "detail": "FAX-013 : À faire → En cours"
+    }
+  ],
+  "roadmap": [
+    {
+      "id": "g1",
+      "sprintId": "s1",
+      "icon": "🏗️",
+      "color": "linear-gradient(135deg,#dc2626,#b91c1c)",
+      "name": "FOUNDATION",
+      "goal": "Satisfaction clients majeurs + stabilité de la plateforme",
+      "metrics": [
+        "3 clients majeurs satisfaits",
+        "0 bug critique en prod",
+        "Avancement PME : 25 %",
+        "Boutique eCommerce PME-005 terminée"
+      ]
+    },
+    {
+      "id": "g2",
+      "sprintId": "s2",
+      "icon": "⚙️",
+      "color": "linear-gradient(135deg,#1d4ed8,#4f46e5)",
+      "name": "MODERNISATION",
+      "goal": "Modernisation FAXFA V3 et fiabilité technique",
+      "metrics": [
+        "V3 FAXFA en bonne voie",
+        "NPS > 40",
+        "PME 50 %",
+        "App Mobile MANFIFE terminée"
+      ]
+    },
+    {
+      "id": "g3",
+      "sprintId": "s3",
+      "icon": "🤖",
+      "color": "linear-gradient(135deg,#7c3aed,#6d28d9)",
+      "name": "INTELLIGENCE",
+      "goal": "Migration V3 complète et valeur ajoutée IA",
+      "metrics": [
+        "100 % clients V3",
+        "Dispo 99,9 %",
+        "PME 75 %",
+        "IA prédiction déployée"
+      ]
+    },
+    {
+      "id": "g4",
+      "sprintId": "s4",
+      "icon": "🏆",
+      "color": "linear-gradient(135deg,#15803d,#16a34a)",
+      "name": "EXCELLENCE",
+      "goal": "Excellence opérationnelle et livraison PME",
+      "metrics": [
+        "Dette tech -50 %",
+        "Perf +40 %",
+        "5 PME livrées",
+        "Site PME vitrine livré"
+      ]
+    }
+  ],
+  "dailyEntries": [],
+  "customTags": [],
+  "removedBaseTags": [],
+  "absences": [],
+  "dailyArchives": [],
+  "retroArchives": [],
+  "sprintReviewSessions": [],
+  "sprintReviewArchives": [],
+  "clientGroups": [
+    {
+      "id": "cg1",
+      "name": "Grands comptes",
+      "color": "#1d4ed8",
+      "clientIds": [
+        "cl1",
+        "cl2",
+        "cl3"
+      ]
+    },
+    {
+      "id": "cg2",
+      "name": "PME",
+      "color": "#c2410c",
+      "clientIds": [
+        "cl5"
+      ]
+    },
+    {
+      "id": "cg3",
+      "name": "Socle & Qualité",
+      "color": "#475569",
+      "clientIds": [
+        "cl4",
+        "cl6"
+      ]
+    }
+  ],
+  "visionBoard": {
+    "productName": "AutoClaimsTech",
+    "vision": "Démocratiser la gestion intelligente des sinistres auto en offrant aux assureurs une plateforme IA qui réduit les délais de traitement, détecte les fraudes en temps réel et améliore l'expérience du déclarant.",
+    "targetGroup": "Compagnies d'assurance auto et mutuelles mid-market à Enterprise (250–5 000 salariés). Gestionnaires sinistres, experts terrain et DSI souhaitant digitaliser et automatiser leurs opérations.",
+    "needs": "Réduire le délai de traitement des sinistres de 14 à 3 jours. Détecter automatiquement les fraudes (30 % des dossiers suspects non détectés). Offrir aux déclarants une expérience 100 % digitale, transparente et en temps réel.",
+    "product": "Plateforme SaaS sinistres augmentée par IA : OCR des pièces justificatives, scoring de fraude, workflow métier configurable, portail déclarant mobile-first, tableaux de bord prédictifs et API d'intégration assureur.",
+    "businessGoals": "Signer 10 clients Enterprise d'ici S1 2027. Réduire le coût de gestion par dossier de 40 %. Atteindre 2 M€ ARR en année 2. Devenir la référence IA sinistres en Europe francophone."
+  },
+  "nnlLayers": [
+    {
+      "id": "layer-default",
+      "name": "Calque 1",
+      "locked": false,
+      "visible": true,
+      "order": 0
+    }
+  ],
+  "nnlShapes": [],
+  "nnlTexts": [],
+  "nnlStrokes": [],
+  "nnlFrames": [
+    {
+      "id": "frame1",
+      "level": "epic",
+      "hierarchyNodeId": "i2",
+      "x": 0,
+      "y": 20,
+      "x2": 340,
+      "y2": 400
+    }
+  ],
+  "nnlItems": [
+    {
+      "id": "nnl1",
+      "type": "feature",
+      "text": "OCR & Scoring fraude",
+      "body": "OCR pièces justificatives\nScoring fraude v1\nWorkflow sinistre configurable",
+      "x": 110,
+      "y": 280,
+      "zone": "now"
+    },
+    {
+      "id": "nnl2",
+      "type": "release",
+      "text": "Release 1.0",
+      "x": 230,
+      "y": 130,
+      "zone": "now"
+    },
+    {
+      "id": "nnl3",
+      "type": "feature",
+      "text": "Portail déclarant",
+      "body": "Portail déclarant mobile-first\nNotifications temps réel\nDashboard gestionnaire",
+      "x": 380,
+      "y": 290,
+      "zone": "next"
+    },
+    {
+      "id": "nnl4",
+      "type": "feature",
+      "text": "Intégrations assureur",
+      "body": "API intégration assureur\nExport dossier PDF\nSSO entreprise",
+      "x": 260,
+      "y": 450,
+      "zone": "next"
+    },
+    {
+      "id": "nnl5",
+      "type": "release",
+      "text": "Release 1.1",
+      "x": 490,
+      "y": 160,
+      "zone": "next"
+    },
+    {
+      "id": "nnl6",
+      "type": "feature",
+      "text": "IA prédictive v2",
+      "body": "Détection fraude ML v2\nAnalyse prédictive sinistres\nBenchmarking secteur",
+      "x": 660,
+      "y": 530,
+      "zone": "later"
+    },
+    {
+      "id": "nnl7",
+      "type": "feature",
+      "text": "BI & International",
+      "body": "Tableaux de bord BI\nRapport réglementaire auto\nMulti-pays / multi-devises",
+      "x": 750,
+      "y": 370,
+      "zone": "later"
+    },
+    {
+      "id": "nnl8",
+      "type": "release",
+      "text": "Release 2.0",
+      "x": 560,
+      "y": 630,
+      "zone": "later"
+    }
+  ]
+}

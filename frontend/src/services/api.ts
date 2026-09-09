@@ -237,4 +237,9 @@ export const api = {
   listChangelog: () => request<{ entries: ChangelogVersion[] }>('/api/changelog'),
   publishChangelog: (input: { version: string; date: string; dateISO: string; title: string; changes: ChangelogChange[] }) =>
     request<{ entry: ChangelogVersion }>('/api/changelog', { method: 'POST', body: JSON.stringify(input) }),
+  // Démo publique v1, sous-chantier 3/5 (2026-09-09) : bouton manuel "Réinitialiser la démo"
+  // (Réglages > Avancé, visible seulement pour `isDemo` - voir SettingsPage.tsx). Réservé au compte
+  // démo côté serveur (403 sinon, voir backend/src/routes/demo.ts) - le masquage du bouton n'est
+  // qu'un confort, pas la seule protection.
+  resetDemo: () => request<{ ok: true }>('/api/demo/reset', { method: 'POST' }),
 }

@@ -20,6 +20,7 @@ import { JiraSection } from '../components/settings/JiraSection'
 import { AiSection } from '../components/settings/AiSection'
 import { PresentationPagesSection } from '../components/settings/PresentationPagesSection'
 import { ResetAllDataModal } from '../components/settings/ResetAllDataModal'
+import { DemoResetSection } from '../components/settings/DemoResetSection'
 import { ImportExcelMappingModal } from '../components/settings/ImportExcelMappingModal'
 import type { SheetMapping } from '../components/settings/ImportExcelMappingModal'
 import { hasRole } from '../utils/permissions'
@@ -66,7 +67,7 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const { showToast } = useToast()
   const { confirm } = useDialog()
-  const { userRole, userName } = useAuth()
+  const { userRole, userName, isDemo } = useAuth()
   // Phase 2 (roadmap v1), sous-chantier 2 : gate sur le vrai role backend, pas sur userName
   // (voir docs/corrections.md, Chantier M — c'etait explicitement l'erreur a ne pas refaire).
   const isAdmin = userRole === 'ADMIN'
@@ -569,6 +570,10 @@ export function SettingsPage() {
         {tab === 'security' && <ApiTokensSection />}
 
         {tab === 'advanced' && (<>
+
+        {/* Démo publique v1, sous-chantier 3/5 (2026-09-09) - visible uniquement pour le compte
+            démo lui-même, jamais sur l'instance réelle de Julien (voir DemoResetSection.tsx). */}
+        {isDemo && <DemoResetSection />}
 
         {/* Mode présentation (Phase 3) — réservé Admin + PO. Pages/ordre (chantier 2026-08-02)
             affichées avant le lien, pour lire la config avant de la partager. */}

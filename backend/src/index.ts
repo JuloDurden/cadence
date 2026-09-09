@@ -20,6 +20,8 @@ import { slackRoutes } from './routes/slack'
 import { jiraRoutes } from './routes/jira'
 import { aiRoutes } from './routes/ai'
 import { changelogRoutes } from './routes/changelog'
+import { demoRoutes } from './routes/demo'
+import { startDemoResetScheduler } from './lib/demoReset'
 
 const fastify = Fastify({ logger: true })
 
@@ -54,11 +56,19 @@ async function start() {
   await fastify.register(jiraRoutes)
   await fastify.register(aiRoutes)
   await fastify.register(changelogRoutes)
+  await fastify.register(demoRoutes)
 
   fastify.get('/api/health', async () => ({ status: 'ok' }))
 
   const port = Number(process.env.PORT ?? 3001)
   await fastify.listen({ port, host: '0.0.0.0' })
+
+  // Démo publique v1, sous-chantier 3/5 (2026-09-09) : démarré sans condition, y compris sur
+  // l'instance réelle de Julien - sûr car il ne fait jamais rien tant qu'aucun compte `isDemo`
+  // n'existe (voir lib/demoReset.ts, checkAndResetIfSessionExpired). Après `listen()` plutôt
+  // qu'avant, pour ne pas retarder la disponibilité du serveur d'une vérification qui peut attendre
+  // le prochain intervalle de toute façon.
+  startDemoResetScheduler(fastify.prisma)
 }
 
 start().catch(err => {

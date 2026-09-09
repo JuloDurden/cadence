@@ -636,6 +636,9 @@ export interface HistoryEntry {
 
 export interface AuthUser {
   id: string; email: string; name: string; role: UserRole
+  // Démo publique v1 (2026-09-09) : optionnel, absent/false hors du déploiement de démo dédié. Voir
+  // backend/prisma/schema.prisma (`User.isDemo`) et useAuth.ts.
+  isDemo?: boolean
 }
 
 // Phase 2 (roadmap v1), sous-chantier 1 : compte tel que renvoyé par /api/users (gestion des

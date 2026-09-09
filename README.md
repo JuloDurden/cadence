@@ -2,142 +2,92 @@
 
 [![Tests CI](https://github.com/JuloDurden/cadence/actions/workflows/ci.yml/badge.svg)](https://github.com/JuloDurden/cadence/actions/workflows/ci.yml)
 
-Outil de planification de releases Agile pour équipes Scrum. Application web autonome - un seul fichier HTML, zéro dépendance, zéro installation.
+Outil de planification de releases et de gestion produit pour équipes Agile (Backlog, Sprint Planning, Roadmap, Kanban, cérémonies Scrum). Application web installable (PWA), utilisable hors connexion en lecture seule, avec synchronisation en temps réel entre utilisateurs connectés simultanément.
 
-## Lancer l'application
+## Stack technique
 
-Ouvrir `cadence.html` directement dans le navigateur. C'est tout.
+- **Frontend** : React 19 + TypeScript + Vite, React Router. PWA (`vite-plugin-pwa`/Workbox) : manifeste, service worker, app shell mise en cache.
+- **Backend** : Fastify + TypeScript, Prisma/PostgreSQL, WebSocket (synchronisation temps réel + Daily Standup collaboratif).
+- **Serveur MCP** (`mcp/`) : expose le Backlog, les sprints, l'équipe et les clients à Claude en lecture seule, avec les mêmes droits que le jeton utilisé.
+- **Tests** : Playwright (E2E) + un runner de tests logiques zéro dépendance (`tests/run-tests.js`).
+
+## Lancer en développement
+
+Prérequis : Node 18+, une base PostgreSQL disponible (voir `backend/.env.example`).
+
+```bash
+# Backend
+cd backend
+cp .env.example .env      # ajuster DATABASE_URL/JWT_SECRET si besoin
+npm install
+npm run db:migrate        # applique les migrations Prisma
+npm run db:seed           # crée le compte admin@cadence.local / cadence2026
+npm run dev                # http://localhost:3001
+```
+
+```bash
+# Frontend (autre terminal)
+cd frontend
+npm install
+npm run dev                # http://localhost:5173
+```
+
+Le frontend consomme l'API du backend (`VITE_API_URL`, `http://localhost:3001` par défaut). Le CORS du backend (`FRONTEND_URL` dans `backend/.env`) doit pointer vers l'origine réellement utilisée.
+
+## Build de production
+
+```bash
+cd frontend && npm run build   # génère frontend/dist (app shell + manifeste + service worker)
+cd backend  && npm run build   # génère backend/dist
+cd backend  && npm start       # sert l'API compilée
+```
+
+`frontend/dist` est un bundle statique à héberger séparément (CDN, hébergeur statique...) ; le backend ne sert jamais les fichiers du frontend directement.
 
 ## Fonctionnalités
 
-### Backlog & stories
-
-- Product Backlog avec clés auto-incrémentées par client (ex. `AUT-12`)
-- Modale User Story complète : description, SP, rôle/besoin/bénéfice (format Connextra), critères BDD, dépendances, deadline
-- Scoring WSJF, RICE et MoSCoW
-- Filtres et tri (priorité, SP, statut, client, assigné)
-- DoR et DoD par item avec jauges de progression et compteur X/Y
-- Export Excel et CSV du backlog, import depuis Excel/CSV
-- Tags / labels libres sur les items : autocomplete, multi-tags, filtre, export
-- Tags de compétences sur les membres : suggestion d'assigné selon les tags communs
-
-### Release Planning
-
-- Vue multi-sprints avec glisser-déposer des items (colonnes fixes 380px, scroll horizontal)
-- Highlights Client × Type combinables (AND) — items non-ciblés en opacité 22%
-- Epic grouping : stories regroupées sous leur Epic dans le panneau non-assigné et dans chaque sprint ; DnD groupe (Epic + toutes ses US) ou US individuelle, dans les deux sens
-- Barre de capacité par sprint (SP planifiés vs capacité équipe) avec jours fériés
-- Indicateur de faisabilité par sprint — badge OK / Limite / Surcharge (vélocité moy. 3 derniers sprints)
-- Deadlines flottantes : badge ⚑ dd/mm sur chaque card, alerte dans le header du sprint concerné
-- Sprint Goal affiché sur la carte sprint
-- Clôture de sprint avec snapshot de vélocité figé
-- Gantt par membre : charge SP/capacité avec jours fériés déduits, barre de charge colorée
-- Swimlanes par client : vue en grille clients × sprints avec drag-drop
-- Vue dépendances cross-sprint : overlay SVG Bézier activable (bleu OK, rouge tirets = ordre inversé)
-- Auto-planning : affectation automatique selon capacité, dépendances et critères personnalisables
-- Mode What-if : N scénarios de planification simultanés — wallet cards animées, forks, comparaison côte à côte, filtres highlights, badges de mouvement
-
-### Kanban
-
-- Board configurable : catalogue de statuts à la carte (Todo, Doing, Review, Done, Blocked, etc.)
-- Drag-and-drop entre colonnes
-- Tri par priorité, SP ou assigné
-- Badge RAG (Rouge/Ambre/Vert) par item
-
-### Dashboard
-
-- Widgets : burndown, vélocité, lead time, cycle time, CFD
-- RAG par client
-- Activité récente de l'équipe
-- Statistiques globales sur sprints clôturés
-
-### Cérémonies Scrum
-
-- **Daily Standup** : cartes par membre (Hier / Aujourd'hui / Blocages), timer configurable, blocker board, export résumé
-- **Rétrospective** : formats Start/Stop/Continue, Mad/Sad/Glad, 4Ls — votes nominatifs, plan d'actions
-- **Sprint Review** : présentation des US livrées
-
-### Équipe & clients
-
-- Gestion des membres avec rôles, SP/jour et absences
-- Calcul de capacité sprint en temps réel
-- Gestion des clients avec tiers, CA annuel, contacts, RAG
-- Rapport client exportable en HTML imprimable
-
-### Outils transverses
-
-- Recherche globale `Ctrl+K` — full-text sur items, clés, descriptions, notes
-- Historique des actions + Undo `Ctrl+Z` / Redo `Ctrl+Y`
-- Mode sombre / clair
-- Sauvegarde automatique dans `localStorage`
-
-## Raccourcis clavier
-
-| Raccourci | Action |
-|-----------|--------|
-| `Ctrl+K` | Ouvrir la recherche globale |
-| `Ctrl+Z` | Annuler la dernière action |
-| `Ctrl+Y` | Rétablir |
-| `Échap` | Fermer la modale / la recherche |
+- **Backlog** : items hiérarchisés (Initiative > Epic > Item), scoring WSJF/RICE, DoR/DoD, notes avec pièces jointes et @mentions, tags, virtualisation des grandes listes, import/export Excel/CSV/Jira/GitHub.
+- **Planification** : Release Planning (swimlanes, dépendances cross-sprint, capacité par sprint), Sprint Planning (vue Gantt par membre), Auto-planning avec mode What-if (scénarios comparés côte à côte), Roadmap.
+- **Now/Next/Later** : tableau blanc collaboratif façon Miro (post-its, formes, dessin libre, calques).
+- **Kanban** : board configurable, drag-and-drop, regroupement par Epic.
+- **Cérémonies Scrum** : Daily Standup collaboratif en temps réel, Rétrospective (Start/Stop/Continue, Mad/Sad/Glad, 4Ls), Sprint Review.
+- **Dashboard** : widgets personnalisables (burndown, vélocité, CFD, RAG client...).
+- **Équipe & clients** : rôles/permissions, gestion des membres et absences, portefeuille client.
+- **Compagnon IA** : assistant conversationnel avec actions sur le workspace (plans de sprint, etc.).
+- **Intégrations** : GitHub, Slack, Jira, import Excel.
+- **Mode présentation** : lecture seule partageable par lien public.
+- **Changelog** : historique publié depuis l'app (réservé Admin), recherche, heatmap d'activité.
+- **Sécurité** : CSP stricte en production, sanitisation des entrées, contrôle de concurrence optimiste sur les sauvegardes.
+- **Accessibilité** : navigation clavier complète des fenêtres modales (Échap, piège de focus, restauration), noms accessibles sur les contrôles.
 
 ## Tests
 
-### Prérequis
-
 ```bash
-node -v   # 18+
+# Depuis la racine du projet
 npm install
+npm run test:logic       # tests logiques (zéro navigateur)
+npm run test:e2e         # tests E2E Playwright (headless)
+npm run test:e2e:headed  # tests E2E avec le navigateur visible
+npm test                 # tout lancer
 ```
 
-### Commandes
-
-```bash
-npm run test:logic      # Tests logiques (sans navigateur)
-npm run test:e2e        # Tests E2E Playwright (headless)
-npm run test:e2e:headed # Tests E2E avec le navigateur visible
-npm test                # Tout lancer
-npm run lint            # ESLint sur les fichiers de test
-```
-
-144 tests E2E répartis sur 15 suites couvrent l'ensemble des fonctionnalités.
+Les tests E2E lancent automatiquement le serveur de développement du frontend (`playwright.config.js`) ; le backend n'a pas besoin de tourner (appels API mockés).
 
 ## Structure du projet
 
 ```
-cadence.html            Application complète (HTML/CSS/JS monofichier, ~570 Ko)
-demo-data.js            Données de démonstration chargées au premier lancement
-USER-GUIDE.md           Guide utilisateur
-.github/
-  workflows/ci.yml      Pipeline CI GitHub Actions
-tests/
-  fixtures.js           État de base partagé entre les tests
-  helpers.js            Utilitaires Playwright (loadWithState, goToTab)
-  server.js             Serveur HTTP local pour les tests (port 4321)
-  run-tests.js          Runner de tests logiques (zéro dépendance)
-  *.spec.js             Suites de tests E2E (15 fichiers)
+frontend/    Application React (Vite) - src/pages, src/components, src/context, src/hooks
+backend/     API Fastify + Prisma - src/routes, prisma/schema.prisma
+mcp/         Serveur MCP (lecture seule) pour l'intégration avec Claude
+tests/       Suites Playwright (*.spec.js) + runner de tests logiques (run-tests.js)
+docs/        Documentation interne du projet (état des pages, corrections, roadmap)
+scripts/     Scripts ponctuels (migrations de données, génération de jeux de test...)
 ```
-
-## Architecture
-
-Cadence est une Single Page Application monofichier :
-
-- **HTML** — structure et templates inline
-- **CSS** — design system intégré (variables CSS, dark mode, composants)
-- **JS** — logique applicative vanilla (pas de framework), state centralisé dans un objet `S`, persisté en `localStorage` sous la clé `cadenceState_v1`
-
-La séparation des données de démo dans `demo-data.js` est la seule dépendance runtime, chargée via `<script>` dans `cadence.html`.
 
 ## CI/CD
 
-GitHub Actions exécute automatiquement les tests à chaque `push` et `pull_request` sur la branche `main`.
-
-Le pipeline (`.github/workflows/ci.yml`) lance :
-
-1. `npm run test:logic` — 29 tests logiques Node.js (zéro navigateur)
-2. `npm run test:e2e` — 144 tests Playwright en mode headless (Chromium)
-
-Un badge de statut est affiché en haut de ce README. Tout échec bloque le merge.
+GitHub Actions exécute les tests à chaque `push` et `pull_request` sur `main` (`.github/workflows/ci.yml`). Un badge de statut est affiché en haut de ce README.
 
 ## Licence
 
-Usage interne — prototype non distribué.
+Usage interne - prototype non distribué.
