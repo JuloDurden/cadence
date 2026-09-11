@@ -52,6 +52,15 @@ export async function authRoutes(fastify: FastifyInstance) {
       },
     },
     async (req, reply) => {
+      // Démo publique v1 (2026-09-11, retour Julien) : DISABLE_SIGNUP bloque l'auto-inscription sur
+      // le déploiement de démo (service backend Railway dédié) - un recruteur doit utiliser le seul
+      // compte demo@cadence.app (voir seedDemo.ts), jamais s'en créer un nouveau. Variable absente
+      // (ou différente de 'true') sur l'instance réelle de Julien, comportement par défaut inchangé.
+      // Vérifiée ici plutôt que via forbidDemo (middleware/auth.ts) : cette route est publique,
+      // sans authentification, donc sans req.user.isDemo disponible avant qu'un compte existe.
+      if (process.env.DISABLE_SIGNUP === 'true') {
+        return reply.code(403).send({ error: 'Création de compte désactivée sur cette instance' })
+      }
       const { email, password, name, role } = req.body
       if (!SIGNUP_ROLES.includes(role)) {
         return reply.code(400).send({ error: 'Rôle non autorisé pour une auto-inscription' })

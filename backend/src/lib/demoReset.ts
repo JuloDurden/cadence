@@ -38,19 +38,29 @@ export async function resetDemoWorkspace(prisma: PrismaClient): Promise<void> {
   // décision Julien (reset du compte démo lui-même, pas seulement des données) - couvre aussi bien
   // un mot de passe changé qu'un rôle rétrogradé depuis Réglages > Utilisateurs par erreur. En
   // pratique un seul compte a `isDemo: true` (seedDemo.ts n'en crée qu'un), mais `updateMany`
-  // reste correct même si Julien en crée un second un jour.
+  // reste correct même si Julien en crée un second un jour. `onboardingSeenAt: null` pour que le
+  // prochain recruteur revoie le "Guide de démarrage" comme un tout nouveau compte (décision
+  // Julien, 2026-09-11 : chaque recruteur doit absolument le voir). `lastLoginAt: new Date()`
+  // plutôt que `null` : voir le commentaire dans checkAndResetIfSessionExpired ci-dessous.
   await prisma.user.updateMany({
     where: { isDemo: true },
-    data: { passwordHash, role: 'ADMIN', lastLoginAt: null },
+    data: { passwordHash, role: 'ADMIN', lastLoginAt: new Date(), onboardingSeenAt: null },
   })
 }
 
 async function checkAndResetIfSessionExpired(prisma: PrismaClient): Promise<void> {
   const demoUser = await prisma.user.findFirst({ where: { isDemo: true } })
-  // Pas de compte démo (déploiement réel de Julien, ou démo pas encore seedée) ou personne connecté
-  // depuis le dernier reset (`lastLoginAt` remis à `null` par resetDemoWorkspace) : rien à faire -
+  // Pas de compte démo (déploiement réel de Julien, ou démo pas encore seedée) : rien à faire -
   // c'est cette condition, pas une variable d'environnement, qui garantit qu'aucune donnée réelle
-  // n'est jamais touchée par ce job (voir index.ts, où il est démarré sans condition).
+  // n'est jamais touchée par ce job (voir index.ts, où il est démarré sans condition). `lastLoginAt`
+  // n'est nul que dans la fenêtre entre le tout premier seed (seedDemo.ts) et la toute première
+  // connexion - après ça, il est toujours renseigné, soit par une connexion (routes/auth.ts), soit
+  // par un reset (ci-dessus, `lastLoginAt: new Date()`), donc le minuteur ne peut plus rester
+  // bloqué indéfiniment. Bug corrigé le 2026-09-11 : la version précédente remettait `lastLoginAt`
+  // à `null` après chaque reset et attendait une nouvelle connexion pour repartir - un recruteur
+  // qui continuait à utiliser un jeton déjà valide après un clic sur "Réinitialiser la démo", sans
+  // repasser par l'écran de connexion, ne redéclenchait alors jamais le reset automatique suivant,
+  // même après plusieurs jours d'inactivité.
   if (!demoUser?.lastLoginAt) return
   const elapsedMs = Date.now() - demoUser.lastLoginAt.getTime()
   if (elapsedMs >= SESSION_DURATION_MS) {

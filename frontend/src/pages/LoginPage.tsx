@@ -18,6 +18,13 @@ const SIGNUP_ROLES: { value: UserRole; label: string }[] = [
 
 type Mode = 'login' | 'signup' | 'invite'
 
+// Démo publique v1 (2026-09-11, retour Julien) : masque "Pas de compte ? Créer un compte" sur le
+// déploiement de démo Vercel - un recruteur doit utiliser le seul compte demo@cadence.app (voir
+// seedDemo.ts), jamais s'en créer un nouveau. Miroir de DISABLE_SIGNUP côté backend
+// (routes/auth.ts), qui bloque réellement la route POST /api/auth/signup - ce flag-ci ne fait que
+// cacher le lien, la vraie protection contre la création de compte est côté serveur.
+const SIGNUP_DISABLED = import.meta.env.VITE_DISABLE_SIGNUP === 'true'
+
 // Refonte de l'écran de connexion (Phase 6bis, roadmap v1, 2026-08-17) : maquette validée avec
 // Julien (concept "plein écran épuré", proche d'un écran de verrouillage macOS/Windows 11) avant
 // tout code. Tracé (fourni par Julien) et viewBox recadré centralisés dans assets/cadenceMark.ts,
@@ -258,15 +265,17 @@ export function LoginPage() {
               </form>
             )}
 
-            <p style={{ margin: '16px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-              {mode === 'login' ? (
-                <>Pas de compte ? <button type="button" data-testid="tab-signup" onClick={() => switchMode('signup')}
-                  style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Créer un compte</button></>
-              ) : (
-                <>Déjà un compte ? <button type="button" data-testid="tab-login" onClick={() => switchMode('login')}
-                  style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Se connecter</button></>
-              )}
-            </p>
+            {!(mode === 'login' && SIGNUP_DISABLED) && (
+              <p style={{ margin: '16px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                {mode === 'login' ? (
+                  <>Pas de compte ? <button type="button" data-testid="tab-signup" onClick={() => switchMode('signup')}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Créer un compte</button></>
+                ) : (
+                  <>Déjà un compte ? <button type="button" data-testid="tab-login" onClick={() => switchMode('login')}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Se connecter</button></>
+                )}
+              </p>
+            )}
           </>
         )}
       </div>

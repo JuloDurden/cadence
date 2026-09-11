@@ -26,8 +26,11 @@ async function main() {
   // Admin avec blocages ciblés (décision Julien, 2026-09-09) : le compte démo reste ADMIN pour
   // montrer toute l'étendue de l'outil - seul `isDemo: true` le distingue, et c'est ce flag seul
   // que `forbidDemo` (middleware/auth.ts) et le masquage du bouton Compagnon IA (Header.tsx)
-  // vérifient. `onboardingSeenAt` posé dès la création pour qu'un recruiter ne voie jamais le
-  // panneau "Guide de démarrage" pensé pour un tout nouveau compte.
+  // vérifient. `onboardingSeenAt` volontairement absent ici (contrairement à une première version
+  // de ce script) : chaque recruteur doit voir le panneau "Guide de démarrage" à sa connexion
+  // (décision Julien, 2026-09-11) - laisser le champ vide au premier lancement suffit pour le tout
+  // premier recruteur, et resetDemoWorkspace (lib/demoReset.ts) le remet à vide à chaque
+  // réinitialisation pour les suivants.
   const user = await prisma.user.upsert({
     where: { email: DEMO_EMAIL },
     update: { isDemo: true, role: 'ADMIN' },
@@ -37,7 +40,6 @@ async function main() {
       name: 'Compte Démo',
       role: 'ADMIN',
       isDemo: true,
-      onboardingSeenAt: new Date(),
     },
   })
 
