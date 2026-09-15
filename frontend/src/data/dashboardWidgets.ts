@@ -410,25 +410,30 @@ export type ClientViewDisplay = 'lines' | 'heatmap'
  *  antérieur ou déjà livré à un client différent), seul son statut de complétion compte. */
 export type BlockedItemsScope = 'sprint' | 'product'
 
-// Coordonnées propres à chaque zone (chaque zone a sa propre grille, sa propre origine (0,0)) —
-// reprend la disposition d'avant ce chantier, réajustée aux nouvelles tailles XL/XLP (burndown-chart
-// et client-rag passent des repères "M" à leurs nouvelles tailles dédiées). Valeur de repli tant
-// qu'un workspace n'a pas encore personnalisé son Dashboard.
-// `key` = `id` pour chaque entrée par défaut : jamais de doublon possible ici (une seule instance
-// de chaque widget), donc pas besoin d'un suffixe généré comme pour un ajout manuel.
+// Coordonnées propres à chaque zone (chaque zone a sa propre grille, sa propre origine (0,0)).
+// Revu le 2026-09-15 (retour Julien : la précédente disposition laissait des cases vides - la
+// grille ne compacte que verticalement, jamais horizontalement, voir DashboardWidgetGrid.tsx) :
+// dans chaque zone, la case restée libre à droite des 2 KPI (6 colonnes × 3 lignes) est maintenant
+// comblée par le 3e widget de la zone en taille M (compact), lui-même normalement placé en L/XLP en
+// dessous - ce qui remplit exactement les 12 colonnes sur cette ligne. Le widget restant occupe
+// ensuite toute la largeur en dessous (XL, 12 colonnes) plutôt que la moitié, ce qui comble aussi le
+// trou qui apparaissait plus bas. Les 2 zones font désormais 9 lignes chacune, sans aucune case
+// vide (12×9 = 108 = 3×3 + 3×3 + 6×3 + 12×6, vérifié pour les 2 zones). `key` = `id` pour chaque
+// entrée par défaut : jamais de doublon possible ici (une seule instance de chaque widget), donc
+// pas besoin d'un suffixe généré comme pour un ajout manuel.
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardWidgetPlacement[] = [
-  // Zone "Sprint en cours" — Burndown en XL (pleine largeur) sous les 2 KPI, Activité récente en L
-  // en dessous.
+  // Zone "Sprint en cours" : Activité récente en M à droite des 2 KPI, Burndown en XL (pleine
+  // largeur) en dessous.
   { key: 'kpi-current-sprint', id: 'kpi-current-sprint', x: 0, y: 0, size: 'S' },
   { key: 'kpi-blockers',       id: 'kpi-blockers',       x: 3, y: 0, size: 'S' },
+  { key: 'recent-activity',    id: 'recent-activity',    x: 6, y: 0, size: 'M' },
   { key: 'burndown-chart',     id: 'burndown-chart',     x: 0, y: 3, size: 'XL' },
-  { key: 'recent-activity',    id: 'recent-activity',    x: 0, y: 9, size: 'L' },
-  // Zone "Vue produit" — Santé clients en XLP (portrait) à droite des 2 KPI, sur toute la hauteur ;
-  // Graphique de vélocité en L en dessous des KPI.
+  // Zone "Vue produit" : Graphique de vélocité en M à droite des 2 KPI, Santé clients en XL (pleine
+  // largeur, affichage 2 colonnes) en dessous.
   { key: 'kpi-done',           id: 'kpi-done',           x: 0, y: 0, size: 'S' },
   { key: 'kpi-velocity',       id: 'kpi-velocity',       x: 3, y: 0, size: 'S' },
-  { key: 'client-rag',         id: 'client-rag',         x: 6, y: 0, size: 'XLP' },
-  { key: 'velocity-chart',     id: 'velocity-chart',     x: 0, y: 3, size: 'L' },
+  { key: 'velocity-chart',     id: 'velocity-chart',     x: 6, y: 0, size: 'M' },
+  { key: 'client-rag',         id: 'client-rag',         x: 0, y: 3, size: 'XL' },
 ]
 
 /**

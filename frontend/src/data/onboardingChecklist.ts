@@ -60,11 +60,23 @@ export function getOnboardingChecklist(role: UserRole | '' | undefined): Onboard
       label: 'Découvrir le Dashboard',
       description: 'Vue d\'ensemble de la sprint en cours et des indicateurs clés.',
       route: '/dashboard',
+      // Sélecteurs corrigés le 2026-09-15 (bug trouvé sur le compte démo, mais touchait tout le
+      // monde) : `dashboard-kpis`/`dashboard-charts`/`dashboard-clients` ciblaient des conteneurs
+      // groupés qui n'existent plus depuis la refonte du Dashboard en grille de tuiles libres
+      // (Phase 4, 2026-08-03, voir DashboardWidgetGrid.tsx) - chaque widget porte désormais son
+      // propre `data-testid="dashboard-widget-<clé>"`. Comme l'élément ciblé n'existait jamais,
+      // Spotlight.tsx (SpotlightHost) ne le trouvait jamais non plus : l'infobulle suivante
+      // s'affichait un instant avec l'ancienne position puis disparaissait au premier sondage (voir
+      // POLL_MS). Ciblage sur des tuiles précises de la disposition par défaut (DEFAULT_DASHBOARD_
+      // LAYOUT, dashboardWidgets.ts) plutôt qu'un conteneur groupé - reste fragile si un utilisateur
+      // retire l'une de ces tuiles de son propre Dashboard personnalisé, mais couvre le cas courant
+      // (compte tout juste créé ou démo, disposition par défaut inchangée).
       steps: [
         { text: 'Le Dashboard, votre page d\'accueil : vue d\'ensemble de la sprint en cours.' },
-        { testId: 'dashboard-kpis', text: 'Les indicateurs clés : US terminées, vélocité moyenne, avancement du sprint actuel, blocages du jour.' },
-        { testId: 'dashboard-charts', text: 'Vélocité des derniers sprints et burndown du sprint en cours.' },
-        { testId: 'dashboard-clients', text: 'La santé de chaque client (RAG) et l\'activité récente de l\'équipe.' },
+        { testId: 'dashboard-widget-kpi-current-sprint', text: 'Les indicateurs clés : US terminées, vélocité moyenne, avancement du sprint actuel, blocages du jour.' },
+        { testId: 'dashboard-widget-burndown-chart', text: 'Vélocité des derniers sprints et burndown du sprint en cours.' },
+        { testId: 'dashboard-widget-client-rag', text: 'La santé de chaque client (RAG).' },
+        { testId: 'dashboard-widget-recent-activity', text: 'L\'activité récente de l\'équipe.' },
       ],
     },
     {

@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import demoStateData from '../../prisma/demo-seed-data.json'
+import { freshenDemoState } from './demoDataFreshen'
 
 // Démo publique v1, sous-chantier 3/5 (2026-09-09) : réinitialisation automatique (fin de session,
 // décision Julien "1h ou 2h") + bouton manuel (routes/demo.ts). Séparé de seedDemo.ts (script à
@@ -29,10 +30,13 @@ const CHECK_INTERVAL_MS = 5 * 60 * 1000
  *  le reset automatique de fin de session (ci-dessous) et par le bouton manuel (routes/demo.ts). */
 export async function resetDemoWorkspace(prisma: PrismaClient): Promise<void> {
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10)
+  // `freshenDemoState` recalcule les dates de sprint et les Dailies du jour à chaque reset (voir
+  // lib/demoDataFreshen.ts) - c'est ce qui permet au compte démo de rester réaliste dans la durée,
+  // sans jamais retoucher demo-seed-data.json à la main.
   await prisma.workspaceState.upsert({
     where: { id: WORKSPACE_STATE_SINGLETON_ID },
-    update: { data: demoStateData, version: 1 },
-    create: { id: WORKSPACE_STATE_SINGLETON_ID, data: demoStateData, version: 1 },
+    update: { data: freshenDemoState(demoStateData), version: 1 },
+    create: { id: WORKSPACE_STATE_SINGLETON_ID, data: freshenDemoState(demoStateData), version: 1 },
   })
   // `updateMany` plutôt que cibler un id précis : réparation "au cas où" mentionnée dans la
   // décision Julien (reset du compte démo lui-même, pas seulement des données) - couvre aussi bien

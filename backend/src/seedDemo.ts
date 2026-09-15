@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import demoStateData from '../prisma/demo-seed-data.json'
+import { freshenDemoState } from './lib/demoDataFreshen'
 
 const prisma = new PrismaClient()
 
@@ -48,11 +49,13 @@ async function main() {
   // frontend/src/data/demo.ts, DEMO_STATE). Recopié en JSON ici plutôt qu'importé directement du
   // frontend : ce backend est déployé seul sur Railway, sans accès au dossier frontend/ à
   // l'exécution - copie volontaire, à resynchroniser manuellement si DEMO_STATE évolue côté
-  // frontend et que Julien veut la même évolution ici.
+  // frontend et que Julien veut la même évolution ici. `freshenDemoState` recalcule les dates de
+  // sprint et les Dailies du jour à l'application (voir lib/demoDataFreshen.ts) - le JSON brut,
+  // lui, reste figé à sa date de constitution.
   await prisma.workspaceState.upsert({
     where: { id: WORKSPACE_STATE_SINGLETON_ID },
-    update: { data: demoStateData, version: 1 },
-    create: { id: WORKSPACE_STATE_SINGLETON_ID, data: demoStateData, version: 1 },
+    update: { data: freshenDemoState(demoStateData), version: 1 },
+    create: { id: WORKSPACE_STATE_SINGLETON_ID, data: freshenDemoState(demoStateData), version: 1 },
   })
 
   console.log(`Seed démo OK - ${DEMO_EMAIL} / ${DEMO_PASSWORD} (utilisateur ${user.id})`)
