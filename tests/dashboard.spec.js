@@ -68,23 +68,25 @@ test.describe('Dashboard — widgets configurables (Phase 4)', () => {
   // Retour Julien (2026-08-03, après le 1er essai) : les widgets à valeur unique (dont kpi-done)
   // sont désormais verrouillés sur une seule taille (bouton de taille masqué) — le cycle de taille
   // se teste maintenant sur un widget à plusieurs infos (velocity-chart).
-  // Valeurs corrigées (2026-08-06) : `DEFAULT_DASHBOARD_LAYOUT` place velocity-chart en 'L' par
-  // défaut (pas 'M', voir dashboardWidgets.ts), et son `allowedSizes` est `['M', 'L', 'XL']` — le
-  // test attendait encore un ancien cycle 'M' -> 'L' -> 'M' à 2 tailles, jamais mis à jour.
-  test('changer la taille d\'un widget multi-infos cycle L -> XL -> M -> L', async ({ page }) => {
+  // Valeurs corrigées (2026-08-06) : son `allowedSizes` est `['M', 'L', 'XL']` : le test attendait
+  // encore un ancien cycle 'M' -> 'L' -> 'M' à 2 tailles, jamais mis à jour.
+  // Mis à jour (2026-09-15) : `DEFAULT_DASHBOARD_LAYOUT` place désormais velocity-chart en 'M' par
+  // défaut (à droite des 2 KPI, pour combler les trous de la grille, voir dashboardWidgets.ts) -
+  // le cycle part donc de 'M' : M -> L -> XL -> M.
+  test('changer la taille d\'un widget multi-infos cycle M -> L -> XL -> M', async ({ page }) => {
     await goTo(page, '/dashboard', { role: 'PO' });
     await page.locator('[data-testid="dashboard-customize-toggle"]').click();
 
     await expect(page.locator('[data-testid="dashboard-widget-size-kpi-done"]')).toHaveCount(0);
 
     const sizeBtn = page.locator('[data-testid="dashboard-widget-size-velocity-chart"]');
+    await expect(sizeBtn).toHaveText('M');
+    await sizeBtn.click();
     await expect(sizeBtn).toHaveText('L');
     await sizeBtn.click();
     await expect(sizeBtn).toHaveText('XL');
     await sizeBtn.click();
     await expect(sizeBtn).toHaveText('M');
-    await sizeBtn.click();
-    await expect(sizeBtn).toHaveText('L');
   });
 
   // Suite (2026-08-03, retour Julien "il faut aussi retravailler et normaliser les tailles",
@@ -94,7 +96,9 @@ test.describe('Dashboard — widgets configurables (Phase 4)', () => {
   // (était `['L', 'XLP']`, voir dashboardWidgets.ts) — depuis 'XLP' (dernière taille de la liste),
   // un clic boucle sur 'M' (première taille), pas 'L' comme l'ancien test à 2 tailles l'attendait.
   // Cycle complet vérifié plutôt qu'un aller-retour partiel, pour couvrir les 4 tailles.
-  test('le Burndown passe de L à XL (taille pleine largeur), Santé clients cycle XLP -> M -> L -> XL -> XLP', async ({ page }) => {
+  // Mis à jour (2026-09-15) : Santé clients est désormais en 'XL' par défaut (pleine largeur sous
+  // les 2 KPI, voir DEFAULT_DASHBOARD_LAYOUT) - le cycle part de 'XL' : XL -> XLP -> M -> L -> XL.
+  test('le Burndown passe de L à XL (taille pleine largeur), Santé clients cycle XL -> XLP -> M -> L -> XL', async ({ page }) => {
     await goTo(page, '/dashboard', { role: 'PO' });
     await page.locator('[data-testid="dashboard-customize-toggle"]').click();
 
@@ -106,6 +110,8 @@ test.describe('Dashboard — widgets configurables (Phase 4)', () => {
     await expect(burndownSizeBtn).toHaveText('XL');
 
     const clientRagSizeBtn = page.locator('[data-testid="dashboard-widget-size-client-rag"]');
+    await expect(clientRagSizeBtn).toHaveText('XL');
+    await clientRagSizeBtn.click();
     await expect(clientRagSizeBtn).toHaveText('XLP');
     await clientRagSizeBtn.click();
     await expect(clientRagSizeBtn).toHaveText('M');
@@ -113,8 +119,6 @@ test.describe('Dashboard — widgets configurables (Phase 4)', () => {
     await expect(clientRagSizeBtn).toHaveText('L');
     await clientRagSizeBtn.click();
     await expect(clientRagSizeBtn).toHaveText('XL');
-    await clientRagSizeBtn.click();
-    await expect(clientRagSizeBtn).toHaveText('XLP');
   });
 
   // Réécrit (2026-08-06, retour Julien après correction de trajectoire) — l'ancien panneau
@@ -234,14 +238,16 @@ test.describe('Dashboard — 2 zones (Sprint en cours / Vue produit)', () => {
   // en bas du périmètre de la zone pré-resize plutôt qu'au premier emplacement possible") —
   // `addWidgetToZone` (DashboardPage.tsx) empilait auparavant tout nouveau widget en `x: 0`, sous
   // le dernier existant (`zoneRowSpan` seul), sans jamais chercher un emplacement libre. Corrigé
-  // avec `findFreeSlot` (dashboardWidgets.ts). Zone "Sprint en cours" par défaut : Sprint actuel +
-  // Blocages actifs (2 tuiles S, x0-x6) laissent un trou libre en (x6, y0, 6×3) au-dessus du
-  // Burndown (XL, y3-y9) — "Graphique de vélocité" (1re taille autorisée M = 6×3) y tient
-  // exactement. Pas besoin de redimensionner la zone pour ce test : le trou existe déjà dans la
-  // disposition par défaut, à largeur de grille minimale (12 colonnes).
+  // avec `findFreeSlot` (dashboardWidgets.ts). Mis à jour (2026-09-15) : la disposition par défaut
+  // ne laisse plus aucun trou (voir DEFAULT_DASHBOARD_LAYOUT) - le test crée donc lui-même
+  // l'emplacement libre en retirant d'abord Activité récente (M, x6-x12, y0-y3, à droite des 2 KPI)
+  // de la zone "Sprint en cours". "Graphique de vélocité" (1re taille autorisée M = 6×3) y tient
+  // exactement, au-dessus du Burndown (XL, y3-y9). Pas besoin de redimensionner la zone : 12
+  // colonnes suffisent.
   test('un widget ajouté remplit un emplacement libre existant plutôt que de s\'empiler tout en bas', async ({ page }) => {
     await goTo(page, '/dashboard', { role: 'PO' });
     await page.locator('[data-testid="dashboard-customize-toggle"]').click();
+    await page.locator('[data-testid="dashboard-widget-remove-recent-activity"]').click();
     await page.locator('[data-testid="dashboard-add-widget-btn"]').click();
     await page.locator('[data-testid="add-widget-velocity-chart-toggle"]').click();
     await page.locator('[data-testid="add-widget-velocity-chart-sprint"]').click();
@@ -250,8 +256,8 @@ test.describe('Dashboard — 2 zones (Sprint en cours / Vue produit)', () => {
     const tile = page.locator('[data-testid="dashboard-zone-sprint"] [data-testid^="dashboard-widget-velocity-chart"]');
     const kpiBlockers = page.locator('[data-testid="dashboard-zone-sprint"] [data-testid="dashboard-widget-kpi-blockers"]');
     const [tileBox, kpiBox] = await Promise.all([tile.boundingBox(), kpiBlockers.boundingBox()]);
-    // Même ligne que les 2 KPI (y proche), posé à leur droite — pas 4 lignes plus bas sous
-    // Activité récente comme avant le correctif.
+    // Même ligne que les 2 KPI (y proche), posé à leur droite, pas tout en bas sous le Burndown
+    // comme avant le correctif.
     expect(Math.abs((tileBox?.y ?? 0) - (kpiBox?.y ?? 0))).toBeLessThan(10);
     expect(tileBox?.x ?? 0).toBeGreaterThan((kpiBox?.x ?? 0) + (kpiBox?.width ?? 0) - 5);
   });
