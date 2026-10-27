@@ -302,11 +302,11 @@ test.describe('NNL — Cadres : synchronisation Backlog → NNL + éjection à l
     await page.getByRole('link', { name: 'Vision' }).click()
     await expect(page).toHaveURL(/vision/)
     await page.locator('[data-testid="btn-toggle-nnl"]').click()
-    await page.waitForTimeout(300)
 
-    const after = await readLeftTop(page.locator('[data-testid="nnl-postit-nnl3"]'))
-    const frameAfter = await readFrameBounds(page, 'frame1')
-    expect(isInside(after, frameAfter)).toBeTruthy()
+    // Même remplacement du `waitForTimeout(300)` que dans le test suivant (voir son commentaire).
+    await expect.poll(async () =>
+      isInside(await readLeftTop(page.locator('[data-testid="nnl-postit-nnl3"]')), await readFrameBounds(page, 'frame1'))
+    ).toBeTruthy()
   })
 
   test('désassocier ensuite l\'Epic de cet item éjecte son post-it du cadre (correctif v0.92.15)', async ({ page }) => {
@@ -320,10 +320,13 @@ test.describe('NNL — Cadres : synchronisation Backlog → NNL + éjection à l
 
     await page.getByRole('link', { name: 'Vision' }).click()
     await page.locator('[data-testid="btn-toggle-nnl"]').click()
-    await page.waitForTimeout(300)
-    const inFrame = await readLeftTop(page.locator('[data-testid="nnl-postit-nnl3"]'))
-    const frameBounds1 = await readFrameBounds(page, 'frame1')
-    expect(isInside(inFrame, frameBounds1)).toBeTruthy()
+    // `expect.poll` plutôt qu'un `waitForTimeout(300)` fixe (2026-10-27, test instable sur la CI
+    // GitHub, runner plus lent qu'en local : 300 ms ne suffisaient pas toujours à ce que la
+    // position du post-it soit à jour avant la lecture). Réessaie jusqu'à la valeur attendue.
+    const postitNnl3 = page.locator('[data-testid="nnl-postit-nnl3"]')
+    await expect.poll(async () =>
+      isInside(await readLeftTop(postitNnl3), await readFrameBounds(page, 'frame1'))
+    ).toBeTruthy()
 
     // Désassocier (Epic vidé) : le post-it doit désormais sortir du cadre
     await page.getByRole('link', { name: 'Product Backlog' }).click()
@@ -332,10 +335,9 @@ test.describe('NNL — Cadres : synchronisation Backlog → NNL + éjection à l
 
     await page.getByRole('link', { name: 'Vision' }).click()
     await page.locator('[data-testid="btn-toggle-nnl"]').click()
-    await page.waitForTimeout(300)
-    const ejected = await readLeftTop(page.locator('[data-testid="nnl-postit-nnl3"]'))
-    const frameBounds2 = await readFrameBounds(page, 'frame1')
-    expect(isInside(ejected, frameBounds2)).toBeFalsy()
+    await expect.poll(async () =>
+      isInside(await readLeftTop(postitNnl3), await readFrameBounds(page, 'frame1'))
+    ).toBeFalsy()
   })
 
 })
