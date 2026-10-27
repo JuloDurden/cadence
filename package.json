@@ -2,6 +2,7 @@
   "name": "cadence",
   "version": "1.0.0",
   "description": "Cadence - Release planning tool for Agile teams",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "test:logic": "node tests/run-tests.js",
     "test:e2e": "playwright test",
