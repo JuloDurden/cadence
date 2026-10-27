@@ -2,6 +2,7 @@
   "name": "cadence-mcp",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "description": "Serveur MCP Cadence : expose le Backlog, les sprints, l'equipe et les clients a Claude, en lecture seule, avec les memes droits que le jeton utilise.",
   "type": "module",
   "scripts": {
