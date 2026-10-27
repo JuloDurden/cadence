@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import type { SocketStream } from '@fastify/websocket'
+import type { WebSocket } from '@fastify/websocket'
 
 // Phase 7 (pre-check), 2026-08-18 : synchronisation temps reel de la page Daily Standup (retour
 // Julien, "seule page du projet censee etre vue et remplie par plusieurs personnes en meme
@@ -41,13 +41,12 @@ function isFieldUpdateMessage(msg: unknown): msg is FieldUpdateMessage {
 export async function dailyWsRoutes(fastify: FastifyInstance) {
   // Une seule salle pour l'instant (page Daily Standup globale, pas de notion d'equipe
   // multiple) : un Set suffit, pas besoin d'un registre par salle/date.
-  const connections = new Set<SocketStream['socket']>()
+  const connections = new Set<WebSocket>()
 
   fastify.get<{ Querystring: { token?: string } }>(
     '/api/ws/daily',
     { websocket: true },
-    (connection, req) => {
-      const socket = connection.socket
+    (socket, req) => {
       const token = req.query?.token
 
       let authorId = ''

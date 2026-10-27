@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import type { SocketStream } from '@fastify/websocket'
+import type { WebSocket } from '@fastify/websocket'
 import { syncConnections } from '../lib/realtimeSync'
 
 // Synchronisation temps reel generalisee a toute l'application (2026-08-19, retour Julien : "quand
@@ -45,8 +45,7 @@ export async function realtimeSyncWsRoutes(fastify: FastifyInstance) {
   fastify.get<{ Querystring: { token?: string } }>(
     '/api/ws/sync',
     { websocket: true },
-    (connection, req) => {
-      const socket = connection.socket
+    (socket, req) => {
       const token = req.query?.token
 
       let authorId = ''

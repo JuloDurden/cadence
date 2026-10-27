@@ -1,4 +1,4 @@
-import type { SocketStream } from '@fastify/websocket'
+import type { WebSocket } from '@fastify/websocket'
 
 // Registre partagé des connexions WebSocket de synchronisation temps réelle (voir routes/
 // realtimeWs.ts), extrait ici plutôt que gardé local à la fonction de route (2026-08-20, contrôle
@@ -7,7 +7,7 @@ import type { SocketStream } from '@fastify/websocket'
 // Fastify - routes/realtimeWs.ts et routes/state.ts sont enregistrés comme deux plugins distincts
 // (index.ts), sans `fastify-plugin` : un `fastify.decorate()` posé dans l'un ne serait pas visible
 // depuis l'autre, alors qu'un module partagé classique l'est simplement par import.
-export const syncConnections = new Set<SocketStream['socket']>()
+export const syncConnections = new Set<WebSocket>()
 
 export function broadcastSync(message: object) {
   const outgoing = JSON.stringify(message)

@@ -29,6 +29,11 @@ async function start() {
   await fastify.register(cors, {
     origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
     credentials: true,
+    // Migration Fastify 5 (2026-10-27) : depuis @fastify/cors 10, `methods` vaut par défaut
+    // GET,HEAD,POST seulement (c'était GET,HEAD,PUT,PATCH,POST,DELETE en v9) - sans cette liste
+    // explicite, le navigateur refuserait en préflight les PUT (sauvegarde de l'état), PATCH et
+    // DELETE de l'API.
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
   })
 
   await fastify.register(jwt, {
